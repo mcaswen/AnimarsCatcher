@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
 namespace AnimarsCatcher
@@ -33,7 +34,7 @@ namespace AnimarsCatcher
         private Dictionary<Transform, int> mIndex = new();
 
         // Smoke
-        public GameObject FXSmoke;
+        public ParticleSystem FX_SmokeParticleSystem;
 
         private void Awake()
         {
@@ -45,6 +46,7 @@ namespace AnimarsCatcher
         // Update is called once per frame
         void Update()
         {
+            RobotMove();
             if (Input.GetMouseButton(1))
             {
                 mRightMouseButton = true;
@@ -66,7 +68,6 @@ namespace AnimarsCatcher
 
         private void FixedUpdate()
         {
-            RobotMove();
             SetDestinations();
         }
 
@@ -84,7 +85,7 @@ namespace AnimarsCatcher
             //mRigidbody.velocity = speed;
             mCharacterController.SimpleMove(speed);
 
-            SetSmoke(speed);
+            ControlSmokeParticleSystem(speed);
         }
 
         private void GetControlAnis()
@@ -200,10 +201,16 @@ namespace AnimarsCatcher
             mBlasterAniList.ForEach(item => item.Destination = FollowUtility.RectArrange(transform, mIndex[item.transform]));
         }
 
-        private void SetSmoke(Vector3 speed)
+        private void ControlSmokeParticleSystem(Vector3 speed)
         {
-            FXSmoke.SetActive(speed.sqrMagnitude > 0f);
-            FXSmoke.transform.forward = -speed;
+            if (speed.sqrMagnitude <= 0f && FX_SmokeParticleSystem.isPlaying)
+            {
+                FX_SmokeParticleSystem.Stop();
+            } else if (speed.sqrMagnitude > 0f)
+            {
+                FX_SmokeParticleSystem.transform.forward = -speed;
+                FX_SmokeParticleSystem.Play();
+            }
         }
     }
 }
