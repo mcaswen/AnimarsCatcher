@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 
@@ -40,13 +41,13 @@ namespace AnimarsCatcher
         {
             mRigidbody = GetComponent<Rigidbody>();
             mCharacterController = GetComponent<CharacterController>();
-            mMainCamera=Camera.main;
+            mMainCamera = Camera.main;
         }
 
-        // Update is called once per frame
         void Update()
         {
             RobotMove();
+            DrawRayFromScreenCenter();
             if (Input.GetMouseButton(1))
             {
                 mRightMouseButton = true;
@@ -59,11 +60,20 @@ namespace AnimarsCatcher
             }
             AssignAniToCarry();
             AssignAniToShoot();
-            
+
             mCurrentRadius = Mathf.Lerp(mCurrentRadius, mRightMouseButton ? ControlRadiusMax : ControlRadiusMin,
                 Time.deltaTime * 10f);
             TargetPosGO.transform.position = GetMouseWorldPos();
             TargetPosGO.transform.Find("Cylinder").localScale = Vector3.one * (2 * mCurrentRadius);
+        }
+        
+        private void DrawRayFromScreenCenter()
+        {
+            Camera mainCamera = Camera.main;
+            if (mainCamera == null) return;
+            
+            Ray centerRay = mainCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0));
+            Debug.DrawRay(centerRay.origin, centerRay.direction * 50f, UnityEngine.Color.red);
         }
 
         private void FixedUpdate()
@@ -76,11 +86,13 @@ namespace AnimarsCatcher
             float h = Input.GetAxis("Horizontal");
             float v = Input.GetAxis("Vertical");
             float y = mMainCamera.transform.rotation.eulerAngles.y;
+            
             Vector3 targetDirection = new Vector3(h, 0, v);
             targetDirection = Quaternion.Euler(0, y, 0) * targetDirection;
 
             if (targetDirection != Vector3.zero)
                 transform.forward = Vector3.Lerp(transform.forward, targetDirection, 10f * Time.deltaTime);
+            
             var speed = targetDirection * MoveSpeed;
             //mRigidbody.velocity = speed;
             mCharacterController.SimpleMove(speed);
@@ -121,9 +133,15 @@ namespace AnimarsCatcher
             if (Input.GetMouseButtonDown(0))
             {
                 RaycastHit hit;
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                if (Physics.Raycast(ray, out hit, 50f))
+                Debug.Log("ray casted");
+
+                // Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+
+                int mask = ~LayerMask.GetMask("Player", "Ani");
+                if (Physics.Raycast(ray, out hit, 100f, mask, QueryTriggerInteraction.Ignore))
                 {
+                    Debug.Log($"ray casted: {hit.collider.gameObject.name}");
                     if (hit.collider.CompareTag("PickableItem"))
                     {
                         var pickerAni = ChooseOnePickerAni();
@@ -155,8 +173,12 @@ namespace AnimarsCatcher
             if (Input.GetMouseButtonDown(0))
             {
                 RaycastHit hit;
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                if (Physics.Raycast(ray, out hit,50f))
+                //Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+
+                int mask = ~LayerMask.GetMask("Player", "Ani");
+
+                if (Physics.Raycast(ray, out hit, 50f, mask, QueryTriggerInteraction.Ignore))
                 {
                     if (hit.collider.CompareTag("FragileItem"))
                     {

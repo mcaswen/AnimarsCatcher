@@ -31,17 +31,17 @@ namespace AnimarsCatcher
         private bool FindPickableItem()
         {
             if (Vector3.Distance(Owner.transform.position, mPickableItemTrans.position)
-                <= mNavmeshAgent.stoppingDistance)
+                <= _NavmeshAgent.stoppingDistance)
             {
-                mNavmeshAgent.isStopped = true;
-                mAnimator.SetFloat(AniSpeed,0);
+                _NavmeshAgent.isStopped = true;
+                mAnimator.SetFloat(AniSpeed, 0);
                 return true;
             }
             else
             {
-                mNavmeshAgent.isStopped = false;
-                mAnimator.SetFloat(AniSpeed,10f);
-                mNavmeshAgent.SetDestination(mPickableItemTrans.position);
+                _NavmeshAgent.isStopped = false;
+                mAnimator.SetFloat(AniSpeed, Owner.Speed);
+                _NavmeshAgent.SetDestination(mPickableItemTrans.position);
                 return false;
             }
         }

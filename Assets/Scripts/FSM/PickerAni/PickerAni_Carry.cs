@@ -2,40 +2,43 @@
 
 namespace AnimarsCatcher
 {
-    public class PickerAni_Carry:PickerAniStateBase
+    public class PickerAni_Carry : PickerAniStateBase
     {
-        private Vector3 mTargetPosition;
+        private Vector3 _TargetPosition;
         public PickerAni_Carry(int id, PICKER_Ani o) : base(id, o)
         {
         }
 
         public override void OnEnter(params object[] args)
         {
-            mNavmeshAgent.isStopped = true;
-            mNavmeshAgent.enabled = false;
+            _NavmeshAgent.isStopped = true;
+            _NavmeshAgent.enabled = false;
         }
 
         public override void OnStay(params object[] args)
         {
             if (Owner.IsPick && Owner.ReadyToCarry)
             {
-                mTargetPosition = Owner.PickableItem.GetPosition(Owner);
-                Owner.transform.position = mTargetPosition;
-                Owner.transform.forward = Owner.PickableItem.transform.forward;
-                mAnimator.SetFloat(AniSpeed,3f);
+                _TargetPosition = Owner.PickableItem.GetPosition(Owner);
 
-                Owner.LeftHandEffector.position = mTargetPosition;
-                Owner.RightHandEffector.position = mTargetPosition;
-            }else if (!Owner.IsPick && !Owner.ReadyToCarry)
+                Owner.transform.position = _TargetPosition;
+                Owner.transform.forward = Owner.PickableItem.transform.forward;
+
+                mAnimator.SetFloat(AniSpeed, Owner.CarrySpeed);
+
+                Owner.LeftHandEffector.position = _TargetPosition;
+                Owner.RightHandEffector.position = _TargetPosition;
+            }
+            else if (!Owner.IsPick && !Owner.ReadyToCarry)
             {
-                mAnimator.SetFloat(AniSpeed,0f);
+                mAnimator.SetFloat(AniSpeed, 0f);
                 StateMachine.TranslateState((int)PickerAniState.Follow);
             }
         }
 
         public override void OnExit(params object[] args)
         {
-            mNavmeshAgent.enabled = true;
+            _NavmeshAgent.enabled = true;
         }
     }
 }

@@ -34,7 +34,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: -1
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!33 &2030501566076291707
 MeshFilter:
@@ -133,6 +133,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 5590327608077267324}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4b82cd05751b40f8b5c8a1b7435d1c0e, type: 3}
+  m_Script: {fileID: 11500000, guid: 3a081c44f1b30204f9b0f62d4b611da5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _ResourceCount: 3
+  _DamagePerShoot: 10
+  _InstantiateRadius: 3
+  PickableCrystals:
+  - {fileID: 7313421980259677226, guid: 890294b5157d69442babc9883ddac694, type: 3}
+  - {fileID: 3320517679385806202, guid: da18aabd6e8fe61498307386bd561c0a, type: 3}
+  - {fileID: 2801192330186450393, guid: 0876f0945ca7e0640bbb247bcb619de7, type: 3}
+  - {fileID: 6125005442144882315, guid: 44d63ca64edc04747a3357c6c53a7d98, type: 3}

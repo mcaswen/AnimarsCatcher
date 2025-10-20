@@ -13,7 +13,7 @@ namespace AnimarsCatcher
 
         public override void OnEnter(params object[] args)
         {
-            mNavmeshAgent.isStopped = false;
+            _NavmeshAgent.isStopped = false;
             mAnimator.SetFloat(AniSpeed,0);
         }
 

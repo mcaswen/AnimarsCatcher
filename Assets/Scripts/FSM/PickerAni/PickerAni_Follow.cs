@@ -15,8 +15,10 @@ namespace AnimarsCatcher
             FollowPlayer();
             if (Owner.IsPick)
             {
-                if(Owner.PickableItem.CheckCanPick())
+                if (Owner.PickableItem.CheckCanPick())
+                {
                     StateMachine.TranslateState((int)PickerAniState.Pick);
+                }
                 else
                 {
                     StateMachine.TranslateState((int)PickerAniState.Follow);
@@ -29,16 +31,16 @@ namespace AnimarsCatcher
         private void FollowPlayer()
         {
             if (Vector3.Distance(Owner.transform.position, Owner.Destination)
-                <= mNavmeshAgent.stoppingDistance)
+                <= _NavmeshAgent.stoppingDistance)
             {
-                mNavmeshAgent.isStopped = true;
-                mAnimator.SetFloat(AniSpeed,0f);
+                _NavmeshAgent.isStopped = true;
+                mAnimator.SetFloat(AniSpeed, 0f);
             }
             else
             {
-                mNavmeshAgent.isStopped = false;
-                mAnimator.SetFloat(AniSpeed,10f);
-                mNavmeshAgent.destination = Owner.Destination;
+                _NavmeshAgent.isStopped = false;
+                mAnimator.SetFloat(AniSpeed, Owner.Speed);
+                _NavmeshAgent.destination = Owner.Destination;
             }
         }
     }

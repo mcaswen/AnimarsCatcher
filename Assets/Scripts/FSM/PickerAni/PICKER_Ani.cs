@@ -9,49 +9,73 @@ namespace AnimarsCatcher
 {
     public enum PickerAniState
     {
-        None=0,
-        Idle=1,
-        Follow=2,
-        Pick=3,
-        Carry=4
+        None = 0,
+        Idle = 1,
+        Follow = 2,
+        Pick = 3,
+        Carry = 4
     }
 
     public class PICKER_Ani : MonoBehaviour
     {
         //State Machine
-        private StateMachine mStateMachine;
-        
-        private float mAniSpeed = 5f;
+        private StateMachine _StateMachine;
+
+        [SerializeField] private float _Speed = 5f;
+        public float Speed
+        {
+            get => _Speed;
+            set
+            {
+                _Speed = value;
+                _Animator.SetFloat(AniSpeed, _Speed);
+                _NavmeshAgent.speed = _Speed;
+            }
+        }
+
+        [SerializeField] private float _CarrySpeed = 3f;
+        public float CarrySpeed
+        {
+            get => _CarrySpeed;
+            set
+            {
+                _CarrySpeed = value;
+                _Animator.SetFloat(AniSpeed, _CarrySpeed);
+            }
+        }
+
         private static readonly int AniSpeed = Animator.StringToHash("AniSpeed");
         
-        //get from Player.cs
-        public bool IsFollow=false;
+        public bool IsFollow = false;
         public bool IsPick = false;
         public bool ReadyToCarry = false;
         public PickableItem PickableItem;
 
-        // Group Behaviour
         public Vector3 Destination;
 
-        // IK
-        private Animator mAnimator;
+        private Animator _Animator;
+        private NavMeshAgent _NavmeshAgent;
         public Transform LeftHandEffector;
         public Transform RightHandEffector;
 
         private void Awake()
         {
-            mAnimator = GetComponent<Animator>();
+            _Animator = GetComponent<Animator>();
+            _NavmeshAgent = GetComponent<NavMeshAgent>();
         }
 
         private void Start()
         {
-            mStateMachine = new StateMachine(new PickerAni_Idle((int) PickerAniState.Idle, this));
-            PickerAni_Follow followState = new PickerAni_Follow((int) PickerAniState.Follow, this);
-            mStateMachine.AddState(followState);
-            PickerAni_Pick pickState = new PickerAni_Pick((int) PickerAniState.Pick, this);
-            mStateMachine.AddState(pickState);
-            PickerAni_Carry carryState = new PickerAni_Carry((int) PickerAniState.Carry, this);
-            mStateMachine.AddState(carryState);
+            _StateMachine = new StateMachine(new PickerAni_Idle((int)PickerAniState.Idle, this));
+            
+            PickerAni_Follow followState = new PickerAni_Follow((int)PickerAniState.Follow, this);
+            _StateMachine.AddState(followState);
+            
+            PickerAni_Pick pickState = new PickerAni_Pick((int)PickerAniState.Pick, this);
+            _StateMachine.AddState(pickState);
+            
+            PickerAni_Carry carryState = new PickerAni_Carry((int)PickerAniState.Carry, this);
+            _StateMachine.AddState(carryState);
 
             // Generate Hand Effectors
             LeftHandEffector = new GameObject("LeftHandEffector").transform;
@@ -62,21 +86,24 @@ namespace AnimarsCatcher
 
         private void Update()
         {
-            mStateMachine.Update();
+            _StateMachine.Update();
         }
 
         private void OnAnimatorIK(int layerIndex)
         {
-            if (mStateMachine.CurrentState.ID == (int)PickerAniState.Carry)
+            if (_StateMachine.CurrentState.ID == (int)PickerAniState.Carry)
             {
-                mAnimator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandEffector.position);
-                mAnimator.SetIKPosition(AvatarIKGoal.RightHand, RightHandEffector.position);
-                mAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1f);
-                mAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1f);
-                mAnimator.SetIKRotation(AvatarIKGoal.LeftHand, LeftHandEffector.rotation);
-                mAnimator.SetIKRotation(AvatarIKGoal.RightHand, RightHandEffector.rotation);
-                mAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1f);
-                mAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, 1f);
+                _Animator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandEffector.position);
+                _Animator.SetIKPosition(AvatarIKGoal.RightHand, RightHandEffector.position);
+                
+                _Animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 1f);
+                _Animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 1f);
+                
+                _Animator.SetIKRotation(AvatarIKGoal.LeftHand, LeftHandEffector.rotation);
+                _Animator.SetIKRotation(AvatarIKGoal.RightHand, RightHandEffector.rotation);
+                
+                _Animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 1f);
+                _Animator.SetIKRotationWeight(AvatarIKGoal.RightHand, 1f);
             }
         }
     }
