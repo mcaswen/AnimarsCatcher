@@ -258,7 +258,81 @@ Shader "Custom/ToonLitURP"
             ENDHLSL
         }
 
-        UsePass "Universal Render Pipeline/Lit/ShadowCaster"
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode"="ShadowCaster" }
+
+            ZWrite On
+            ZTest LEqual
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma target 4.5
+
+            #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+
+            #pragma vertex   ShadowPassVertex
+            #pragma fragment ShadowPassFragment
+
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _BaseColor;
+                float  _BumpScale;
+                float  _Roughness;
+                float  _RoughnessPower;
+                float4 _SpecColor;
+                float  _SpecWidthMin;
+                float  _SpecWidthMax;
+                float  _SpecThreshMin;
+                float  _SpecThreshMax;
+                float4 _RimColor;
+                float  _RimMin;
+                float  _RimMax;
+                float  _RimIntensity;
+                float  _AmbientStrength;
+                float  _MinLight;
+            CBUFFER_END
+
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+            };
+
+            Varyings ShadowPassVertex(Attributes IN)
+            {
+                Varyings OUT;
+                UNITY_SETUP_INSTANCE_ID(IN);
+
+                float3 posWS = TransformObjectToWorld(IN.positionOS.xyz);
+                float3 nrmWS = TransformObjectToWorldNormal(IN.normalOS);
+                float3 lightDir = _MainLightPosition.xyz; 
+                OUT.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, nrmWS, lightDir));
+
+            #if UNITY_REVERSED_Z
+                OUT.positionCS.z = min(OUT.positionCS.z, OUT.positionCS.w * UNITY_NEAR_CLIP_VALUE);
+            #else
+                OUT.positionCS.z = max(OUT.positionCS.z, OUT.positionCS.w * UNITY_NEAR_CLIP_VALUE);
+            #endif
+                return OUT;
+            }
+
+            half4 ShadowPassFragment(Varyings IN) : SV_Target
+            {
+                return 0;
+            }
+            ENDHLSL
+        }
     }
 
     Fallback "Hidden/Universal Render Pipeline/FallbackError"
