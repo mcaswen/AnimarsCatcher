@@ -18,7 +18,7 @@ public partial struct CharacterPredictedMoveSystem : ISystem
     public void OnCreate(ref SystemState s)
     {
         s.RequireForUpdate(SystemAPI.QueryBuilder()
-            .WithAll<PredictedGhost, ThirdPersonCharacterControl, LocalTransform, ThirdPersonMoveCommand>()
+            .WithAll<PredictedGhost, ThirdPersonCharacterControl, LocalTransform, InputCommand>()
             .Build());
     }
 
@@ -26,17 +26,16 @@ public partial struct CharacterPredictedMoveSystem : ISystem
     {
         var netWorkTime = SystemAPI.GetSingleton<NetworkTime>();
 
-        foreach (var (predictedGhost, controlRW, moveCommandBuffer) in SystemAPI
-                 .Query<RefRO<PredictedGhost>, RefRW<ThirdPersonCharacterControl>, DynamicBuffer<ThirdPersonMoveCommand>>()
+        foreach (var (predictedGhost, controlRW, inputCommandBuffer) in SystemAPI
+                 .Query<RefRO<PredictedGhost>, RefRW<ThirdPersonCharacterControl>, DynamicBuffer<InputCommand>>()
                  .WithAll<CharacterTag>())
         {
             if (!predictedGhost.ValueRO.ShouldPredict(netWorkTime.ServerTick) ||
-                !moveCommandBuffer.GetDataAtTick(netWorkTime.ServerTick, out ThirdPersonMoveCommand command))
+                !inputCommandBuffer.GetDataAtTick(netWorkTime.ServerTick, out InputCommand command))
                 continue;
 
             var control = controlRW.ValueRO;
             control.MoveVector = command.Move;   // 在 ThirdPersonMoveCommand 的计算与绑定中已是世界平面向量
-            control.Jump = command.Jump;
             controlRW.ValueRW = control;
 
             // 之后的control的相关计算由 ThirdPersonCharacterSystems 完成

@@ -11,7 +11,7 @@ public partial struct BindThirdPersonTargetSystem : ISystem
     {
         s.RequireForUpdate<NetworkStreamInGame>();
         s.RequireForUpdate(SystemAPI.QueryBuilder()
-            .WithAll<ThirdPersonPlayer, ThirdPersonPlayerInputs, PlayerTag>().Build());
+            .WithAll<ThirdPersonPlayerControl, PlayerInput, PlayerTag>().Build());
     }
 
     public void OnUpdate(ref SystemState s)
@@ -23,8 +23,8 @@ public partial struct BindThirdPersonTargetSystem : ISystem
         var commandTargetRW = SystemAPI.GetComponentRW<CommandTarget>(connection);
 
         foreach (var (playerRW, ePlayer) in SystemAPI
-                     .Query<RefRW<ThirdPersonPlayer>>()
-                     .WithAll<ThirdPersonPlayerInputs, PlayerTag>()
+                     .Query<RefRW<ThirdPersonPlayerControl>>()
+                     .WithAll<PlayerInput, PlayerTag>()
                      .WithEntityAccess())
         {
             bool needBindCharacter = playerRW.ValueRO.ControlledCharacter == Entity.Null;
@@ -35,7 +35,7 @@ public partial struct BindThirdPersonTargetSystem : ISystem
 
                 // 查找本地拥有的 character
                 foreach (var (owner, predicted, commandBuffer, characterEntity) in SystemAPI
-                             .Query<RefRO<GhostOwner>, RefRO<PredictedGhost>, DynamicBuffer<ThirdPersonMoveCommand>>()
+                             .Query<RefRO<GhostOwner>, RefRO<PredictedGhost>, DynamicBuffer<InputCommand>>()
                              .WithAll<CharacterTag>()
                              .WithEntityAccess())
                 {
