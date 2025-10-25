@@ -26,8 +26,6 @@ public class CharacterViewFollower : MonoBehaviour
 
     void Update()
     {
-        Debug.LogWarning($"[View Follower] Update CharacterEntity={CharacterEntity}");
-
         if (_animator && _entityManager.Exists(CharacterEntity) && _entityManager.HasComponent<CharacterAnimationComponent>(CharacterEntity))
         {
             var animationParams = _entityManager.GetComponentData<CharacterAnimationComponent>(CharacterEntity);
@@ -35,7 +33,7 @@ public class CharacterViewFollower : MonoBehaviour
             // 可见速度和渲染一致
             // var dt = Mathf.Max(Time.deltaTime, 1e-5f);
 
-            Debug.LogWarning($"[View Follower] pos={transform.position} last={_lastPos}");
+            // Debug.Log($"[View Follower] pos={transform.position} last={_lastPos}");
 
             // var planarDelta = Vector3.ProjectOnPlane(transform.position - _lastPos, Vector3.up);
             // float visualSpeed = planarDelta.magnitude / dt;

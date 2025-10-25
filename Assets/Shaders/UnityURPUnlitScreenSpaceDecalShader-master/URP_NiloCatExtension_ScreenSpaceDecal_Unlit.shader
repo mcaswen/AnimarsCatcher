@@ -81,9 +81,12 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
 
             // make fog work
             #pragma multi_compile_fog
+            #pragma multi_compile _ DOTS_INSTANCING_ON
+            #pragma multi_compile_instancing
+            #pragma instancing_options renderinglayer
 
             //due to using ddx() & ddy()
-            #pragma target 3.0
+            #pragma target 4.5
 
             #pragma shader_feature_local _ProjectionAngleDiscardEnable
             #pragma shader_feature_local _UnityFogEnable
@@ -94,9 +97,11 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
             // (https://docs.unity3d.com/Manual/SL-UnityShaderVariables.html
             // It will also include many utilitary functions. 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/UnityDOTSInstancing.hlsl"
             struct appdata
             {
                 float4 vertex : POSITION;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct v2f
@@ -105,6 +110,7 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
                 float4 screenUV : TEXCOORD0;
                 float4 viewRayOS : TEXCOORD1;
                 float4 cameraPosOSAndFogFactor : TEXCOORD2;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             sampler2D _MainTex;
@@ -116,11 +122,20 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
                 half _MulAlphaToRGB;
             CBUFFER_END
 
+            #ifdef UNITY_DOTS_INSTANCING_ENABLED
+            UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
+                UNITY_DOTS_INSTANCED_PROP(float4, _Color)
+            UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
+            #define _Color UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _Color)
+            #endif
+
             sampler2D _CameraDepthTexture;
 
             v2f vert(appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_TRANSFER_INSTANCE_ID(v, o);
 
                 //regular MVP
                 o.vertex = TransformObjectToHClip(v.vertex.xyz);
@@ -149,7 +164,7 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
                 viewRay *= -1; //unity's camera space is right hand coord(negativeZ pointing into screen), we want positive z ray in fragment shader, so negate it
 
                 //it is ok to write very expensive code in decal's vertex shader, it is just a unity cube(4*6 vertices) per decal only, won't affect GPU performance at all.
-                float4x4 ViewToObjectMatrix = mul(unity_WorldToObject, UNITY_MATRIX_I_V);
+                float4x4 ViewToObjectMatrix = mul(UNITY_MATRIX_I_M, UNITY_MATRIX_I_V);
 
                 //transform everything to object space(decal space) in vertex shader first, so we can skip all matrix mul() in fragment shader
                 o.viewRayOS.xyz = mul((float3x3)ViewToObjectMatrix, viewRay);
@@ -160,6 +175,8 @@ Shader "Universal Render Pipeline/NiloCat Extension/Screen Space Decal/Unlit"
 
             half4 frag(v2f i) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(i);
+
                 //***WARNING***
                 //=========================================================
                 //now do "viewRay z division" that we skipped in vertex shader earlier.

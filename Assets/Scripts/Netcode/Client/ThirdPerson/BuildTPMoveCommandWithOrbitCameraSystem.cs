@@ -5,17 +5,17 @@ using Unity.NetCode;
 using Unity.Transforms;
 using Unity.CharacterController;
 
-// 处理和计算输入数据，然后转换为移动命令
+// 处理和计算输入数据，然后转换为移动命令（OrbitCamera）
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
-public partial struct BuildThirdPersonMoveCommandSystem : ISystem
+public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkStreamInGame>();
         state.RequireForUpdate(SystemAPI.QueryBuilder()
-            .WithAll<ThirdPersonPlayer, ThirdPersonPlayerInputs>().Build());
+            .WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
     }
 
     public void OnUpdate(ref SystemState state)
@@ -28,9 +28,9 @@ public partial struct BuildThirdPersonMoveCommandSystem : ISystem
         
         if (commandTarget == Entity.Null) return; 
 
-        var buffer = state.EntityManager.GetBuffer<ThirdPersonMoveCommand>(commandTarget);
+        var buffer = state.EntityManager.GetBuffer<InputCommand>(commandTarget);
 
-        foreach (var (playerInput, player) in SystemAPI.Query<ThirdPersonPlayerInputs, ThirdPersonPlayer>())
+        foreach (var (input, player) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>())
         {
             // 获得角色的向上方向
             var characterLocalTransform = SystemAPI.GetComponent<LocalTransform>(player.ControlledCharacter);
@@ -46,23 +46,42 @@ public partial struct BuildThirdPersonMoveCommandSystem : ISystem
                     up, orbitCamera.PlanarForward, orbitCamera.PitchAngle);
             }
 
+            // 投射到水平面
             float3 cameraForwardOnPlane = math.normalizesafe(
                 MathUtilities.ProjectOnPlane(MathUtilities.GetForwardFromRotation(cameraRotation), up));
 
             float3 cameraRight = MathUtilities.GetRightFromRotation(cameraRotation);
 
             // 把输入折算为世界平面向量
-            float3 worldMove = playerInput.MoveInput.y * cameraForwardOnPlane + playerInput.MoveInput.x * cameraRight;
+            float3 worldMove = input.MoveInput.y * cameraForwardOnPlane + input.MoveInput.x * cameraRight;
             worldMove = MathUtilities.ClampToMaxLength(worldMove, 1f);
 
+            var tick = networkTime.ServerTick;
+
+            // 按位与取按键状态
+            var buttons = default(CommandButtons);
+
+            if (input.RightMouseHeld != 0) buttons |= CommandButtons.RMBHold;
+            if (input.RightMouseLongPress.IsSet(tick.SerializedData)) buttons |= CommandButtons.RMBLong;
+            if (input.JumpPressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Jump;
+            if (input.InteractPressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Interact;
+            if (input.PausePressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Pause;
+
             // 打包命令
-            ThirdPersonMoveCommand cmd = default;
-            cmd.Tick = networkTime.ServerTick;
+            InputCommand cmd = default;
+            cmd.Tick = tick;
+
             cmd.Move = worldMove;
-            cmd.Jump = playerInput.JumpPressed.IsSet(networkTime.ServerTick.SerializedData);
-            cmd.Look = playerInput.CameraLookInput;
-            cmd.Zoom = playerInput.CameraZoomInput;
-            cmd.ControlledEntity = player.ControlledCharacter; // 方便调试查看命令对应的实体
+            cmd.Look = input.CameraLookInput;
+            cmd.Zoom = input.CameraZoomInput;
+
+            cmd.Buttons = buttons;
+
+            cmd.RMBHoldStartTick = input.RightMouseHoldStartTick;
+            cmd.RMBHeldTicks = input.RightMouseHeldTicks;
+            
+            cmd.MousePosition = input.MousePosition;
+            // cmd.ControlledEntity = player.ControlledCharacter; // 方便调试查看命令对应的实体
 
             buffer.AddCommandData(cmd);
             

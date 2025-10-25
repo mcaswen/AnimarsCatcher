@@ -14,7 +14,6 @@ public struct ThirdPersonCharacterComponent : IComponentData
     public float AirAcceleration;
     public float AirMaxSpeed;
     public float AirDrag;
-    public float JumpSpeed;
     public float3 Gravity;
     public bool PreventAirAccelerationAgainstUngroundedHits;
     public BasicStepAndSlopeHandlingParameters StepAndSlopeHandling;
@@ -24,5 +23,4 @@ public struct ThirdPersonCharacterComponent : IComponentData
 public struct ThirdPersonCharacterControl : IComponentData
 {
     public float3 MoveVector;
-    public bool Jump;
 }

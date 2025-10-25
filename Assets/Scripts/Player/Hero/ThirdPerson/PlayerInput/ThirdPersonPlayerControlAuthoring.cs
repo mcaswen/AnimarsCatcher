@@ -5,21 +5,21 @@ using Unity.NetCode;
 public struct PlayerTag : IComponentData {}
 
 [DisallowMultipleComponent]
-public class ThirdPersonPlayerAuthoring : MonoBehaviour
+public class ThirdPersonPlayerControlAuthoring : MonoBehaviour
 {
     public GameObject ControlledCamera;
 
-    public class Baker : Baker<ThirdPersonPlayerAuthoring>
+    public class Baker : Baker<ThirdPersonPlayerControlAuthoring>
     {
-        public override void Bake(ThirdPersonPlayerAuthoring authoring)
+        public override void Bake(ThirdPersonPlayerControlAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
-            AddComponent(entity, new ThirdPersonPlayer
+            AddComponent(entity, new ThirdPersonPlayerControl
             {
                 ControlledCamera = GetEntity(authoring.ControlledCamera, TransformUsageFlags.Dynamic),
             });
 
-            AddComponent<ThirdPersonPlayerInputs>(entity);
+            AddComponent<PlayerInput>(entity);
             AddComponent<PlayerTag>(entity);
         }
     }

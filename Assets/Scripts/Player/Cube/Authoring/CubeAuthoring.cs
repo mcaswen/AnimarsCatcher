@@ -20,6 +20,6 @@ public class CubeAuthoringBaker : Baker<CubeAuthoring>
         AddComponent<PlayerTag>(entity);
         AddComponent(entity, new MoveSpeed { Value = authoring.moveSpeed });
 
-        AddBuffer<ThirdPersonMoveCommand>(entity); // 给玩家实体加命令缓冲
+        AddBuffer<InputCommand>(entity); // 给玩家实体加命令缓冲
     }
 }

@@ -40,7 +40,6 @@ public class ThirdPersonCharacterAuthoring : MonoBehaviour
                 AirAcceleration = authoring.AirAcceleration,
                 AirMaxSpeed = authoring.AirMaxSpeed,
                 AirDrag = authoring.AirDrag,
-                JumpSpeed = authoring.JumpSpeed,
                 Gravity = authoring.Gravity,
                 PreventAirAccelerationAgainstUngroundedHits = authoring.PreventAirAccelerationAgainstUngroundedHits,
                 StepAndSlopeHandling = authoring.StepAndSlopeHandling,
@@ -52,7 +51,7 @@ public class ThirdPersonCharacterAuthoring : MonoBehaviour
             AddComponent<CharacterTag>(entity);
             AddComponent<Simulate>(entity);
 
-            AddBuffer<ThirdPersonMoveCommand>(entity);
+            AddBuffer<InputCommand>(entity);
 
         }
     }

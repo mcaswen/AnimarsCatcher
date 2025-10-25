@@ -31,7 +31,7 @@ public partial struct ClientCubeMoveInputSystem : ISystem
         // 当前服务器Tick
         var tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick;
 
-        var buffer = state.EntityManager.GetBuffer<ThirdPersonMoveCommand>(target.targetEntity);
-        buffer.AddCommandData(new ThirdPersonMoveCommand { Tick = tick, Move = move });
+        var buffer = state.EntityManager.GetBuffer<InputCommand>(target.targetEntity);
+        buffer.AddCommandData(new InputCommand { Tick = tick, Move = move });
     }
 }
