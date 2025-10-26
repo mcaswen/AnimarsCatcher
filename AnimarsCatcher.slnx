@@ -23,6 +23,7 @@
   <Project Path="Unity.Burst.csproj" />
   <Project Path="Unity.VisualScripting.Flow.Editor.csproj" />
   <Project Path="Unity.Animation.Rigging.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Cinemachine.csproj" />
   <Project Path="Unity.NetCode.Editor.csproj" />
   <Project Path="Unity.InputSystem.csproj" />
@@ -57,7 +58,6 @@
   <Project Path="Unity.Rider.Editor.csproj" />
   <Project Path="Unity.VisualScripting.State.csproj" />
   <Project Path="Unity.InternalAPIEditorBridge.002.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.AI.Navigation.Updater.csproj" />
   <Project Path="Unity.Entities.CodeGen.csproj" />
   <Project Path="UnityEditor.UI.csproj" />
