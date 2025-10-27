@@ -26,3 +26,14 @@ public struct FsmContext : IComponentData
     public float DeltaTime;
     public uint Tick;
 }
+
+//划分 id 空间，避免与其它模块冲突
+public static class FsmIdSpace
+{
+    public const ushort Block = 256;
+
+    public const ushort BlasterAniBase  = Block * 1; 
+    public const ushort PickerAniBase = Block * 2; 
+
+    public static ushort Of(ushort @base, ushort local) => (ushort)(@base + local);
+}
