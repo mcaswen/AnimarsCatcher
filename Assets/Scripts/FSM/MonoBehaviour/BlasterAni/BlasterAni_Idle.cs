@@ -9,7 +9,7 @@
         public override void OnEnter(params object[] args)
         {
             mNavmeshAgent.isStopped = false;
-            mAnimator.SetFloat(AniSpeed,0);
+            mAnimator.SetFloat(AniSpeed, 0);
         }
 
         public override void OnStay(params object[] args)

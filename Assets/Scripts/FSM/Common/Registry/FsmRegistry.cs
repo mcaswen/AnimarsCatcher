@@ -25,7 +25,7 @@ public static class FsmRegistry
         s_Inited = true;
     }
 
-    //手动释放内存
+    // 手动释放内存
     public static void Dispose()
     {
         if (!s_Inited) return;
