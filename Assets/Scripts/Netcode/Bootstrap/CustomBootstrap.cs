@@ -13,22 +13,22 @@ public class CustomBootstrap : ClientServerBootstrap
         switch (RequestedPlayType)
         {
             case PlayType.ClientAndServer:
-                CreateServerWorld(defaultWorldName);
-                CreateClientWorld(defaultWorldName);
+                CreateServerWorld("Server World");
+                CreateClientWorld("Client World");
 
                 for (int i = 0; i < RequestedNumThinClients; i++)
                     CreateThinClientWorld();
                 return true;
 
             case PlayType.Client:
-                CreateClientWorld(defaultWorldName);
+                CreateClientWorld("Client World");
 
                 for (int i = 0; i < RequestedNumThinClients; i++)
                     CreateThinClientWorld();
                 return true;
 
             case PlayType.Server:
-                CreateServerWorld(defaultWorldName);
+                CreateServerWorld("Server World");
                 return true;
         }
         return true;
@@ -38,9 +38,9 @@ public class CustomBootstrap : ClientServerBootstrap
         AutoConnectPort    = 0; 
         
         if (CommandLineManager.HasArg("-dedicated") || CommandLineManager.HasArg("-server") || CommandLineManager.HasArg("-serverui"))
-            CreateServerWorld(defaultWorldName);
+            CreateServerWorld("Server World");
         else
-            CreateClientWorld(defaultWorldName);
+            CreateClientWorld("Client World");
         return true;
 #endif
     }

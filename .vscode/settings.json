@@ -52,5 +52,7 @@
         "Temp/": true
     },
     "dotnet.preferCSharpExtension": true,
-    "dotnet.defaultSolution": "AnimarsCatcher.slnx"
+    "dotnet.defaultSolution": "AnimarsCatcher.slnx",
+    "omnisharp.useGlobalMono": "never",
+    "dotnet.server.useOmnisharp": false
 }

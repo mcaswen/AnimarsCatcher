@@ -675,6 +675,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 591940213}
+  - {fileID: 1446288047}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &248378633
@@ -1082,7 +1083,7 @@ Transform:
   m_GameObject: {fileID: 591940212}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -2, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3322,6 +3323,37 @@ Transform:
     type: 3}
   m_PrefabInstance: {fileID: 1397007621}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1446288046
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1446288047}
+  m_Layer: 0
+  m_Name: SpawnPoint2
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1446288047
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1446288046}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 2, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 216107502}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1541464418
 GameObject:
   m_ObjectHideFlags: 0
@@ -5252,23 +5284,8 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
         type: 3}
-      propertyPath: YawDeg
-      value: -45
-      objectReference: {fileID: 0}
-    - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
-        type: 3}
       propertyPath: Damping
-      value: 0.3
-      objectReference: {fileID: 0}
-    - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
-        type: 3}
-      propertyPath: Distance
-      value: 40
-      objectReference: {fileID: 0}
-    - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
-        type: 3}
-      propertyPath: PitchDeg
-      value: 45
+      value: 0.15
       objectReference: {fileID: 0}
     - target: {fileID: 9095592114941788118, guid: 67126fa5b546cc145af32312727aa130,
         type: 3}
