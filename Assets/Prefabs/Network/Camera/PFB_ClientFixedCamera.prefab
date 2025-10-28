@@ -70,9 +70,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01da377cbaecdbf4482ed743270bd99a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FixedFollowCameraAuthoring
-  Distance: 6
-  PitchDeg: 20
-  YawDeg: 45
+  Distance: 40
+  PitchDeg: 45
+  YawDeg: -45
   Height: 1.5
-  Damping: 0.12
+  Damping: 0.5
   LookUpBias: 0.8

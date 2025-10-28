@@ -16,6 +16,7 @@ public struct Fsm : IComponentData
 
     public float TimeInState;   // 秒
     public byte HasPending;
+    
     public ActionId PendingExit;
     public ActionId PendingEnter;
 }
