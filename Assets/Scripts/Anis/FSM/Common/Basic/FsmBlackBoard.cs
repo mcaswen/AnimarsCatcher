@@ -2,12 +2,14 @@ using System.Runtime.InteropServices;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 public enum FsmVarType : byte
 {
     Int,
     Float,
     Bool,
+    Float3,
     Entity
 }
 
@@ -19,16 +21,19 @@ public struct FsmVar : IBufferElementData
     public FsmVarType Type;   // 类型标签
     
     //公用内存区
-    public int        Int;
-    public float      Float;
-    public byte       Bool;
-    public Entity     Entity;
+    public int Int;
+    public float Float;
+    public byte Bool;
+    public Entity Entity;
+    public float3 Float3;
 }
 
+[BurstCompile]
 public static class Blackboard
 {
     // 从动态缓冲区中获取数据
-    public static bool TryGet(this DynamicBuffer<FsmVar> blackboard, uint key, out FsmVar v)
+    [BurstCompile]
+    public static bool TryGet(ref this DynamicBuffer<FsmVar> blackboard, uint key, out FsmVar v)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
@@ -44,32 +49,39 @@ public static class Blackboard
     }
 
     // 获取方法族，类型不匹配时返回默认值
-    public static int GetInt(this DynamicBuffer<FsmVar> blackboard, uint key, int def = 0)
+    public static int GetInt(ref this DynamicBuffer<FsmVar> blackboard, uint key, int def = 0)
     {
         return blackboard.TryGet(key, out var v) &&
             v.Type == FsmVarType.Int ? v.Int : def;
     }
 
-    public static float GetFloat(this DynamicBuffer<FsmVar> blackboard, uint key, float def = 0)
+    public static float GetFloat(ref this DynamicBuffer<FsmVar> blackboard, uint key, float def = 0)
     {
         return blackboard.TryGet(key, out var v) &&
             v.Type == FsmVarType.Float ? v.Float : def;
     }
 
-    public static bool GetBool(this DynamicBuffer<FsmVar> blackboard, uint key, bool def = false)
+    public static bool GetBool(ref this DynamicBuffer<FsmVar> blackboard, uint key, bool def = false)
     {
         return blackboard.TryGet(key, out var v) &&
             v.Type == FsmVarType.Bool ? v.Bool != 0 : def;
     }
 
-    public static Entity GetEntity(this DynamicBuffer<FsmVar> blackboard, uint key, Entity def = default)
+    public static float3 GetFloat3(ref this DynamicBuffer<FsmVar> blackboard, uint key, float3 def = default)
+    {
+        return blackboard.TryGet(key, out var v) &&
+            v.Type == FsmVarType.Float3 ? v.Float3 : def;
+    }
+
+    public static Entity GetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity def = default)
     {
         return blackboard.TryGet(key, out var v) &&
             v.Type == FsmVarType.Entity ? v.Entity : def;
     }
 
     // 写入方法族，存在则更新，不存在则添加
-    public static void SetInt(this DynamicBuffer<FsmVar> blackboard, uint key, int value)
+    [BurstCompile]
+    public static void SetInt(ref this DynamicBuffer<FsmVar> blackboard, uint key, int value)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
@@ -78,11 +90,11 @@ public static class Blackboard
                 var t = blackboard[i];
                 t.Type = FsmVarType.Int;
                 t.Int = value;
-                blackboard[i] = t; 
-                return; 
+                blackboard[i] = t;
+                return;
             }
         }
-        
+
         blackboard.Add(new FsmVar
         {
             Key = key,
@@ -91,7 +103,8 @@ public static class Blackboard
         });
     }
 
-    public static void SetFloat(this DynamicBuffer<FsmVar> blackboard, uint key, float value)
+    [BurstCompile]
+    public static void SetFloat(ref this DynamicBuffer<FsmVar> blackboard, uint key, float value)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
@@ -104,7 +117,7 @@ public static class Blackboard
                 return;
             }
         }
-        
+
         blackboard.Add(new FsmVar
         {
             Key = key,
@@ -113,7 +126,30 @@ public static class Blackboard
         });
     }
 
-    public static void SetBool(this DynamicBuffer<FsmVar> blackboard, uint key, bool value)
+    public static void SetFloat3(ref this DynamicBuffer<FsmVar> blackboard, uint key, float3 value)
+    {
+        for (int i = 0; i < blackboard.Length; i++)
+        {
+            if (blackboard[i].Key == key)
+            {
+                var t = blackboard[i];
+                t.Type = FsmVarType.Float3;
+                t.Float3 = value;
+                blackboard[i] = t;
+                return;
+            }
+        }
+
+        blackboard.Add(new FsmVar
+        {
+            Key = key,
+            Type = FsmVarType.Float3,
+            Float3 = value
+        });
+    }
+
+    [BurstCompile]
+    public static void SetBool(ref this DynamicBuffer<FsmVar> blackboard, uint key, bool value)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
@@ -126,7 +162,7 @@ public static class Blackboard
                 return;
             }
         }
-        
+
         blackboard.Add(new FsmVar
         {
             Key = key,
@@ -135,7 +171,7 @@ public static class Blackboard
         });
     }
 
-    public static void SetEntity(this DynamicBuffer<FsmVar> blackboard, uint key, Entity value)
+    public static void SetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity value)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
@@ -148,7 +184,7 @@ public static class Blackboard
                 return;
             }
         }
-        
+
         blackboard.Add(new FsmVar
         {
             Key = key,
