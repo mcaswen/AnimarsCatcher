@@ -5282,10 +5282,25 @@ PrefabInstance:
       propertyPath: m_Name
       value: ClientFixedCamera
       objectReference: {fileID: 0}
+    - target: {fileID: 6854459556113176418, guid: 67126fa5b546cc145af32312727aa130,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
         type: 3}
       propertyPath: Damping
-      value: 0.15
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
+        type: 3}
+      propertyPath: Distance
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 7509469339719795932, guid: 67126fa5b546cc145af32312727aa130,
+        type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 9095592114941788118, guid: 67126fa5b546cc145af32312727aa130,
         type: 3}
