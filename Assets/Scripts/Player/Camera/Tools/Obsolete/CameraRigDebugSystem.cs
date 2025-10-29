@@ -4,7 +4,7 @@ using UnityEngine;
 using Unity.Mathematics;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-[UpdateAfter(typeof(ThirdPersonPlayerVariableStepControlSystem))]
+// [UpdateAfter(typeof(ThirdPersonPlayerVariableStepControlSystem))]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
 public partial class OrbitCamProbeSystem : SystemBase
 {
