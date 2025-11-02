@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
+using AnimarsCatcher.Mono.Global;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     [System.Serializable]
     public class GameModel
@@ -10,7 +11,41 @@ namespace AnimarsCatcher
         public ReactiveProperty<int> BlasterAniCount = new();
         public ReactiveProperty<int> FoodSum = new();
         public ReactiveProperty<int> CrystalSum = new();
-        public ReactiveProperty<int> BlueprintCount = new();
+
+        private int _blueprintCount;
+        public int BlueprintCount
+        {
+            get { return _blueprintCount; }
+            set
+            {
+                if (value != _blueprintCount)
+                {
+                    _blueprintCount = value;
+                    EventBus.Instance.Publish(new BlueprintCountUpdatedEventData() { BlueprintCount = _blueprintCount });
+                }
+            }
+            }
+
+        public ReactiveProperty<int> InTeamPickerAniCount=new ReactiveProperty<int>();
+        public ReactiveProperty<int> InTeamBlasterAniCount = new ReactiveProperty<int>();
+        
+        public GameModel()
+        {
+            EventBus.Instance?.Subscribe<BlueprintCollectedEventData>(eventData =>
+            {
+                BlueprintCount += 1;
+            });
+
+            EventBus.Instance?.Subscribe<FoodCollectedEventData>(eventData =>
+            {
+                FoodSum.Value += eventData.ResourceCount;
+            });
+
+            EventBus.Instance?.Subscribe<CrystalCollectedEventData>(eventData =>
+            {
+                CrystalSum.Value += eventData.ResourceCount;
+            });
+        }
 
         public bool HasSaveData()
         {
@@ -24,7 +59,10 @@ namespace AnimarsCatcher
             BlasterAniCount.Value = PlayerPrefs.GetInt(nameof(BlasterAniCount));
             FoodSum.Value = PlayerPrefs.GetInt(nameof(FoodSum));
             CrystalSum.Value = PlayerPrefs.GetInt(nameof(CrystalSum));
-            BlueprintCount.Value = PlayerPrefs.GetInt(nameof(BlueprintCount));
+            BlueprintCount = PlayerPrefs.GetInt(nameof(BlueprintCount));
+
+            InTeamPickerAniCount.Value = 0;
+            InTeamBlasterAniCount.Value = 0;
         }
 
         public void Save()
@@ -34,7 +72,7 @@ namespace AnimarsCatcher
             PlayerPrefs.SetInt(nameof(BlasterAniCount), BlasterAniCount.Value);
             PlayerPrefs.SetInt(nameof(FoodSum), FoodSum.Value);
             PlayerPrefs.SetInt(nameof(CrystalSum), CrystalSum.Value);
-            PlayerPrefs.SetInt(nameof(BlueprintCount), BlueprintCount.Value);
+            PlayerPrefs.SetInt(nameof(BlueprintCount), BlueprintCount);
         }
     }
 }

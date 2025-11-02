@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class PickerAni_Pick:PickerAniStateBase
     {

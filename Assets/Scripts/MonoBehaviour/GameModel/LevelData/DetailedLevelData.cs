@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     [Serializable]
     public class AreaData
@@ -16,13 +16,15 @@ namespace AnimarsCatcher
     {
         public int Day;
         public List<AreaData> Resources;
-        public int PickerAniCount;
-        public int BlasterAniCount;
         public int LevelTime;
     }
 
     public class DetailedLevelInfo
     {
         public List<DetailedLevelData> LevelDatas;
+        public int PickerAniFoodCostCount;
+        public int PickerAniCrystalCostCount;
+        public int BlasterAniFoodCostCount;
+        public int BlasterAniCrystalCostCount;
     }
 }

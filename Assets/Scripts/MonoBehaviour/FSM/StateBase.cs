@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace AnimarsCatcher.FSM
+namespace AnimarsCatcher.Mono.FSM
 {
     /// <summary>
     /// State Base Class

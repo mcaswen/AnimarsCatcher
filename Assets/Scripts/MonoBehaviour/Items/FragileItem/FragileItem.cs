@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono.Items
 {
     public interface ICanShoot
     {

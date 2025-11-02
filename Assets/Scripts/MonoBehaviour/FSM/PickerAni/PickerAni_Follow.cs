@@ -1,7 +1,7 @@
-﻿using AnimarsCatcher.FSM;
+﻿using AnimarsCatcher.Mono.FSM;
 using UnityEngine;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class PickerAni_Follow:PickerAniStateBase
     {

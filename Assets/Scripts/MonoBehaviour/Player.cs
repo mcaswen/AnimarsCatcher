@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using System.Drawing;
 using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
+using AnimarsCatcher.Mono.Items;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class Player : MonoBehaviour
     {
@@ -135,8 +136,8 @@ namespace AnimarsCatcher
                 RaycastHit hit;
                 Debug.Log("ray casted");
 
-                // Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                // Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
 
                 int mask = ~LayerMask.GetMask("Player", "Ani");
                 if (Physics.Raycast(ray, out hit, 100f, mask, QueryTriggerInteraction.Ignore))
@@ -173,8 +174,8 @@ namespace AnimarsCatcher
             if (Input.GetMouseButtonDown(0))
             {
                 RaycastHit hit;
-                //Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                // Ray ray = Camera.main.ScreenPointToRay(new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f));
 
                 int mask = ~LayerMask.GetMask("Player", "Ani");
 

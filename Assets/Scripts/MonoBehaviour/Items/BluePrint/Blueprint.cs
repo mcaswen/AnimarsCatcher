@@ -1,7 +1,8 @@
 ﻿using System;
 using UnityEngine;
+using AnimarsCatcher.Mono.Global;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono.Items
 {
     public class Blueprint : MonoBehaviour
     {
@@ -9,7 +10,7 @@ namespace AnimarsCatcher
         {
             if (other.CompareTag("Player"))
             {
-                FindObjectOfType<GameRoot>().GameModel.BlueprintCount.Value++;
+                EventBus.Instance.Publish(new BlueprintCollectedEventData());
                 Destroy(gameObject);
             }
         }

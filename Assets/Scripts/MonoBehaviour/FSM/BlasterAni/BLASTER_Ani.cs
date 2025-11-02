@@ -1,11 +1,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using AnimarsCatcher.FSM;
+using AnimarsCatcher.Mono.FSM;
+using AnimarsCatcher.Mono.Items;
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace AnimarsCatcher
+
+namespace AnimarsCatcher.Mono
 {
     public enum BlasterAniState
     {

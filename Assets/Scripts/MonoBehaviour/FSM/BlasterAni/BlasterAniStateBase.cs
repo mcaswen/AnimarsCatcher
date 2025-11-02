@@ -1,8 +1,8 @@
-﻿using AnimarsCatcher.FSM;
+﻿using AnimarsCatcher.Mono.FSM;
 using UnityEngine;
 using UnityEngine.AI;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class BlasterAniStateBase:StateTemplate<BLASTER_Ani>
     {
