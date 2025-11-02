@@ -1,4 +1,4 @@
-﻿namespace AnimarsCatcher
+﻿namespace AnimarsCatcher.Mono
 {
     public class BlasterAni_Find : BlasterAniStateBase
     {

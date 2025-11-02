@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations;
+using AnimarsCatcher.Mono.Global;
+using TMPro;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono.Items
 {
     public interface ICanPick
     {
@@ -21,13 +23,16 @@ namespace AnimarsCatcher
     public class PickableItem : MonoBehaviour, ICanPick, IResource
     {
         
-        [SerializeField] private int _ResourceCount = 1;
-        public int ResourceCount => _ResourceCount;
+        [SerializeField] private int _resourceCount = 1;
+        public int ResourceCount => _resourceCount;
         public PickableItemType ItemType;
 
         [SerializeField] private bool _IsSpecialItem = false;
-        [SerializeField] private float _AniSpeedMutiplier = 1.5f;
-        [SerializeField] private string _PickerAniTag = "PICKER_Ani";
+        [SerializeField] private float _aniSpeedMutiplier = 1.5f;
+        [SerializeField] private string _pickerAniTag = "PICKER_Ani";
+
+        [SerializeField] private TextMeshProUGUI _resourceCountText;
+        [SerializeField] private TextMeshProUGUI _maxAniCountText;
 
         public List<Vector3> Positions = new List<Vector3>();
 
@@ -47,6 +52,9 @@ namespace AnimarsCatcher
             _HomeTransform = GameObject.FindWithTag("Home").transform;
 
             _LayerMask = gameObject.layer;
+
+            if (_resourceCountText != null) _resourceCountText.text = "Resource Count: " + _resourceCount.ToString();
+            if (_maxAniCountText != null) _maxAniCountText.text = "Max Anis Count: " + MaxAniCount.ToString();
         }
 
         private void Update()
@@ -82,10 +90,10 @@ namespace AnimarsCatcher
                 switch (ItemType)
                 {
                     case PickableItemType.Food:
-                        FindObjectOfType<GameRoot>().GameModel.FoodSum.Value += _ResourceCount;
+                        EventBus.Instance.Publish(new FoodCollectedEventData(_resourceCount));
                         break;
                     case PickableItemType.Crystal:
-                        FindObjectOfType<GameRoot>().GameModel.CrystalSum.Value += _ResourceCount;
+                        EventBus.Instance.Publish(new CrystalCollectedEventData(_resourceCount));
                         break;
                     default:
                         break;
@@ -131,14 +139,14 @@ namespace AnimarsCatcher
 
         public void AccelerateAllAnis()
         {
-            GameObject[] AniObjects = GameObject.FindGameObjectsWithTag(_PickerAniTag);
+            GameObject[] AniObjects = GameObject.FindGameObjectsWithTag(_pickerAniTag);
 
             foreach (var ani in AniObjects)
             {
                 var pickerAni = ani.GetComponent<PICKER_Ani>();
                 
-                pickerAni.Speed *= _AniSpeedMutiplier;
-                pickerAni.CarrySpeed *= _AniSpeedMutiplier;
+                pickerAni.Speed *= _aniSpeedMutiplier;
+                pickerAni.CarrySpeed *= _aniSpeedMutiplier;
             }
 
         }
@@ -146,11 +154,15 @@ namespace AnimarsCatcher
         private void OnMouseEnter()
         {
             gameObject.layer = LayerMask.NameToLayer("SelectedObject");
+            if (_resourceCountText != null) _resourceCountText.enabled = true;
+            if (_maxAniCountText != null) _maxAniCountText.enabled = true;
         }
 
         private void OnMouseExit()
         {
             gameObject.layer = _LayerMask;
+            if (_resourceCountText != null) _resourceCountText.enabled = false;
+            if (_maxAniCountText != null) _maxAniCountText.enabled = false;
         }
     }
 }

@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class BlasterAni_Follow:BlasterAniStateBase
     {

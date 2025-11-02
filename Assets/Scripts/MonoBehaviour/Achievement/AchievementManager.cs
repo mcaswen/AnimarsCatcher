@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public enum AchievementType
     {

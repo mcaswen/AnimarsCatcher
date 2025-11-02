@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using AnimarsCatcher.Mono.Items;
 
-namespace AnimarsCatcher
+namespace AnimarsCatcher.Mono
 {
     public class MapManager : MonoBehaviour
     {

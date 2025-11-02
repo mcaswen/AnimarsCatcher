@@ -1,4 +1,4 @@
-﻿namespace AnimarsCatcher
+﻿namespace AnimarsCatcher.Mono.Items
 {
     public interface IResource
     {
