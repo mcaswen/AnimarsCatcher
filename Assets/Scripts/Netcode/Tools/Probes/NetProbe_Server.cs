@@ -20,6 +20,6 @@ public partial struct NetProbe_Server : ISystem
         foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>()) withId++;
         foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>().WithAll<NetworkStreamInGame>()) inGame++;
 
-        Debug.Log($"[Server] conns = {conns} withId = {withId} inGame = {inGame}");
+        Debug.Log($"[Server NetProbe] conns = {conns} withId = {withId} inGame = {inGame}");
     }
 }

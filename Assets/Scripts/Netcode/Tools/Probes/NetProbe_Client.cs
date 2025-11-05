@@ -18,6 +18,6 @@ public partial struct NetProbe_Client : ISystem
         bool hasId = SystemAPI.HasSingleton<NetworkId>();
         bool inGame = !SystemAPI.QueryBuilder().WithAll<NetworkId, NetworkStreamInGame>().Build().IsEmpty;
         
-        Debug.Log($"[Client] hasConn = {hasConn} hasId = {hasId} inGame = {inGame}");
+        Debug.Log($"[Client NetProbe] hasConn = {hasConn} hasId = {hasId} inGame = {inGame}");
     }
 }
