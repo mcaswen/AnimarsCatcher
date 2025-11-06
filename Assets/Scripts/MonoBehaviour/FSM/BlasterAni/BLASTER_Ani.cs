@@ -23,10 +23,10 @@ namespace AnimarsCatcher.Mono
         public Transform LeftHandIKTrans;
         public Transform RightHandIKTrans;
         
-        private Animator _Animator;
-        private NavMeshAgent _Agent;
+        private Animator _animator;
+        private NavMeshAgent _agent;
         
-        private StateMachine _StateMachine;
+        private StateMachine _stateMachine;
         
         public bool IsFollow = false;
         public bool IsShoot = false;
@@ -40,30 +40,30 @@ namespace AnimarsCatcher.Mono
 
         private void Awake()
         {
-            _Animator = GetComponent<Animator>();
+            _animator = GetComponent<Animator>();
         }
 
         private void Start()
         {
-            _StateMachine = new StateMachine(new BlasterAni_Idle((int)BlasterAniState.Idle, this));
+            _stateMachine = new StateMachine(new BlasterAni_Idle((int)BlasterAniState.Idle, this));
             
             BlasterAni_Follow followState = new BlasterAni_Follow((int) BlasterAniState.Follow, this);
-            _StateMachine.AddState(followState);
+            _stateMachine.AddState(followState);
             
             BlasterAni_Shoot shootState = new BlasterAni_Shoot((int) BlasterAniState.Shoot, this);
-            _StateMachine.AddState(shootState);
+            _stateMachine.AddState(shootState);
         }
 
         private void Update()
         {
-           _StateMachine.Update();
+           _stateMachine.Update();
         }
 
         public void Shoot()
         {
             if (FragileItem != null) 
             {
-                _Animator.SetTrigger(Shoot1);
+                _animator.SetTrigger(Shoot1);
 
                 Vector3 offset = FragileItem.transform.position - transform.position;
                 Quaternion dir = Quaternion.LookRotation(offset);
@@ -75,17 +75,17 @@ namespace AnimarsCatcher.Mono
 
         private void OnAnimatorIK(int layerIndex)
         {
-            if (_Animator.GetCurrentAnimatorStateInfo(1).IsName("Shoot"))
+            if (_animator.GetCurrentAnimatorStateInfo(1).IsName("Shoot"))
             {
-                _Animator.SetIKPosition(AvatarIKGoal.LeftHand,LeftHandIKTrans.position);
-                _Animator.SetIKPositionWeight(AvatarIKGoal.LeftHand,0.5f);
-                _Animator.SetIKRotation(AvatarIKGoal.LeftHand,LeftHandIKTrans.rotation);
-                _Animator.SetIKRotationWeight(AvatarIKGoal.LeftHand,0.5f);
+                _animator.SetIKPosition(AvatarIKGoal.LeftHand,LeftHandIKTrans.position);
+                _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand,0.5f);
+                _animator.SetIKRotation(AvatarIKGoal.LeftHand,LeftHandIKTrans.rotation);
+                _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand,0.5f);
             
-                _Animator.SetIKPosition(AvatarIKGoal.RightHand,RightHandIKTrans.position);
-                _Animator.SetIKPositionWeight(AvatarIKGoal.RightHand,0.5f);
-                _Animator.SetIKRotation(AvatarIKGoal.RightHand,RightHandIKTrans.rotation);
-                _Animator.SetIKRotationWeight(AvatarIKGoal.RightHand,0.5f);
+                _animator.SetIKPosition(AvatarIKGoal.RightHand,RightHandIKTrans.position);
+                _animator.SetIKPositionWeight(AvatarIKGoal.RightHand,0.5f);
+                _animator.SetIKRotation(AvatarIKGoal.RightHand,RightHandIKTrans.rotation);
+                _animator.SetIKRotationWeight(AvatarIKGoal.RightHand,0.5f);
             }
         }
     }

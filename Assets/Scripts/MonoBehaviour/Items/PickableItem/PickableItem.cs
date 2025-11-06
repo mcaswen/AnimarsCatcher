@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Animations;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Mono.Utilities;
 using TMPro;
 
 namespace AnimarsCatcher.Mono.Items

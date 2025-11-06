@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.UI
 {
@@ -32,10 +33,10 @@ namespace AnimarsCatcher.Mono.UI
                 Destroy(transform.parent.parent.gameObject);
             }
         }
-        
+
         private void OnDestroy()
         {
-            _hP.Unsubsribe(OnHPChanged);
+            _hP.Unsubscribe(OnHPChanged);
         }
 
     }

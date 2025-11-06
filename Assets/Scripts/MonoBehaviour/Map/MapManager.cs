@@ -24,12 +24,12 @@ namespace AnimarsCatcher.Mono
             DontDestroyOnLoad(this);
         }
 
-        [SerializeField] private float _MapMaxHeight = 20;
-        [SerializeField] private int _MaxTryGetRandomLocationCount = 20;
-        [SerializeField] private string _TerrainTag = "Plane";
-        private Transform _ParentTransform;
-        private List<Transform> _ItemList = new List<Transform>();
-        private Queue<LoadTask> _LoadTasks = new Queue<LoadTask>();
+        [SerializeField] private float _mapMaxHeight = 20;
+        [SerializeField] private int _maxTryGetRandomLocationCount = 20;
+        [SerializeField] private string _terrainTag = "Plane";
+        private Transform _parentTransform;
+        private List<Transform> _ttemList = new List<Transform>(); // 存储当前所有已刷新的Item
+        private Queue<LoadTask> _loadTasks = new Queue<LoadTask>();
         
         private struct LoadTask
         {
@@ -42,7 +42,7 @@ namespace AnimarsCatcher.Mono
 
         public void LoadItems(Vector2 mapSize, int count, float minDistance, string path)
         {
-            _LoadTasks.Enqueue(new LoadTask()
+            _loadTasks.Enqueue(new LoadTask()
             {
                 path = path,
                 mapSize = mapSize,
@@ -50,7 +50,7 @@ namespace AnimarsCatcher.Mono
                 minDistance = minDistance
             });
             
-            if(_LoadTasks.Count == 1)
+            if(_loadTasks.Count == 1)
             {
                 StartNextLoadTask();
             }
@@ -58,14 +58,14 @@ namespace AnimarsCatcher.Mono
 
         private void StartNextLoadTask()
         {
-            if(_LoadTasks.Count == 0) return;
+            if(_loadTasks.Count == 0) return;
 
-            var task = _LoadTasks.Dequeue();
-            _ItemList.Clear();
+            var task = _loadTasks.Dequeue();
+            _ttemList.Clear();
 
-            if (_ParentTransform == null)
+            if (_parentTransform == null)
             {
-                _ParentTransform = new GameObject("Items").transform;
+                _parentTransform = new GameObject("Items").transform;
             }
 
             List<GameObject> currentTaskPrefabs = Resources.LoadAll<GameObject>(task.path).ToList();
@@ -89,8 +89,8 @@ namespace AnimarsCatcher.Mono
                 if (itemPrefab.TryGetComponent<IResource>(out var resource))
                     resourceCount += resource.ResourceCount;
 
-                Instantiate(itemPrefab, _ParentTransform).localPosition = GetRandomPosition(mapSize, minDistance);
-                _ItemList.Add(itemPrefab);
+                Instantiate(itemPrefab, _parentTransform).localPosition = GetRandomPosition(mapSize, minDistance);
+                _ttemList.Add(itemPrefab);
                 yield return null;
             }
 
@@ -99,14 +99,14 @@ namespace AnimarsCatcher.Mono
 
         Vector3 GetRandomPosition(Vector2 mapSize, float minDistance)
         {
-            for (int i = 0; i < _MaxTryGetRandomLocationCount; i++)
+            for (int i = 0; i < _maxTryGetRandomLocationCount; i++)
             {
                 Vector3 randomPos = new Vector3(Random.Range(0, mapSize.x)
-                    , _MapMaxHeight + 10, Random.Range(0, mapSize.y));
+                    , _mapMaxHeight + 10, Random.Range(0, mapSize.y));
 
                 bool isTooClose = false;
 
-                foreach (var item in _ItemList)
+                foreach (var item in _ttemList)
                 {
                     if (Vector3.Distance(new Vector3(randomPos.x, 0, randomPos.z),
                             new Vector3(item.position.x, 0, item.position.z)) < minDistance)
@@ -120,7 +120,7 @@ namespace AnimarsCatcher.Mono
                 {
                     Ray ray = new Ray(randomPos, Vector3.down);
                     if (Physics.Raycast(ray, out RaycastHit hit)
-                        && hit.transform.CompareTag(_TerrainTag)
+                        && hit.transform.CompareTag(_terrainTag)
                         && hit.point.y < 1)
                     {
                         return new Vector3(randomPos.x, hit.point.y, randomPos.z);
@@ -135,7 +135,7 @@ namespace AnimarsCatcher.Mono
         #region Load Items With Area
         public void LoadItems(Vector2 mapPosition, Vector2 mapSize, int count, float minDistance, string path)
         {
-            _LoadTasks.Enqueue(new LoadTask()
+            _loadTasks.Enqueue(new LoadTask()
             {
                 path = path,
                 mapPosition = mapPosition,
@@ -144,7 +144,7 @@ namespace AnimarsCatcher.Mono
                 minDistance = minDistance
             });
             
-            if (_LoadTasks.Count == 1)
+            if (_loadTasks.Count == 1)
                 StartNextLoadTask();
         }
 
@@ -160,8 +160,8 @@ namespace AnimarsCatcher.Mono
                 if (itemPrefab.TryGetComponent<IResource>(out var resource))
                     resourceCount += resource.ResourceCount;
 
-                Instantiate(itemPrefab, _ParentTransform).localPosition = GetRandomPosition(mapPosition, mapSize, minDistance);
-                _ItemList.Add(itemPrefab);
+                Instantiate(itemPrefab, _parentTransform).localPosition = GetRandomPosition(mapPosition, mapSize, minDistance);
+                _ttemList.Add(itemPrefab);
 
                 yield return null;
             }
@@ -171,14 +171,14 @@ namespace AnimarsCatcher.Mono
 
         Vector3 GetRandomPosition(Vector2 mapPosition, Vector2 mapSize, float minDistance)
         {
-            for (int i = 0; i < _MaxTryGetRandomLocationCount; i++)
+            for (int i = 0; i < _maxTryGetRandomLocationCount; i++)
             {
                 Vector3 randomPos = new Vector3(Random.Range(mapPosition.x, mapPosition.x + mapSize.x)
-                    , _MapMaxHeight + 10, Random.Range(mapPosition.y, mapPosition.y + mapSize.y));
+                    , _mapMaxHeight + 10, Random.Range(mapPosition.y, mapPosition.y + mapSize.y));
 
                 bool isTooClose = false;
                 
-                foreach (var item in _ItemList)
+                foreach (var item in _ttemList)
                 {
                     if (Vector3.Distance(new Vector3(randomPos.x, 0, randomPos.z),
                             new Vector3(item.position.x, 0, item.position.z)) < minDistance)
@@ -192,7 +192,7 @@ namespace AnimarsCatcher.Mono
                 {
                     Ray ray = new Ray(randomPos, Vector3.down);
                     if (Physics.Raycast(ray, out RaycastHit hit)
-                        && hit.transform.CompareTag(_TerrainTag)
+                        && hit.transform.CompareTag(_terrainTag)
                         && hit.point.y < 1)
                     {
                         return new Vector3(randomPos.x, hit.point.y, randomPos.z);

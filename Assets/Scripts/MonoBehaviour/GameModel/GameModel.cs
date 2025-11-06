@@ -1,5 +1,8 @@
 ﻿using UnityEngine;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Mono.Utilities;
+using System.Collections.Generic;
+using System;
 
 namespace AnimarsCatcher.Mono
 {
@@ -11,6 +14,8 @@ namespace AnimarsCatcher.Mono
         public ReactiveProperty<int> BlasterAniCount = new();
         public ReactiveProperty<int> FoodSum = new();
         public ReactiveProperty<int> CrystalSum = new();
+
+        private List<Action> _unsubscribeActions = new List<Action>();
 
         private int _blueprintCount;
         public int BlueprintCount
@@ -24,11 +29,11 @@ namespace AnimarsCatcher.Mono
                     EventBus.Instance.Publish(new BlueprintCountUpdatedEventData() { BlueprintCount = _blueprintCount });
                 }
             }
-            }
+        }
 
-        public ReactiveProperty<int> InTeamPickerAniCount=new ReactiveProperty<int>();
+        public ReactiveProperty<int> InTeamPickerAniCount = new ReactiveProperty<int>();
         public ReactiveProperty<int> InTeamBlasterAniCount = new ReactiveProperty<int>();
-        
+
         public GameModel()
         {
             EventBus.Instance?.Subscribe<BlueprintCollectedEventData>(eventData =>
@@ -74,5 +79,14 @@ namespace AnimarsCatcher.Mono
             PlayerPrefs.SetInt(nameof(CrystalSum), CrystalSum.Value);
             PlayerPrefs.SetInt(nameof(BlueprintCount), BlueprintCount);
         }
+
+        // ~GameModel()
+        // {
+        //     foreach (var unsubscribe in _unsubscribeActions)
+        //     {
+        //         subscription?.Dispose();
+        //     }
+        //     _subscriptions.Clear();
+        // }
     }
 }

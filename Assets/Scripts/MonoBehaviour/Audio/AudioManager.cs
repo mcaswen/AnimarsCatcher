@@ -20,10 +20,21 @@ namespace AnimarsCatcher.Mono.Audio
         public Scrollbar MasterVolumeScrollbar;
         public Scrollbar BGMVolumeScrollbar;
         public Scrollbar UIVolumeScrollbar;
-        
+
         private void Awake()
         {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
             Instance = this;
+            DontDestroyOnLoad(this);
+        }
+        
+        private void Start()
+        {
             _uIAudioSource = GetComponent<AudioSource>();
 
             MasterVolumeScrollbar.onValueChanged.AddListener(value =>

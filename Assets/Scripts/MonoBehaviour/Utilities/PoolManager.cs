@@ -2,7 +2,7 @@
 using UnityEngine;
 using UnityEngine.Pool;
 
-namespace AnimarsCatcher.Mono
+namespace AnimarsCatcher.Mono.Utilities
 {
     public class PoolManager : MonoBehaviour
     {

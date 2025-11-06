@@ -6,7 +6,6 @@ using UnityEngine.Events;
 
 namespace AnimarsCatcher.Mono.Global
 {
-
     public class EventBus : MonoBehaviour
     {
         public static EventBus Instance;
@@ -28,15 +27,15 @@ namespace AnimarsCatcher.Mono.Global
         private UnityEvent<T> GetEvent<T>() where T : IEventData // 通过 Object 类型存储不同类型的 UnityEvent<T> 实例
         {
             var key = typeof(T);
-            if (!_eventMap.TryGetValue(key, out var obj))
+            if (!_eventMap.TryGetValue(key, out var obj)) // 若映射不存在则创建映射
             {
                 obj = new UnityEvent<T>(); // 创建新的事件实例
                 _eventMap[key] = obj;
             }
-            return (UnityEvent<T>)obj; // 强制类型转换（必定成功，因为obj实例化时已是 UnityEvent<T> 类型）
+            return (UnityEvent<T>)obj; // 强制类型转换（这里是必定成功，因为obj实例化时已是 UnityEvent<T> 类型）
         }
 
-        // 若调用这些方法时 订阅类型与委托处理类型不匹配，则会在编译期抛出异常，防止运行时错误
+        // 若调用这些方法时,订阅类型与委托处理类型不匹配，则会在编译期抛出异常，防止运行时错误
         public void Subscribe<T>(UnityAction<T> handler) where T : IEventData
             => GetEvent<T>().AddListener(handler);
 

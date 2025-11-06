@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using AnimarsCatcher.Mono.UI;
 using AnimarsCatcher.Mono.Items;
+using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.Global
 {
@@ -70,7 +71,12 @@ namespace AnimarsCatcher.Mono.Global
             }
 
             EventBus.Instance.Subscribe<LevelDayStartedEventData>(OnLevelDayStarted);
-            
+
+        }
+
+        private void OnDestroy()
+        {
+            EventBus.Instance.Unsubscribe<LevelDayStartedEventData>(OnLevelDayStarted);
         }
 
         private void Update()
@@ -144,10 +150,10 @@ namespace AnimarsCatcher.Mono.Global
 
         private void StartTimer(int seconds)
         {
-            if (_levelTimerId != -1) 
+            if (_levelTimerId != -1)
             {
                 _timer.DeleteTask(_levelTimerId);
-                _levelTimerId = -1; 
+                _levelTimerId = -1;
             }
             if (_blueprintTimerId != -1)
             {
@@ -157,11 +163,11 @@ namespace AnimarsCatcher.Mono.Global
 
             _currentLevelTime.Value = seconds;
 
-            _levelTimerId     = _timer.AddTask(RecordLevelTime, 1,  -1);
+            _levelTimerId = _timer.AddTask(RecordLevelTimeTask, 1, -1);
             _blueprintTimerId = _timer.AddTask(RecordBlueprintSpawning, 30, 1);
         }
 
-        private void RecordLevelTime(int id)
+        private void RecordLevelTimeTask(int id)
         {
             Debug.Log($"Remaining Second:{_currentLevelTime.Value}");
             _currentLevelTime.Value -= 1;
@@ -171,7 +177,7 @@ namespace AnimarsCatcher.Mono.Global
                 _timer.DeleteTask(id);
             }
         }
-        
+
         private void RecordBlueprintSpawning(int id)
         {
             int random = Random.Range(0, 2);
@@ -203,7 +209,7 @@ namespace AnimarsCatcher.Mono.Global
                 yield return new WaitForSeconds(1f);
 
                 AchievementManager.Instance.RecordFirstPickerAniCollected();
-                
+
                 var position = new Vector3(_homeTrans.position.x - Random.Range(1, 3),
                     _homeTrans.position.y,
                     _homeTrans.position.z + Random.Range(-3, 3));

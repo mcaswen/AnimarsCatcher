@@ -25,11 +25,11 @@ public partial struct FsmEvaluateSystem : ISystem
             for (int i = 0; i < node.Transitions.Length; i++)
             {
                 // 获取每一个可能的目标节点的转换条件
-                var t = node.Transitions[i];
-                if (FsmRegistry.InvokeCondition(t.Condition, ref f, ref bb, context)) {
-                    f.Next         = t.To;
-                    f.PendingExit  = t.OnExit;
-                    f.PendingEnter = t.OnEnter;
+                var transition = node.Transitions[i];
+                if (FsmRegistry.InvokeCondition(transition.Condition, ref f, ref bb, context)) {
+                    f.Next         = transition.To;
+                    f.PendingExit  = transition.OnExit;
+                    f.PendingEnter = transition.OnEnter;
                     f.HasPending   = 1;
                     break;
                 }

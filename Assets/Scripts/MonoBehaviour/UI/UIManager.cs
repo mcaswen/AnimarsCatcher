@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Audio;
+using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.UI
 {
@@ -176,12 +177,14 @@ namespace AnimarsCatcher.Mono.UI
                 Text_Crystal.text = count.ToString();
             });
 
-            EventBus.Instance.Subscribe<BlueprintCountUpdatedEventData>(eventData =>
-            {
-                Text_BlueprintCount.text = eventData.BlueprintCount.ToString() + "/6";
-            });
+            EventBus.Instance.Subscribe<BlueprintCountUpdatedEventData>(OnBlueprintCountUpdated);
+            EventBus.Instance.Subscribe<LevelDayEndedEventData>(OnLevelDayEnded);
+        }
 
-            EventBus.Instance.Subscribe<LevelDayEndedEventData>(eventData => OnLevelDayEnded(eventData));
+        private void OnDestroy()
+        {
+            EventBus.Instance.Unsubscribe<BlueprintCountUpdatedEventData>(OnBlueprintCountUpdated);
+            EventBus.Instance.Unsubscribe<LevelDayEndedEventData>(OnLevelDayEnded);
         }
 
         private void SubscribeAniInfo(ReactiveProperty<int> sumCount, ReactiveProperty<int> inTeamCount,
@@ -237,9 +240,13 @@ namespace AnimarsCatcher.Mono.UI
             _spawningBlasterAniCount = 0;
         }
 
+        private void OnBlueprintCountUpdated(BlueprintCountUpdatedEventData eventData)
+        {
+            Text_BlueprintCount.text = eventData.BlueprintCount.ToString() + "/6";
+        }
+
         private void OnSelectionMenuConfirmed()
         {
-            AudioManager.Instance.PlayMenuButtonAudio();
             HidePanel(SelectionPanel);
             Time.timeScale = 1;
                 

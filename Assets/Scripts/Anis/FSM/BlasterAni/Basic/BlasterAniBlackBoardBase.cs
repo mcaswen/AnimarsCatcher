@@ -1,4 +1,4 @@
-using Unity.Android.Gradle.Manifest;
+//using Unity.Android.Gradle.Manifest;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
