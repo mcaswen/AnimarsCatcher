@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-namespace AnimarsCatcher.Mono
+namespace AnimarsCatcher.Mono.Utilities
 {
     public static class TerrainUtility
     {

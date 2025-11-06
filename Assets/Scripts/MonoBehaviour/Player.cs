@@ -5,6 +5,7 @@ using System.Drawing;
 using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 using AnimarsCatcher.Mono.Items;
+using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono
 {

@@ -2,29 +2,29 @@
 using UnityEngine;
 using UnityEngine.Events;
 
-namespace AnimarsCatcher.Mono
+namespace AnimarsCatcher.Mono.Utilities
 {
-    public class ReactiveProperty<T> where T: IEquatable<T>
+    public class ReactiveProperty<T> where T : IEquatable<T>
     {
-        [SerializeField] private T _Value;
-        private readonly UnityEvent<T> _OnValueChanged = new UnityEvent<T>();
+        [SerializeField] private T _value;
+        private readonly UnityEvent<T> _onValueChanged = new UnityEvent<T>();
 
         public T Value
         {
-            get => _Value;
+            get => _value;
             set
             {
-                if (!_Value.Equals(value))
+                if (!_value.Equals(value))
                 {
-                    _Value = value;
-                    _OnValueChanged.Invoke(_Value);
+                    _value = value;
+                    _onValueChanged.Invoke(_value);
                 }
             }
         }
 
         public ReactiveProperty()
         {
-            _Value = default;
+            _value = default;
         }
 
         public ReactiveProperty(T initial)
@@ -40,10 +40,10 @@ namespace AnimarsCatcher.Mono
                 return;
             }
 
-            _OnValueChanged.AddListener(new UnityAction<T>(callback));
+            _onValueChanged.AddListener(new UnityAction<T>(callback));
         }
 
-        public void Unsubsribe(Action<T> callback)
+        public void Unsubscribe(Action<T> callback)
         {
             if (callback == null)
             {
@@ -51,7 +51,48 @@ namespace AnimarsCatcher.Mono
                 return;
             }
 
-            _OnValueChanged.RemoveListener(new UnityAction<T>(callback));
+            _onValueChanged.RemoveListener(new UnityAction<T>(callback));
+        }
+    }
+
+    public class ReactiveProperty2<T> where T : IEquatable<T>
+    {
+        private T mValue;
+        private Action<T> mOnValueChanged;
+
+        public T Value
+        {
+            get => mValue;
+            set
+            {
+                if (!mValue.Equals(value))
+                {
+                    mValue = value;
+                    mOnValueChanged?.Invoke(mValue);
+                }
+            }
+        }
+
+        public ReactiveProperty2(T initialValue, Action<T> onValueChanged = null)
+        {
+            mValue = initialValue;
+            mOnValueChanged = onValueChanged;
+        }
+
+        public ReactiveProperty2(Action<T> onValueChanged = null)
+        {
+            mOnValueChanged = onValueChanged;
+        }
+
+        public void Subscribe(Action<T> callback)
+        {
+            mOnValueChanged += callback;
+        }
+
+        public void Unsubscribe(Action<T> callback)
+        {
+            mOnValueChanged -= callback;
         }
     }
 }
+

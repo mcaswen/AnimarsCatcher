@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Random = UnityEngine.Random;
+using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.Items
 {
@@ -40,7 +41,7 @@ namespace AnimarsCatcher.Mono.Items
 
         private void Start()
         {
-            Health.Subscribe(health => HandleDestroy(health));
+            Health.Subscribe(HandleDestroy);
         }
 
         private void HandleDestroy(int health)
