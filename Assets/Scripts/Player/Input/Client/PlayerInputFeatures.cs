@@ -34,7 +34,6 @@ public static class PlayerInputFeature
         if (raw.RightHeld)
         {
             SetRightMouseHeldTimeAndLongPress(ref input, in context);
-            SetRightMouseHeldTick(input.RightMouseHeld, ref input, in context); // 预测端，从按下那一帧开始计算
         }
         else
         {
@@ -55,21 +54,6 @@ public static class PlayerInputFeature
         // 本地端，直接使用阈值计算
         if (previousHeldTime < context.RightLongPressThreshold && input.RightMouseHeldTime >= context.RightLongPressThreshold)
             input.RightMouseLongPress.Set(context.NetTick);
-
-    }
-    
-    private static void SetRightMouseHeldTick(byte wasHeld, ref PlayerInput input, in InputContext context)
-    {
-        if (wasHeld == 0)
-        {
-            input.RightMouseHoldStartTick = context.NetTick;
-            input.RightMouseHeldTicks = 0; // 刚按下，计数从0开始
-        }
-        else
-        {
-            uint held = context.NetTick - input.RightMouseHoldStartTick;
-            input.RightMouseHeldTicks = (ushort)math.min(held, (uint)ushort.MaxValue);
-        }
     }
 
     

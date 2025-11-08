@@ -18,9 +18,4 @@ public struct PlayerInput : IComponentData
     public float RightMouseHeldTime;
     public FixedInputEvent RightMouseLongPress;
     public float2 MousePosition;
-
-    // 网络/预测用
-    public uint   RightMouseHoldStartTick; 
-    public ushort RightMouseHeldTicks;     
-    
 }

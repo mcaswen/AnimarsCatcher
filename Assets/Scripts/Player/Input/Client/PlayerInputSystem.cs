@@ -9,8 +9,8 @@ using UnityEngine.InputSystem;
 using Unity.CharacterController;
 using Unity.NetCode;
 
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
-[UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+[UpdateInGroup(typeof(GhostInputSystemGroup))]
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
 public partial class PlayerInputSystem : SystemBase
 {
