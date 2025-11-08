@@ -15,18 +15,21 @@ public enum CommandButtons : byte
 }
 
 [InternalBufferCapacity(16)]
+[GhostComponent]
 public struct InputCommand : ICommandData
 {
+    [GhostField]
     public NetworkTick Tick { get; set; }
-    public float3 Move;
-    public float2 Look;
-    public float2 Zoom;
-    public CommandButtons Buttons;
 
-    public uint RMBHoldStartTick;
-    public ushort RMBHeldTicks; 
-    
-    public float2 MousePosition; 
-    
-    // public Entity ControlledEntity; // 方便调试查看命令对应的实体
+    [GhostField]
+    public float3 Move;
+
+    [GhostField]
+    public float2 Look;
+
+    [GhostField]
+    public float2 Zoom;
+
+    [GhostField]
+    public CommandButtons Buttons;
 }
