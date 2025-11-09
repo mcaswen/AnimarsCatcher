@@ -7,7 +7,10 @@ using Unity.Physics;
 using Unity.Transforms;
 using Unity.CharacterController;
 using Unity.Burst.Intrinsics;
+using Unity.NetCode;
 
+
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(KinematicCharacterPhysicsUpdateGroup))]
 [BurstCompile]
 public partial struct ThirdPersonCharacterPhysicsUpdateSystem : ISystem
@@ -39,6 +42,11 @@ public partial struct ThirdPersonCharacterPhysicsUpdateSystem : ISystem
     {
         _context.OnSystemUpdate(ref state);
         _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+
+        if (SystemAPI.TryGetSingleton<NetworkTime>(out var netTime))
+        {
+            _context.DebugTick = netTime.ServerTick.SerializedData;
+        }
 
         ThirdPersonCharacterPhysicsUpdateJob job = new ThirdPersonCharacterPhysicsUpdateJob
         {

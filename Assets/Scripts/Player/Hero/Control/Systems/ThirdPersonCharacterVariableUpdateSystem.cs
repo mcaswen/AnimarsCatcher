@@ -7,10 +7,12 @@ using Unity.Physics;
 using Unity.Transforms;
 using Unity.CharacterController;
 using Unity.Burst.Intrinsics;
+using Unity.NetCode;
 
-[UpdateInGroup(typeof(SimulationSystemGroup))]
-[UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
-// [UpdateAfter(typeof(ThirdPersonPlayerVariableStepControlSystem))]
+
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
+[UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
+[UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
 [UpdateBefore(typeof(TransformSystemGroup))]
 [BurstCompile]
 public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
@@ -41,6 +43,11 @@ public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
     {
         _context.OnSystemUpdate(ref state);
         _baseContext.OnSystemUpdate(ref state, SystemAPI.Time, SystemAPI.GetSingleton<PhysicsWorldSingleton>());
+
+        if (SystemAPI.TryGetSingleton<NetworkTime>(out var netTime))
+        {
+            _context.DebugTick = netTime.ServerTick.SerializedData;
+        }
 
         ThirdPersonCharacterVariableUpdateJob job = new ThirdPersonCharacterVariableUpdateJob
         {
