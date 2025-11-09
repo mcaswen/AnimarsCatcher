@@ -68,22 +68,16 @@ public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
             if (input.PausePressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Pause;
 
             // 打包命令
-            InputCommand cmd = default;
-            cmd.Tick = tick;
+            InputCommand command = default;
+            command.Tick = tick;
 
-            cmd.Move = worldMove;
-            cmd.Look = input.CameraLookInput;
-            cmd.Zoom = input.CameraZoomInput;
+            command.Move = worldMove;
+            command.Look = input.CameraLookInput;
+            command.Zoom = input.CameraZoomInput;
 
-            cmd.Buttons = buttons;
+            command.Buttons = buttons;
 
-            cmd.RMBHoldStartTick = input.RightMouseHoldStartTick;
-            cmd.RMBHeldTicks = input.RightMouseHeldTicks;
-
-            cmd.MousePosition = input.MousePosition;
-            // cmd.ControlledEntity = player.ControlledCharacter; // 方便调试查看命令对应的实体
-
-            buffer.AddCommandData(cmd);
+            buffer.AddCommandData(command);
 
         }
     }
