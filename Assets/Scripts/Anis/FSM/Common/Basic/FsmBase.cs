@@ -26,6 +26,7 @@ public struct FsmContext : IComponentData
 {
     public float DeltaTime;
     public uint Tick;
+    public BufferLookup<FsmVar> BlackboardLookup;
 }
 
 //划分 id 空间，避免与其它模块冲突
