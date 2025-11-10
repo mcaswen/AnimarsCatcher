@@ -14,14 +14,13 @@ public enum FsmVarType : byte
     Entity
 }
 
-// 不同类型共享同一内存块，减少网络同步成本/内存开销
+// 黑板缓冲区，封装对数据的高频读写
 [InternalBufferCapacity(4)]
 public struct FsmVar : IBufferElementData
 {
     public uint       Key;    // 数据标识符
     public FsmVarType Type;   // 类型标签
     
-    //公用内存区
     public int Int;
     public float Float;
     public byte Bool;

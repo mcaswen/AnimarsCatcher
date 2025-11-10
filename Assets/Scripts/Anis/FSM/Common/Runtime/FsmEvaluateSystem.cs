@@ -4,23 +4,34 @@ using Unity.Entities;
 using Unity.Burst;
 
 // 评估转换：只写 Pending，不做结构改动
-[BurstCompile]
+[WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct FsmEvaluateSystem : ISystem
 {
+    private BufferLookup<FsmVar> _blackboardLookupRO;
+
+    public void OnCreate(ref SystemState state)
+    {
+        _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: true);
+        state.RequireForUpdate<FsmContext>(); 
+    }
+
     public void OnUpdate(ref SystemState state)
     {
-        var context = SystemAPI.GetSingleton<FsmContext>();
+        _blackboardLookupRO.Update(ref state);
 
-        foreach (var (fsm, graphRef, blackboard) in
-                 SystemAPI.Query<RefRW<Fsm>, RefRO<FsmGraphRef>, DynamicBuffer<FsmVar>>())
+        var context = SystemAPI.GetSingleton<FsmContext>();
+        context.BlackboardLookup = _blackboardLookupRO;
+
+        foreach (var (fsm, graphRef, entity) in
+                 SystemAPI.Query<RefRW<Fsm>, RefRO<FsmGraphRef>>()
+                 .WithEntityAccess())
         {
             ref var f = ref fsm.ValueRW;
             if (f.HasPending == 1) continue; //若处于pending状态，则不进行转换评估
 
             ref var graph = ref graphRef.ValueRO.Value.Value;
             ref var node = ref graph.States[(int)f.Current];
-            var bb = blackboard;
 
             for (int i = 0; i < node.Transitions.Length; i++)
             {

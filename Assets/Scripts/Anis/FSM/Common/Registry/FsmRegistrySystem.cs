@@ -11,8 +11,8 @@ public partial struct FsmRegistryBootstrapSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
-        FsmRegistry.InitIfNeeded();
         state.EntityManager.CreateSingleton(new FsmContext()); // 供 context 注入
+        FsmRegistry.Init();
     }
 
     public void OnDestroy(ref SystemState state)
