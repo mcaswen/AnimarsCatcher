@@ -20,7 +20,7 @@ public class ThirdPersonCharacterAuthoring : MonoBehaviour
     public float AirMaxSpeed = 10f;
     public float AirDrag = 0f;
     public float JumpSpeed = 10f;
-    public float3 Gravity = math.up() * -30f;
+    public float3 Gravity = math.up() * - 30f;
     public bool PreventAirAccelerationAgainstUngroundedHits = true;
     public BasicStepAndSlopeHandlingParameters StepAndSlopeHandling = BasicStepAndSlopeHandlingParameters.GetDefault();
 

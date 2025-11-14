@@ -5,12 +5,16 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.CharacterController;
 using System;
+using Unity.NetCode;
+using Unity.VisualScripting;
 
-[UpdateInGroup(typeof(PresentationSystemGroup))]
+
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+[UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
 [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
-// [UpdateAfter(typeof(ThirdPersonPlayerVariableStepControlSystem))]
-// [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
 [UpdateAfter(typeof(TransformSystemGroup))]
+[UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
+[UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
 [BurstCompile]
 public partial struct FixedFollowCameraSystem : ISystem
 {
@@ -40,12 +44,12 @@ public partial struct FixedFollowCameraSystem : ISystem
         [ReadOnly] public ComponentLookup<CameraTarget> CameraTargetLookup;
         public float DeltaTime;
 
-        void Execute(Entity camera, ref FixedCamera cfg, in FixedCameraControl control)
+        void Execute(Entity camera, ref FixedCamera config, in FixedCameraControl control)
         {
             if (control.FollowedCharacterEntity == Entity.Null)
                 return;
 
-            // 取被跟随目标的 仿真世界变换
+            // 取被跟随目标的仿真世界变换
             if (!OrbitCameraUtilities.TryGetCameraTargetInterpolatedWorldTransform(
                 control.FollowedCharacterEntity, ref LocalToWorldLookup, ref CameraTargetLookup, out LocalToWorld target))
                 return;
@@ -61,17 +65,17 @@ public partial struct FixedFollowCameraSystem : ISystem
             
             // 计算期望旋转
             quaternion baseRot = quaternion.LookRotationSafe(planarFwd, up);
-            quaternion yawRot = quaternion.AxisAngle(up, math.radians(cfg.YawDeg));
+            quaternion yawRot = quaternion.AxisAngle(up, math.radians(config.YawDeg));
             quaternion yawApplied = math.mul(yawRot, baseRot);
             float3 right = MathUtilities.GetRightFromRotation(yawApplied);
-            quaternion pitchRot = quaternion.AxisAngle(right, math.radians(cfg.PitchDeg));
+            quaternion pitchRot = quaternion.AxisAngle(right, math.radians(config.PitchDeg));
             quaternion desiredRot = math.mul(pitchRot, yawApplied);
 
 
             float3 back = math.mul(desiredRot, new float3(0,0,-1));
 
             // 利用背向向量计算初始期望位置
-            float3 desiredPos = targetPos + back * cfg.Distance + new float3(0, cfg.Height, 0);
+            float3 desiredPos = targetPos + back * config.Distance + new float3(0, config.Height, 0);
 
             // 读取相机当前 localToWorld 用于平滑；首次则直接贴近目标
             float3 currPos; quaternion currRot;
@@ -88,16 +92,16 @@ public partial struct FixedFollowCameraSystem : ISystem
             }
 
             // snap阈值
-            float snapDist = math.max(0.01f, cfg.SnapDistance);
-            float snapCos  = math.cos(math.radians(math.max(1f, cfg.SnapAngleDeg)));
+            float snapDist = math.max(0.01f, config.SnapDistance);
+            float snapCos  = math.cos(math.radians(math.max(1f, config.SnapAngleDeg)));
             bool snapP = math.lengthsq(desiredPos - currPos) > snapDist * snapDist;
             bool snapR = math.abs(math.dot(currRot.value, desiredRot.value)) < snapCos;
 
             // 应用阻尼平滑
-            float k = math.exp(-DeltaTime / math.max(1e-4f, cfg.Damping)); // tau=Damping
+            float k = math.exp(-DeltaTime / math.max(1e-4f, config.Damping)); // tau=Damping
             float3 newPosition = snapP ? desiredPos : math.lerp(desiredPos, currPos, k);
 
-            float3 lookAt = targetPos + new float3(0, cfg.LookUpBias, 0);
+            float3 lookAt = targetPos + new float3(0, config.LookUpBias, 0);
             float3 fwd    = math.normalizesafe(lookAt - newPosition, MathUtilities.GetForwardFromRotation(currRot));
             quaternion desiredLook = quaternion.LookRotationSafe(fwd, up);
             quaternion newRotation = snapR ? desiredLook : math.slerp(desiredLook, currRot, k);

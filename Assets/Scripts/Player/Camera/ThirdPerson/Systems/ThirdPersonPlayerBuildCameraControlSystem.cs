@@ -9,9 +9,7 @@ using UnityEngine.InputSystem;
 using Unity.CharacterController;
 using Unity.NetCode;
 
-/// <summary>
-/// Apply inputs that need to be read at a variable rate
-/// </summary>
+
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
@@ -27,13 +25,14 @@ public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-    foreach (var (playerInputs, player) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>().WithAll<Simulate>())
-    {
-        if (SystemAPI.HasComponent<OrbitCameraControl>(player.ControlledCamera))
+        foreach (var (playerInputs, playerControl) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>().WithAll<Simulate>())
+        {
+        
+            if (SystemAPI.HasComponent<OrbitCameraControl>(playerControl.ControlledCamera))
             {
-                OrbitCameraControl cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(player.ControlledCamera);
+                OrbitCameraControl cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(playerControl.ControlledCamera);
 
-                cameraControl.FollowedCharacterEntity = player.ControlledCharacter;
+                cameraControl.FollowedCharacterEntity = playerControl.ControlledCharacter;
 
                 var mainEntityCamera = SystemAPI.GetSingletonEntity<MainEntityCamera>();
 
@@ -41,20 +40,21 @@ public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
                 cameraControl.ZoomDelta = playerInputs.CameraZoomInput;
 
                 SystemAPI.SetComponent(mainEntityCamera, cameraControl);
-                SystemAPI.SetComponent(player.ControlledCamera, cameraControl);
+                SystemAPI.SetComponent(playerControl.ControlledCamera, cameraControl);
             }
 
-            else if (SystemAPI.HasComponent<FixedCamera>(player.ControlledCamera))
+            else if (SystemAPI.HasComponent<FixedCamera>(playerControl.ControlledCamera))
             {
-                FixedCameraControl cameraControl = SystemAPI.GetComponent<FixedCameraControl>(player.ControlledCamera);
+                FixedCameraControl cameraControl = SystemAPI.GetComponent<FixedCameraControl>(playerControl.ControlledCamera);
 
-                cameraControl.FollowedCharacterEntity = player.ControlledCharacter;
+                cameraControl.FollowedCharacterEntity = playerControl.ControlledCharacter;
 
-                var mainEntityCamera = SystemAPI.GetSingletonEntity<MainEntityCamera>();
+                foreach (var fixedCameraControl in SystemAPI.Query<RefRW<FixedCameraControl>>().WithAll<Simulate, GhostOwner, MainEntityCamera>())
+                {
+                    fixedCameraControl.ValueRW = cameraControl;
+                }
 
-                SystemAPI.SetComponent(mainEntityCamera, cameraControl);
-                SystemAPI.SetComponent(player.ControlledCamera, cameraControl);
-
+                SystemAPI.SetComponent(playerControl.ControlledCamera, cameraControl);
             }
         }
     }
