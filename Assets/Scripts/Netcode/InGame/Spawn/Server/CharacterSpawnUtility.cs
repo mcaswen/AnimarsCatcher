@@ -25,28 +25,28 @@ public static class CharacterSpawnUtil
 
     public static void SelectCharacterSpwanPoint(
         int playerId,
-        PlayerSpawnPointsState stateRW,
+        CharacterSpawnPointsState stateRW,
         in ServerGetConnectionAspect connectionAspect,
-        in DynamicBuffer<PlayerSpawnPointElement> pointsRO,
+        in DynamicBuffer<CharacterSpawnPointElement> pointsRO,
         SpawnSelectMode mode,
         out float3 spawnPosition,
         out quaternion spawnRotation)
     {
         if (pointsRO.Length > 0)
         {
-            int idx;
+            int index;
             if (mode == SpawnSelectMode.NetworkIdModulo)
             {
-                idx = math.abs(connectionAspect.Id) % pointsRO.Length;
+                index = math.abs(connectionAspect.Id) % pointsRO.Length;
             }
             else // RoundRobin
             {
-                var cur = stateRW.NextIndex;
-                idx = (cur >= 0 ? cur : 0) % pointsRO.Length;
-                stateRW.NextIndex = (idx + 1) % pointsRO.Length;
+                var currentIndex = stateRW.NextIndex;
+                index = (currentIndex >= 0 ? currentIndex : 0) % pointsRO.Length;
+                stateRW.NextIndex = (index + 1) % pointsRO.Length;
             }
 
-            var point = pointsRO[idx];
+            var point = pointsRO[index];
             spawnPosition = point.Position;
             spawnRotation = point.Rotation;
         }
@@ -56,7 +56,7 @@ public static class CharacterSpawnUtil
             spawnPosition = new float3(0, 0.5f, 0);
             spawnRotation = quaternion.identity;
 
-            UnityEngine.Debug.LogWarning("[Server] No PlayerSpawnPointElement found, spawn at (0,0.5,0).");
+            UnityEngine.Debug.LogWarning("[Server Spawner] No PlayerSpawnPointElement found, spawn at (0,0.5,0).");
         }
     }
 

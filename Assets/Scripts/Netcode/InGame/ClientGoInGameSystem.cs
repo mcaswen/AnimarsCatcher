@@ -17,6 +17,6 @@ public partial struct ClientGoInGameSystem : ISystem
         state.EntityManager.AddComponentData(rpcEntity, new SendRpcCommandRequest { TargetConnection = connection });
 
         state.EntityManager.AddComponent<NetworkStreamInGame>(connection);
-        UnityEngine.Debug.LogWarning("[Client] Sent GoInGameRequest and marked InGame locally");
+        UnityEngine.Debug.Log("[Client] Sent GoInGameRequest and marked InGame locally");
     }
 }

@@ -13,15 +13,17 @@ public partial struct ServerGoInGameSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<CharacterGhostPrefab>();
-        state.RequireForUpdate<PlayerSpawnPointsTag>();
+        state.RequireForUpdate<CharacterSpawnPointsTag>();
     }
 
     public void OnUpdate(ref SystemState state)
     {
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        var hasPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var prefab);
-        var pointsRO  = SystemAPI.GetSingletonBuffer<PlayerSpawnPointElement>(true);
+        var hasCharacterPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var prefab);
+        var hasCameraPrefab = SystemAPI.TryGetSingleton<CameraGhostPrefab>(out var cameraPrefab);
+
+        var pointsRO  = SystemAPI.GetSingletonBuffer<CharacterSpawnPointElement>(true);
 
         foreach (var (req, source, rpcEntity) in SystemAPI
                      .Query<RefRO<GoInGameRequest>, RefRO<ReceiveRpcCommandRequest>>()
@@ -30,7 +32,7 @@ public partial struct ServerGoInGameSystem : ISystem
             var connectionEntity = source.ValueRO.SourceConnection;
             var connectionAspect = SystemAPI.GetAspect<ServerGetConnectionAspect>(connectionEntity);
 
-            UnityEngine.Debug.Log("[Server] GoInGameRequest received");
+            UnityEngine.Debug.Log("[Server InGame] GoInGameRequest received");
 
             // 先标记 InGame
             connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
@@ -38,15 +40,15 @@ public partial struct ServerGoInGameSystem : ISystem
             // 已经生成过, 则销毁rpc
             if (connectionAspect.HasSpawned(ref state))
             {
-                UnityEngine.Debug.LogWarning("[Server] CharacterGhostPrefab has been spawned in ServerWorld.");
+                UnityEngine.Debug.Log("[Server InGame] CharacterGhostPrefab has been spawned in ServerWorld.");
                 entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
             }
 
             // 找不到prefab也清理 RPC
-            if (!hasPrefab)
+            if (!hasCharacterPrefab || !hasCameraPrefab)
             {
-                UnityEngine.Debug.LogWarning("[Server] CharacterGhostPrefab not found in ServerWorld.");
+                UnityEngine.Debug.LogWarning("[Server InGame] CharacterGhostPrefab not found in ServerWorld.");
                 entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
             }
@@ -56,10 +58,10 @@ public partial struct ServerGoInGameSystem : ISystem
 
             CharacterSpawnUtil.SelectCharacterSpwanPoint(
                 id,
-                SystemAPI.GetSingletonRW<PlayerSpawnPointsState>().ValueRW,
+                SystemAPI.GetSingletonRW<CharacterSpawnPointsState>().ValueRW,
                 connectionAspect,
                 pointsRO,
-                SystemAPI.GetSingleton<PlayerSpawnSelectMode>().Value,
+                SystemAPI.GetSingleton<CharacterSpawnSelectMode>().Value,
                 out var spawnPosition,
                 out var spawnRotation
             );
@@ -75,10 +77,15 @@ public partial struct ServerGoInGameSystem : ISystem
 
             // 绑定 CommandTarget、打已生成标记、清理 RPC
             connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
+            entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
+
+            var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
+            entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
+
             connectionAspect.MarkSpawned(ref entityCommandBuffer);
             entityCommandBuffer.DestroyEntity(rpcEntity);
 
-            UnityEngine.Debug.LogWarning($"[Server] Spawned character for connection {id} at {spawnPosition}");
+            UnityEngine.Debug.Log($"[Server InGame] Spawned character for connection {id} at {spawnPosition}");
         }
 
         entityCommandBuffer.Playback(state.EntityManager);
