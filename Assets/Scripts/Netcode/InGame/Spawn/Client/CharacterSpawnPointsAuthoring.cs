@@ -2,13 +2,13 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-public struct PlayerSpawnPointsTag : IComponentData {}
-public struct PlayerSpawnPointElement : IBufferElementData
+public struct CharacterSpawnPointsTag : IComponentData {}
+public struct CharacterSpawnPointElement : IBufferElementData
 {
     public float3 Position;
     public quaternion Rotation;
 }
-public struct PlayerSpawnPointsState : IComponentData
+public struct CharacterSpawnPointsState : IComponentData
 {
     public int NextIndex; 
 }
@@ -19,12 +19,12 @@ public enum SpawnSelectMode : byte
     NetworkIdModulo = 1
 }
 
-public struct PlayerSpawnSelectMode : IComponentData 
+public struct CharacterSpawnSelectMode : IComponentData 
 {
     public SpawnSelectMode Value;     
 }
 
-public class PlayerSpawnPointsAuthoring : MonoBehaviour
+public class CharacterSpawnPointsAuthoring : MonoBehaviour
 {
     [Tooltip("Select Mode: RoundRobin or NetworkIdModulo")]
     public SpawnSelectMode selectMode = SpawnSelectMode.RoundRobin;
