@@ -113,7 +113,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 3
-    m_ConditionEvent: AniSpeed
+    m_ConditionEvent: Speed
     m_EventTreshold: 1.9
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -7448642126358137791}
@@ -160,7 +160,7 @@ AnimatorController:
   m_Name: BLASTER_Ani
   serializedVersion: 5
   m_AnimatorParameters:
-  - m_Name: AniSpeed
+  - m_Name: Speed
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -221,7 +221,7 @@ BlendTree:
     m_CycleOffset: 0
     m_DirectBlendParameter: Blend
     m_Mirror: 0
-  m_BlendParameter: AniSpeed
+  m_BlendParameter: Speed
   m_BlendParameterY: Blend
   m_MinThreshold: 2
   m_MaxThreshold: 5
@@ -237,7 +237,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: AniSpeed
+    m_ConditionEvent: Speed
     m_EventTreshold: 1.9
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 8970762447387565467}

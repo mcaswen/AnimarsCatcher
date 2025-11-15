@@ -24,7 +24,6 @@ namespace AnimarsCatcher.Mono
 
         private List<PICKER_Ani> mPickerAniList = new List<PICKER_Ani>();
         private List<BLASTER_Ani> mBlasterAniList = new List<BLASTER_Ani>();
-        private float mAniSpeed = 2f;
 
         //Components
         private Rigidbody mRigidbody;

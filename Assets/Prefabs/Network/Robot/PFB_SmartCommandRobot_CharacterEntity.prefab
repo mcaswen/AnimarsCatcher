@@ -15,6 +15,8 @@ GameObject:
   - component: {fileID: 2818051076551982534}
   - component: {fileID: -5489293814481945424}
   - component: {fileID: -7406951905005556486}
+  - component: {fileID: 7117261450362681167}
+  - component: {fileID: 5516817746865497310}
   m_Layer: 0
   m_Name: PFB_SmartCommandRobot_CharacterEntity
   m_TagString: Untagged
@@ -91,9 +93,9 @@ MonoBehaviour:
   prefabId: 470b24872305b4545a2d6405d0d203fb
   HasOwner: 1
   SupportAutoCommandTarget: 1
-  TrackInterpolationDelay: 0
+  TrackInterpolationDelay: 1
   GhostGroup: 0
-  UsePreSerialization: 0
+  UsePreSerialization: 1
   UseSingleBaseline: 0
   RollbackPredictedSpawnedGhostState: 0
   RollbackPredictionOnStructuralChanges: 1
@@ -117,7 +119,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3732576031036209812}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e85b88d117221f9469f88aff2fc78b40, type: 3}
   m_Name: 
@@ -163,7 +165,7 @@ MonoBehaviour:
   PreventAirAccelerationAgainstUngroundedHits: 1
   StepAndSlopeHandling:
     StepHandling: 0
-    MaxStepHeight: 0.5
+    MaxStepHeight: 0.2
     ExtraStepChecksDistance: 0.1
     CharacterWidthForStepGroundingCheck: 1
     PreventGroundingWhenMovingTowardsNoGrounding: 1
@@ -184,6 +186,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterViewAuthoring
   ViewPrefab: {fileID: 6883291910144430276, guid: 52541a062324315499aa0c65bb7539ac,
     type: 3}
+--- !u!114 &7117261450362681167
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3732576031036209812}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bfdaa6c06fe64fbda2b16e07a4ee0b25, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.NetCode.Authoring.Hybrid::Unity.NetCode.GhostAuthoringInspectionComponent
+  ComponentOverrides: []
+--- !u!114 &5516817746865497310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3732576031036209812}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6901122b1d82af64b9e34e6e8063f0ba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SimpleCharacterAuthoring
+  MoveSpeed: 13
+  RotationSharpness: 15
+  ColliderHeight: 1.8
+  ColliderRadius: 0.4
 --- !u!1 &5564234976526495408
 GameObject:
   m_ObjectHideFlags: 0
