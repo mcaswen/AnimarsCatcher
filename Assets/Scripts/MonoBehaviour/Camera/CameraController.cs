@@ -21,9 +21,9 @@ namespace AnimarsCatcher.Mono
         public float maxHorizontalOffset = 2f;
         public float maxVerticalOffset = 1f;
         
-        private float currentX = 0f;
-        private float currentY = 0f;
-        private Vector3 initialLocalPosition;
+        // private float currentX = 0f;
+        // private float currentY = 0f;
+        // private Vector3 initialLocalPosition;
 
         public float XSpeed = 300f;
         private CinemachineFreeLook _FreeLookCamera;

@@ -58,8 +58,6 @@ class DelegateExample : MonoBehaviour
         _clock = new Clock();
         _clock.OnSevenAM += _student.SleepAtSevenAM;
         _clock.OnSevenAM += _student.GetUp;
-        _clock.OnSevenAM = _student.GetUp;
-        _clock.OnSevenAM.Invoke();
     }
 
     void Update()

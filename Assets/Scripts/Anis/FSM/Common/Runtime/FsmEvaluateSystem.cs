@@ -37,7 +37,7 @@ public partial struct FsmEvaluateSystem : ISystem
             {
                 // 获取每一个可能的目标节点的转换条件
                 var transition = node.Transitions[i];
-                if (FsmRegistry.InvokeCondition(transition.Condition, ref f, ref bb, context)) {
+                if (FsmRegistry.InvokeCondition(transition.Condition, entity, context)) {
                     f.Next         = transition.To;
                     f.PendingExit  = transition.OnExit;
                     f.PendingEnter = transition.OnEnter;

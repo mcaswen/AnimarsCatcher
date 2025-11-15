@@ -7,7 +7,7 @@ public class ScriptReferenceFixer : MonoBehaviour
     [MenuItem("Tools/强制修复脚本引用")]
     static void FixMissingScripts()
     {
-        foreach (GameObject go in FindObjectsOfType<GameObject>(true))
+        foreach (GameObject go in FindObjectsByType<GameObject>(FindObjectsSortMode.None))
         {
             var components = go.GetComponents<Component>();
             foreach (var comp in components)
