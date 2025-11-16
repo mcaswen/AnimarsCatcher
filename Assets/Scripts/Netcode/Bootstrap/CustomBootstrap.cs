@@ -8,7 +8,7 @@ public class CustomBootstrap : ClientServerBootstrap
 #if UNITY_EDITOR
         // 编辑器创建
         DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
-        AutoConnectPort = 7979;
+        AutoConnectPort = 0;
         
         switch (RequestedPlayType)
         {
@@ -33,15 +33,25 @@ public class CustomBootstrap : ClientServerBootstrap
         }
         return true;
 #else
-        // 命令行创建
+        // 非 Editor 模式下，角色由 NetRuntimeRole 决定
         DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
-        AutoConnectPort    = 0; 
-        
-        if (CommandLineManager.HasArg("-dedicated") || CommandLineManager.HasArg("-server") || CommandLineManager.HasArg("-serverui"))
-            CreateServerWorld("Server World");
-        else
-            CreateClientWorld("Client World");
-        return true;
+        AutoConnectPort = 0;
+
+        switch (NetRuntimeRole.Current)
+        {
+            case NetworkRunRole.Host:
+                CreateServerWorld("Server World");
+                CreateClientWorld("Client World");
+                return true;
+
+            case NetworkRunRole.Client:
+                CreateClientWorld("Client World");
+                return true;
+
+            case NetworkRunRole.DedicatedServer:
+                CreateServerWorld("Server World");
+                return true;
+        }
 #endif
     }
 }
