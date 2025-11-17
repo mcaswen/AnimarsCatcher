@@ -42,4 +42,6 @@ public readonly partial struct ServerGetConnectionAspect : IAspect
             entityCommandBuffer.AddComponent(Self, new CommandTarget { targetEntity = character });
         }
     }
+
+    
 }

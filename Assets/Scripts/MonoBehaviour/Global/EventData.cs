@@ -49,4 +49,11 @@ namespace AnimarsCatcher.Mono.Global
             SpawningPickerAniCount = spawningPickerAniCount;
         }
     }
+
+    public struct GameRoomCreatedEventData : IEventData
+    { }
+
+    public struct JoinGameRoomRequestEventData : IEventData
+    { }
+
 }
