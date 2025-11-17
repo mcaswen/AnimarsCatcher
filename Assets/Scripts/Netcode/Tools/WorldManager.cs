@@ -34,5 +34,18 @@ public static class WorldManager
 
         return null;
     }
+
+    public static World FindServerWorld()
+    {
+        foreach (var world in World.All)
+        {
+            if (world.Flags.HasFlag(WorldFlags.GameServer))
+            {
+                return world;
+            }
+        }
+
+        return null;
+    }
     
 }

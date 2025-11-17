@@ -1,81 +1,104 @@
-using System.Threading;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using Unity.NetCode;
+using UnityEngine;
+using Unity.Mathematics;
 using Unity.Transforms;
 
+#if UNITY_EDITOR
+using UnityEngine.SceneManagement;
+#endif
+
+// Editor 调试模式专用
+// 只在 UNITY_EDITOR 下生效
+// 只在当前场景为 "GameLevel" 时工作
+// 收到 GoInGameRequest 后：标记 InGame + 为该连接 Spawn 角色与相机
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
-public partial struct ServerGoInGameSystem : ISystem
+public partial struct ServerGoInGameDebugSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
+#if UNITY_EDITOR
         state.RequireForUpdate<CharacterGhostPrefab>();
         state.RequireForUpdate<CharacterSpawnPointsTag>();
+#else
+        state.Enabled = false;
+#endif
     }
 
     public void OnUpdate(ref SystemState state)
     {
+        Debug.Log("[ServerGoInGameDebug] OnUpdate called.");
+
+#if !UNITY_EDITOR
+        return;
+#else
+        if (SceneManager.GetActiveScene().name != "GameLevel")
+        {
+            return;
+        }
+
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        var hasCharacterPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var prefab);
-        var hasCameraPrefab = SystemAPI.TryGetSingleton<CameraGhostPrefab>(out var cameraPrefab);
+        var hasCharacterPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var characterPrefab);
+        var hasCameraPrefab    = SystemAPI.TryGetSingleton<CameraGhostPrefab>(out var cameraPrefab);
 
-        var pointsRO  = SystemAPI.GetSingletonBuffer<CharacterSpawnPointElement>(true);
+        if (!hasCharacterPrefab || !hasCameraPrefab)
+        {
+            entityCommandBuffer.Playback(state.EntityManager);
+            return;
+        }
 
-        foreach (var (req, source, rpcEntity) in SystemAPI
+        var spawnPoints = SystemAPI.GetSingletonBuffer<CharacterSpawnPointElement>(true);
+        var spawnPointsState = SystemAPI.GetSingletonRW<CharacterSpawnPointsState>().ValueRW;
+        var selectMode = SystemAPI.GetSingleton<CharacterSpawnSelectMode>().Value;
+
+        // 处理 GoInGameRequest
+        foreach (var (request, src, rpcEntity) in SystemAPI
                      .Query<RefRO<GoInGameRequest>, RefRO<ReceiveRpcCommandRequest>>()
                      .WithEntityAccess())
         {
-            var connectionEntity = source.ValueRO.SourceConnection;
+            var connectionEntity = src.ValueRO.SourceConnection;
             var connectionAspect = SystemAPI.GetAspect<ServerGetConnectionAspect>(connectionEntity);
 
-            UnityEngine.Debug.Log("[Server InGame] GoInGameRequest received");
+            Debug.Log("[ServerGoInGameDebug] GoInGameRequest received.");
 
-            // 先标记 InGame
+            // 标记 InGame
             connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
 
-            // 已经生成过, 则销毁rpc
             if (connectionAspect.HasSpawned(ref state))
             {
-                UnityEngine.Debug.Log("[Server InGame] CharacterGhostPrefab has been spawned in ServerWorld.");
+                Debug.Log("[ServerGoInGameDebug] Character already spawned for this connection, skip.");
                 entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
             }
 
-            // 找不到prefab也清理 RPC
-            if (!hasCharacterPrefab || !hasCameraPrefab)
-            {
-                UnityEngine.Debug.LogWarning("[Server InGame] CharacterGhostPrefab not found in ServerWorld.");
-                entityCommandBuffer.DestroyEntity(rpcEntity);
-                continue;
-            }
-
-            // 生成角色并初始化
             var id = connectionAspect.Id;
 
+            // 选取出生点
             CharacterSpawnUtil.SelectCharacterSpwanPoint(
                 id,
-                SystemAPI.GetSingletonRW<CharacterSpawnPointsState>().ValueRW,
+                spawnPointsState,
                 connectionAspect,
-                pointsRO,
-                SystemAPI.GetSingleton<CharacterSpawnSelectMode>().Value,
+                spawnPoints,
+                selectMode,
                 out var spawnPosition,
                 out var spawnRotation
             );
 
+            // 实例化角色
             var character = CharacterSpawnUtil.InstantiateAndInit(
                 ref entityCommandBuffer,
-                prefab.Value,
+                characterPrefab.Value,
                 id,
                 spawnPosition,
                 spawnRotation,
                 1f
             );
 
-            // 绑定 CommandTarget、打已生成标记、清理 RPC
+            // 设置 CommandTarget / GhostOwner
             connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
             entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
 
@@ -83,11 +106,13 @@ public partial struct ServerGoInGameSystem : ISystem
             entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
 
             connectionAspect.MarkSpawned(ref entityCommandBuffer);
+
             entityCommandBuffer.DestroyEntity(rpcEntity);
 
-            UnityEngine.Debug.Log($"[Server InGame] Spawned character for connection {id} at {spawnPosition}");
+            Debug.Log($"[ServerGoInGameDebug] Spawned character for connection {id} at {spawnPosition}");
         }
 
         entityCommandBuffer.Playback(state.EntityManager);
+#endif
     }
 }
