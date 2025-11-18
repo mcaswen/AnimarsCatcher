@@ -46,7 +46,7 @@ public partial class PlayerInputSystem : SystemBase
 
             RightHeld = mouse != null && mouse.rightButton.isPressed,
 
-            MousePos = mouse != null ? mouse.position.ReadValue() : default
+            MousePosition = mouse != null ? mouse.position.ReadValue() : default
         };
 
         foreach (var inputRW in SystemAPI.Query<RefRW<PlayerInput>>())
