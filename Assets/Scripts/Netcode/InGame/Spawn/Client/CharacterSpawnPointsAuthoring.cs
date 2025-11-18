@@ -28,4 +28,5 @@ public class CharacterSpawnPointsAuthoring : MonoBehaviour
 {
     [Tooltip("Select Mode: RoundRobin or NetworkIdModulo")]
     public SpawnSelectMode selectMode = SpawnSelectMode.RoundRobin;
+    public CampType campType = CampType.Alpha;
 }
