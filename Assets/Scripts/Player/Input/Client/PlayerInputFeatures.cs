@@ -21,7 +21,7 @@ public struct KeyBoardMouseState
     public bool EDown;
     public bool ESCDown;
     public bool RightHeld;
-    public float2 MousePos;
+    public float2 MousePosition;
 }
 
 public static class PlayerInputFeature
@@ -41,7 +41,7 @@ public static class PlayerInputFeature
             input.RightMouseHeldTime = 0f;
         }
 
-        input.MousePosition = raw.MousePos;
+        input.MousePosition = raw.MousePosition;
     }
 
     private static void SetRightMouseHeldTimeAndLongPress(ref PlayerInput input, in InputContext context)
