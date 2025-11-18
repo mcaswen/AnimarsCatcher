@@ -10,6 +10,7 @@ public class PlayerSpawnPointsBaker : Baker<CharacterSpawnPointsAuthoring>
         AddComponent<CharacterSpawnPointsTag>(entity);
         AddComponent(entity, new CharacterSpawnPointsState { NextIndex = 0 });
         AddComponent(entity, new CharacterSpawnSelectMode { Value = authoring.selectMode });
+        AddComponent(entity, new Camp { Value = authoring.campType });
 
         var buffer = AddBuffer<CharacterSpawnPointElement>(entity);
 

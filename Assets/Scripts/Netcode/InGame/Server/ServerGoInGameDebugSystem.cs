@@ -51,10 +51,6 @@ public partial struct ServerGoInGameDebugSystem : ISystem
             return;
         }
 
-        var spawnPoints = SystemAPI.GetSingletonBuffer<CharacterSpawnPointElement>(true);
-        var spawnPointsState = SystemAPI.GetSingletonRW<CharacterSpawnPointsState>().ValueRW;
-        var selectMode = SystemAPI.GetSingleton<CharacterSpawnSelectMode>().Value;
-
         // 处理 GoInGameRequest
         foreach (var (request, src, rpcEntity) in SystemAPI
                      .Query<RefRO<GoInGameRequest>, RefRO<ReceiveRpcCommandRequest>>()
@@ -63,53 +59,66 @@ public partial struct ServerGoInGameDebugSystem : ISystem
             var connectionEntity = src.ValueRO.SourceConnection;
             var connectionAspect = SystemAPI.GetAspect<ServerGetConnectionAspect>(connectionEntity);
 
+            var id = connectionAspect.Id;
+            CampType camp = ServerCampAssignmentPolicy.GetCampForConnection(id);
+
             Debug.Log("[ServerGoInGameDebug] GoInGameRequest received.");
 
-            // 标记 InGame
-            connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
-
-            if (connectionAspect.HasSpawned(ref state))
+            foreach (var (spawnState, selectMode, groupCamp, points) in
+                SystemAPI.Query<RefRW<CharacterSpawnPointsState>,
+                                RefRO<CharacterSpawnSelectMode>,
+                                RefRO<Camp>,
+                                DynamicBuffer<CharacterSpawnPointElement>>())
             {
-                Debug.Log("[ServerGoInGameDebug] Character already spawned for this connection, skip.");
+
+                if (groupCamp.ValueRO.Value != camp)
+                    continue;
+
+                // 标记 InGame
+                connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
+
+                if (connectionAspect.HasSpawned(ref state))
+                {
+                    Debug.Log("[ServerGoInGameDebug] Character already spawned for this connection, skip.");
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
+
+                // 选取出生点
+                bool spawnPointSelected = CharacterSpawnUtil.TrySelectCharacterSpawnPoint(
+                    spawnState.ValueRW,
+                    connectionAspect,
+                    points,
+                    selectMode.ValueRO.Value,
+                    out var spawnPosition,
+                    out var spawnRotation
+                );
+
+                // 实例化角色
+                var character = CharacterSpawnUtil.InstantiateAndInit(
+                    ref entityCommandBuffer,
+                    characterPrefab.Value,
+                    id,
+                    spawnPosition,
+                    spawnRotation,
+                    camp,
+                    1f
+                );
+
+                // 设置 CommandTarget / GhostOwner
+                connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
+                entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
+                entityCommandBuffer.AddComponent(character, new Camp { Value = camp });
+
+                var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
+                entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
+
+                connectionAspect.MarkSpawned(ref entityCommandBuffer);
+
                 entityCommandBuffer.DestroyEntity(rpcEntity);
-                continue;
+
+                Debug.Log($"[ServerGoInGameDebug] Spawned character for connection {id} at {spawnPosition}");
             }
-
-            var id = connectionAspect.Id;
-
-            // 选取出生点
-            CharacterSpawnUtil.SelectCharacterSpwanPoint(
-                id,
-                spawnPointsState,
-                connectionAspect,
-                spawnPoints,
-                selectMode,
-                out var spawnPosition,
-                out var spawnRotation
-            );
-
-            // 实例化角色
-            var character = CharacterSpawnUtil.InstantiateAndInit(
-                ref entityCommandBuffer,
-                characterPrefab.Value,
-                id,
-                spawnPosition,
-                spawnRotation,
-                1f
-            );
-
-            // 设置 CommandTarget / GhostOwner
-            connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
-            entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
-
-            var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
-            entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
-
-            connectionAspect.MarkSpawned(ref entityCommandBuffer);
-
-            entityCommandBuffer.DestroyEntity(rpcEntity);
-
-            Debug.Log($"[ServerGoInGameDebug] Spawned character for connection {id} at {spawnPosition}");
         }
 
         entityCommandBuffer.Playback(state.EntityManager);

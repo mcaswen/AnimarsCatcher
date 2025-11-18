@@ -107,6 +107,7 @@ public partial struct ServerStartGameSystem : ISystem
         var hasCharacterPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var characterPrefab);
         var hasCameraPrefab = SystemAPI.TryGetSingleton<CameraGhostPrefab>(out var cameraPrefab);
         var hasSpawnTag  = SystemAPI.HasSingleton<CharacterSpawnPointsTag>();
+        
 
         if (!hasCharacterPrefab || !hasCameraPrefab || !hasSpawnTag)
         {
@@ -116,57 +117,72 @@ public partial struct ServerStartGameSystem : ISystem
         }
 
         // 真正开始 Spawn
-        var spawnPoints = SystemAPI.GetSingletonBuffer<CharacterSpawnPointElement>(true);
-        var spawnPointsState = SystemAPI.GetSingletonRW<CharacterSpawnPointsState>().ValueRW;
-        var selectMode = SystemAPI.GetSingleton<CharacterSpawnSelectMode>().Value;
-
         foreach (var (networkId, connectionEntity) in SystemAPI
                      .Query<RefRO<NetworkId>>()
                      .WithEntityAccess())
         {
             var connectionAspect = SystemAPI.GetAspect<ServerGetConnectionAspect>(connectionEntity);
-
-            // 标记 InGame
-            connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
-
-            if (connectionAspect.HasSpawned(ref state))
-            {
-                UnityEngine.Debug.Log($"[Server] Connection {networkId.ValueRO.Value} already spawned, skip.");
-                continue;
-            }
-
-            // 选择出生点并实例化角色
             var id = connectionAspect.Id;
 
-            CharacterSpawnUtil.SelectCharacterSpwanPoint(
-                id,
-                spawnPointsState,
-                connectionAspect,
-                spawnPoints,
-                selectMode,
-                out var spawnPosition,
-                out var spawnRotation
-            );
+            CampType camp = ServerCampAssignmentPolicy.GetCampForConnection(id);
+            
+            foreach (var (spawnState, selectMode, groupCamp, points) in
+                SystemAPI.Query<RefRW<CharacterSpawnPointsState>,
+                                RefRO<CharacterSpawnSelectMode>,
+                                RefRO<Camp>,
+                                DynamicBuffer<CharacterSpawnPointElement>>())
+            {
+                // 若阵营不同则跳过
+                if (groupCamp.ValueRO.Value != camp)
+                    continue;
 
-            var character = CharacterSpawnUtil.InstantiateAndInit(
-                ref entityCommandBuffer,
-                characterPrefab.Value,
-                id,
-                spawnPosition,
-                spawnRotation,
-                1f
-            );
+                // 标记 InGame
+                connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
 
-            // 设置 CommandTarget 和 GhostOwner
-            connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
-            entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
+                if (connectionAspect.HasSpawned(ref state))
+                {
+                    UnityEngine.Debug.Log($"[Server] Connection {networkId.ValueRO.Value} already spawned, skip.");
+                    continue;
+                }
 
-            var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
-            entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
+                // 选择出生点并实例化角色
+                bool spawnPointSelected = CharacterSpawnUtil.TrySelectCharacterSpawnPoint(
+                    spawnState.ValueRW,
+                    connectionAspect,
+                    points,
+                    selectMode.ValueRO.Value,
+                    out var spawnPosition,
+                    out var spawnRotation
+                );
 
-            connectionAspect.MarkSpawned(ref entityCommandBuffer);
+                if (!spawnPointSelected)
+                {
+                    UnityEngine.Debug.LogError($"[Server] Failed to select spawn point for connection {id}, skip spawning.");
+                    continue;
+                }
 
-            UnityEngine.Debug.Log($"[Server] Spawned character for connection {id} at {spawnPosition}");
+                var character = CharacterSpawnUtil.InstantiateAndInit(
+                    ref entityCommandBuffer,
+                    characterPrefab.Value,
+                    id,
+                    spawnPosition,
+                    spawnRotation,
+                    camp,
+                    1f
+                );
+                
+                // 设置 CommandTarget 和 GhostOwner
+                connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
+                entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
+                entityCommandBuffer.AddComponent(character, new Camp { Value = camp });
+
+                var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
+                entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
+
+                connectionAspect.MarkSpawned(ref entityCommandBuffer);
+
+                UnityEngine.Debug.Log($"[Server] Spawned character for connection {id}, camp {camp} at {spawnPosition}");
+            }
         }
 
         matchStateRW.ValueRW.CharactersSpawned = 1;
