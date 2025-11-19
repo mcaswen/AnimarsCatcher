@@ -30,7 +30,6 @@ public partial struct ServerGoInGameDebugSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        Debug.Log("[ServerGoInGameDebug] OnUpdate called.");
 
 #if !UNITY_EDITOR
         return;

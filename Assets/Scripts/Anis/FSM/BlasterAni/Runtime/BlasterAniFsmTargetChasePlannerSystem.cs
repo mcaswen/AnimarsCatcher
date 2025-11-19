@@ -57,8 +57,8 @@ public partial struct BlasterAniFsmTargetChasePlannerSystem : ISystem
             float3 desiredWorldPosition;
             if (useFormationOffset)
             {
-                int slotIndex = SystemAPI.HasComponent<FormationMember>(entity)
-                    ? SystemAPI.GetComponent<FormationMember>(entity).slotIndex : 0;
+                int slotIndex = SystemAPI.HasComponent<AniFormationMember>(entity)
+                    ? SystemAPI.GetComponent<AniFormationMember>(entity).slotIndex : 0;
 
                 float3 localOffset = AniFormationUtility.CalculateRectangularFormationLocalOffset(
                     slotIndex,

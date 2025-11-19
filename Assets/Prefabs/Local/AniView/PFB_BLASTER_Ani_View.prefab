@@ -9120,6 +9120,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2937466211808263992}
   - component: {fileID: 8679497521785161202}
+  - component: {fileID: 7637448598818712917}
   m_Layer: 7
   m_Name: PFB_BLASTER_Ani_View
   m_TagString: BLASTER_Ani
@@ -9170,6 +9171,23 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &7637448598818712917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575613061903006214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9978c884ac24a3d4f89b9835a7196fc0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AvatarViewFollower
+  SpeedParameterName: Speed
+  SpeedSmoothingStrength: 12
+  TeleportSnapDistance: 2
+  SpeedDeadbandMeters: 0
+  PreferLocalToWorld: 1
 --- !u!1 &8575857133402162599
 GameObject:
   m_ObjectHideFlags: 0

@@ -95,4 +95,43 @@ namespace AnimarsCatcher.Mono.Global
 
 #endregion
 
+#region Gameplay 相关事件载体
+
+    public readonly struct SpawnBlasterAniRequestedEventData
+    {
+        public NetUIEventSource Source { get; }
+        public int RequestedCount { get; }  
+
+        public SpawnBlasterAniRequestedEventData(NetUIEventSource source, int requestedCount = 1)
+        {
+            Source = source;
+            RequestedCount = requestedCount;
+        }
+    }
+
+    public enum ResourceType
+    {
+        Food,
+        Crystal
+    }
+
+    public readonly struct ResourceChangedRequestedEventData
+    {
+        public NetUIEventSource Source { get; }
+        public ResourceType ResourceType { get; }
+        public int Amount { get; }
+
+        public ResourceChangedRequestedEventData(
+            NetUIEventSource source,
+            ResourceType resourceType,
+            int amount)
+        {
+            Source       = source;
+            ResourceType = resourceType;
+            Amount       = amount;
+        }
+    }
+
+#endregion
+
 }

@@ -23,10 +23,10 @@ public partial struct SelectionRingSyncSystem : ISystem
         // 生成选中Ani的光圈
         foreach (var (attributes, aniEntity) in SystemAPI
                      .Query<RefRO<AniAttributes>>()
+                     .WithAll<AniSelectedTag>()
                      .WithNone<SelectionRingRef>()
                      .WithEntityAccess())
         {
-            if (!attributes.ValueRO.IsSelected) continue;
 
             var ring = entityCommandBuffer.Instantiate(config.Prefab);
 
@@ -50,12 +50,11 @@ public partial struct SelectionRingSyncSystem : ISystem
         }
 
         // 销毁未选中Ani的光圈
-        foreach (var (attributes, ringRef, aniEntity) in SystemAPI
-                     .Query<RefRO<AniAttributes>, RefRO<SelectionRingRef>>()
+        foreach (var (ringRef, aniEntity) in SystemAPI
+                     .Query<RefRO<SelectionRingRef>>()
+                     .WithNone<AniSelectedTag>()
                      .WithEntityAccess())
         {
-            if (attributes.ValueRO.IsSelected) continue;
-
             var ring = ringRef.ValueRO.RingEntity;
             if (state.EntityManager.Exists(ring))
                 entityCommandBuffer.DestroyEntity(ring);

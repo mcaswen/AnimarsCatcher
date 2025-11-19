@@ -7,17 +7,26 @@ namespace AnimarsCatcher.Mono
 {
     public class MinimalCamera : MonoBehaviour
     {
-        private Transform mPlayerTrans;
-        private Vector3 mOffset;
-        void Start()
+        [SerializeField] private Transform _PlayerTrans;
+        private Vector3 _Offset;
+        
+        void Update()
         {
-            mPlayerTrans = GameObject.FindWithTag("Player").transform;
-            mOffset = mPlayerTrans.position - transform.position;
+            if (_PlayerTrans == null)
+            {
+                var playerObj = GameObject.FindWithTag("Player");
+                if (playerObj != null)
+                {
+                    _PlayerTrans = playerObj.transform;
+                    _Offset = _PlayerTrans.position - transform.position;
+                }
+            }
         }
 
         private void LateUpdate()
         {
-            transform.position = mPlayerTrans.position - mOffset;
+            if (_PlayerTrans != null)
+                transform.position = _PlayerTrans.position - _Offset;
         }
     }
 }

@@ -34,7 +34,6 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
             AttackInterval = authoring.AttackInterval,
             AttackDamage = authoring.AttackDamage,
             AttackRange = authoring.AttackRange,
-            IsSelected = false,
         });
     }
 }

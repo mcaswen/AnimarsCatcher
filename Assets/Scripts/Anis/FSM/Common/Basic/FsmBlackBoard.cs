@@ -18,7 +18,7 @@ public enum FsmVarType : byte
 [InternalBufferCapacity(4)]
 public struct FsmVar : IBufferElementData
 {
-    public uint       Key;    // 数据标识符
+    public uint Key;    // 数据标识符
     public FsmVarType Type;   // 类型标签
     
     public int Int;

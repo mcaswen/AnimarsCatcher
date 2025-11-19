@@ -20,9 +20,6 @@ public struct AniAttributes : IComponentData
     public float AttackRange;
 
     [GhostField]
-    public bool IsSelected;
-
-    [GhostField]
     public int OwnerPlayerId;
 }
 public enum PickerAniTargetType
