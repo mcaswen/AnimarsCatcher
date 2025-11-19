@@ -1,6 +1,6 @@
 using Unity.Entities;
 
-public struct FormationLeader : IComponentData
+public struct AniFormationLeader : IComponentData
 {
     public int columnCount;
     public float horizontalSpacing;
@@ -9,23 +9,23 @@ public struct FormationLeader : IComponentData
 }
 
 // 顺序即槽位索引
-public struct FormationRoster : IBufferElementData
+public struct AniFormationRoster : IBufferElementData
 {
     public Entity member;
 }
 
-public struct FormationMember : IComponentData
+public struct AniFormationMember : IComponentData
 {
     public Entity leader;
     public int slotIndex; 
 }
 
-public struct FormationJoinRequest : IComponentData
+public struct AniFormationJoinRequest : IComponentData
 {
     public Entity leader;
 }
 
-public struct FormationLeaveRequest : IComponentData
+public struct AniFormationLeaveRequest : IComponentData
 {
     public Entity leader;
 }

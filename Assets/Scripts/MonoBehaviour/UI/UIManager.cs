@@ -9,12 +9,6 @@ using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.UI
 {
-    public enum AniInfoType
-    {
-        Picker,
-        Blaster
-    }
-
     public class UIManager : MonoBehaviour
     {
         public static UIManager Instance { get; private set; }
@@ -62,7 +56,7 @@ namespace AnimarsCatcher.Mono.UI
         private int _blasterAniFoodCostCount = 0;
         private int _blasterAniCrystalCostCount = 0;
 
-        [SerializeField] private float panelAnimDuration = 0.25f;
+        [SerializeField] private float _panelAnimDuration = 0.25f;
 
         private void Awake()
         {
@@ -99,7 +93,7 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.EnterMenu();
-                ShowPanel(MenuPanel);
+                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
                 Time.timeScale = 0;
             });
 
@@ -107,22 +101,22 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.ExitMenu();
-                HidePanel(MenuPanel);
+                SmoothPanelView.HidePanel(MenuPanel, _panelAnimDuration);
                 Time.timeScale = 1;
             });
 
             Button_AdjustVolume.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                HidePanel(MenuPanel);
-                ShowPanel(VolumeAdjustPanel);
+                SmoothPanelView.HidePanel(MenuPanel, _panelAnimDuration);
+                SmoothPanelView.ShowPanel(VolumeAdjustPanel, _panelAnimDuration);
             });
             
             Button_VolumeConfirm.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                HidePanel(VolumeAdjustPanel);
-                ShowPanel(MenuPanel);
+                SmoothPanelView.HidePanel(VolumeAdjustPanel, _panelAnimDuration);
+                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
             });
             
             Button_QuitGame.onClick.AddListener(() =>
@@ -234,7 +228,7 @@ namespace AnimarsCatcher.Mono.UI
 
         private void OnLevelDayEnded(LevelDayEndedEventData eventData)
         {
-            ShowPanel(SelectionPanel);
+            SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimDuration);
             Time.timeScale = 0;
             _spawningPickerAniCount = 0;
             _spawningBlasterAniCount = 0;
@@ -247,7 +241,7 @@ namespace AnimarsCatcher.Mono.UI
 
         private void OnSelectionMenuConfirmed()
         {
-            HidePanel(SelectionPanel);
+            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
             Time.timeScale = 1;
                 
             EventBus.Instance.Publish(new LevelDayStartedEventData(_spawningBlasterAniCount,
@@ -276,52 +270,6 @@ namespace AnimarsCatcher.Mono.UI
                 _gameModel.FoodSum.Value -= _blasterAniFoodCostCount;
                 _gameModel.CrystalSum.Value -= _blasterAniCrystalCostCount;
             }
-        }
-
-        private CanvasGroup GetOrAddCanvasGroup(GameObject panel)
-        {
-            var cg = panel.GetComponent<CanvasGroup>();
-            if (!cg) cg = panel.AddComponent<CanvasGroup>();
-            return cg;
-        }
-
-        private void ShowPanel(GameObject panel)
-        {
-            var canvasGroup = GetOrAddCanvasGroup(panel);
-            var rectTransform = panel.transform as RectTransform;
-
-            rectTransform.DOKill(true); canvasGroup.DOKill(true);
-
-            panel.SetActive(true);
-            rectTransform.localScale = Vector3.one * 0.8f;
-            canvasGroup.alpha = 0f;
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
-
-            DOTween.Sequence().SetUpdate(true)
-                .Append(rectTransform.DOScale(1f, panelAnimDuration).SetEase(Ease.OutBack))
-                .Join(DOTween.To(() => canvasGroup.alpha, a => canvasGroup.alpha = a, 1f, panelAnimDuration))
-                .OnComplete(() =>
-                {
-                    canvasGroup.interactable = true;
-                    canvasGroup.blocksRaycasts = true;
-                });
-        }
-
-        private void HidePanel(GameObject panel)
-        {
-            var canvasGroup = GetOrAddCanvasGroup(panel);
-            var rectTransform = panel.transform as RectTransform;
-
-            rectTransform.DOKill(true); canvasGroup.DOKill(true);
-
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
-
-            DOTween.Sequence().SetUpdate(true)
-                .Append(rectTransform.DOScale(0.85f, panelAnimDuration * 0.8f).SetEase(Ease.InSine))
-                .Join(DOTween.To(() => canvasGroup.alpha, a => canvasGroup.alpha = a, 0f, panelAnimDuration * 0.8f))
-                .OnComplete(() => panel.SetActive(false));
         }
     }
 }

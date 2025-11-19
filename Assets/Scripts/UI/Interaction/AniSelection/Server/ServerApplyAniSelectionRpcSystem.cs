@@ -49,10 +49,13 @@ public partial struct ServerApplySelectionRpcSystem : ISystem
             // 替换模式：先清空旧选择
             if (!append)
             {
-                foreach (var (attributes, owner) in SystemAPI.Query<RefRW<AniAttributes>, RefRO<GhostOwner>>())
+                foreach (var (owner, aniEntity) in SystemAPI.Query<RefRW<GhostOwner>>()
+                     .WithAll<AniAttributes>()
+                     .WithEntityAccess())
                 {
                     if (owner.ValueRO.NetworkId == playerNetId)
-                        attributes.ValueRW.IsSelected = false;
+                        entityCommandBuffer.AddComponent(aniEntity, new AniSelectedTag());
+                        
                 }
             }
 
@@ -60,15 +63,14 @@ public partial struct ServerApplySelectionRpcSystem : ISystem
             for (int i = 0; i < buffer.Length; i++)
             {
                 var item = buffer[i];
-                if (!_ghostIdToEntity.TryGetValue(item.AniGhostId, out var entity))
+                if (!_ghostIdToEntity.TryGetValue(item.AniGhostId, out var aniEntity))
                     continue;
 
                 // 归属校验
-                var owner = SystemAPI.GetComponent<GhostOwner>(entity);
+                var owner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
                 if (owner.NetworkId == playerNetId)
                 {
-                    var attributes = SystemAPI.GetComponentRW<AniAttributes>(entity);
-                    attributes.ValueRW.IsSelected = true;
+                    entityCommandBuffer.AddComponent(aniEntity, new AniSelectedTag());
                 }
             }
 
