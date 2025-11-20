@@ -9,8 +9,8 @@ using UnityEngine;
 
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(TransformSystemGroup))]
-// [UpdateAfter(typeof(ThirdPersonPlayerVariableStepControlSystem))]
-// [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
+[UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
+[UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
 
 [BurstCompile]
 public partial struct OrbitCameraLateUpdateSystem : ISystem

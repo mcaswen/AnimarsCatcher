@@ -10,7 +10,7 @@ using Unity.CharacterController;
 using Unity.NetCode;
 
 
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
 [BurstCompile]
@@ -22,12 +22,11 @@ public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerInput, ThirdPersonPlayerControl>().Build());
     }
 
-    [BurstCompile]
+    // [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var (playerInputs, playerControl) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>().WithAll<Simulate>())
+        foreach (var (playerInputs, playerControl) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>())
         {
-        
             if (SystemAPI.HasComponent<OrbitCameraControl>(playerControl.ControlledCamera))
             {
                 OrbitCameraControl cameraControl = SystemAPI.GetComponent<OrbitCameraControl>(playerControl.ControlledCamera);
@@ -48,12 +47,9 @@ public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
                 FixedCameraControl cameraControl = SystemAPI.GetComponent<FixedCameraControl>(playerControl.ControlledCamera);
 
                 cameraControl.FollowedCharacterEntity = playerControl.ControlledCharacter;
-
-                foreach (var fixedCameraControl in SystemAPI.Query<RefRW<FixedCameraControl>>().WithAll<Simulate, GhostOwner, MainEntityCamera>())
-                {
-                    fixedCameraControl.ValueRW = cameraControl;
-                }
-
+                var mainEntityCamera = SystemAPI.GetSingletonEntity<MainEntityCamera>();
+                
+                SystemAPI.SetComponent(mainEntityCamera, cameraControl);
                 SystemAPI.SetComponent(playerControl.ControlledCamera, cameraControl);
             }
         }

@@ -5,6 +5,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
+using Unity.VisualScripting;
 
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial class MainCameraSystem : SystemBase
@@ -14,7 +15,7 @@ public partial class MainCameraSystem : SystemBase
     protected override void OnCreate()
     {
         _cameraEntityQuery = SystemAPI.QueryBuilder()
-            .WithAll<MainEntityCamera, GhostOwner>()
+            .WithAll<MainEntityCamera>()
             .Build();
 
         RequireForUpdate(_cameraEntityQuery);

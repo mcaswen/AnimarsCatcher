@@ -45,26 +45,21 @@ public partial struct EnsureClientCommandTargetSystem : ISystem
                 }
             }
 
-            foreach (var (owner, cameraEntity) in SystemAPI.Query<RefRO<GhostOwner>>()
-                    .WithAll<PredictedGhost, MainEntityCamera>()
+            foreach (var (camera, cameraEntity) in SystemAPI.Query<RefRO<MainEntityCamera>>()
+                    .WithAll<MainEntityCamera>()
                     .WithEntityAccess())
             {
-                if (owner.ValueRO.NetworkId == localNetId)
+                if (SystemAPI.TryGetSingleton<ThirdPersonPlayerControl>(out var playerControl))
                 {
-                    if (SystemAPI.TryGetSingleton<ThirdPersonPlayerControl>(out var playerControl))
-                    {
-                        playerControl.ControlledCamera = cameraEntity;
-                        SystemAPI.SetSingleton(playerControl);
+                    UnityEngine.Debug.Log($"绑定相机实体 {cameraEntity} 给本地玩家");
+                    playerControl.ControlledCamera = cameraEntity;
+                    SystemAPI.SetSingleton(playerControl);
 
-                        _cameraIsBinded = true;
-                    }
-                    break;
+                    _cameraIsBinded = true;
                 }
+                break;
             }
-
-
         }
-
         entityCommandBuffer.Playback(state.EntityManager);
     }
 }
