@@ -34,7 +34,7 @@ public static class FsmIdSpace
 {
     public const ushort Block = 256;
 
-    public const ushort BlasterAniBase  = Block * 1; 
+    public const ushort AniMovementBase  = Block * 1; 
     public const ushort PickerAniBase = Block * 2; 
 
     public static ushort Of(ushort @base, ushort local) => (ushort)(@base + local);

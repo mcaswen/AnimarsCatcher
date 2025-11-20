@@ -14,7 +14,6 @@
   <Project Path="Unity.NetCode.csproj" />
   <Project Path="Unity.Collections.csproj" />
   <Project Path="UnityEngine.UI.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.RenderPipelines.Universal.2D.Runtime.csproj" />
   <Project Path="Unity.Entities.UI.Editor.csproj" />
   <Project Path="Unity.VisualScripting.Core.Editor.csproj" />
@@ -32,6 +31,7 @@
   <Project Path="Unity.Animation.Rigging.Editor.csproj" />
   <Project Path="Unity.VisualStudio.Editor.csproj" />
   <Project Path="Unity.Entities.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.Scenes.csproj" />
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="Unity.Entities.Editor.csproj" />

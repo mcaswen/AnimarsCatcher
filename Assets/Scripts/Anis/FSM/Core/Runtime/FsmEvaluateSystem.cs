@@ -12,7 +12,7 @@ public partial struct FsmEvaluateSystem : ISystem
 
     public void OnCreate(ref SystemState state)
     {
-        _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: true);
+        _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         state.RequireForUpdate<FsmContext>(); 
     }
 

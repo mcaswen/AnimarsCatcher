@@ -29,7 +29,6 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
         AddComponent(entity, new AniAttributes
         {
             MaxHealth = authoring.MaxHealth,
-            CurrentHealth = authoring.MaxHealth,
             MoveSpeed = authoring.MoveSpeed,
             AttackInterval = authoring.AttackInterval,
             AttackDamage = authoring.AttackDamage,

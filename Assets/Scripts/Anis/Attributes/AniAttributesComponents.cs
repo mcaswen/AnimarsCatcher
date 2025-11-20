@@ -8,9 +8,6 @@ public struct AniAttributes : IComponentData
     public int MaxHealth;
 
     [GhostField]
-    public int CurrentHealth;
-
-    [GhostField]
     public float MoveSpeed;
 
     public float AttackInterval;

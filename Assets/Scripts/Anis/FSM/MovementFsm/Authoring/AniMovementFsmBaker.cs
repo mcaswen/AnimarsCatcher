@@ -1,10 +1,11 @@
 using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 
-public class BlasterAniFsmBaker : Baker<BlasterAniFsmAuthoring>
+public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
 {
-    public override void Bake(BlasterAniFsmAuthoring authoring)
+    public override void Bake(AniMovementFsmAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
 
@@ -12,11 +13,11 @@ public class BlasterAniFsmBaker : Baker<BlasterAniFsmAuthoring>
         BlobBuilder builder;
         BlobBuilderArray<FsmStateNode> states;
 
-        BlasterAniFsmGraphBlobBuilder.AllocateBuilderBase(out builder, out states);
-        BlasterAniFsmGraphBlobBuilder.BuildIdleState (ref builder, ref states);
-        BlasterAniFsmGraphBlobBuilder.BuildFollowState(ref builder, ref states);
-        BlasterAniFsmGraphBlobBuilder.BuildFindState  (ref builder, ref states);
-        BlasterAniFsmGraphBlobBuilder.BuildShootState (ref builder, ref states);
+        AniMovementFsmGraphBlobBuilder.AllocateBuilderBase(out builder, out states);
+        AniMovementFsmGraphBlobBuilder.BuildIdleState(ref builder, ref states);
+        AniMovementFsmGraphBlobBuilder.BuildFollowState(ref builder, ref states);
+        AniMovementFsmGraphBlobBuilder.BuildFindState(ref builder, ref states);
+        AniMovementFsmGraphBlobBuilder.BuildMoveToState(ref builder, ref states);
 
         var graphRef = builder.CreateBlobAssetReference<FsmGraph>(Allocator.Persistent);
         builder.Dispose();
@@ -32,7 +33,7 @@ public class BlasterAniFsmBaker : Baker<BlasterAniFsmAuthoring>
             HasPending = 1,
             TimeInState = 0f,
 
-            PendingEnter = (ActionId)BlasterAniFsmIDs.A_EnterIdle,
+            PendingEnter = (ActionId)AniMovementFsmIDs.A_EnterIdle,
             PendingExit = ActionId.None,
         };
 
@@ -41,6 +42,9 @@ public class BlasterAniFsmBaker : Baker<BlasterAniFsmAuthoring>
         // Blackboard
         var blackboard = AddBuffer<FsmVar>(entity);
         blackboard.EnsureCapacity(math.max(4, authoring.initialBlackboardCapacity)); // 预留容量
+
+        // Move
+        AddComponent(entity, new AniMoveIntent { DesiredVelocity = float3.zero });
 
     }
 }
