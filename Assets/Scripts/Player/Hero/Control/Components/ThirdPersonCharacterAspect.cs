@@ -120,21 +120,6 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         ref ThirdPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
         ref quaternion characterRotation = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
 
-        ref var body = ref CharacterAspect.CharacterBody.ValueRW;
-        ref var rot  = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
-        var ctrl = CharacterControl.ValueRO;
-
-        // // 调试块：看父级增量角、两种 up 轴下的当前/目标 yaw
-        // float3 mvWS = new float3(ctrl.MoveVector.x, 0, ctrl.MoveVector.z); // 只看水平
-        // float tgtYaw = CustomMathUtilities.YawDegFromDir(mvWS);
-
-        // float3 mv = ctrl.MoveVector;
-        // float mvLen = math.length(MathUtilities.ProjectOnPlane(mv, body.GroundingUp));
-
-        // Debug.Log(
-        //     $"[FaceDbg] tgtYaw={tgtYaw}, mvLen={mvLen}, mv=({mv.x},{mv.y},{mv.z})"
-        // );
-
         // Add rotation from parent body to the character rotation
         // (this is for allowing a rotating moving platform to rotate your character as well, and handle interpolation properly)
         KinematicCharacterUtilities.AddVariableRateRotationFromFixedRateRotation(ref characterRotation, characterBody.RotationFromParent, baseContext.Time.DeltaTime, characterBody.LastPhysicsUpdateDeltaTime);

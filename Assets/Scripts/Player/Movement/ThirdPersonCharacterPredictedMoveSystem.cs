@@ -20,7 +20,7 @@ public partial struct CharacterPredictedMoveSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(SystemAPI.QueryBuilder()
-            .WithAll<PredictedGhost, SimpleCharacterControl, LocalTransform, InputCommand>()
+            .WithAll<PredictedGhost, ThirdPersonCharacterControl, LocalTransform, InputCommand>()
             .Build());
     }
 
@@ -29,7 +29,7 @@ public partial struct CharacterPredictedMoveSystem : ISystem
         var netWorkTime = SystemAPI.GetSingleton<NetworkTime>();
 
         foreach (var (controlRW, inputCommandBuffer) in SystemAPI
-                 .Query<RefRW<SimpleCharacterControl>, DynamicBuffer<InputCommand>>()
+                 .Query<RefRW<ThirdPersonCharacterControl>, DynamicBuffer<InputCommand>>()
                  .WithAll<CharacterTag, PredictedGhost>())
         {
             if (!inputCommandBuffer.GetDataAtTick(netWorkTime.ServerTick, out InputCommand command)) 

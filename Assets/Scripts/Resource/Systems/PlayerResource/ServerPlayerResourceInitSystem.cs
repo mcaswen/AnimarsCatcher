@@ -55,8 +55,8 @@ public partial struct ServerPlayerResourceInitSystem : ISystem
                 TotalBlasterAniCount  = 0,
                 InTeamPickerAniCount  = 0,
                 InTeamBlasterAniCount = 0,
-                FoodSum               = 0,
-                CrystalSum            = 0
+                FoodSum               = 99,
+                CrystalSum            = 99
             });
 
             Debug.Log($"[ServerPlayerResourceInitSystem] Created PlayerResourceState for NetworkId = {id}");

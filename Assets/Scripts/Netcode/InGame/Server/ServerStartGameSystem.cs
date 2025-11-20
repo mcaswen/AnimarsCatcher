@@ -176,9 +176,6 @@ public partial struct ServerStartGameSystem : ISystem
                 entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
                 entityCommandBuffer.AddComponent(character, new Camp { Value = camp });
 
-                var cameraEntity = entityCommandBuffer.Instantiate(cameraPrefab.Value);
-                entityCommandBuffer.AddComponent(cameraEntity, new GhostOwner { NetworkId = id });
-
                 connectionAspect.MarkSpawned(ref entityCommandBuffer);
 
                 UnityEngine.Debug.Log($"[Server] Spawned character for connection {id}, camp {camp} at {spawnPosition}");
