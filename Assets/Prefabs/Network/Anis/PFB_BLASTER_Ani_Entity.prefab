@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2937466211808263992}
-  - component: {fileID: 4848697848478907697}
   - component: {fileID: 5001182136528572341}
   - component: {fileID: 5648979602093846805}
   - component: {fileID: 1438903071512287889}
@@ -19,6 +18,7 @@ GameObject:
   - component: {fileID: 296393307788167734}
   - component: {fileID: 8495726314779418355}
   - component: {fileID: 6705304141767218497}
+  - component: {fileID: 127192516826892517}
   m_Layer: 7
   m_Name: PFB_BLASTER_Ani_Entity
   m_TagString: BLASTER_Ani
@@ -41,33 +41,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!54 &4848697848478907697
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8575613061903006214}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 1
-  m_Interpolate: 0
-  m_Constraints: 112
-  m_CollisionDetection: 1
 --- !u!136 &5001182136528572341
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -224,3 +197,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AvatarViewAuthoring
   ViewPrefab: {fileID: 8575613061903006214, guid: a8956779e52cb794ca87af218410fd4b,
     type: 3}
+--- !u!114 &127192516826892517
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575613061903006214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b5b900e86bbf47418f14433360d41ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CapsulePhysicsAuthoring
+  SourceCollider: {fileID: 5001182136528572341}
