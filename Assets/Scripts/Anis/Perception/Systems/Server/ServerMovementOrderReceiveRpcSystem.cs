@@ -19,12 +19,24 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
         _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
     }
 
-    [BurstCompile]
+    // [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);
 
-        var ecb = new EntityCommandBuffer(Allocator.Temp);
+        var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+        // 建立 NetworkId -> 玩家主角(leader) 的映射
+        var leadersByNetworkId =
+            new NativeParallelHashMap<int, Entity>(16, Allocator.Temp);
+
+        foreach (var (owner, leaderEntity) in
+                 SystemAPI.Query<RefRO<GhostOwner>>()
+                          .WithAll<CharacterTag>()
+                          .WithEntityAccess())
+        {
+            leadersByNetworkId.TryAdd(owner.ValueRO.NetworkId, leaderEntity);
+        }
 
         foreach (var (rpc, recv, rpcEntity) in
                  SystemAPI.Query<RefRO<MovementOrderRpc>, RefRO<ReceiveRpcCommandRequest>>()
@@ -35,7 +47,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
             // 找到这条连接的 NetworkId
             if (!SystemAPI.HasComponent<NetworkId>(connection))
             {
-                ecb.DestroyEntity(rpcEntity);
+                entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
             }
 
@@ -52,8 +64,21 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                  targetKind == MovementTargetKind.Player) &&
                 (targetEntity == Entity.Null || !state.EntityManager.Exists(targetEntity)))
             {
-                ecb.DestroyEntity(rpcEntity);
+                entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
+            }
+
+            // 这次命令对应的“玩家主角”实体
+            Entity leaderEntity = Entity.Null;
+            float3 leaderPos = float3.zero;
+            quaternion leaderRot = quaternion.identity;
+
+            if (leadersByNetworkId.TryGetValue(networkId, out leaderEntity) &&
+                SystemAPI.HasComponent<LocalTransform>(leaderEntity))
+            {
+                var lt = SystemAPI.GetComponent<LocalTransform>(leaderEntity);
+                leaderPos = lt.Position;
+                leaderRot = lt.Rotation;
             }
 
             // 遍历所有归属于该 NetworkId 且当前被选中的 Ani
@@ -70,8 +95,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                 DynamicBuffer<FsmVar> blackboard = _blackboardLookup[aniEntity];
 
-                UnityEngine.Debug.Log($"[ServerMovementOrderReceiveRpcSystem] Received MovementOrderRpc: TargetKind= {targetKind}, TargetWorldPosition={clickPos}, TargetEntity={targetEntity} for Ani Entity={aniEntity.Index}");
-
                 switch (targetKind)
                 {
                     case MovementTargetKind.Ground:
@@ -87,6 +110,49 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         Blackboard.SetEntity(ref blackboard,
                             AniMovementBlackboardKeys.K_TargetEntity,
                             Entity.Null);
+
+                         float3 forward;
+
+                        if (leaderEntity != Entity.Null)
+                        {
+                            float3 dir = clickPos - leaderPos;
+                            dir.y = 0f;
+
+                            if (math.lengthsq(dir) < 0.0001f)
+                            {
+                                // 如果玩家和点击点几乎重合，就用玩家自己的 forward
+                                float3 f = math.mul(leaderRot, new float3(0, 0, 1));
+                                f.y = 0f;
+                                if (math.lengthsq(f) < 0.0001f)
+                                    f = new float3(0, 0, 1);
+
+                                forward = math.normalize(f);
+                            }
+                            else
+                            {
+                                forward = math.normalize(dir);
+                            }
+                        }
+                        else
+                        {
+                            // 没找到 leader，就兜底一个世界 Z 方向
+                            forward = new float3(0, 0, 1);
+                        }
+
+                        Blackboard.SetFloat3(ref blackboard,
+                            AniMovementBlackboardKeys.K_MoveFormationTargetPoint,
+                            clickPos);
+
+                        Blackboard.SetFloat3(ref blackboard,
+                            AniMovementBlackboardKeys.K_MoveFormationForward,
+                            forward);
+                        
+                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+                        
+                        UnityEngine.Debug.Log($"[ServerMovementOrderReceiveRpcSystem] Received MovementOrderRpc:" +
+                        $" TargetKind = Ground, TargetWorldPosition={clickPos}, TargetEntity={targetEntity} for Ani Entity={aniEntity.Index}");
+                        
                         break;
                     }
 
@@ -103,6 +169,13 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         Blackboard.SetEntity(ref blackboard,
                             AniMovementBlackboardKeys.K_TargetEntity,
                             targetEntity);
+                        
+                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+                        
+                        UnityEngine.Debug.Log($"[ServerMovementOrderReceiveRpcSystem] Received MovementOrderRpc:" +
+                        $" TargetKind = Ani, TargetWorldPosition={clickPos}, TargetEntity={targetEntity} for Ani Entity={aniEntity.Index}");
+                        
                         break;
                     }
 
@@ -116,6 +189,13 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         Blackboard.SetEntity(ref blackboard,
                             AniMovementBlackboardKeys.K_TargetEntity,
                             targetEntity);
+
+                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+
+                        UnityEngine.Debug.Log($"[ServerMovementOrderReceiveRpcSystem] Received MovementOrderRpc:" +
+                        $" TargetKind = Resource, TargetWorldPosition={clickPos}, TargetEntity={targetEntity} for Ani Entity={aniEntity.Index}");
+                        
                         break;
                     }
 
@@ -129,6 +209,13 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         Blackboard.SetEntity(ref blackboard,
                             AniMovementBlackboardKeys.K_PlayerEntity,
                             targetEntity);
+                        
+                        if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                            entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
+                        
+                        UnityEngine.Debug.Log($"[ServerMovementOrderReceiveRpcSystem] Received MovementOrderRpc:" +
+                        $" TargetKind = Player, TargetWorldPosition={clickPos}, TargetEntity={targetEntity} for Ani Entity={aniEntity.Index}");
+                        
                         break;
                     }
 
@@ -138,9 +225,9 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                 }
             }
 
-            ecb.DestroyEntity(rpcEntity);
+            entityCommandBuffer.DestroyEntity(rpcEntity);
         }
 
-        ecb.Playback(state.EntityManager);
+        entityCommandBuffer.Playback(state.EntityManager);
     }
 }

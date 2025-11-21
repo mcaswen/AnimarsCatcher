@@ -67,6 +67,14 @@ namespace AnimarsCatcher.Mono.UI
             Selection_ReturnButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
+
+                _spawningPickerAniCount = 0;
+                _spawningBlasterAniCount = 0;
+
+                Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
+                Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
+
+                NetUIEventBridge.RaiseUIPanelInputUnlocked();
                 SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
             });
         }
@@ -76,6 +84,7 @@ namespace AnimarsCatcher.Mono.UI
             if (Input.GetKeyDown(KeyCode.E))
             {
                 SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimDuration);
+                NetUIEventBridge.RaiseUIPanelInputLocked();
             }
         }
 
@@ -191,7 +200,15 @@ namespace AnimarsCatcher.Mono.UI
         private void OnSelectionMenuConfirmed()
         {
             SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
-            AniSpawnRequestSender.RequestSpawnAnis(_spawningPickerAniCount, _spawningBlasterAniCount);
+            NetUIEventBridge.RaiseUIPanelInputUnlocked();
+
+            AniSpawnRequestSender.RequestSpawnAnis(_spawningBlasterAniCount, _spawningPickerAniCount);
+
+            _spawningPickerAniCount = 0;
+            _spawningBlasterAniCount = 0;
+
+            Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
+            Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
         }
     }   
 }

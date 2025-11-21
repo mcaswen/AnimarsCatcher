@@ -11,7 +11,7 @@ using AnimarsCatcher.Mono.Global;
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
-public partial struct ServerSpawnBlasterAniSystem : ISystem
+public partial struct ServerSpawnAnisSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
@@ -116,7 +116,7 @@ public partial struct ServerSpawnBlasterAniSystem : ISystem
         entityCommandBuffer.SetComponent(ani, LocalTransform.FromPositionRotation(spawnPosition, spawnRotation));
         entityCommandBuffer.AddComponent(ani, new Camp { Value = camp });
         entityCommandBuffer.AddComponent(ani, new GhostOwner { NetworkId = networkId });
-        entityCommandBuffer.AddComponent<BlasterAniTag>(ani);
+        entityCommandBuffer.AddComponent(ani, new BlasterAniTag());
     }
 
     private void SpawnPickerAniForConnection(
@@ -132,7 +132,7 @@ public partial struct ServerSpawnBlasterAniSystem : ISystem
         entityCommandBuffer.SetComponent(ani, LocalTransform.FromPositionRotation(spawnPosition, spawnRotation));
         entityCommandBuffer.AddComponent(ani, new Camp { Value = camp });
         entityCommandBuffer.AddComponent(ani, new GhostOwner { NetworkId = networkId });
-        entityCommandBuffer.AddComponent<PickerAniTag>(ani);
+        entityCommandBuffer.AddComponent(ani, new PickerAniTag());
     }
 
 }

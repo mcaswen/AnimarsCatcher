@@ -13,7 +13,6 @@ GameObject:
   - component: {fileID: 5648979602093846805}
   - component: {fileID: 1438903071512287889}
   - component: {fileID: 4013643892886808938}
-  - component: {fileID: 4322287308741514978}
   - component: {fileID: 7471401277821634291}
   - component: {fileID: 296393307788167734}
   - component: {fileID: 8495726314779418355}
@@ -118,20 +117,7 @@ MonoBehaviour:
   MoveSpeed: 8
   AttackInterval: 1
   AttackDamage: 10
-  AttackRange: 20
---- !u!114 &4322287308741514978
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8575613061903006214}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc72b63cdf06cc046968ba83fcf490f3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AniFormationMemberAuthoring
-  slotIndex: 0
+  AttackRange: 8
 --- !u!114 &7471401277821634291
 MonoBehaviour:
   m_ObjectHideFlags: 0

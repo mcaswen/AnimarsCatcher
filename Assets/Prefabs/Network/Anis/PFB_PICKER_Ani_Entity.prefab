@@ -13,12 +13,12 @@ GameObject:
   - component: {fileID: 2290847171256608517}
   - component: {fileID: 4731264419165240012}
   - component: {fileID: 4591970425630447368}
-  - component: {fileID: 1566405698098428322}
   - component: {fileID: 825985845536729100}
   - component: {fileID: 3136332292056354381}
   - component: {fileID: 966398024413977660}
   - component: {fileID: 3923260598481638524}
   - component: {fileID: 2257598517067911701}
+  - component: {fileID: 188833602054612407}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_Entity
   m_TagString: PICKER_Ani
@@ -117,20 +117,7 @@ MonoBehaviour:
   MoveSpeed: 8
   AttackInterval: 1
   AttackDamage: 10
-  AttackRange: 3
---- !u!114 &1566405698098428322
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 104725653572107597}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: dc72b63cdf06cc046968ba83fcf490f3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AniFormationMemberAuthoring
-  slotIndex: 0
+  AttackRange: 2
 --- !u!114 &825985845536729100
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -214,3 +201,17 @@ MonoBehaviour:
   BelongsTo: 4294967295
   CollidesWith: 4294967295
   GroupIndex: 0
+--- !u!114 &188833602054612407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b7eda2c3e08283499baddf4b5ec5430, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AniMovementFsmAuthoring
+  initialBlackboardCapacity: 32
+  initialState: 257

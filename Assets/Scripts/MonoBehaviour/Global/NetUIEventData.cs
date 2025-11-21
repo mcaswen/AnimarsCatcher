@@ -132,6 +132,15 @@ namespace AnimarsCatcher.Mono.Global
         }
     }
 
+    /// +1 表示打开一个会锁输入的面板
+    /// -1 表示关闭一个会锁输入的面板
+    /// 用计数而不是 bool，避免多个面板互相抢锁的问题
+    public struct UIPanelInputToggleEvent
+    {
+        public int Delta;
+    }
+
+
 #endregion
 
 }

@@ -20,3 +20,9 @@ public struct PlayerInput : IComponentData
     public FixedInputEvent RightMouseLongPress;
     public float2 MousePosition;
 }
+
+public struct PlayerInputLockState : IComponentData
+{
+    // 锁计数 > 0 表示当前有面板占用输入
+    public int LockCount;
+}

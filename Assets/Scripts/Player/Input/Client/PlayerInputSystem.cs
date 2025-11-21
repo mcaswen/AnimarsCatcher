@@ -24,6 +24,28 @@ public partial class PlayerInputSystem : SystemBase
 
     protected override void OnUpdate()
     {
+        int lockCount = 0;
+        if (SystemAPI.HasSingleton<PlayerInputLockState>())
+        {
+            lockCount = SystemAPI.GetSingleton<PlayerInputLockState>().LockCount;
+        }
+
+        if (lockCount > 0)
+        {
+            foreach (var input in SystemAPI.Query<RefRW<PlayerInput>>())
+            {
+                input.ValueRW.MoveInput        = float2.zero;
+                input.ValueRW.CameraZoomInput  = 0f;
+
+                // 清理按键信息，避免解锁瞬间触发操作
+                input.ValueRW.InteractPressed  = default;
+                input.ValueRW.PausePressed     = default;
+
+            }
+
+            return;
+        }
+
         var keyBoard = Keyboard.current;
         var mouse = Mouse.current;
 

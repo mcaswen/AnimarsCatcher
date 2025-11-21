@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Audio;
+using AnimarsCatcher.Mono.Global;
 using DG.Tweening;
 
 namespace AnimarsCatcher.Mono.UI
@@ -24,6 +25,7 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.ExitMenu();
+                NetUIEventBridge.RaiseUIPanelInputUnlocked();
                 SmoothPanelView.HidePanel(MenuPanel, _panelAnimDuration);
                 Time.timeScale = 1;
             });
