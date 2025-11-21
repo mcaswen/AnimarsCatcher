@@ -21,12 +21,15 @@ public partial struct SelectionRingSyncSystem : ISystem
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
         // 生成选中Ani的光圈
-        foreach (var (attributes, aniEntity) in SystemAPI
-                     .Query<RefRO<AniAttributes>>()
+        foreach (var (attributes, owner, aniEntity) in SystemAPI
+                     .Query<RefRO<AniAttributes>, RefRO<GhostOwner>>()
                      .WithAll<AniSelectedTag>()
                      .WithNone<SelectionRingRef>()
                      .WithEntityAccess())
         {
+
+            if (owner.ValueRO.NetworkId != SystemAPI.GetSingleton<NetworkId>().Value)
+                continue;
 
             var ring = entityCommandBuffer.Instantiate(config.Prefab);
 

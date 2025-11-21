@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 7928405103426607724}
   - component: {fileID: 5370169966772691623}
   - component: {fileID: 8130281015928969401}
+  - component: {fileID: 3595374492251402254}
   m_Layer: 6
   m_Name: PFB_SmartCommandRobot_CharacterEntity
   m_TagString: Untagged
@@ -373,6 +374,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CharacterBoxAuthoring
   SourceCollider: {fileID: 5370169966772691623}
+--- !u!114 &3595374492251402254
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3732576031036209812}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7375c9d5b97beb4eb4909bdede551c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CampAuthoring
+  initialCamp: 2
 --- !u!1 &5564234976526495408
 GameObject:
   m_ObjectHideFlags: 0
