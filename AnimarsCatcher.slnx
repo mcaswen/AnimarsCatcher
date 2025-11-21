@@ -29,9 +29,9 @@
   <Project Path="Unity.NetCode.Editor.csproj" />
   <Project Path="Unity.InputSystem.csproj" />
   <Project Path="Unity.Animation.Rigging.Editor.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.VisualStudio.Editor.csproj" />
   <Project Path="Unity.Entities.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.Scenes.csproj" />
   <Project Path="PPv2URPConverters.csproj" />
   <Project Path="Unity.Entities.Editor.csproj" />

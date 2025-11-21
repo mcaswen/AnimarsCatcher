@@ -14,7 +14,8 @@ GameObject:
   - component: {fileID: -7842386443171124337}
   - component: {fileID: 4596331749605114499}
   - component: {fileID: 1804604052741833432}
-  m_Layer: 0
+  - component: {fileID: 4024654944047803028}
+  m_Layer: 12
   m_Name: PickableCrystal2
   m_TagString: PickableItem
   m_Icon: {fileID: 0}
@@ -28,13 +29,13 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3320517679385806202}
+  serializedVersion: 2
   m_LocalRotation: {x: 0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: 0}
   m_LocalScale: {x: 0.99999994, y: 0.99999994, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &9209613579216544513
 MeshFilter:
@@ -61,6 +62,11 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -82,6 +88,7 @@ MeshRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
@@ -141,9 +148,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3a36d231359029d458de84d6b8222473, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  mResourceCount: 1
+  _resourceCount: 1
   ItemType: 1
+  _IsSpecialItem: 0
+  _aniSpeedMutiplier: 1.5
+  _pickerAniTag: PICKER_Ani
+  _resourceCountText: {fileID: 0}
+  _maxAniCountText: {fileID: 0}
   Positions:
   - {x: 0, y: -0.5, z: -0.5}
   MaxAniCount: 1
   CurrentAniCount: 0
+--- !u!114 &4024654944047803028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3320517679385806202}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy

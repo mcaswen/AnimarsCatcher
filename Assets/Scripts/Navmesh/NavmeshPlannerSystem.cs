@@ -35,8 +35,8 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
                 continue;
 
             var blackboard = _blackboardLookup[entity];
-            bool navStop = blackboard.GetBool(BlasterAniBlackFsmBoardKeys.K_NavStop);
-            int requestVersion = blackboard.GetInt(BlasterAniBlackFsmBoardKeys.K_NavRequestVersion);
+            bool navStop = blackboard.GetBool(AniMovementBlackboardKeys.K_NavStop);
+            int requestVersion = blackboard.GetInt(AniMovementBlackboardKeys.K_NavRequestVersion);
 
             // 仅在版本变化时处理该实体
             if (requestVersion == navAgent.ValueRO.LastHandledNavRequestVersion)
@@ -53,7 +53,7 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
                 return;
             }
 
-            float3 targetPosition = blackboard.GetFloat3(BlasterAniBlackFsmBoardKeys.K_NavTargetPosition);
+            float3 targetPosition = blackboard.GetFloat3(AniMovementBlackboardKeys.K_NavTargetPosition);
             float3 startPosition = transform.ValueRO.Position;
 
             // 对托管组件 UnityEngine.AI NavMesh 的查询
@@ -63,8 +63,8 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
             if (!hasPath || path.corners == null || path.corners.Length == 0)
             {
                 // 无法到达
-                blackboard.SetBool(BlasterAniBlackFsmBoardKeys.K_NavStop, true);
-                blackboard.SetInt(BlasterAniBlackFsmBoardKeys.K_NavRequestVersion, requestVersion + 1);
+                blackboard.SetBool(AniMovementBlackboardKeys.K_NavStop, true);
+                blackboard.SetInt(AniMovementBlackboardKeys.K_NavRequestVersion, requestVersion + 1);
                 navSteering.ValueRW.HasPath = 0;
                 continue;
             }

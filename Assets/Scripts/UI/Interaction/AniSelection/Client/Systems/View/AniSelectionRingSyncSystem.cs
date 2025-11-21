@@ -42,7 +42,7 @@ public partial struct SelectionRingSyncSystem : ISystem
             // 记录引用，避免重复生成
             entityCommandBuffer.AddComponent(aniEntity, new SelectionRingRef { RingEntity = ring });
 
-            // 为了父物体死亡时一起清理：把子加入 LinkedEntityGroup
+            // 为了父物体死亡时一起清理：把子物体加入 LinkedEntityGroup
             if (!state.EntityManager.HasBuffer<LinkedEntityGroup>(aniEntity))
                 entityCommandBuffer.AddBuffer<LinkedEntityGroup>(aniEntity);
             

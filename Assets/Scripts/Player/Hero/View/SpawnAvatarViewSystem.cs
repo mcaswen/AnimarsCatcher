@@ -4,7 +4,7 @@ using Unity.Entities;
 using UnityEngine;
 
 [BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial class SpawnAvatarViewSystem : SystemBase
 {
@@ -37,6 +37,12 @@ public partial class SpawnAvatarViewSystem : SystemBase
             GameObject spawnedGameObject = Object.Instantiate(prefabReference.ViewPrefab);
 
             AvatarViewFollower follower = spawnedGameObject.GetComponent<AvatarViewFollower>()?? spawnedGameObject.AddComponent<AvatarViewFollower>();
+
+            var proxy = spawnedGameObject.GetComponent<MovementSelectableProxy>();
+            if (proxy != null)
+            {
+                proxy.Entity = targetEntity;
+            }
 
             // 注入 Entity 与 EntityManager
             follower.Bind(targetEntity, entityManager);

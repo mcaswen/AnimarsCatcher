@@ -3,6 +3,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UI;
 using Unity.NetCode;
+using Unity.Collections;
 
 // 框选的运行时状态
 public struct AniSelectionDragState : IComponentData
@@ -36,6 +37,7 @@ public struct SelectedAniGhostRef : IBufferElementData
 public struct AniSelectionApplyRpc : IRpcCommand
 {
     public byte Append; // 0 = 替换（清空旧选择后再置位），1 = 追加（在已有选择基础上置位）
+    public FixedList512Bytes<int> GhostIds; // 存选中的 GhostId 列表
 }
 
 #endregion

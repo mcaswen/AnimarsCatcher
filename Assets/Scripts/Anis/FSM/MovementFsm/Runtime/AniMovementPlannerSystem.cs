@@ -212,7 +212,7 @@ public partial struct AniMovementPlannerSystem : ISystem
         float distanceSquared = math.lengthsq(delta);
 
         float arrivalRadiusSq = arrivalRadius * arrivalRadius;
-        bool  hasArrived = distanceSquared <= arrivalRadiusSq;
+        bool hasArrived = distanceSquared <= arrivalRadiusSq;
 
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_MoveArrived, hasArrived);
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_NavStop, hasArrived);

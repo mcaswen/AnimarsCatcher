@@ -45,6 +45,7 @@ public partial class PlayerInputSystem : SystemBase
             EDown = keyBoard.eKey.wasPressedThisFrame,
 
             RightHeld = mouse != null && mouse.rightButton.isPressed,
+            LeftMousePressed = mouse != null && mouse.leftButton.wasPressedThisFrame,
 
             MousePosition = mouse != null ? mouse.position.ReadValue() : default
         };

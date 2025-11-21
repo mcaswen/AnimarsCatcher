@@ -59,7 +59,7 @@ public partial struct ServerDebugResourceToEventSystem : ISystem
                     foodBuffer.Add(new FoodAmountChangedEvent
                     {
                         OwnerNetworkId = networkId,
-                        Amount         = amount
+                        Amount = amount
                     });
 
                     break;

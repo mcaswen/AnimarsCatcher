@@ -530,7 +530,7 @@ MonoBehaviour:
   Selection_ReturnButton: {fileID: 388114347}
   SelectionPanel: {fileID: 1475374808}
   _pickerAniFoodCostCount: 2
-  _pickerAniCrystalCostCount: 1
+  _pickerAniCrystalCostCount: 0
   _blasterAniFoodCostCount: 2
   _blasterAniCrystalCostCount: 1
   _panelAnimDuration: 0.25
