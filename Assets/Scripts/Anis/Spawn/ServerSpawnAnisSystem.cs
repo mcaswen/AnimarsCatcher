@@ -114,7 +114,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
         var ani = entityCommandBuffer.Instantiate(blasterAniPrefab);
 
         entityCommandBuffer.SetComponent(ani, LocalTransform.FromPositionRotation(spawnPosition, spawnRotation));
-        entityCommandBuffer.AddComponent(ani, new Camp { Value = camp });
+        entityCommandBuffer.SetComponent(ani, new Camp { Value = camp });
         entityCommandBuffer.AddComponent(ani, new GhostOwner { NetworkId = networkId });
         entityCommandBuffer.AddComponent(ani, new BlasterAniTag());
     }
@@ -130,7 +130,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
         var ani = entityCommandBuffer.Instantiate(pickerAniPrefab);
 
         entityCommandBuffer.SetComponent(ani, LocalTransform.FromPositionRotation(spawnPosition, spawnRotation));
-        entityCommandBuffer.AddComponent(ani, new Camp { Value = camp });
+        entityCommandBuffer.SetComponent(ani, new Camp { Value = camp });
         entityCommandBuffer.AddComponent(ani, new GhostOwner { NetworkId = networkId });
         entityCommandBuffer.AddComponent(ani, new PickerAniTag());
     }

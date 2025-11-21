@@ -12,6 +12,8 @@ public struct LocalPlayerCamp : IComponentData
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientLocalPlayerCampSystem : ISystem
 {
+    bool _localPlayerIsSet;
+
     public void OnCreate(ref SystemState state)
     {
         var entity = state.EntityManager.CreateEntity(typeof(LocalPlayerCamp));
@@ -41,7 +43,13 @@ public partial struct ClientLocalPlayerCampSystem : ISystem
                 Debug.Log($"[Client] Local player camp set to {camp.ValueRO.Value}");
             }
 
+            _localPlayerIsSet = true;
             break; // 角色唯一，找到后退出
+        }
+
+        if (_localPlayerIsSet)
+        {
+            state.Enabled = false;
         }
     }
 }

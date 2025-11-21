@@ -19,6 +19,9 @@ GameObject:
   - component: {fileID: 3923260598481638524}
   - component: {fileID: 2257598517067911701}
   - component: {fileID: 188833602054612407}
+  - component: {fileID: 7231254196553677834}
+  - component: {fileID: 1417677952357368883}
+  - component: {fileID: 5017227940409382521}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_Entity
   m_TagString: PICKER_Ani
@@ -113,7 +116,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67e4fa857565bd44ca14c4e776b6dd25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AniAttributesAuthoring
-  MaxHealth: 100
   MoveSpeed: 8
   AttackInterval: 1
   AttackDamage: 10
@@ -215,3 +217,44 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AniMovementFsmAuthoring
   initialBlackboardCapacity: 32
   initialState: 257
+--- !u!114 &7231254196553677834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42441a6b57a498e4bbea67d3401ec956, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthAuthoring
+  maxHealth: 100
+--- !u!114 &1417677952357368883
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 68c148adac80f6d4db24d60b85a345a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::HealthBarViewAuthoring
+  healthBarPrefab: {fileID: 5329334058289433489, guid: 75f2fc50a015a3146ac140db1e782b81,
+    type: 3}
+  worldOffset: {x: 0, y: 5, z: 0}
+--- !u!114 &5017227940409382521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7375c9d5b97beb4eb4909bdede551c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CampAuthoring
+  initialCamp: 2

@@ -174,7 +174,7 @@ public partial struct ServerStartGameSystem : ISystem
                 // 设置 CommandTarget 和 GhostOwner
                 connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
                 entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
-                entityCommandBuffer.AddComponent(character, new Camp { Value = camp });
+                entityCommandBuffer.SetComponent(character, new Camp { Value = camp });
 
                 connectionAspect.MarkSpawned(ref entityCommandBuffer);
 

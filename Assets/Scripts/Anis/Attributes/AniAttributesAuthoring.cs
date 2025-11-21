@@ -5,9 +5,6 @@ using UnityEngine;
 
 public class AniAttributesAuthoring : MonoBehaviour
 {
-    [Tooltip("最大生命值")]
-    public int MaxHealth;
-
     [Tooltip("移动速度")]
     public float MoveSpeed;
 
@@ -28,7 +25,6 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
         var entity = GetEntity(TransformUsageFlags.Dynamic);
         AddComponent(entity, new AniAttributes
         {
-            MaxHealth = authoring.MaxHealth,
             MoveSpeed = authoring.MoveSpeed,
             AttackInterval = authoring.AttackInterval,
             AttackDamage = authoring.AttackDamage,
