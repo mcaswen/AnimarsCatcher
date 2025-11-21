@@ -25,7 +25,7 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
 {
     public override void Bake(AniAttributesAuthoring authoring)
     {
-        var entity = GetEntity(TransformUsageFlags.None);
+        var entity = GetEntity(TransformUsageFlags.Dynamic);
         AddComponent(entity, new AniAttributes
         {
             MaxHealth = authoring.MaxHealth,
@@ -34,5 +34,8 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
             AttackDamage = authoring.AttackDamage,
             AttackRange = authoring.AttackRange,
         });
+
+        AddComponent<AniSelectedTag>(entity);
+        SetComponentEnabled<AniSelectedTag>(entity, false);
     }
 }

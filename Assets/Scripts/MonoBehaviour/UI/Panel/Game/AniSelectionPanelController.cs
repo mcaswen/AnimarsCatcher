@@ -105,6 +105,9 @@ namespace AnimarsCatcher.Mono.UI
                         NetUIEventSource.ClientWorld,
                         ResourceType.Crystal,
                         -_pickerAniCrystalCostCount);
+            
+            Debug.Log("[AniSelectionPanelController] Added Picker Ani, resource deducted: " +
+                           $"Food -{_pickerAniFoodCostCount}, Crystal -{_pickerAniCrystalCostCount}");
             }
         }
 
@@ -125,6 +128,9 @@ namespace AnimarsCatcher.Mono.UI
                     NetUIEventSource.ClientWorld,
                     ResourceType.Crystal,
                     _pickerAniCrystalCostCount);
+
+            Debug.Log("[AniSelectionPanelController] Deducted Picker Ani, resource refunded: " +
+                           $"Food +{_pickerAniFoodCostCount}, Crystal +{_pickerAniCrystalCostCount}");
         }
 
         private void CheckAddBlasterAni()
@@ -154,6 +160,9 @@ namespace AnimarsCatcher.Mono.UI
                         NetUIEventSource.ClientWorld,
                         ResourceType.Crystal,
                         -_blasterAniCrystalCostCount);
+
+                Debug.Log("[AniSelectionPanelController] Added Blaster Ani, resource deducted: " +
+                           $"Food -{_blasterAniFoodCostCount}, Crystal -{_blasterAniCrystalCostCount}");
             }
         }
 
@@ -174,6 +183,9 @@ namespace AnimarsCatcher.Mono.UI
                     NetUIEventSource.ClientWorld,
                     ResourceType.Crystal,
                     _blasterAniCrystalCostCount);
+
+            Debug.Log("[AniSelectionPanelController] Deducted Blaster Ani, resource refunded: " +
+                           $"Food +{_blasterAniFoodCostCount}, Crystal +{_blasterAniCrystalCostCount}");
         }
 
         private void OnSelectionMenuConfirmed()

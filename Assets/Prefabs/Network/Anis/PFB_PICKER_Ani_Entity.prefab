@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 3136332292056354381}
   - component: {fileID: 966398024413977660}
   - component: {fileID: 3923260598481638524}
+  - component: {fileID: 2257598517067911701}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_Entity
   m_TagString: PICKER_Ani
@@ -97,7 +98,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2c6c69baed211f4c92c920f928c960f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NavAgentAuthoring
-  Speed: 3.5
+  Speed: 8
   StoppingDistance: 0.5
   InitialWaypoints: []
 --- !u!114 &4591970425630447368
@@ -113,7 +114,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AniAttributesAuthoring
   MaxHealth: 100
-  MoveSpeed: 4
+  MoveSpeed: 8
   AttackInterval: 1
   AttackDamage: 10
   AttackRange: 3
@@ -155,13 +156,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Unity.NetCode.Authoring.Hybrid::Unity.NetCode.GhostAuthoringComponent
   DefaultGhostMode: 0
-  SupportedGhostModes: 3
+  SupportedGhostModes: 1
   OptimizationMode: 0
   Importance: 1
   MaxSendRate: 0
   prefabId: 76b4502c52020704a8c7e63edd29549a
-  HasOwner: 0
-  SupportAutoCommandTarget: 1
+  HasOwner: 1
+  SupportAutoCommandTarget: 0
   TrackInterpolationDelay: 0
   GhostGroup: 0
   UsePreSerialization: 0
@@ -195,3 +196,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CapsulePhysicsAuthoring
   SourceCollider: {fileID: 5210041726832888015}
+--- !u!114 &2257598517067911701
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 75f1f4a1510afb745a6c4f3331765563, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AniPhysicsAuthoring
+  GroundRayLength: 2
+  ForwardRayLength: 1.5
+  ProbeOffset: {x: 0, y: 0.5, z: 0}
+  BelongsTo: 4294967295
+  CollidesWith: 4294967295
+  GroupIndex: 0

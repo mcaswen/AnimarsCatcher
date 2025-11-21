@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 using Unity.Mathematics;
+using System.Diagnostics;
 
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -30,14 +31,17 @@ public partial struct ServerApplySelectionRpcSystem : ISystem
         _ghostIdToEntity.Clear();
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        foreach (var (ghostInstance, entity) in SystemAPI.Query<RefRO<GhostInstance>>().WithAll<AniAttributes>().WithEntityAccess())
+        foreach (var (ghostInstance, entity) in
+                 SystemAPI.Query<RefRO<GhostInstance>>()
+                          .WithAll<AniAttributes>()
+                          .WithEntityAccess())
         {
             _ghostIdToEntity.TryAdd(ghostInstance.ValueRO.ghostId, entity);
         }
 
         // 处理所有 AniSelectionApplyRpc
-        foreach (var (rpc, buffer, requestedEntity) in SystemAPI
-                     .Query<RefRO<AniSelectionApplyRpc>, DynamicBuffer<SelectedAniGhostRef>>()
+        foreach (var (rpc, requestedEntity) in SystemAPI
+                     .Query<RefRO<AniSelectionApplyRpc>>()
                      .WithAll<ReceiveRpcCommandRequest>()
                      .WithEntityAccess())
         {
@@ -49,28 +53,31 @@ public partial struct ServerApplySelectionRpcSystem : ISystem
             // 替换模式：先清空旧选择
             if (!append)
             {
-                foreach (var (owner, aniEntity) in SystemAPI.Query<RefRW<GhostOwner>>()
-                     .WithAll<AniAttributes>()
-                     .WithEntityAccess())
+                foreach (var (owner, aniEntity) in SystemAPI
+                             .Query<RefRO<GhostOwner>>()
+                             .WithAll<AniAttributes, AniSelectedTag>()
+                             .WithEntityAccess())
                 {
                     if (owner.ValueRO.NetworkId == playerNetId)
-                        entityCommandBuffer.AddComponent(aniEntity, new AniSelectedTag());
-                        
+                    {
+                        entityCommandBuffer.SetComponentEnabled<AniSelectedTag>(aniEntity, false);
+                    }
                 }
             }
 
-            // 对缓冲里每个 ghostId 进行查表 -> 归属校验 -> 置位的流程
-            for (int i = 0; i < buffer.Length; i++)
+            /// 应用本次选择
+            var ghostIds = rpc.ValueRO.GhostIds;
+            for (int i = 0; i < ghostIds.Length; i++)
             {
-                var item = buffer[i];
-                if (!_ghostIdToEntity.TryGetValue(item.AniGhostId, out var aniEntity))
+                var ghostId = ghostIds[i];
+                if (!_ghostIdToEntity.TryGetValue(ghostId, out var aniEntity))
                     continue;
 
-                // 归属校验
                 var owner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
                 if (owner.NetworkId == playerNetId)
                 {
-                    entityCommandBuffer.AddComponent(aniEntity, new AniSelectedTag());
+                    entityCommandBuffer.SetComponentEnabled<AniSelectedTag>(aniEntity, true);
+                    UnityEngine.Debug.Log($"[ServerApplyAniSelectionRpcSystem] Selected Ani GhostId: {ghostId}.");
                 }
             }
 

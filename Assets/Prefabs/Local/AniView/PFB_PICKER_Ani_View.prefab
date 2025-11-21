@@ -76,6 +76,8 @@ GameObject:
   - component: {fileID: 4989952574168294282}
   - component: {fileID: 2473826963750230579}
   - component: {fileID: 331401397274080576}
+  - component: {fileID: 3927661859339088807}
+  - component: {fileID: 7744942007953742261}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_View
   m_TagString: PICKER_Ani
@@ -140,6 +142,41 @@ MonoBehaviour:
   TeleportSnapDistance: 2
   SpeedDeadbandMeters: 0
   PreferLocalToWorld: 1
+--- !u!136 &3927661859339088807
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 1.0408328
+  m_Height: 4.9411907
+  m_Direction: 1
+  m_Center: {x: -0.02434063, y: 1.9705954, z: 0}
+--- !u!114 &7744942007953742261
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
 --- !u!1 &121782258953408926
 GameObject:
   m_ObjectHideFlags: 0

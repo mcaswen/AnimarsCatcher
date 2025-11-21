@@ -20,6 +20,7 @@ public struct KeyBoardMouseState
     public bool SpaceDown;
     public bool EDown;
     public bool ESCDown;
+    public bool LeftMousePressed;
     public bool RightHeld;
     public float2 MousePosition;
 }
@@ -42,6 +43,8 @@ public static class PlayerInputFeature
         }
 
         input.MousePosition = raw.MousePosition;
+        if (raw.LeftMousePressed)
+            input.LeftMousePressed.Set(context.NetTick);
     }
 
     private static void SetRightMouseHeldTimeAndLongPress(ref PlayerInput input, in InputContext context)

@@ -9121,6 +9121,8 @@ GameObject:
   - component: {fileID: 2937466211808263992}
   - component: {fileID: 8679497521785161202}
   - component: {fileID: 7637448598818712917}
+  - component: {fileID: 2619425852887871661}
+  - component: {fileID: 9139797893799157901}
   m_Layer: 7
   m_Name: PFB_BLASTER_Ani_View
   m_TagString: BLASTER_Ani
@@ -9188,6 +9190,41 @@ MonoBehaviour:
   TeleportSnapDistance: 2
   SpeedDeadbandMeters: 0
   PreferLocalToWorld: 1
+--- !u!136 &2619425852887871661
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575613061903006214}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.9852652
+  m_Height: 4.667332
+  m_Direction: 1
+  m_Center: {x: -0.049512208, y: 1.8336661, z: 0}
+--- !u!114 &9139797893799157901
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575613061903006214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
 --- !u!1 &8575857133402162599
 GameObject:
   m_ObjectHideFlags: 0

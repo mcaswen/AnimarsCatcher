@@ -1,14 +1,14 @@
 using Unity.Entities;
 using UnityEngine;
 
-public class BlasterAniGhostPrefabAuthoring : MonoBehaviour
+public class AniRegistry : MonoBehaviour
 {
     public GameObject BlasterAniGhostPrefab;
     public GameObject PickerAniGhostPrefab;
 
-    class Baker : Baker<BlasterAniGhostPrefabAuthoring>
+    class Baker : Baker<AniRegistry>
     {
-        public override void Bake(BlasterAniGhostPrefabAuthoring authoring)
+        public override void Bake(AniRegistry authoring)
         {
             var entity = GetEntity(TransformUsageFlags.None);
             var blasterPrefabEntity = GetEntity(authoring.BlasterAniGhostPrefab, TransformUsageFlags.Dynamic);

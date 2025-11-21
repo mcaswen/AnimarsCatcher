@@ -19,7 +19,7 @@ GameObject:
   - component: {fileID: 7928405103426607724}
   - component: {fileID: 5370169966772691623}
   - component: {fileID: 8130281015928969401}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: PFB_SmartCommandRobot_CharacterEntity
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -382,7 +382,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 655751090921937473}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: CameraTarget
   m_TagString: Untagged
   m_Icon: {fileID: 1206586993520771344, guid: 0000000000000000d000000000000000, type: 0}

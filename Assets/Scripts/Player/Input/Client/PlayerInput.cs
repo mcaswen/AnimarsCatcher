@@ -14,6 +14,7 @@ public struct PlayerInput : IComponentData
     public FixedInputEvent PausePressed;
 
     // 鼠标
+    public FixedInputEvent LeftMousePressed;
     public byte RightMouseHeld;
     public float RightMouseHeldTime;
     public FixedInputEvent RightMouseLongPress;

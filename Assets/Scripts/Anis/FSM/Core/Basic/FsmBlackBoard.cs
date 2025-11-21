@@ -3,6 +3,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.NetCode;
 using Unity.Transforms;
 
 public enum FsmVarType : byte
@@ -16,15 +17,28 @@ public enum FsmVarType : byte
 
 // 黑板缓冲区，封装对数据的高频读写
 [InternalBufferCapacity(4)]
+[GhostComponent]
 public struct FsmVar : IBufferElementData
 {
+    [GhostField]
     public uint Key;    // 数据标识符
+
+    [GhostField]
     public FsmVarType Type;   // 类型标签
     
+    [GhostField]
     public int Int;
+
+    [GhostField]
     public float Float;
+
+    [GhostField]
     public byte Bool;
+
+    [GhostField]
     public Entity Entity;
+
+    [GhostField]
     public float3 Float3;
 }
 
