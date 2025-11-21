@@ -1,14 +1,6 @@
 using Unity.Entities;
 using Unity.NetCode;
 
-// 顺序即槽位索引
-[GhostComponent]
-public struct AniFormationRoster : IBufferElementData
-{
-    [GhostField]
-    public Entity member;
-}
-
 [GhostComponent]
 public struct AniFormationMember : IComponentData
 {

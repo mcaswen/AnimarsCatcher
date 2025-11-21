@@ -1,11 +1,11 @@
 using Unity.Entities;
 using Unity.NetCode;
 
-[GhostComponent(PrefabType = GhostPrefabType.All, SendTypeOptimization = GhostSendType.AllClients)]
+[GhostComponent]
 public struct PickerAniTag : IComponentData {}
 
 
-[GhostComponent(PrefabType = GhostPrefabType.All, SendTypeOptimization = GhostSendType.AllClients)]
+[GhostComponent]
 public struct BlasterAniTag : IComponentData {}
 
 

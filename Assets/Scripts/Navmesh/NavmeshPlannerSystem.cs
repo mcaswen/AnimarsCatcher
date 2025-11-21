@@ -18,7 +18,7 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
             .WithAll<NavAgent, LocalTransform>()
             .Build());
 
-        _blackboardLookup = state.GetBufferLookup<FsmVar>(true);
+        _blackboardLookup = state.GetBufferLookup<FsmVar>(false);
         _waypointBufferHandle = state.GetBufferTypeHandle<NavWaypoint>();
     }
 

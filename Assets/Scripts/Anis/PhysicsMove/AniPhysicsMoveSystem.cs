@@ -5,12 +5,15 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Physics;
 
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(NavFollowIntentSystem))]
 [BurstCompile]
 public partial struct AniPhysicsMoveSystem : ISystem
 {
+
+    private ComponentLookup<AniPhysicsConfig> _aniLookup;
+
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -19,11 +22,15 @@ public partial struct AniPhysicsMoveSystem : ISystem
             SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, AniMoveIntent, AniPhysicsConfig>()
                 .Build());
+        
+        _aniLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
+        _aniLookup.Update(ref state);
+
         var physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
         var physicsWorld = physicsWorldSingleton.PhysicsWorld;
 
@@ -39,11 +46,11 @@ public partial struct AniPhysicsMoveSystem : ISystem
             float3 currentPosition = transform.ValueRO.Position;
             var filter = config.ValueRO.Filter;
 
-            // ===== A. 计算“分离方向”，只作为 steering 力，不直接改位置 =====
+            // 计算“分离方向”，只作为 steering 力，不直接改位置
             float3 separationDir = float3.zero;
-
+            float  maxWeight     = 0f; // 分离权重
             {
-                const float separationRadius = 1.0f;   // 个人空间半径，可以 0.7~1.2 自己调
+                const float separationRadius = 0.8f;
 
                 separationHits.Clear();
 
@@ -63,25 +70,20 @@ public partial struct AniPhysicsMoveSystem : ISystem
                     {
                         var hit = separationHits[i];
 
-                        // 查出命中的实体
                         var hitBody   = physicsWorld.Bodies[hit.RigidBodyIndex];
                         var hitEntity = hitBody.Entity;
 
-                        // 自己跳过
                         if (hitEntity == entity)
                             continue;
+                        
+                        if (!_aniLookup.HasComponent(hitEntity))
+                            continue;
 
-                        // 这里可以只对“其他 Ani”做分离，如果你有专门的 AniTag，就用那个
-                        // 比如：if (!SystemAPI.HasComponent<AniMoveIntent>(hitEntity)) continue;
-
-                        float distance = hit.Distance; // <0: 重叠，>0: 外部
-
-                        // 只对在 separationRadius 内的做处理
+                        float distance    = hit.Distance;
                         float penetration = separationRadius - distance;
                         if (penetration <= 0f)
                             continue;
 
-                        // 法线只用水平分量
                         float3 n = hit.SurfaceNormal;
                         n.y = 0;
                         n   = math.normalizesafe(n);
@@ -89,11 +91,11 @@ public partial struct AniPhysicsMoveSystem : ISystem
                         if (math.all(n == float3.zero))
                             continue;
 
-                        // 距离越近，权重越大
                         float weight = math.saturate(penetration / separationRadius);
 
                         accumulated += n * weight;
                         totalWeight += weight;
+                        maxWeight    = math.max(maxWeight, weight);
                     }
 
                     if (totalWeight > 0f)
@@ -104,23 +106,54 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 }
             }
 
-            // ===== B. 有意图时的移动（Nav + 分离 steering 合成） =====
+            // 有意图时的移动（Nav + 分离 steering 合成）
             float3 baseVelocity = moveIntent.ValueRO.DesiredVelocity;
+            float  baseSpeedSq  = math.lengthsq(baseVelocity);
 
-            // 把分离当额外 steering 力
-            float3 finalVelocity = baseVelocity;
+            const float separationStrength = 2.0f;
+
+            // 0.0001 这种阈值防止 float 精度误差
+            bool isMoving            = baseSpeedSq > 1e-4f;
+            bool hasStrongSeparation = maxWeight > 0.4f;  // > 0.4 表示挤得比较厉害
+
+            float3 finalVelocity;
+
+            if (isMoving)
             {
-                const float separationStrength = 3.0f; // 分离强度，数值越大“互相排斥”越明显
+                // 移动时：在原有速度上加上分离 steering
+                finalVelocity = baseVelocity;
 
                 if (math.lengthsq(separationDir) > 1e-6f)
                 {
-                    finalVelocity += separationDir * separationStrength;
+                    // 用权重衰减，避免抖动
+                    finalVelocity += separationDir * (separationStrength * maxWeight);
+                }
+            }
+            else
+            {
+                // 不在移动时：只在重叠部分大于阈值的情况下才进行分离
+                if (hasStrongSeparation && math.lengthsq(separationDir) > 1e-6f)
+                {
+                    finalVelocity = separationDir * (separationStrength * maxWeight);
+                }
+                else
+                {
+                    finalVelocity = float3.zero;
                 }
             }
 
             float speedSq = math.lengthsq(finalVelocity);
 
-            if (speedSq > 1e-6f)
+            const float minVisualSpeed = 0.05f;
+            float minVisualSpeedSq = minVisualSpeed * minVisualSpeed;
+
+            if (speedSq < minVisualSpeedSq)
+            {
+                finalVelocity = float3.zero;
+                speedSq = 0f;
+            }
+
+            if (speedSq > 0f)
             {
                 float3 desiredDelta    = finalVelocity * deltaTime;
                 float  desiredDistance = math.length(desiredDelta);

@@ -30,8 +30,13 @@ public partial struct ServerPlayerAniCountUpdateSystem : ISystem
         for (int i = 0; i < resourceStates.Length; i++)
         {
             var resourceState = resourceStates[i];
+
             resourceState.TotalPickerAniCount = 0;
             resourceState.TotalBlasterAniCount  = 0;
+
+            resourceState.SelectedPickerAniCount = 0;
+            resourceState.SelectedBlasterAniCount = 0;
+
             resourceState.InTeamPickerAniCount  = 0;
             resourceState.InTeamBlasterAniCount = 0;
             resourceStates[i] = resourceState;

@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Audio;
 using DG.Tweening;
+using AnimarsCatcher.Mono.Global;
 
 namespace AnimarsCatcher.Mono.UI
 {
@@ -52,6 +53,7 @@ namespace AnimarsCatcher.Mono.UI
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.EnterMenu();
                 SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
+                NetUIEventBridge.RaiseUIPanelInputLocked();
                 Time.timeScale = 0;
             });
 

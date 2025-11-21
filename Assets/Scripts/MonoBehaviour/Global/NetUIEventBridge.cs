@@ -16,6 +16,7 @@ namespace AnimarsCatcher.Mono.Global
         // Gameplay 相关事件
         public static UnityEvent<SpawnBlasterAniRequestedEventData> SpawnBlasterAniRequestedEvent = new UnityEvent<SpawnBlasterAniRequestedEventData>();
         public static UnityEvent<ResourceChangedRequestedEventData> ResourceChangedRequestedEvent = new UnityEvent<ResourceChangedRequestedEventData>();
+        public static UnityEvent<UIPanelInputToggleEvent> UIPanelInputToggleEvent= new UnityEvent<UIPanelInputToggleEvent>();
 
         // 连接相关事件
         public static UnityEvent<ConnectionLostEventData> ConnectionLostEvent = new UnityEvent<ConnectionLostEventData>();
@@ -81,6 +82,22 @@ namespace AnimarsCatcher.Mono.Global
             ResourceChangedRequestedEvent?.Invoke(
                 new ResourceChangedRequestedEventData(source, resourceType, amount)
             );
+        }
+
+        public static void RaiseUIPanelInputLocked()
+        {
+            UIPanelInputToggleEvent.Invoke(new UIPanelInputToggleEvent
+            {
+                Delta = +1
+            });
+        }
+
+        public static void RaiseUIPanelInputUnlocked()
+        {
+            UIPanelInputToggleEvent.Invoke(new UIPanelInputToggleEvent
+            {
+                Delta = -1
+            });
         }
 
         // 连接相关事件

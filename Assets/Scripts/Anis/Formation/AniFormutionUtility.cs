@@ -2,38 +2,42 @@ using Unity.Mathematics;
 
 public static class AniFormationUtility
 {
-    public const int FormationColumnCount = 5; // 队形列数
-    public const float FormationHorizontalSpacing = 2f; // 队形水平间距
-    public const float FormationBackwardSpacing = 2f; // 队形纵向间距
-    public const float ArrivalRadius = 0.6f;
+    // Follow：Picker 在玩家身后 2 米
+    public const float PickerFollowBackOffset = 2f;
 
-    // 获取对称列索引
-    static int GetSymmetricColumnIndex(int columnIndex, int columnCount)
+    // Follow：Blaster 在玩家身后 1 * AttackRange
+    public const float BlasterFollowBackFactor = 1.0f;
+
+    // Find：Blaster 在相对位置反方向 0.8 * AttackRange
+    public const float BlasterFindBackFactor = 0.8f;
+
+    // MoveTo：Blaster 在点击点反方向 0.8 * AttackRange
+    public const float BlasterMoveToBackFactor = 0.8f;
+
+    public const int   FormationColumnCount = 6;
+    public const float FormationHorizontalSpacing = 2.8f;
+    public const float FormationBackwardSpacing  = 1.8f;
+
+    // 阵列的“到达半径”，避免所有人挤一个精确点
+    public const float ArrivalRadius = 0.7f;
+
+    public static float3 CalculateRectangularFormationLocalOffset(
+        int slotIndex,
+        int columnCount,
+        float horizontalSpacing,
+        float backwardSpacing)
     {
-        int half = columnCount / 2;
-        
-        // 奇数列, 居中对齐
-        if ((columnCount & 1) == 1) return columnIndex - half;
-        
-        // 偶数列
-        return columnIndex < half ? columnIndex - half : columnIndex - half + 1;
+        int row    = slotIndex / columnCount;
+        int column = slotIndex % columnCount;
+
+        float x = (column - (columnCount - 1) * 0.5f) * horizontalSpacing;
+        float z = -row * backwardSpacing; // 队列往后排
+
+        return new float3(x, 0f, z);
     }
 
-    // 把 index 映射成“相对 leader 局部坐标”的偏移
-    public static float3 CalculateRectangularFormationLocalOffset(int slotIndex, int columnCount, float horizontalSpacing, float backwardSpacing)
+    public static float3 RotateLocalOffsetToWorld(float3 localOffset, quaternion rotation)
     {
-        int row = slotIndex / columnCount;       
-        int col = slotIndex % columnCount;
-        int scol = GetSymmetricColumnIndex(col, columnCount);
-
-        // 局部坐标：+x 为右，+z 为前
-        // 要排在目标后方，所以 -(row+1) * backwardSpacing
-        return new float3(scol * horizontalSpacing, 0, -(row + 1) * backwardSpacing);
-    }
-
-    // 转世界坐标
-    public static float3 RotateLocalOffsetToWorld(float3 localOffset, in quaternion leaderRot)
-    {
-        return math.mul(leaderRot, localOffset); // 旋转向量
+        return math.mul(rotation, localOffset);
     }
 }

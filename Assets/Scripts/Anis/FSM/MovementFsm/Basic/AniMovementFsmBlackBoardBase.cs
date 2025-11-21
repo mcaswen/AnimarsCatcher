@@ -66,4 +66,8 @@ public static class AniMovementBlackboardKeys
     public const uint K_FormationJoinEventVersion  = 0x0401u; // int，每次请求加入阵列事件版本号加一，外部消费
     public const uint K_FormationLeaveEventVersion = 0x0402u; // int，每次请求离开阵列事件版本号加一，外部消费
     public const uint K_FormationLeader = 0x0403u; // Entity，通常 = PlayerEntity
+
+    // 静止阵列用缓存
+    public const uint K_MoveFormationTargetPoint = 0x0404u; // float3，阵列移动目标点
+    public const uint K_MoveFormationForward = 0x0405u; // float3，阵列移动朝向
 }
