@@ -5,28 +5,21 @@ using Unity.NetCode;
 public struct AniAttributes : IComponentData
 {
     [GhostField]
-    public int MaxHealth;
-
-    [GhostField]
     public float MoveSpeed;
 
     public float AttackInterval;
 
-    public float AttackDamage;
+    public int AttackDamage;
 
     public float AttackRange;
+    public AniAttackMode AttackMode;
 
     [GhostField]
     public int OwnerPlayerId;
 }
-public enum PickerAniTargetType
-{
-    Resource = 0,
-    Enemy = 1,
-}
 
-public struct PickerAniAttributes : IComponentData
+public enum AniAttackMode : byte
 {
-    public float CarrySpeed;
-    public PickerAniTargetType TargetType;
+    Melee  = 0,
+    Ranged = 1,
 }

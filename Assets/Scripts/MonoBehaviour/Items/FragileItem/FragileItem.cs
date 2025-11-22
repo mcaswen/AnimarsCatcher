@@ -13,30 +13,30 @@ namespace AnimarsCatcher.Mono.Items
         bool HasDestroyed();
     }
 
-    public class FragileItem : MonoBehaviour,ICanShoot, IResource
+    public class FragileItem : MonoBehaviour, ICanShoot, IResource
     {
         [SerializeField]
-        private int _ResourceCount;
-        public int ResourceCount => _ResourceCount;
+        private int _resourceCount;
+        public int ResourceCount => _resourceCount;
 
-        [SerializeField] private int _Health = 200;
+        [SerializeField] private int _health = 200;
 
-        [SerializeField] private int _DamagePerShoot = 10;
-        [SerializeField] private float _InstantiateRadius = 1;
+        [SerializeField] private int _damagePerShoot = 10;
+        [SerializeField] private float _instantiateRadius = 1;
         public ReactiveProperty<int> Health;
         public List<GameObject> PickableCrystals;
 
-        private LayerMask _Mask;
+        private LayerMask _mask;
 
-        private LayerMask _SelfLayerMask;
+        private LayerMask _selfLayerMask;
 
         private void Awake()
         {
-            _Mask = (1 << LayerMask.NameToLayer("Ani")) | (1 << LayerMask.NameToLayer("Player"));
-            _Mask = ~_Mask;
-            _SelfLayerMask = gameObject.layer;
+            _mask = (1 << LayerMask.NameToLayer("Ani")) | (1 << LayerMask.NameToLayer("Player"));
+            _mask = ~_mask;
+            _selfLayerMask = gameObject.layer;
 
-            Health = new ReactiveProperty<int>(_Health);
+            Health = new ReactiveProperty<int>(_health);
         }
 
         private void Start()
@@ -68,7 +68,7 @@ namespace AnimarsCatcher.Mono.Items
 
         private Vector3 GetRandomPickableItemPosition()
         {
-             Vector2 randomOffset2D = Random.insideUnitCircle * _InstantiateRadius;
+             Vector2 randomOffset2D = Random.insideUnitCircle * _instantiateRadius;
             Vector3 randomOffset = new Vector3(randomOffset2D.x, 0, randomOffset2D.y);
 
             return transform.position + randomOffset;
@@ -77,14 +77,14 @@ namespace AnimarsCatcher.Mono.Items
 
         public void TakeDamage()
         {
-            Health.Value -= _DamagePerShoot;
-            _Health -= _DamagePerShoot;
+            Health.Value -= _damagePerShoot;
+            _health -= _damagePerShoot;
         }
 
         public bool CheckCanShoot(Vector3 position)
         {
             Vector3 dir = transform.position - position;
-            Physics.Raycast(position, dir, out var hitInfo, 30, _Mask);
+            Physics.Raycast(position, dir, out var hitInfo, 30, _mask);
 
             if (hitInfo.transform != null)
                 return hitInfo.transform.CompareTag("FragileItem");
@@ -104,7 +104,7 @@ namespace AnimarsCatcher.Mono.Items
 
         private void OnMouseExit()
         {
-            gameObject.layer = _SelfLayerMask;
+            gameObject.layer = _selfLayerMask;
         }
     }
 }

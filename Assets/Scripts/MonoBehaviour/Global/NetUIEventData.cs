@@ -140,6 +140,16 @@ namespace AnimarsCatcher.Mono.Global
         public int Delta;
     }
 
+    public struct AniSelectionModeChangedEvent
+    {
+        public AniSelectionMode Mode;
+
+        public AniSelectionModeChangedEvent(AniSelectionMode mode)
+        {
+            Mode = mode;
+        }
+    }
+
 
 #endregion
 

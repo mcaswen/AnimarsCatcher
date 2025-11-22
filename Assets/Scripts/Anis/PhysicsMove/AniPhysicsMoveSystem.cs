@@ -26,7 +26,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
         _aniLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
-    [BurstCompile]
+    // [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         _aniLookup.Update(ref state);
@@ -36,13 +36,16 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
         float deltaTime = SystemAPI.Time.DeltaTime;
 
-        // 一个系统一帧共用一个列表即可，循环里 Clear
+        // 一个系统一帧共用一个列表即可
         var separationHits = new NativeList<DistanceHit>(16, Allocator.Temp);
 
         foreach (var (transform, moveIntent, config, entity) in
                  SystemAPI.Query<RefRW<LocalTransform>, RefRO<AniMoveIntent>, RefRO<AniPhysicsConfig>>()
                           .WithEntityAccess())
         {
+            UnityEngine.Debug.Log(
+            $"[AniPhysicsMoveSystem] entity {entity.Index} filter: belongsTo={config.ValueRO.Filter.BelongsTo}, collidesWith={config.ValueRO.Filter.CollidesWith}");
+
             float3 currentPosition = transform.ValueRO.Position;
             var filter = config.ValueRO.Filter;
 
@@ -112,7 +115,6 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
             const float separationStrength = 2.0f;
 
-            // 0.0001 这种阈值防止 float 精度误差
             bool isMoving            = baseSpeedSq > 1e-4f;
             bool hasStrongSeparation = maxWeight > 0.4f;  // > 0.4 表示挤得比较厉害
 
@@ -153,11 +155,14 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 speedSq = 0f;
             }
 
+            // 先把旧的旋转取出来，后面做插值
+            var newTransform = transform.ValueRO;
+
             if (speedSq > 0f)
             {
                 float3 desiredDelta    = finalVelocity * deltaTime;
                 float  desiredDistance = math.length(desiredDelta);
-                float3 moveDirection   = desiredDelta / desiredDistance;
+                float3 moveDirection   = desiredDelta / math.max(desiredDistance, 1e-6f);
 
                 float  probeHeight = config.ValueRO.ProbeOffset.y;
                 float  skin        = 0.05f;
@@ -189,11 +194,23 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 }
 
                 currentPosition += finalDelta;
+
+                // 只考虑平面（X-Z）方向，让 Up 永远是世界 Y 轴
+                float3 flatDir = new float3(moveDirection.x, 0f, moveDirection.z);
+                if (math.lengthsq(flatDir) > 1e-6f)
+                {
+                    quaternion targetRot = quaternion.LookRotationSafe(flatDir, math.up());
+
+                    // 加入简单平滑，避免瞬间转向导致卡顿
+                    const float rotationLerpSpeed = 10f;
+                    float t = math.saturate(rotationLerpSpeed * deltaTime);
+
+                    newTransform.Rotation = math.slerp(newTransform.Rotation, targetRot, t);
+                }
             }
 
-            var newTransform = transform.ValueRO;
             newTransform.Position = currentPosition;
-            transform.ValueRW = newTransform;
+            transform.ValueRW     = newTransform;
         }
 
         separationHits.Dispose();

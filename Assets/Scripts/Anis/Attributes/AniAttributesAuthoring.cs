@@ -1,10 +1,20 @@
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.VisualScripting;
 using UnityEditor.EditorTools;
 using UnityEngine;
 
+public enum AniType
+{
+    Picker,
+    Blaster,
+}
+
 public class AniAttributesAuthoring : MonoBehaviour
 {
+    [Tooltip("Ani类型")]
+    public AniType AniType;
+
     [Tooltip("移动速度")]
     public float MoveSpeed;
 
@@ -12,7 +22,7 @@ public class AniAttributesAuthoring : MonoBehaviour
     public float AttackInterval;
 
     [Tooltip("攻击伤害")]
-    public float AttackDamage;
+    public int AttackDamage;
 
     [Tooltip("攻击范围")]
     public float AttackRange;
@@ -33,5 +43,20 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
 
         AddComponent<AniSelectedTag>(entity);
         SetComponentEnabled<AniSelectedTag>(entity, false);
+
+        AddComponent<AniCommandLockedTag>(entity);
+        SetComponentEnabled<AniCommandLockedTag>(entity, false);
+
+        if (authoring.AniType == AniType.Picker)
+        {
+            AddComponent<PickerAniTag>(entity);
+        }
+        else if (authoring.AniType == AniType.Blaster)
+        {
+            AddComponent<BlasterAniTag>(entity);
+        }
+
+        AddComponent<MeleeAttackableTag>(entity);
+        AddComponent<RangedAttackableTag>(entity);
     }
 }

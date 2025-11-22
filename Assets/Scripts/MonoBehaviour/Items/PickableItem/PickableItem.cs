@@ -32,8 +32,8 @@ namespace AnimarsCatcher.Mono.Items
         [SerializeField] private float _aniSpeedMutiplier = 1.5f;
         [SerializeField] private string _pickerAniTag = "PICKER_Ani";
 
-        [SerializeField] private TextMeshProUGUI _resourceCountText;
-        [SerializeField] private TextMeshProUGUI _maxAniCountText;
+        // [SerializeField] private TextMeshProUGUI _resourceCountText;
+        // [SerializeField] private TextMeshProUGUI _maxAniCountText;
 
         public List<Vector3> Positions = new List<Vector3>();
 
@@ -54,8 +54,8 @@ namespace AnimarsCatcher.Mono.Items
 
             _LayerMask = gameObject.layer;
 
-            if (_resourceCountText != null) _resourceCountText.text = "Resource Count: " + _resourceCount.ToString();
-            if (_maxAniCountText != null) _maxAniCountText.text = "Max Anis Count: " + MaxAniCount.ToString();
+            // if (_resourceCountText != null) _resourceCountText.text = "Resource Count: " + _resourceCount.ToString();
+            // if (_maxAniCountText != null) _maxAniCountText.text = "Max Anis Count: " + MaxAniCount.ToString();
         }
 
         private void Update()
@@ -155,15 +155,15 @@ namespace AnimarsCatcher.Mono.Items
         private void OnMouseEnter()
         {
             gameObject.layer = LayerMask.NameToLayer("SelectedObject");
-            if (_resourceCountText != null) _resourceCountText.enabled = true;
-            if (_maxAniCountText != null) _maxAniCountText.enabled = true;
+            // if (_resourceCountText != null) _resourceCountText.enabled = true;
+            // if (_maxAniCountText != null) _maxAniCountText.enabled = true;
         }
 
         private void OnMouseExit()
         {
             gameObject.layer = _LayerMask;
-            if (_resourceCountText != null) _resourceCountText.enabled = false;
-            if (_maxAniCountText != null) _maxAniCountText.enabled = false;
+            // if (_resourceCountText != null) _resourceCountText.enabled = false;
+            // if (_maxAniCountText != null) _maxAniCountText.enabled = false;
         }
     }
 }

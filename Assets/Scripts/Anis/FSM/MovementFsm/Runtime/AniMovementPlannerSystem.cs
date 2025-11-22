@@ -4,17 +4,17 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
-// using Unity.NetCode; // 如果 FsmContext 是 NetCode 里的的话，记得加
 
-public struct AniMovementConfig
-{
-    public const int NavUpdateIntervalTicks = 5; // 每隔多少 Tick 更新一次导航目标
-}
+// public struct AniMovementConfig
+// {
+//     public const int NavUpdateIntervalTicks = 5; // 每隔多少 Tick 更新一次导航目标
+// }
 
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FsmApplyTransitionSystem))]
+[UpdateAfter(typeof(AniFormationManagementSystem))]
 public partial struct AniMovementPlannerSystem : ISystem
 {
     private BufferLookup<FsmVar>       _blackboardLookup;
@@ -398,11 +398,11 @@ public partial struct AniMovementPlannerSystem : ISystem
     // =============== 公共 Nav 写入逻辑 ===============
 
     private static void ApplyDestination(
-        in float3 currentPosition,
-        in float3 desiredPosition,
-        float arrivalRadius,
-        ref DynamicBuffer<FsmVar> blackboard,
-        in FsmContext fsmContext)
+    in float3 currentPosition,
+    in float3 desiredPosition,
+    float arrivalRadius,
+    ref DynamicBuffer<FsmVar> blackboard,
+    in FsmContext fsmContext)
     {
         float3 delta = desiredPosition - currentPosition;
         float distanceSquared = math.lengthsq(delta);
@@ -410,25 +410,32 @@ public partial struct AniMovementPlannerSystem : ISystem
         float arrivalRadiusSq = arrivalRadius * arrivalRadius;
         bool hasArrived = distanceSquared <= arrivalRadiusSq;
 
+        // 抵达标记
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_MoveArrived, hasArrived);
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_NavStop,    hasArrived);
-        
+
+        // 到了就别再发寻路请求
         if (hasArrived)
-        {
             return;
-        }
+
+        // ❌ 不再看 K_NavNextUpdateTick / NavUpdateIntervalTicks
+        //    直接每 tick 写一遍目标和请求版本
+
+        Blackboard.SetFloat3(
+            ref blackboard,
+            AniMovementBlackboardKeys.K_NavTargetPosition,
+            desiredPosition);
 
         int currentTick = (int)fsmContext.Tick;
-        int nextUpdateTick = Blackboard.GetInt(ref blackboard, AniMovementBlackboardKeys.K_NavNextUpdateTick);
+        Blackboard.SetInt(
+            ref blackboard,
+            AniMovementBlackboardKeys.K_NavRequestVersion,
+            currentTick);
 
-        bool shouldUpdateNav = (nextUpdateTick == 0) || (currentTick >= nextUpdateTick);
-        if (!shouldUpdateNav)
-            return;
-
-        Blackboard.SetFloat3(ref blackboard, AniMovementBlackboardKeys.K_NavTargetPosition, desiredPosition);
-        Blackboard.SetInt(ref blackboard, AniMovementBlackboardKeys.K_NavRequestVersion, currentTick);
-
-        int newNextTick = currentTick + AniMovementConfig.NavUpdateIntervalTicks;
-        Blackboard.SetInt(ref blackboard, AniMovementBlackboardKeys.K_NavNextUpdateTick, newNextTick);
+        // 如果别的地方用过 K_NavNextUpdateTick，可以顺便清零避免误用
+        Blackboard.SetInt(
+            ref blackboard,
+            AniMovementBlackboardKeys.K_NavNextUpdateTick,
+            0);
     }
 }

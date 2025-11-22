@@ -9,8 +9,8 @@
         public override void OnEnter(params object[] args)
         {
             mNavmeshAgent.isStopped = true;
-            mAnimator.SetFloat(AniSpeed,0f);
-            Owner.InvokeRepeating("Shoot",0.3f,1f);
+            mAnimator.SetFloat(AniSpeed, 0f);
+            Owner.InvokeRepeating("Shoot", 0.3f, 1f);
             Owner.transform.LookAt(Owner.FragileItem.transform);
         }
 

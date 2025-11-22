@@ -17,6 +17,7 @@ namespace AnimarsCatcher.Mono.Global
         public static UnityEvent<SpawnBlasterAniRequestedEventData> SpawnBlasterAniRequestedEvent = new UnityEvent<SpawnBlasterAniRequestedEventData>();
         public static UnityEvent<ResourceChangedRequestedEventData> ResourceChangedRequestedEvent = new UnityEvent<ResourceChangedRequestedEventData>();
         public static UnityEvent<UIPanelInputToggleEvent> UIPanelInputToggleEvent= new UnityEvent<UIPanelInputToggleEvent>();
+        public static UnityEvent<AniSelectionModeChangedEvent> AniSelectionModeChanged = new UnityEvent<AniSelectionModeChangedEvent>();
 
         // 连接相关事件
         public static UnityEvent<ConnectionLostEventData> ConnectionLostEvent = new UnityEvent<ConnectionLostEventData>();
@@ -86,7 +87,7 @@ namespace AnimarsCatcher.Mono.Global
 
         public static void RaiseUIPanelInputLocked()
         {
-            UIPanelInputToggleEvent.Invoke(new UIPanelInputToggleEvent
+            UIPanelInputToggleEvent?.Invoke(new UIPanelInputToggleEvent
             {
                 Delta = +1
             });
@@ -94,10 +95,15 @@ namespace AnimarsCatcher.Mono.Global
 
         public static void RaiseUIPanelInputUnlocked()
         {
-            UIPanelInputToggleEvent.Invoke(new UIPanelInputToggleEvent
+            UIPanelInputToggleEvent?.Invoke(new UIPanelInputToggleEvent
             {
                 Delta = -1
             });
+        }
+
+        public static void RaiseAniSelectionModeChanged(AniSelectionMode mode)
+        {
+            AniSelectionModeChanged?.Invoke(new AniSelectionModeChangedEvent(mode));
         }
 
         // 连接相关事件
