@@ -13,8 +13,8 @@ GameObject:
   - component: {fileID: 1792317104374513453}
   - component: {fileID: -8457396834443847145}
   - component: {fileID: 2877647340597662541}
-  - component: {fileID: 4883467204810350295}
   - component: {fileID: 5399620993890468308}
+  - component: {fileID: -4944748096802422861}
   m_Layer: 12
   m_Name: PFB_FragileCrystal2_View
   m_TagString: FragileItem
@@ -108,7 +108,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
@@ -126,22 +126,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
---- !u!208 &4883467204810350295
-NavMeshObstacle:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3320517679385806202}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Shape: 1
-  m_Extents: {x: 0.21800001, y: 0.37, z: 0.27100003}
-  m_MoveThreshold: 0.1
-  m_Carve: 1
-  m_CarveOnlyStationary: 1
-  m_Center: {x: 0.061000004, y: 0.26500002, z: 0.038000003}
-  m_TimeToStationary: 0.5
 --- !u!114 &5399620993890468308
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,3 +143,19 @@ MonoBehaviour:
   TeleportSnapDistance: 2
   SpeedDeadbandMeters: 0
   PreferLocalToWorld: 1
+--- !u!208 &-4944748096802422861
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3320517679385806202}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.21800001, y: 0.37, z: 0.27100003}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0.061000004, y: 0.26500002, z: 0.038000003}
+  m_TimeToStationary: 0.5

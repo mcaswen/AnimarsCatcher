@@ -14,8 +14,8 @@ GameObject:
   - component: {fileID: 6351803089743964287}
   - component: {fileID: 6808897548907751490}
   - component: {fileID: 6534256099203863763}
-  - component: {fileID: 4682884763136206982}
   - component: {fileID: 3592741570213902572}
+  - component: {fileID: -8752125095146585103}
   m_Layer: 12
   m_Name: PFB_PickableFruit3_View
   m_TagString: PickableItem
@@ -149,22 +149,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
---- !u!208 &4682884763136206982
-NavMeshObstacle:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3078034370496434138}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Shape: 1
-  m_Extents: {x: 1.22, y: 2.02, z: 1.123}
-  m_MoveThreshold: 0.1
-  m_Carve: 1
-  m_CarveOnlyStationary: 1
-  m_Center: {x: 0.16700001, y: 2.002, z: 0.080000006}
-  m_TimeToStationary: 0.5
 --- !u!114 &3592741570213902572
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -182,3 +166,19 @@ MonoBehaviour:
   TeleportSnapDistance: 2
   SpeedDeadbandMeters: 0
   PreferLocalToWorld: 1
+--- !u!208 &-8752125095146585103
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3078034370496434138}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 1.22, y: 2.02, z: 1.123}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0.16700001, y: 2.002, z: 0.080000006}
+  m_TimeToStationary: 0.5

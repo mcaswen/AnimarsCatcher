@@ -9123,6 +9123,7 @@ GameObject:
   - component: {fileID: 7637448598818712917}
   - component: {fileID: 2619425852887871661}
   - component: {fileID: 9139797893799157901}
+  - component: {fileID: 7622885786237187724}
   m_Layer: 7
   m_Name: PFB_BLASTER_Ani_View
   m_TagString: BLASTER_Ani
@@ -9225,6 +9226,34 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
+--- !u!114 &7622885786237187724
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8575613061903006214}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d518dcd5c3d8054296ff41baf911dbf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BlasterAniAttackView
+  IsServerWorld: 1
+  Animator: {fileID: 8679497521785161202}
+  ShootTriggerName: Shoot
+  IsShootingBoolName: IsShooting
+  LeftHandIKTarget: {fileID: 5808535170519233412}
+  RightHandIKTarget: {fileID: 4495061747606160776}
+  GunMuzzle: {fileID: 7574197150920046139}
+  IKPositionWeight: 0.7
+  IKRotationWeight: 0.7
+  BeamPrefab: {fileID: 408926372943890478, guid: a9d29af73e707a242b3f957b07e4c209,
+    type: 3}
+  LaserHitMask:
+    serializedVersion: 2
+    m_Bits: 14720
+  MaxLaserDistance: 15
+  BeamLifetime: 0.3
 --- !u!1 &8575857133402162599
 GameObject:
   m_ObjectHideFlags: 0

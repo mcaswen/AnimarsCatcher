@@ -78,6 +78,7 @@ GameObject:
   - component: {fileID: 331401397274080576}
   - component: {fileID: 3927661859339088807}
   - component: {fileID: 7744942007953742261}
+  - component: {fileID: 6252110397891492613}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_View
   m_TagString: PICKER_Ani
@@ -177,6 +178,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4086a6b649576e245bbadc6b0df11dce, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MovementSelectableProxy
+--- !u!114 &6252110397891492613
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ee42b1c3ff7fbd4f808e28d7740caee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PickerAniAttackView
+  AttackTriggerName: Attack
 --- !u!1 &121782258953408926
 GameObject:
   m_ObjectHideFlags: 0

@@ -16,12 +16,13 @@ GameObject:
   - component: {fileID: 825985845536729100}
   - component: {fileID: 3136332292056354381}
   - component: {fileID: 966398024413977660}
+  - component: {fileID: 188833602054612407}
   - component: {fileID: 3923260598481638524}
   - component: {fileID: 2257598517067911701}
-  - component: {fileID: 188833602054612407}
   - component: {fileID: 7231254196553677834}
   - component: {fileID: 1417677952357368883}
   - component: {fileID: 5017227940409382521}
+  - component: {fileID: -8161033880032302623}
   m_Layer: 7
   m_Name: PFB_PICKER_Ani_Entity
   m_TagString: PICKER_Ani
@@ -116,10 +117,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 67e4fa857565bd44ca14c4e776b6dd25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AniAttributesAuthoring
+  AniType: 0
   MoveSpeed: 8
   AttackInterval: 1
   AttackDamage: 10
-  AttackRange: 2
+  AttackRange: 3.5
+  AttackMode: 0
 --- !u!114 &825985845536729100
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -172,6 +175,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AvatarViewAuthoring
   ViewPrefab: {fileID: 104725653572107597, guid: 8006d47c77a182b4bb990d24114178fa,
     type: 3}
+  avatarViewType: 3
+--- !u!114 &188833602054612407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b7eda2c3e08283499baddf4b5ec5430, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AniMovementFsmAuthoring
+  initialBlackboardCapacity: 32
+  initialState: 257
 --- !u!114 &3923260598481638524
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -203,20 +221,6 @@ MonoBehaviour:
   BelongsTo: 4294967295
   CollidesWith: 4294967295
   GroupIndex: 0
---- !u!114 &188833602054612407
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 104725653572107597}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1b7eda2c3e08283499baddf4b5ec5430, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::AniMovementFsmAuthoring
-  initialBlackboardCapacity: 32
-  initialState: 257
 --- !u!114 &7231254196553677834
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -258,3 +262,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CampAuthoring
   initialCamp: 2
+--- !u!114 &-8161033880032302623
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 104725653572107597}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 53459ae7ea36ae143beae74d30952b36, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AniAttackAuthoring

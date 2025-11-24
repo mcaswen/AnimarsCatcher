@@ -255,7 +255,7 @@ GameObject:
   - component: {fileID: -3092276483731654593}
   - component: {fileID: -8172400249956140925}
   - component: {fileID: -4958411504801110202}
-  - component: {fileID: -5886410187345567859}
+  - component: {fileID: -2745051063783623722}
   m_Layer: 12
   m_Name: PFB_PickableFruit1_View
   m_TagString: PickableItem
@@ -407,7 +407,7 @@ MonoBehaviour:
   TeleportSnapDistance: 2
   SpeedDeadbandMeters: 0
   PreferLocalToWorld: 1
---- !u!208 &-5886410187345567859
+--- !u!208 &-2745051063783623722
 NavMeshObstacle:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
