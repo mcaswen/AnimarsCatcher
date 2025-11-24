@@ -21,7 +21,7 @@ namespace AnimarsCatcher.Mono.UI
         {
             if (_mainMenuPanel != null)
             {
-                _mainMenuPanel.SetActive(true);
+                _mainMenuPanel.SetActive(false);
             }
 
             if (_createRoomButton != null)

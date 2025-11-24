@@ -47,6 +47,19 @@ public partial class SpawnAvatarViewSystem : SystemBase
             // 注入 Entity 与 EntityManager
             follower.Bind(targetEntity, entityManager);
 
+            switch (prefabReference.ViewType)
+            {
+                case AvatarViewType.BlasterAni:
+                    BlasterAniAttackView blasterView = spawnedGameObject.GetComponent<BlasterAniAttackView>()?? spawnedGameObject.AddComponent<BlasterAniAttackView>();
+                    blasterView.Bind(targetEntity, entityManager, false);
+                    break;
+                case AvatarViewType.PickerAni:
+                    PickerAniAttackView pickerView = spawnedGameObject.GetComponent<PickerAniAttackView>()?? spawnedGameObject.AddComponent<PickerAniAttackView>();
+                    pickerView.Bind(targetEntity, entityManager, false);
+                    break;
+                // 可根据需要添加更多类型
+            }
+
             entityManager.AddComponent<AvatarViewSpawnedTag>(targetEntity);
         }
     }

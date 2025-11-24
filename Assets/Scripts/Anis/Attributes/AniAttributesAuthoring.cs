@@ -1,7 +1,6 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.VisualScripting;
-using UnityEditor.EditorTools;
 using UnityEngine;
 
 public enum AniType
@@ -26,6 +25,9 @@ public class AniAttributesAuthoring : MonoBehaviour
 
     [Tooltip("攻击范围")]
     public float AttackRange;
+
+    [Tooltip("攻击模式")]
+    public AniAttackMode AttackMode;
 }
 
 public class AniAttributesBaker : Baker<AniAttributesAuthoring>
@@ -39,6 +41,7 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
             AttackInterval = authoring.AttackInterval,
             AttackDamage = authoring.AttackDamage,
             AttackRange = authoring.AttackRange,
+            AttackMode = authoring.AttackMode,
         });
 
         AddComponent<AniSelectedTag>(entity);

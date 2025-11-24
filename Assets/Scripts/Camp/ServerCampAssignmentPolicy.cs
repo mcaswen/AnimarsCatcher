@@ -10,8 +10,9 @@ public static class ServerCampAssignmentPolicy
         if (NetRuntimeRole.IsHost)
         {
             return networkId == 1 ? CampType.Alpha : CampType.Beta;
+        } else
+        {
+            return CampType.Beta;
         }
-
-        return (networkId & 1) == 1 ? CampType.Alpha : CampType.Beta;
     }
 }

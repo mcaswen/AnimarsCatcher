@@ -6,6 +6,7 @@ using Unity.NetCode;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
+[UpdateAfter(typeof(ServerMovementOrderReceiveRpcSystem))]
 [UpdateBefore(typeof(AniFormationManagementSystem))]
 public partial struct AniFormationJoinRequestSystem : ISystem
 {
@@ -47,14 +48,11 @@ public partial struct AniFormationJoinRequestSystem : ISystem
                  SystemAPI.Query<RefRO<AniAttributes>>()
                           .WithEntityAccess())
         {
-            if (SystemAPI.HasComponent<AniFormationMember>(entity))
-                continue;
-
             if (SystemAPI.HasComponent<AniFormationJoinRequest>(entity))
                 continue;
 
             if (!_blackboardLookup.HasBuffer(entity))
-                continue;
+                continue;   
 
             if (!_ghostOwnerLookup.HasComponent(entity))
                 continue;
@@ -82,9 +80,21 @@ public partial struct AniFormationJoinRequestSystem : ISystem
                 continue;
             }
 
+            bool hasMember = SystemAPI.HasComponent<AniFormationMember>(entity);
+            if (hasMember)
+            {
+                var member = SystemAPI.GetComponent<AniFormationMember>(entity);
+                if (member.leader == leader)
+                    continue;
+            }
+
+            // 防止重复标记
+            if (SystemAPI.HasComponent<AniFormationJoinRequest>(entity))
+                continue;
+
             entityCommandBuffer.AddComponent(entity, new AniFormationJoinRequest
             {
-                leader = leader   // 始终是控制它的玩家实体
+                leader = leader
             });
         }
 

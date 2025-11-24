@@ -1,5 +1,7 @@
 using Unity.NetCode;
 using Unity.Networking.Transport;
+using AnimarsCatcher.Mono.Global;
+
 
 public class CustomBootstrap : ClientServerBootstrap
 {
@@ -52,6 +54,8 @@ public class CustomBootstrap : ClientServerBootstrap
                 CreateServerWorld("Server World");
                 return true;
         }
+
+        return false;
 #endif
     }
 }

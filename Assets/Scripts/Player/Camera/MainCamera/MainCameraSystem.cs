@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 using Unity.VisualScripting;
+using AnimarsCatcher.Mono.Global;
 
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial class MainCameraSystem : SystemBase
@@ -23,6 +24,9 @@ public partial class MainCameraSystem : SystemBase
 
     protected override void OnUpdate()
     {
+        if (ClientCinematicState.IsRunning)
+            return;
+
         if (MainGameObjectCamera.Instance != null)
         {
             using NativeArray<Entity> entities = _cameraEntityQuery.ToEntityArray(Allocator.Temp);

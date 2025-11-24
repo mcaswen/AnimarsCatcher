@@ -70,7 +70,7 @@ namespace AnimarsCatcher.Mono.Global
             else
             {
                 // 默认Host
-                Current = NetworkRunRole.Host;
+                Current = NetworkRunRole.Client;
             }
 
             Debug.Log($"[NetRuntimeRole] Launch as {Current}.");

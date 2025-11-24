@@ -57,7 +57,7 @@ public static class GameResourceGetter
         var serverWorld = WorldManager.FindServerWorld();
         if (serverWorld == null)
             return false;
-
+            
         var entityManager = serverWorld.EntityManager;
 
         var query = entityManager.CreateEntityQuery(

@@ -2,7 +2,6 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
-using Unity.VisualScripting.Dependencies.Sqlite;
 using UnityEngine;
 using AnimarsCatcher.Mono.Items;
 using AnimarsCatcher.Mono.Utilities;

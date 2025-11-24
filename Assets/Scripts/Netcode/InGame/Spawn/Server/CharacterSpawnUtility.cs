@@ -53,6 +53,8 @@ public static class CharacterSpawnUtil
             var point = pointsRO[index];
             spawnPosition = point.Position;
             spawnRotation = point.Rotation;
+
+            return true;
         }
         
         return false;

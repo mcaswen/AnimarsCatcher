@@ -98,7 +98,6 @@ namespace AnimarsCatcher.Mono.UI
             int minutes = matchTimeSeconds / 60;
             int seconds = matchTimeSeconds % 60;
             Text_GameTime.text = $"{minutes:D2}:{seconds:D2}";
-            Debug.Log($"[GameMainInterfaceController] Game Time Updated: {Text_GameTime.text}");
 
             if (Input.GetKeyDown(KeyCode.LeftShift))
             {

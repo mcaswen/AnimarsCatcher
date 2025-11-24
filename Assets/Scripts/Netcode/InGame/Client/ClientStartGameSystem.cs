@@ -2,8 +2,8 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using AnimarsCatcher.Mono.Global;
+// using UnityEngine.SceneManagement; // 备用
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -23,8 +23,8 @@ public partial struct ClientStartGameSystem : ISystem
         FixedString64Bytes sceneName = default;
 
         foreach (var (rpc, req, entity) in SystemAPI
-         .Query<RefRO<ClientStartGameRpc>, RefRO<ReceiveRpcCommandRequest>>()
-         .WithEntityAccess())
+                 .Query<RefRO<ClientStartGameRpc>, RefRO<ReceiveRpcCommandRequest>>()
+                 .WithEntityAccess())
         {
             hasStart  = true;
             sceneName = rpc.ValueRO.SceneName;
@@ -33,28 +33,32 @@ public partial struct ClientStartGameSystem : ISystem
         }
 
         entityCommandBuffer.Playback(state.EntityManager);
+        entityCommandBuffer.Dispose();
 
         if (!hasStart)
             return;
 
         string sceneNameStr = sceneName.ToString();
-        Debug.Log($"[ClientStartGameSystem] Received ClientStartGameRpc, loading scene '{sceneNameStr}'.");
+        Debug.Log($"[ClientStartGameSystem] Received ClientStartGameRpc, loading scene '{sceneNameStr}' via GlobalLoadingUI.");
 
-        // 标记本地连接 InGame（Client 侧）
-        if (SystemAPI.TryGetSingletonEntity<NetworkId>(out var connectionEntity))
-        {
-            if (!state.EntityManager.HasComponent<NetworkStreamInGame>(connectionEntity))
-            {
-                state.EntityManager.AddComponent<NetworkStreamInGame>(connectionEntity);
-                Debug.Log("[ClientStartGameSystem] Mark local connection as InGame.");
-            }
-        }
+        // 标记对局开始状态
+        var matchStateEntity = state.EntityManager.CreateEntity(typeof(ClientMatchStartState));
+        state.EntityManager.SetComponentData(matchStateEntity, new ClientMatchStartState { Active = 1 });
 
         int localNetId = SystemAPI.GetSingleton<NetworkId>().Value;
-
-        // 通知 UI：对局开始
         NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ClientWorld, localNetId);
 
-        SceneManager.LoadScene(sceneNameStr);
+        // 通过全局 Loading UI 做异步加载 + 遮罩
+        if (GlobalLoadingUI.Instance != null)
+        {
+            GlobalLoadingUI.Instance.StartLoadingAndTransition(sceneNameStr);
+        }
+        else
+        {
+            // 兜底：如果忘了在主菜单场景放 GlobalLoadingUI，就直接同步加载
+            Debug.LogWarning("[ClientStartGameSystem] GlobalLoadingUI.Instance is null, fallback to direct LoadScene.");
+            UnityEngine.SceneManagement.SceneManager.LoadScene(sceneNameStr);
+            ClientCinematicState.ShouldRunIntro = true;
+        }
     }
 }

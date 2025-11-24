@@ -2,7 +2,7 @@ using System;
 
 public static class CommandLineManager
 {
-    static bool HasArg(string flag)
+    public static bool HasArg(string flag)
     {
         var args = Environment.GetCommandLineArgs();
 

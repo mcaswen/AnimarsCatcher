@@ -25,6 +25,18 @@ public class AniSelectionUIRef : IComponentData
 
 public struct SelectionUIAttachedTag : IComponentData {}
 
+public enum AniSelectionMode : byte
+{
+    Picker  = 0,
+    Blaster = 1,
+}
+
+public struct AniSelectionModeSingleton : IComponentData
+{
+    public AniSelectionMode Mode;
+}
+
+
 #region 网络同步部分
 
 // Ghost 引用缓冲区
@@ -39,5 +51,7 @@ public struct AniSelectionApplyRpc : IRpcCommand
     public byte Append; // 0 = 替换（清空旧选择后再置位），1 = 追加（在已有选择基础上置位）
     public FixedList512Bytes<int> GhostIds; // 存选中的 GhostId 列表
 }
+
+
 
 #endregion

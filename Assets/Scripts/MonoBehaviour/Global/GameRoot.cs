@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Mono.Global
 
         public Transform BluePrints;
 
-        [MenuItem("Tools/Clear Save Data")]
+        // [MenuItem("Tools/Clear Save Data")]
         public static void ClearSaveData()
         {
             PlayerPrefs.DeleteAll();

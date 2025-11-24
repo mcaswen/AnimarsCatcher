@@ -67,11 +67,10 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
                 {
                     Position = spawnPos,
                     Rotation = transformRef.ValueRO.Rotation,
-                    Scale    = 1f
+                    Scale = 6f
                 });
             }
 
-            // 最后销毁被打碎的石头实体
             ecb.DestroyEntity(stoneEntity);
         }
 

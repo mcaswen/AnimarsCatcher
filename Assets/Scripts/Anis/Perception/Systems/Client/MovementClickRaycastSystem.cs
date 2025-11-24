@@ -14,7 +14,7 @@ public partial struct MovementClickRaycastSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        var context = Object.FindFirstObjectByType<MovementRaycastBootstrp>();
+        var context = Object.FindFirstObjectByType<MovementRaycastBootstrap>();
         if (context.WorldCamera == null)
             return;
 
@@ -32,6 +32,15 @@ public partial struct MovementClickRaycastSystem : ISystem
 
         MovementTargetKind targetKind = MovementTargetKind.None;
         Vector3 worldHitPoint = Vector3.zero;
+
+        Camera cam = context.WorldCamera;
+
+        Ray rayO = cam.ScreenPointToRay(screenPos3);
+
+        Debug.Log(
+            $"[MovementClickRaycastSystem] cam={cam.name}, camPos={cam.transform.position}, " +
+            $"camForward={cam.transform.forward}, screenPos={screenPos3}, " +
+            $"rayOrigin={rayO.origin}, rayDir={rayO.direction}");
 
         // 先检测 Player
         if (Physics.Raycast(ray, out RaycastHit hitPlayer, 1000f, context.PlayerMask))
@@ -59,6 +68,19 @@ public partial struct MovementClickRaycastSystem : ISystem
             }
         }
 
+        else if (Physics.Raycast(ray, out RaycastHit hitBase, 1000f, context.BaseMask))
+        {
+            targetKind = MovementTargetKind.Base;
+            worldHitPoint = hitBase.point;
+
+            var hitEntity = hitBase.collider.gameObject.GetComponent<MovementSelectableProxy>()?.Entity ?? Entity.Null;
+            if (hitEntity != Entity.Null)
+            {
+                result.ValueRW.TargetEntity = hitEntity;
+            }
+        }
+
+
         // 再检测 Resource
         else if (Physics.Raycast(ray, out RaycastHit hitResource, 1000f, context.ResourceMask))
         {
@@ -79,7 +101,11 @@ public partial struct MovementClickRaycastSystem : ISystem
             worldHitPoint = hitGround.point;
 
             result.ValueRW.TargetEntity = Entity.Null;
+
+            Debug.Log($"[MovementClickRaycastSystem] Ground hit at {worldHitPoint}, name ={hitGround.collider.gameObject.name}");
         }
+
+        UnityEngine.Debug.Log($"[MovementClickRaycastSystem] Raycast result: Version={version}, TargetKind={targetKind}, WorldHitPoint={worldHitPoint}");
 
         result.ValueRW.Version = version;
         result.ValueRW.TargetKind = targetKind;

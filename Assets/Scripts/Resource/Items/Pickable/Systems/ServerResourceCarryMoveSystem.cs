@@ -47,6 +47,9 @@ public partial struct ServerResourceCarryMoveSystem : ISystem
             LocalTransform playerTransform =
                 transformLookup[assignment.PlayerRobotEntity];
 
+            // ☆ 移动前的位置，后面用来算朝向
+            float3 previousPosition = resourceTransform.Position;
+
             float3 currentPosition = resourceTransform.Position;
             float3 targetPosition  = playerTransform.Position;
 
@@ -132,9 +135,23 @@ public partial struct ServerResourceCarryMoveSystem : ISystem
                 }
             }
 
+            // 面朝移动方向（仅在本帧有实际位移时更新）
+            {
+                float3 moveDelta   = currentPosition - previousPosition;
+                float3 moveDeltaXZ = new float3(moveDelta.x, 0f, moveDelta.z);
+
+                if (math.lengthsq(moveDeltaXZ) > 1e-6f)
+                {
+                    float3 forward = math.normalizesafe(moveDeltaXZ, new float3(0f, 0f, 1f));
+                    quaternion newRotation = quaternion.LookRotationSafe(forward, math.up());
+
+                    resourceTransform.Rotation = newRotation;
+                }
+            }
+
             resourceTransform.Position = currentPosition;
 
-            // 写回资源本身的位置
+            // 写回资源本身的位置和朝向
             entityCommandBuffer.SetComponent(resourceEntity, resourceTransform);
 
             // 更新所有 Ani 在资源周围的位置
@@ -232,10 +249,10 @@ public partial struct ServerResourceCarryMoveSystem : ISystem
     }
 
     private void ReleaseCarrierAnis(
-    ref SystemState state,
-    ref EntityCommandBuffer entityCommandBuffer,
-    Entity resourceEntity,
-    ResourceCarryAssignment assignment)
+        ref SystemState state,
+        ref EntityCommandBuffer entityCommandBuffer,
+        Entity resourceEntity,
+        ResourceCarryAssignment assignment)
     {
         foreach (var (carryOrder, aniEntity) in
                 SystemAPI.Query<RefRO<AniCarryResourceOrder>>()
@@ -270,8 +287,8 @@ public partial struct ServerResourceCarryMoveSystem : ISystem
                         assignment.PlayerRobotEntity);
                     
                     Blackboard.SetBool(ref blackboard,
-                    AniMovementBlackboardKeys.K_NavStop,
-                    false);
+                        AniMovementBlackboardKeys.K_NavStop,
+                        false);
                 }
             }
         }

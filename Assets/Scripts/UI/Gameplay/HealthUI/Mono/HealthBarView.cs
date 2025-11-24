@@ -62,15 +62,15 @@ public class HealthBarView : MonoBehaviour
         Vector3 screenPosition = worldCamera.WorldToScreenPoint(worldPosition);
 
         // 背面朝向相机的时候直接隐藏
-        if (screenPosition.z < 0f)
-        {
-            if (rootRectTransform.gameObject.activeSelf)
-            {
-                rootRectTransform.gameObject.SetActive(false);
-            }
+        // if (screenPosition.z < 0f)
+        // {
+        //     if (rootRectTransform.gameObject.activeSelf)
+        //     {
+        //         rootRectTransform.gameObject.SetActive(false);
+        //     }
 
-            return;
-        }
+        //     return;
+        // }
 
         if (!rootRectTransform.gameObject.activeSelf)
         {

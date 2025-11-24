@@ -34,7 +34,7 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
     {
         arrivalTrackerLookup.Update(ref state);
 
-        UnityEngine.Debug.Log("[ServerResourceCarrySetupSystem] OnUpdate start");
+        // UnityEngine.Debug.Log("[ServerResourceCarrySetupSystem] OnUpdate start");
 
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 

@@ -11,24 +11,23 @@ public partial struct MatchTimeUpdateSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<GlobalGameResourceTag>();
+        state.RequireForUpdate<GlobalGameResourceState>();
         state.RequireForUpdate<NetworkTime>();
     }
 
     public void OnUpdate(ref SystemState state)
     {
-        var time = SystemAPI.GetSingleton<NetworkTime>();
-
-        float deltaTime = SystemAPI.Time.DeltaTime;
+        // 服务器世界从开局到现在，总共跑了多少秒
+        double elapsed = SystemAPI.Time.ElapsedTime;
 
         var resourceState = SystemAPI.GetSingletonRW<GlobalGameResourceState>();
 
         int previous = resourceState.ValueRO.MatchTimeSeconds;
-        int next = previous + (int)math.floor(deltaTime);
+        int next = (int)math.floor((float)elapsed);
 
         if (next != previous)
         {
             resourceState.ValueRW.MatchTimeSeconds = next;
-            UnityEngine.Debug.Log($"[MatchTimeUpdateSystem] Match time updated to {next} seconds.");
         }
     }
 }

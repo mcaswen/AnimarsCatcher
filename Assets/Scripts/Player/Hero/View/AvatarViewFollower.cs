@@ -27,6 +27,7 @@ public class AvatarViewFollower : MonoBehaviour
 
     private Animator _animator;
     private bool _initialized;
+    private bool _isBound;
     private Vector3 _lastRenderPosition;
 
     private Vector3 _appliedPos;
@@ -39,6 +40,7 @@ public class AvatarViewFollower : MonoBehaviour
         TargetEntity = entity;
         BoundEntityManager = entityManager;
         _initialized = false;
+        _isBound = true;
     }
 
     private void Awake()
@@ -52,11 +54,23 @@ public class AvatarViewFollower : MonoBehaviour
 
     private void LateUpdate()
     {
+        if (!_isBound)
+        {
+            return;
+        }
+
         if (BoundEntityManager == default || !BoundEntityManager.Exists(TargetEntity))
         {
             Destroy(gameObject);
             return;
         }
+
+        if (!BoundEntityManager.Exists(TargetEntity))
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         if (!BoundEntityManager.HasComponent<AvatarViewSpawnedTag>(TargetEntity))
         {
             Destroy(gameObject);
@@ -65,18 +79,29 @@ public class AvatarViewFollower : MonoBehaviour
 
         float3 targetEntityPosition;
         quaternion targetEntityRotation;
-        float targetEntityUniformScale = 1f;
+
+        var ltw = BoundEntityManager.GetComponentData<LocalToWorld>(TargetEntity);
+        float4x4 m = ltw.Value;
+
+        // 列向量分别是 right / up / forward * 各自的缩放
+        float3 right   = m.c0.xyz;
+        float3 up      = m.c1.xyz;
+        float3 forward = m.c2.xyz;
+
+        float3 scale;
+        scale.x = math.length(right);
+        scale.y = math.length(up);
+        scale.z = math.length(forward);
 
         targetEntityPosition = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Position;
         targetEntityRotation = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Rotation;
-        targetEntityUniformScale = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Scale;
 
         // 首帧或大位移,直接吸附
         Vector3 currentPos = targetEntityPosition;
         if (!_initialized || (currentPos - transform.position).sqrMagnitude > TeleportSnapDistance * TeleportSnapDistance)
         {
             transform.SetPositionAndRotation(currentPos, targetEntityRotation);
-            transform.localScale = new Vector3(targetEntityUniformScale, targetEntityUniformScale, targetEntityUniformScale);
+            transform.localScale = new Vector3(scale.x, scale.y, scale.z);
             _lastRenderPosition = currentPos;
             _initialized = true;
 
@@ -88,7 +113,7 @@ public class AvatarViewFollower : MonoBehaviour
         }
 
         transform.SetPositionAndRotation(currentPos, targetEntityRotation);
-        transform.localScale = new Vector3(targetEntityUniformScale, targetEntityUniformScale, targetEntityUniformScale);
+        transform.localScale = new Vector3(scale.x, scale.y, scale.z);
 
         // 仅对 Animator 的 Speed 做指数平滑
         if (_animator != null)

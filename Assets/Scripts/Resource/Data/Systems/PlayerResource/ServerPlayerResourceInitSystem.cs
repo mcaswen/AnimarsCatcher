@@ -15,6 +15,7 @@ public partial struct ServerPlayerResourceInitSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkId>();
+        state.RequireForUpdate<PlayerResourceGhostPrefab>();
     }
 
     public void OnUpdate(ref SystemState state)
@@ -55,8 +56,8 @@ public partial struct ServerPlayerResourceInitSystem : ISystem
                 TotalBlasterAniCount  = 0,
                 InTeamPickerAniCount  = 0,
                 InTeamBlasterAniCount = 0,
-                FoodSum               = 99,
-                CrystalSum            = 99
+                FoodSum               = 20,
+                CrystalSum            = 5
             });
 
             Debug.Log($"[ServerPlayerResourceInitSystem] Created PlayerResourceState for NetworkId = {id}");

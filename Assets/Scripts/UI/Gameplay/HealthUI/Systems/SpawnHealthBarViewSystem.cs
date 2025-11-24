@@ -57,8 +57,6 @@ public partial struct SpawnHealthBarViewSystem : ISystem
 
             HealthBarView barView = instance.GetComponent<HealthBarView>();
 
-            Debug.Log($"[SpawnHealthBarViewSystem] Getting Component， HealthBarView: {(barView != null ? "Found" : "Not Found")} for Entity {entity.Index})");
-
             if (barView != null)
             {
                 bool isFriendly = false;

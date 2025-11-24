@@ -8,6 +8,7 @@ public enum MovementTargetKind : byte
     Player = 2,   
     Ani = 3,
     Resource = 4,   // 点到资源
+    Base = 5,       // 点到基地
 }
 
 public struct MovementClickRequest : IComponentData

@@ -6,20 +6,28 @@ using UnityEngine;
 using Unity.NetCode;
 using Unity.Mathematics;
 
-[BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientSendAniSelectionRpcSystem : ISystem
 {
+    private ComponentLookup<PickerAniTag> _pickerLookup;
+    private ComponentLookup<BlasterAniTag> _blasterLookup;
+
     public void OnCreate(ref SystemState state)
     {
+        _pickerLookup = state.GetComponentLookup<PickerAniTag>(true);
+        _blasterLookup = state.GetComponentLookup<BlasterAniTag>(true);
+
         state.RequireForUpdate<AniSelectionDragState>();
-        state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<AniAttributes, LocalToWorld, GhostInstance>().Build());
-        state.RequireForUpdate<NetworkId>();
+        state.RequireForUpdate<NetworkStreamInGame>(); 
+        state.RequireForUpdate<AniSelectionModeSingleton>();
     }
 
     public void OnUpdate(ref SystemState state)
     {
+        _pickerLookup.Update(ref state);
+        _blasterLookup.Update(ref state);
+
         var drag = SystemAPI.GetSingletonRW<AniSelectionDragState>();
         if (drag.ValueRO.IsReleased == 0) return;
 
@@ -34,6 +42,13 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
 
         var camera = Camera.main;
         var localId = SystemAPI.GetSingleton<NetworkId>();
+        
+        if (!SystemAPI.TryGetSingleton<AniSelectionModeSingleton>(out var modeSingleton))
+        {
+            Debug.LogError("[ClientSendAniSelectionRpcSystem] AniSelectionModeSingleton not found!");
+            return;
+        }
+        AniSelectionMode selectionMode = modeSingleton.Mode;
 
         // 先在栈里把数据收集好
         AniSelectionApplyRpc rpcData = default;
@@ -43,8 +58,31 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
         // 遍历命中的 Ani，把 GhostInstance 写入缓冲
-        foreach (var (localToWorld, ghostInstance, ghostOwner) in SystemAPI.Query<RefRO<LocalToWorld>, RefRO<GhostInstance>, RefRO<GhostOwner>>().WithAll<AniAttributes>())
+        foreach (var (localToWorld, ghostInstance, ghostOwner, aniEntity) in SystemAPI
+                .Query<RefRO<LocalToWorld>, RefRO<GhostInstance>, RefRO<GhostOwner>>()
+                .WithAll<AniAttributes>()
+                .WithEntityAccess())
         {
+            bool isPicker  = _pickerLookup.HasComponent(aniEntity);
+            bool isBlaster = _blasterLookup.HasComponent(aniEntity);
+
+            Debug.Log($"[ClientSendAniSelectionRpcSystem] Checking Ani Entity {aniEntity} - isPicker: {isPicker}, isBlaster: {isBlaster}");
+
+            // 根据当前选择模式过滤
+            switch (selectionMode)
+            {
+                case AniSelectionMode.Picker:
+                    if (!isPicker)
+                        continue;
+                    break;
+
+                case AniSelectionMode.Blaster:
+                    if (!isBlaster)
+                        continue;
+                    break;
+            }
+
+
             if (ghostOwner.ValueRO.NetworkId != localId.Value)
                 continue;
 
@@ -60,20 +98,21 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
             {
                 rpcData.GhostIds.Add(ghostInstance.ValueRO.ghostId);
             }
-
-            if (rpcData.GhostIds.Length == 0) // 没有选中任何 Ani，跳过发送 RPC
-            {
-                Debug.Log("[ClientSendAniSelectionRpcSystem] No Ani in selection, skip sending RPC.");
-                return;
-            }
-
-            // 创建 RPC 实体并附加数据
-            var rpcEntity = entityCommandBuffer.CreateEntity();
-            entityCommandBuffer.AddComponent(rpcEntity, rpcData);
-            entityCommandBuffer.AddComponent<SendRpcCommandRequest>(rpcEntity);
-
-            Debug.Log($"[ClientSendAniSelectionRpcSystem] Rpc sent with {rpcData.GhostIds.Length} Ani.");
         }
+        
+        if (rpcData.GhostIds.Length == 0) // 没有选中任何 Ani，跳过发送 RPC
+        {
+            Debug.Log("[ClientSendAniSelectionRpcSystem] No Ani in selection, skip sending RPC.");
+            return;
+        }
+
+        // 创建 RPC 实体并附加数据
+        var rpcEntity = entityCommandBuffer.CreateEntity();
+        entityCommandBuffer.AddComponent(rpcEntity, rpcData);
+        entityCommandBuffer.AddComponent<SendRpcCommandRequest>(rpcEntity);
+
+        Debug.Log($"[ClientSendAniSelectionRpcSystem] Rpc sent with {rpcData.GhostIds.Length} Ani.");
+
         entityCommandBuffer.Playback(state.EntityManager);
     }
 }

@@ -15,7 +15,7 @@ public partial struct MovementOrderSendRpcSystem : ISystem
         state.RequireForUpdate<NetworkStreamInGame>();
     }
 
-    // [BurstCompile]
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         MovementClickResult result = SystemAPI.GetSingleton<MovementClickResult>();
@@ -68,10 +68,10 @@ public partial struct MovementOrderSendRpcSystem : ISystem
             SelectedAniGhostIds = selectedAniGhostIds
         });
 
-        UnityEngine.Debug.Log(
-            $"[MovementOrderSendRpcSystem] Sending MovementOrderRpc: " +
-            $"TargetKind={result.TargetKind}, TargetWorldPosition={result.TargetWorldPosition}, " +
-            $"AniCount={selectedAniGhostIds.Length}");
+        // UnityEngine.Debug.Log(
+        //     $"[MovementOrderSendRpcSystem] Sending MovementOrderRpc: " +
+        //     $"TargetKind={result.TargetKind}, TargetWorldPosition={result.TargetWorldPosition}, " +
+        //     $"AniCount={selectedAniGhostIds.Length}");
 
         entityCommandBuffer.AddComponent(rpcEntity, new SendRpcCommandRequest
         {

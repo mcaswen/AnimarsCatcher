@@ -27,7 +27,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
             _aniByGhostId.Dispose();
     }
 
-    // [BurstCompile] 
+    [BurstCompile] 
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);
@@ -111,9 +111,9 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         PlayerRobotEntity = leaderEntity,
                     });
 
-                    UnityEngine.Debug.Log(
-                        $"[ServerMovementOrderReceiveRpcSystem] Added ResourcePickupRequest for resource={targetEntity.Index}, " +
-                        $"leader={leaderEntity.Index}");
+                    // UnityEngine.Debug.Log(
+                    //     $"[ServerMovementOrderReceiveRpcSystem] Added ResourcePickupRequest for resource={targetEntity.Index}, " +
+                    //     $"leader={leaderEntity.Index}");
                 }
             }
 
@@ -194,9 +194,9 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
 
-                        UnityEngine.Debug.Log(
-                            $"[ServerMovementOrderReceiveRpcSystem] Ground command -> Ani {aniEntity.Index}, " +
-                            $"click={clickPos}, target={targetEntity}");
+                        // UnityEngine.Debug.Log(
+                        //     $"[ServerMovementOrderReceiveRpcSystem] Ground command -> Ani {aniEntity.Index}, " +
+                        //     $"click={clickPos}, target={targetEntity}");
 
                         break;
                     }
@@ -218,9 +218,9 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
 
-                        UnityEngine.Debug.Log(
-                            $"[ServerMovementOrderReceiveRpcSystem] Ani command -> Ani {aniEntity.Index}, " +
-                            $"target Ani={targetEntity.Index}");
+                        // UnityEngine.Debug.Log(
+                        //     $"[ServerMovementOrderReceiveRpcSystem] Ani command -> Ani {aniEntity.Index}, " +
+                        //     $"target Ani={targetEntity.Index}");
 
                         break;
                     }
@@ -238,9 +238,29 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
 
-                        UnityEngine.Debug.Log(
-                            $"[ServerMovementOrderReceiveRpcSystem] Resource command -> Ani {aniEntity.Index}, " +
-                            $"target Resource={targetEntity.Index}");
+                        // UnityEngine.Debug.Log(
+                        //     $"[ServerMovementOrderReceiveRpcSystem] Resource command -> Ani {aniEntity.Index}, " +
+                        //     $"target Resource={targetEntity.Index}");
+
+                        break;
+                    }
+
+                    case MovementTargetKind.Base:
+                    {
+                        Blackboard.SetInt(ref blackboard,
+                            AniMovementBlackboardKeys.K_CommandMode,
+                            (int)AniMovementCommandMode.Find);
+
+                        Blackboard.SetEntity(ref blackboard,
+                            AniMovementBlackboardKeys.K_TargetEntity,
+                            targetEntity);
+
+                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+
+                        // UnityEngine.Debug.Log(
+                        //     $"[ServerMovementOrderReceiveRpcSystem] Resource command -> Ani {aniEntity.Index}, " +
+                        //     $"target Resource={targetEntity.Index}");
 
                         break;
                     }
@@ -258,9 +278,9 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
 
-                        UnityEngine.Debug.Log(
-                            $"[ServerMovementOrderReceiveRpcSystem] Follow command -> Ani {aniEntity.Index}, " +
-                            $"player={targetEntity.Index}");
+                        // UnityEngine.Debug.Log(
+                        //     $"[ServerMovementOrderReceiveRpcSystem] Follow command -> Ani {aniEntity.Index}, " +
+                        //     $"player={targetEntity.Index}");
 
                         break;
                     }

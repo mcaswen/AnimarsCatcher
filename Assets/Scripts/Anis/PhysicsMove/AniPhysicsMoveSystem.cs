@@ -26,7 +26,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
         _aniLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
-    // [BurstCompile]
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         _aniLookup.Update(ref state);
@@ -43,8 +43,8 @@ public partial struct AniPhysicsMoveSystem : ISystem
                  SystemAPI.Query<RefRW<LocalTransform>, RefRO<AniMoveIntent>, RefRO<AniPhysicsConfig>>()
                           .WithEntityAccess())
         {
-            UnityEngine.Debug.Log(
-            $"[AniPhysicsMoveSystem] entity {entity.Index} filter: belongsTo={config.ValueRO.Filter.BelongsTo}, collidesWith={config.ValueRO.Filter.CollidesWith}");
+            // UnityEngine.Debug.Log(
+            // $"[AniPhysicsMoveSystem] entity {entity.Index} filter: belongsTo={config.ValueRO.Filter.BelongsTo}, collidesWith={config.ValueRO.Filter.CollidesWith}");
 
             float3 currentPosition = transform.ValueRO.Position;
             var filter = config.ValueRO.Filter;

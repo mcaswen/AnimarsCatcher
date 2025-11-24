@@ -34,11 +34,15 @@ public partial struct AniFormationManagementSystem : ISystem
         }
 
         // 处理离开请求：直接移除组件，不再占位
-        foreach (var (leaveReq, member, entity) in SystemAPI
-                     .Query<RefRO<AniFormationLeaveRequest>, RefRO<AniFormationMember>>()
+        foreach (var (leaveReq,  entity) in SystemAPI
+                     .Query<RefRO<AniFormationLeaveRequest>>()
                      .WithEntityAccess())
         {
-            entityCommandBuffer.RemoveComponent<AniFormationMember>(entity);
+            if (SystemAPI.HasComponent<AniFormationMember>(entity))
+            {
+                entityCommandBuffer.RemoveComponent<AniFormationMember>(entity);
+            }
+
             entityCommandBuffer.RemoveComponent<AniFormationLeaveRequest>(entity);
         }
 
@@ -58,7 +62,7 @@ public partial struct AniFormationManagementSystem : ISystem
             {
                 entityCommandBuffer.SetComponent(entity, new AniFormationMember
                 {
-                    leader   = leader,
+                    leader = leader,
                     slotIndex = slotIndex
                 });
             }
@@ -66,7 +70,7 @@ public partial struct AniFormationManagementSystem : ISystem
             {
                 entityCommandBuffer.AddComponent(entity, new AniFormationMember
                 {
-                    leader   = leader,
+                    leader = leader,
                     slotIndex = slotIndex
                 });
             }
