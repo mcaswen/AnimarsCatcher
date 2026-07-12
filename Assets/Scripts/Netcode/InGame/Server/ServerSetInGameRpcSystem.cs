@@ -6,14 +6,18 @@ using Unity.Mathematics;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>在 Server World 响应客户端就绪请求并权威创建角色</summary>
+/// <summary>
+/// 在 Server World 响应客户端就绪请求并权威创建角色
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(ServerStartGameSystem))] // 在发完 ClientStartGameRpc 之后
 public partial struct ServerSetInGameRpcSystem : ISystem
 {
-    /// <summary>声明开局状态、Ghost 集合、角色 Prefab 和连接依赖</summary>
+    /// <summary>
+    /// 声明开局状态、Ghost 集合、角色 Prefab 和连接依赖
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
@@ -23,7 +27,9 @@ public partial struct ServerSetInGameRpcSystem : ISystem
         state.RequireForUpdate<NetworkId>();
     }
 
-    /// <summary>消费 SetInGameRpc 并为每个连接创建唯一角色</summary>
+    /// <summary>
+    /// 消费 SetInGameRpc 并为每个连接创建唯一角色
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
@@ -112,13 +118,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
         entityCommandBuffer.Dispose();
     }
 
-    /// <summary>在连接所属阵营的出生点组中创建角色并建立权威状态</summary>
-    /// <param name="state">服务器系统状态</param>
-    /// <param name="entityCommandBuffer">延迟结构变更命令缓冲区</param>
-    /// <param name="connectionAspect">请求进入游戏的连接</param>
-    /// <param name="characterPrefab">角色 Ghost Prefab</param>
-    /// <param name="camp">服务器分配阵营</param>
-    /// <returns>是否成功创建角色</returns>
+    // 在连接所属阵营的出生点组中创建角色并建立权威状态
     private bool TrySpawnCharacterForConnection(
         ref SystemState state,
         ref EntityCommandBuffer entityCommandBuffer,

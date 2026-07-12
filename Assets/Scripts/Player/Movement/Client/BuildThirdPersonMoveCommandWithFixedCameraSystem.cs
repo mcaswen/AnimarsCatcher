@@ -7,20 +7,26 @@ using Unity.CharacterController;
 using System.Diagnostics;
 using AnimarsCatcher.Mono;
 
-/// <summary>在客户端把固定相机坐标系下的输入打包为网络移动命令</summary>
+/// <summary>
+/// 在客户端把固定相机坐标系下的输入打包为网络移动命令
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 public partial struct BuildThirdPersonMoveCommandWithFixedCameraSystem : ISystem
 {
-    /// <summary>仅在客户端进入 InGame 后启用命令构建</summary>
+    /// <summary>
+    /// 仅在客户端进入 InGame 后启用命令构建
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkStreamInGame>();
     }
 
-    /// <summary>为当前预测 Tick 构建并写入固定相机移动命令</summary>
+    /// <summary>
+    /// 为当前预测 Tick 构建并写入固定相机移动命令
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

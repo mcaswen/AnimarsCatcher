@@ -9,9 +9,6 @@ namespace AnimarsCatcher.Mono.Audio
     /// </summary>
     public class AudioSpy : MonoBehaviour
     {
-        /// <summary>
-        /// 扫描并输出所有正在播放的音源
-        /// </summary>
         [ContextMenu("Dump Playing AudioSources")]
         void Dump()
         {

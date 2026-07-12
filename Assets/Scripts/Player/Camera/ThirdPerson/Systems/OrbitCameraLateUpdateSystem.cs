@@ -7,7 +7,9 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
 
-/// <summary>在物理和 Transform 更新后修正环绕相机的平滑距离与遮挡</summary>
+/// <summary>
+/// 在物理和 Transform 更新后修正环绕相机的平滑距离与遮挡
+/// </summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(TransformSystemGroup))]
 [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
@@ -16,7 +18,9 @@ using UnityEngine;
 [BurstCompile]
 public partial struct OrbitCameraLateUpdateSystem : ISystem
 {
-    /// <summary>声明遮挡检测所需的物理世界和相机组件</summary>
+    /// <summary>
+    /// 声明遮挡检测所需的物理世界和相机组件
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -25,7 +29,9 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
     }
 
-    /// <summary>调度相机遮挡检测和最终姿态写回任务</summary>
+    /// <summary>
+    /// 调度相机遮挡检测和最终姿态写回任务
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
@@ -41,7 +47,9 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
         job.Schedule();
     }
 
-    /// <summary>使用插值后的物理姿态计算客户端最终相机位置</summary>
+    /// <summary>
+    /// 使用插值后的物理姿态计算客户端最终相机位置
+    /// </summary>
     [BurstCompile]
     [WithAll(typeof(Simulate))]
     public partial struct OrbitCameraLateUpdateJob : IJobEntity

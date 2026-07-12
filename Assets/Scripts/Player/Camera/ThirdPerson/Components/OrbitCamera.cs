@@ -5,7 +5,9 @@ using Unity.Mathematics;
 using UnityEngine;
 using Unity.NetCode;
 
-/// <summary>保存环绕相机配置以及跨帧运行状态</summary>
+/// <summary>
+/// 保存环绕相机配置以及跨帧运行状态
+/// </summary>
 [Serializable]
 public struct OrbitCamera : IComponentData
 {
@@ -35,7 +37,9 @@ public struct OrbitCamera : IComponentData
     public float3 PlanarForward;
 }
 
-/// <summary>保存玩家本帧对环绕相机的控制输入</summary>
+/// <summary>
+/// 保存玩家本帧对环绕相机的控制输入
+/// </summary>
 [Serializable]
 public struct OrbitCameraControl : IComponentData
 {
@@ -44,7 +48,9 @@ public struct OrbitCameraControl : IComponentData
     public float ZoomDelta;
 }
 
-/// <summary>记录遮挡检测需要忽略的实体</summary>
+/// <summary>
+/// 记录遮挡检测需要忽略的实体
+/// </summary>
 [Serializable]
 public struct OrbitCameraIgnoredEntityBufferElement : IBufferElementData
 {

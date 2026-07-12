@@ -12,16 +12,16 @@ public class FloatingMessageView : MonoBehaviour
     [SerializeField] private CanvasGroup _canvasGroup;
 
     [Header("动画参数")]
-    [Tooltip("向上移动的距离（UI 坐标）")]
+    [Tooltip("RectTransform 锚点坐标中的上移距离")]
     [SerializeField] private float _moveDistance = 30f;
 
-    [Tooltip("向上移动的时长")]
+    [Tooltip("上移动画时长，单位秒")]
     [SerializeField] private float _moveDuration = 0.6f;
 
-    [Tooltip("开始移动前静止显示的时间")]
+    [Tooltip("上移和淡出前的停留时长，单位秒")]
     [SerializeField] private float _holdDuration = 0.4f;
 
-    [Tooltip("淡出时长")]
+    [Tooltip("淡出动画时长，单位秒")]
     [SerializeField] private float _fadeDuration = 0.6f;
 
     private RectTransform _rectTransform;

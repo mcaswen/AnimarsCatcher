@@ -5,14 +5,18 @@ using Unity.Transforms;
 using Unity.NetCode;
 using UnityEngine;
 
-/// <summary>在客户端预测与服务器权威世界中移动简化角色</summary>
+/// <summary>
+/// 在客户端预测与服务器权威世界中移动简化角色
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
 [UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
 [UpdateBefore(typeof(TransformSystemGroup))]
 public partial struct SimpleCharacterMoveSystem : ISystem
 {
-    /// <summary>等待网络时间可用后启用预测移动</summary>
+    /// <summary>
+    /// 等待网络时间可用后启用预测移动
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -20,7 +24,9 @@ public partial struct SimpleCharacterMoveSystem : ISystem
         state.RequireForUpdate<NetworkTime>();
     }
 
-    /// <summary>对本预测 Tick 内需要模拟的角色执行碰撞移动</summary>
+    /// <summary>
+    /// 对本预测 Tick 内需要模拟的角色执行碰撞移动
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

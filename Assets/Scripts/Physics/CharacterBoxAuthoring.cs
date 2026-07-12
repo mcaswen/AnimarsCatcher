@@ -19,14 +19,8 @@ public class CharacterBoxAuthoring : MonoBehaviour
 {
     public BoxCollider SourceCollider;
 
-    /// <summary>
-    /// 读取显式引用或同对象上的 BoxCollider
-    /// </summary>
     class Baker : Baker<CharacterBoxAuthoring>
     {
-        /// <summary>
-        /// 将 Unity 盒体尺寸转换为 ECS 半尺寸数据
-        /// </summary>
         public override void Bake(CharacterBoxAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

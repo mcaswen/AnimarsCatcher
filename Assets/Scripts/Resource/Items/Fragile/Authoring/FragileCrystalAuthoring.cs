@@ -17,9 +17,6 @@ public class FragileCrystalAuthoring : MonoBehaviour
     [Header("掉落小矿 Prefab")]
     public GameObject PickablePrefab;
 
-    /// <summary>
-    /// 将掉落配置和资源标签烘焙到实体
-    /// </summary>
     class Baker : Baker<FragileCrystalAuthoring>
     {
         public override void Bake(FragileCrystalAuthoring authoring)

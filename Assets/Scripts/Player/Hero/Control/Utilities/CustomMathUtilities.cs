@@ -2,10 +2,14 @@ using Unity.Mathematics;
 using System.Runtime.CompilerServices;
 using Unity.CharacterController;
 
-/// <summary>提供角色旋转角度提取所需的数学工具</summary>
+/// <summary>
+/// 提供角色旋转角度提取所需的数学工具
+/// </summary>
 public static class CustomMathUtilities
 {
-    /// <summary>从四元数提取最短旋转角度</summary>
+    /// <summary>
+    /// 从四元数提取最短旋转角度
+    /// </summary>
     /// <param name="rotation">待解析四元数</param>
     /// <returns>角度制旋转量</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -19,7 +23,9 @@ public static class CustomMathUtilities
         return math.degrees(angleRadians);
     }
 
-    /// <summary>计算指定上方向平面内的偏航角</summary>
+    /// <summary>
+    /// 计算指定上方向平面内的偏航角
+    /// </summary>
     /// <param name="rotation">待解析旋转</param>
     /// <param name="up">参考上方向</param>
     /// <returns>角度制偏航量</returns>
@@ -34,7 +40,9 @@ public static class CustomMathUtilities
         return math.degrees(math.atan2(forward.x, forward.z));
     }
 
-    /// <summary>计算世界方向在水平面内的偏航角</summary>
+    /// <summary>
+    /// 计算世界方向在水平面内的偏航角
+    /// </summary>
     /// <param name="worldSpaceDirection">世界空间方向</param>
     /// <returns>角度制偏航量</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

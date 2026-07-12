@@ -3,10 +3,14 @@ using Unity.NetCode;
 using Unity.Collections;
 using UnityEngine;
 
-/// <summary>提供大厅 UI 向服务器发送玩家身份信息的入口</summary>
+/// <summary>
+/// 提供大厅 UI 向服务器发送玩家身份信息的入口
+/// </summary>
 public static class ClientLobbyIntroSender
 {
-    /// <summary>在指定 Client World 中创建大厅身份 RPC</summary>
+    /// <summary>
+    /// 在指定 Client World 中创建大厅身份 RPC
+    /// </summary>
     /// <param name="clientWorld">发送身份信息的客户端世界</param>
     /// <param name="playerName">玩家显示名称</param>
     public static void SendIntro(World clientWorld, string playerName)

@@ -4,10 +4,14 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
 
-/// <summary>提供环绕相机目标姿态和位置的通用计算</summary>
+/// <summary>
+/// 提供环绕相机目标姿态和位置的通用计算
+/// </summary>
 public static class OrbitCameraUtilities
 {
-    /// <summary>读取模拟阶段使用的相机目标世界变换</summary>
+    /// <summary>
+    /// 读取模拟阶段使用的相机目标世界变换
+    /// </summary>
     /// <param name="targetCharacterEntity">受控角色实体</param>
     /// <param name="localTransformLookup">局部变换查询</param>
     /// <param name="parentLookup">父实体查询</param>
@@ -47,7 +51,9 @@ public static class OrbitCameraUtilities
         return foundValidCameraTarget;
     }
 
-    /// <summary>读取表现阶段使用的插值后相机目标世界变换</summary>
+    /// <summary>
+    /// 读取表现阶段使用的插值后相机目标世界变换
+    /// </summary>
     /// <param name="targetCharacterEntity">受控角色实体</param>
     /// <param name="localToWorldLookup">插值后的世界变换查询</param>
     /// <param name="CameraTargetLookup">相机目标查询</param>
@@ -76,7 +82,9 @@ public static class OrbitCameraUtilities
         return foundValidCameraTarget;
     }
 
-    /// <summary>根据目标上方向、平面前方向和俯仰角计算相机旋转</summary>
+    /// <summary>
+    /// 根据目标上方向、平面前方向和俯仰角计算相机旋转
+    /// </summary>
     /// <param name="targetUp">目标上方向</param>
     /// <param name="planarForward">目标平面内的前方向</param>
     /// <param name="pitchAngle">俯仰角</param>
@@ -89,7 +97,9 @@ public static class OrbitCameraUtilities
         return cameraRotation;
     }
 
-    /// <summary>根据目标位置、相机旋转和距离计算相机位置</summary>
+    /// <summary>
+    /// 根据目标位置、相机旋转和距离计算相机位置
+    /// </summary>
     /// <param name="targetPosition">相机目标位置</param>
     /// <param name="cameraRotation">相机旋转</param>
     /// <param name="distance">目标距离</param>

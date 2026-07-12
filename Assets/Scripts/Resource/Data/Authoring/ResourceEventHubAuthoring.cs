@@ -6,9 +6,6 @@ using UnityEngine;
 /// </summary>
 public class ResourceEventHubAuthoring : MonoBehaviour
 {
-    /// <summary>
-    /// 烘焙两类资源事件缓冲区和 Hub 标签
-    /// </summary>
     class Baker : Baker<ResourceEventHubAuthoring>
     {
         public override void Bake(ResourceEventHubAuthoring authoring)

@@ -3,10 +3,14 @@ using Unity.NetCode;
 using Unity.Networking.Transport;
 using UnityEngine;
 
-/// <summary>提供 UI 向 Client World 发起连接请求的入口</summary>
+/// <summary>
+/// 提供 UI 向 Client World 发起连接请求的入口
+/// </summary>
 public static class NetCodeClientConnector
 {
-    /// <summary>校验连接状态和地址后创建 NetCode 连接请求</summary>
+    /// <summary>
+    /// 校验连接状态和地址后创建 NetCode 连接请求
+    /// </summary>
     /// <param name="ipAddress">服务器 IP 地址</param>
     /// <param name="port">服务器监听端口</param>
     public static void RequestConnect(string ipAddress, ushort port)

@@ -1,10 +1,14 @@
 using Unity.Mathematics;
 using Unity.CharacterController;
 
-/// <summary>提供网络相机输入到相机基向量的确定性计算</summary>
+/// <summary>
+/// 提供网络相机输入到相机基向量的确定性计算
+/// </summary>
 public static class NetworkCameraMath
 {
-    /// <summary>根据上一帧状态和本帧输入构建相机旋转基</summary>
+    /// <summary>
+    /// 根据上一帧状态和本帧输入构建相机旋转基
+    /// </summary>
     /// <param name="up">目标上方向</param>
     /// <param name="camera">上一帧相机状态</param>
     /// <param name="lookDeltaDegrees">本帧视角输入增量</param>

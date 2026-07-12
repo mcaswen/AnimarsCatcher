@@ -54,6 +54,8 @@ Assets/
 Packages/
 ProjectSettings/
 docs/
+├── Standards/
+└── Architecture/
 ```
 
 脚本继续采用当前项目的领域优先结构，不把全部系统集中到顶层 `Systems`。领域内部可按下列职责划分：

@@ -18,11 +18,11 @@ namespace AnimarsCatcher.Mono
         private Transform _followTarget;
 
         [Header("高度控制")]
-        [Tooltip("小地图相机固定高度（世界坐标 Y）")]
+        [Tooltip("相机固定的世界坐标 Y 值")]
         public float height = 40f;
 
         [Header("旋转控制")]
-        [Tooltip("是否复制目标的 Yaw，让小地图随玩家朝向旋转")]
+        [Tooltip("启用后随目标朝向旋转，关闭时固定北向")]
         public bool copyTargetYaw = false;
 
         // 保证场景内只有一个可供玩家视图注册的跟随器

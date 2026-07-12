@@ -5,13 +5,17 @@ using Unity.NetCode;
 using Unity.Transforms;
 using Unity.CharacterController;
 
-/// <summary>在客户端把环绕相机坐标系下的输入打包为网络移动命令</summary>
+/// <summary>
+/// 在客户端把环绕相机坐标系下的输入打包为网络移动命令
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 public partial struct BuildThirdPersonMoveCommandWithOrbitCameraSystem : ISystem
 {
-    /// <summary>等待客户端进入 InGame 且玩家输入关系可用</summary>
+    /// <summary>
+    /// 等待客户端进入 InGame 且玩家输入关系可用
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
@@ -20,7 +24,9 @@ public partial struct BuildThirdPersonMoveCommandWithOrbitCameraSystem : ISystem
             .WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
     }
 
-    /// <summary>为当前预测 Tick 构建并写入环绕相机移动命令</summary>
+    /// <summary>
+    /// 为当前预测 Tick 构建并写入环绕相机移动命令
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

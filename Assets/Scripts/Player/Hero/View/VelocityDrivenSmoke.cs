@@ -1,18 +1,20 @@
 using UnityEngine;
 
-/// <summary>根据表现对象位移速度控制尾烟方向和发射状态</summary>
+/// <summary>
+/// 根据表现对象位移速度控制尾烟方向和发射状态
+/// </summary>
 [DisallowMultipleComponent]
 public class VelocityDrivenSmoke : MonoBehaviour
 {
     [Header("引用")]
-    [Tooltip("拖进来尾烟粒子系统（一般是当前物体的子物体）")]
+    [Tooltip("用于发射尾烟，通常绑定当前物体的子对象")]
     public ParticleSystem SmokeParticleSystem;
 
     [Header("发射控制")]
-    [Tooltip("低于这个速度视为静止，不发射烟（单位：米/秒）")]
+    [Tooltip("速度不高于该值时停止发射，单位米/秒")]
     public float minSpeedToEmit = 0.1f;
 
-    [Tooltip("瞬移距离阈值，大于这个认为是瞬移，直接重置，不发烟")]
+    [Tooltip("单帧位移超过该值时按瞬移处理并停止发射，单位米")]
     public float teleportSnapDistance = 2.0f;
 
     private Vector3 _lastPosition;
@@ -74,10 +76,6 @@ public class VelocityDrivenSmoke : MonoBehaviour
         _lastPosition = currentPosition;
     }
 
-    /// <summary>
-    /// 有速度时向反方向发射粒子，静止时关闭发射
-    /// </summary>
-    /// <param name="speed">表现对象的渲染帧速度</param>
     private void ControlSmokeParticleSystem(Vector3 speed)
     {
         if (SmokeParticleSystem == null || !_emissionInitialized)

@@ -8,9 +8,6 @@ using UnityEngine;
 /// </summary>
 public class ScriptReferenceFixer : MonoBehaviour
 {
-    /// <summary>
-    /// 扫描已加载对象并移除无法解析的组件引用
-    /// </summary>
     [MenuItem("Tools/强制修复脚本引用")]
     static void FixMissingScripts()
     {

@@ -15,21 +15,27 @@ using Unity.Physics.Systems;
 using Unity.Transforms;
 using UnityEngine;
 
-/// <summary>保存一次 KCC 更新期间需要跨回调共享的上下文</summary>
+/// <summary>
+/// 保存一次 KCC 更新期间需要跨回调共享的上下文
+/// </summary>
 public struct ThirdPersonCharacterUpdateContext
 {
     // Lookup、单例或原生容器应集中放在此处，供同一帧的角色回调复用
 
     public uint DebugTick;
 
-    /// <summary>初始化角色更新上下文中的长期数据</summary>
+    /// <summary>
+    /// 初始化角色更新上下文中的长期数据
+    /// </summary>
     /// <param name="state">创建上下文的系统状态</param>
     public void OnSystemCreate(ref SystemState state)
     {
         // 当前上下文没有需要长期缓存的 Lookup
     }
 
-    /// <summary>刷新角色更新上下文中的逐帧数据</summary>
+    /// <summary>
+    /// 刷新角色更新上下文中的逐帧数据
+    /// </summary>
     /// <param name="state">执行更新的系统状态</param>
     public void OnSystemUpdate(ref SystemState state)
     {
@@ -37,14 +43,18 @@ public struct ThirdPersonCharacterUpdateContext
     }
 }
 
-/// <summary>实现第三人称角色的 KCC 物理、速度和碰撞处理策略</summary>
+/// <summary>
+/// 实现第三人称角色的 KCC 物理、速度和碰撞处理策略
+/// </summary>
 public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     public readonly KinematicCharacterAspect CharacterAspect;
     public readonly RefRW<ThirdPersonCharacter> CharacterComponent;
     public readonly RefRW<ThirdPersonCharacterControl> CharacterControl;
 
-    /// <summary>按 KCC 固定物理阶段的顺序更新角色接地、速度和碰撞</summary>
+    /// <summary>
+    /// 按 KCC 固定物理阶段的顺序更新角色接地、速度和碰撞
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     public void PhysicsUpdate(ref ThirdPersonCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
@@ -114,7 +124,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         }
     }
 
-    /// <summary>在可变帧率阶段更新父实体旋转插值和角色朝向</summary>
+    /// <summary>
+    /// 在可变帧率阶段更新父实体旋转插值和角色朝向
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     public void VariableUpdate(ref ThirdPersonCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
@@ -135,7 +147,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
     }
 
     #region KCC 角色处理回调
-    /// <summary>更新角色用于接地判定的上方向</summary>
+    /// <summary>
+    /// 更新角色用于接地判定的上方向
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     public void UpdateGroundingUp(
@@ -147,7 +161,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         CharacterAspect.Default_UpdateGroundingUp(ref characterBody);
     }
 
-    /// <summary>判断命中材质是否允许参与角色碰撞</summary>
+    /// <summary>
+    /// 判断命中材质是否允许参与角色碰撞
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     /// <param name="hit">基础碰撞命中</param>
@@ -160,7 +176,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         return PhysicsUtilities.IsCollidable(hit.Material);
     }
 
-    /// <summary>按斜坡和台阶配置判断命中是否可作为地面</summary>
+    /// <summary>
+    /// 按斜坡和台阶配置判断命中是否可作为地面
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     /// <param name="hit">基础碰撞命中</param>
@@ -183,7 +201,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
             groundingEvaluationType);
     }
 
-    /// <summary>使用默认 KCC 规则处理移动碰撞和台阶跨越</summary>
+    /// <summary>
+    /// 使用默认 KCC 规则处理移动碰撞和台阶跨越
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     /// <param name="hit">本次角色移动命中</param>
@@ -220,7 +240,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
             characterComponent.StepAndSlopeHandling.CharacterWidthForStepGroundingCheck);
     }
 
-    /// <summary>保留 KCC 默认动态碰撞质量</summary>
+    /// <summary>
+    /// 保留 KCC 默认动态碰撞质量
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     /// <param name="characterMass">角色质量</param>
@@ -236,7 +258,9 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         // 当前玩法不覆盖质量，保留接口以明确采用 KCC 默认行为
     }
 
-    /// <summary>按命中法线和地面约束投影角色速度</summary>
+    /// <summary>
+    /// 按命中法线和地面约束投影角色速度
+    /// </summary>
     /// <param name="context">第三人称角色更新上下文</param>
     /// <param name="baseContext">KCC 基础更新上下文</param>
     /// <param name="velocity">待投影速度</param>

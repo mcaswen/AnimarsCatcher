@@ -8,9 +8,6 @@ public class PlayerResourceRegistry : MonoBehaviour
 {
     public GameObject PlayerResourceGhostPrefab;
 
-    /// <summary>
-    /// 将 GameObject 预制体引用转换为实体引用
-    /// </summary>
     class Baker : Baker<PlayerResourceRegistry>
     {
         public override void Bake(PlayerResourceRegistry authoring)

@@ -36,13 +36,12 @@ public class ClientRoomPanelController : MonoBehaviour
     [SerializeField] private string _fallbackHostIp = "192.168.0.101";
     [SerializeField] private LanDiscoveryClient _lanDiscoveryClient;
 
-    [Tooltip("发现房间的最大等待时间")]
+    [Tooltip("超时后尝试备用 IP 或判定未发现主机，单位秒")]
     [SerializeField] private float _discoveryTimeoutSeconds = 5f;
 
-    [Tooltip("轮询服务器列表的间隔时间")]
+    [Tooltip("服务器列表轮询间隔，单位秒")]
     [SerializeField] private float _discoveryPollInterval = 0.5f;
 
-    [Tooltip("连接超时时间")]
     [SerializeField] private float _connectTimeoutSeconds = 5f;
 
     [SerializeField] private bool _isSearchingServer;

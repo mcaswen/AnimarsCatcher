@@ -4,13 +4,17 @@ using Unity.Collections;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>在 Server World 接收客户端大厅身份并通知服务器 UI</summary>
+/// <summary>
+/// 在 Server World 接收客户端大厅身份并通知服务器 UI
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ServerReceiveLobbyIntroSystem : ISystem
 {
-    /// <summary>消费大厅介绍 RPC 并销毁对应请求实体</summary>
+    /// <summary>
+    /// 消费大厅介绍 RPC 并销毁对应请求实体
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

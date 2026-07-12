@@ -85,6 +85,233 @@ function Test-CommentedCode {
     return $false
 }
 
+function Get-CSharpStructureLine {
+    param(
+        [string]$Line,
+        [ref]$InBlockComment,
+        [ref]$InVerbatimString
+    )
+
+    $builder = [System.Text.StringBuilder]::new()
+    $index = 0
+
+    while ($index -lt $Line.Length) {
+        if ($InBlockComment.Value) {
+            $endIndex = $Line.IndexOf('*/', $index, [System.StringComparison]::Ordinal)
+            if ($endIndex -lt 0) {
+                break
+            }
+
+            $InBlockComment.Value = $false
+            $index = $endIndex + 2
+            continue
+        }
+
+        if ($InVerbatimString.Value) {
+            $quoteIndex = $Line.IndexOf([char]34, $index)
+            if ($quoteIndex -lt 0) {
+                break
+            }
+
+            if ($quoteIndex + 1 -lt $Line.Length -and $Line[$quoteIndex + 1] -eq [char]34) {
+                $index = $quoteIndex + 2
+                continue
+            }
+
+            $InVerbatimString.Value = $false
+            $index = $quoteIndex + 1
+            continue
+        }
+
+        if ($index + 1 -lt $Line.Length -and $Line[$index] -eq '/' -and $Line[$index + 1] -eq '/') {
+            break
+        }
+
+        if ($index + 1 -lt $Line.Length -and $Line[$index] -eq '/' -and $Line[$index + 1] -eq '*') {
+            $InBlockComment.Value = $true
+            $index += 2
+            continue
+        }
+
+        $startsVerbatimString =
+            ($index + 1 -lt $Line.Length -and $Line[$index] -eq '@' -and $Line[$index + 1] -eq [char]34) -or
+            ($index + 2 -lt $Line.Length -and $Line[$index] -eq '$' -and $Line[$index + 1] -eq '@' -and $Line[$index + 2] -eq [char]34) -or
+            ($index + 2 -lt $Line.Length -and $Line[$index] -eq '@' -and $Line[$index + 1] -eq '$' -and $Line[$index + 2] -eq [char]34)
+
+        if ($startsVerbatimString) {
+            $InVerbatimString.Value = $true
+            $index += if ($Line[$index] -eq '@' -and $Line[$index + 1] -eq [char]34) { 2 } else { 3 }
+            continue
+        }
+
+        if ($Line[$index] -eq [char]34 -or $Line[$index] -eq [char]39) {
+            $delimiter = $Line[$index]
+            $index++
+            while ($index -lt $Line.Length) {
+                if ($Line[$index] -eq [char]92) {
+                    $index += 2
+                    continue
+                }
+                if ($Line[$index] -eq $delimiter) {
+                    $index++
+                    break
+                }
+                $index++
+            }
+            continue
+        }
+
+        $null = $builder.Append($Line[$index])
+        $index++
+    }
+
+    return $builder.ToString()
+}
+
+function Get-XmlOwnerDeclaration {
+    param(
+        [string[]]$Lines,
+        [int]$SummaryLineIndex
+    )
+
+    $attributeDepth = 0
+
+    for ($lineIndex = $SummaryLineIndex + 1; $lineIndex -lt $Lines.Count; $lineIndex++) {
+        $trimmedLine = $Lines[$lineIndex].Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmedLine) -or $trimmedLine.StartsWith('///') -or $trimmedLine.StartsWith('#')) {
+            continue
+        }
+
+        if ($attributeDepth -gt 0 -or $trimmedLine.StartsWith('[')) {
+            $attributeDepth += ([regex]::Matches($trimmedLine, '\[')).Count
+            $attributeDepth -= ([regex]::Matches($trimmedLine, '\]')).Count
+            if ($attributeDepth -le 0) {
+                $attributeDepth = 0
+                $closingBracketIndex = $trimmedLine.LastIndexOf(']')
+                if ($closingBracketIndex -ge 0 -and $closingBracketIndex + 1 -lt $trimmedLine.Length) {
+                    $remainingText = $trimmedLine.Substring($closingBracketIndex + 1).Trim()
+                    if (-not [string]::IsNullOrWhiteSpace($remainingText)) {
+                        return $remainingText
+                    }
+                }
+            }
+            continue
+        }
+
+        if ($trimmedLine.StartsWith('//') -or $trimmedLine.StartsWith('/*')) {
+            return ''
+        }
+
+        return $trimmedLine
+    }
+
+    return ''
+}
+
+function Get-ImplementationXmlSummaryLines {
+    param([string[]]$Lines)
+
+    $implementationSummaryLines = @{}
+    $typeStack = [System.Collections.Generic.List[object]]::new()
+    $braceDepth = 0
+    $pendingType = $null
+    $inBlockComment = $false
+    $inVerbatimString = $false
+    $modifierPattern = '(?:(?:public|private|protected|internal|file|static|abstract|sealed|partial|readonly|ref|unsafe|new|virtual|override|extern|async)\s+)*'
+    $typePattern = '^(?<modifiers>' + $modifierPattern + ')(?<kind>record\s+(?:class|struct)|record|class|struct|interface|enum)\b'
+
+    for ($lineIndex = 0; $lineIndex -lt $Lines.Count; $lineIndex++) {
+        while ($typeStack.Count -gt 0 -and $braceDepth -lt $typeStack[$typeStack.Count - 1].BodyDepth) {
+            $typeStack.RemoveAt($typeStack.Count - 1)
+        }
+
+        $currentType = if ($typeStack.Count -gt 0) { $typeStack[$typeStack.Count - 1] } else { $null }
+        $rawLine = $Lines[$lineIndex]
+
+        if ($rawLine -match '^\s*///\s*<summary>\s*$') {
+            $declaration = Get-XmlOwnerDeclaration -Lines $Lines -SummaryLineIndex $lineIndex
+            if (-not [string]::IsNullOrWhiteSpace($declaration)) {
+                $isDirectTypeMember = $null -ne $currentType -and $braceDepth -eq $currentType.BodyDepth
+                $isTypeDeclaration = $declaration -match $typePattern
+                $modifiers = if ($declaration -match '^(' + $modifierPattern + ')') { $Matches[1] } else { '' }
+                $hasPrivateModifier = $modifiers -match '\bprivate\b'
+                $hasApiModifier = $modifiers -match '\b(public|protected|internal)\b'
+                $isImplementation = $false
+
+                if ($isTypeDeclaration) {
+                    if ($null -ne $currentType) {
+                        if ($currentType.PrivateContext -or $hasPrivateModifier) {
+                            $isImplementation = $true
+                        }
+                        elseif ($currentType.Kind -ne 'interface' -and (-not $hasApiModifier)) {
+                            $isImplementation = $true
+                        }
+                    }
+                }
+                elseif ($isDirectTypeMember -and $currentType.Kind -ne 'enum') {
+                    if ($currentType.PrivateContext -or $hasPrivateModifier) {
+                        $isImplementation = $true
+                    }
+                    elseif ($currentType.Kind -ne 'interface' -and (-not $hasApiModifier)) {
+                        $isImplementation = $true
+                    }
+                }
+
+                if ($isImplementation) {
+                    $implementationSummaryLines[$lineIndex] = $true
+                }
+            }
+        }
+
+        $structureLine = Get-CSharpStructureLine `
+            -Line $rawLine `
+            -InBlockComment ([ref]$inBlockComment) `
+            -InVerbatimString ([ref]$inVerbatimString)
+        $trimmedStructureLine = $structureLine.Trim()
+
+        if ($null -ne $pendingType -and $trimmedStructureLine.Contains('{')) {
+            $pendingType.BodyDepth = $braceDepth + 1
+            $null = $typeStack.Add($pendingType)
+            $pendingType = $null
+        }
+
+        if ($trimmedStructureLine -match $typePattern) {
+            $typeModifiers = $Matches['modifiers']
+            $typeKind = $Matches['kind']
+            if ($typeKind.StartsWith('record')) {
+                $typeKind = if ($typeKind.EndsWith('struct')) { 'struct' } else { 'class' }
+            }
+
+            $parentType = if ($typeStack.Count -gt 0) { $typeStack[$typeStack.Count - 1] } else { $null }
+            $isNestedType = $null -ne $parentType -and $braceDepth -eq $parentType.BodyDepth
+            $hasPrivateModifier = $typeModifiers -match '\bprivate\b'
+            $hasApiModifier = $typeModifiers -match '\b(public|protected|internal)\b'
+            $privateContext =
+                ($null -ne $parentType -and $parentType.PrivateContext) -or
+                ($isNestedType -and $hasPrivateModifier) -or
+                ($isNestedType -and $parentType.Kind -ne 'interface' -and (-not $hasApiModifier))
+            $typeInfo = [pscustomobject]@{
+                Kind = $typeKind
+                BodyDepth = -1
+                PrivateContext = $privateContext
+            }
+
+            if ($trimmedStructureLine.Contains('{')) {
+                $typeInfo.BodyDepth = $braceDepth + 1
+                $null = $typeStack.Add($typeInfo)
+            }
+            elseif (-not $trimmedStructureLine.EndsWith(';')) {
+                $pendingType = $typeInfo
+            }
+        }
+
+        $braceDepth += ([regex]::Matches($structureLine, '\{')).Count
+        $braceDepth -= ([regex]::Matches($structureLine, '\}')).Count
+    }
+
+    return $implementationSummaryLines
+}
+
 function Read-CSharpFile {
     param([System.IO.FileInfo]$File)
 
@@ -105,12 +332,24 @@ function Read-CSharpFile {
     $inBlockComment = $false
     $inVerbatimString = $false
     $lines = $content -split "`r?`n"
+    $implementationSummaryLines = Get-ImplementationXmlSummaryLines -Lines $lines
 
     for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
         $line = $lines[$lineIndex]
         $segments = [System.Collections.Generic.List[string]]::new()
         $hasCode = $false
         $index = 0
+
+        if ($line -match '\[(?:UnityEngine\.)?Tooltip\s*\(\s*"(?<tooltip>(?:\\.|[^"])*)"\s*\)\]') {
+            $tooltipText = $Matches['tooltip']
+            if ($tooltipText -notmatch '[\u3400-\u9FFF]') {
+                Add-Violation $relativePath ($lineIndex + 1) "tooltip-language" "Tooltip must add a short Chinese explanation or be removed"
+            }
+
+            if ($tooltipText -match '(\u3002|\.)\s*$') {
+                Add-Violation $relativePath ($lineIndex + 1) "tooltip-period" $tooltipText
+            }
+        }
 
         while ($index -lt $line.Length) {
             if ($inBlockComment) {
@@ -198,6 +437,14 @@ function Read-CSharpFile {
         }
 
         if ($line.TrimStart().StartsWith('///')) {
+            if ($line -match '</?summary>' -and $line -notmatch '^\s*///\s*</?summary>\s*$') {
+                Add-Violation $relativePath ($lineIndex + 1) "xml-summary-layout" "summary tags must be on separate lines"
+            }
+
+            if ($implementationSummaryLines.ContainsKey($lineIndex)) {
+                Add-Violation $relativePath ($lineIndex + 1) "xml-implementation-summary" "private implementation must use // comments"
+            }
+
             $previousLineIndex = $lineIndex - 1
             while ($previousLineIndex -ge 0 -and [string]::IsNullOrWhiteSpace($lines[$previousLineIndex])) {
                 $previousLineIndex--

@@ -5,7 +5,9 @@ using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>等待客户端 Ghost 资源稳定后完成正式 InGame 握手</summary>
+/// <summary>
+/// 等待客户端 Ghost 资源稳定后完成正式 InGame 握手
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -17,7 +19,9 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
     private double _sceneReadyTime;   // 首次资源完整的时间戳
     
 
-    /// <summary>声明连接、Ghost 集合和开局状态依赖</summary>
+    /// <summary>
+    /// 声明连接、Ghost 集合和开局状态依赖
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
@@ -31,7 +35,9 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
         _sceneReadyTime  = 0.0;
     }
 
-    /// <summary>确认 Ghost 集合稳定后通知服务器并启用本地输入流</summary>
+    /// <summary>
+    /// 确认 Ghost 集合稳定后通知服务器并启用本地输入流
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

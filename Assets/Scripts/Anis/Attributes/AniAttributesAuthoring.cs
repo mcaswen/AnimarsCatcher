@@ -17,22 +17,20 @@ public enum AniType
 /// </summary>
 public class AniAttributesAuthoring : MonoBehaviour
 {
-    [Tooltip("Ani类型")]
     public AniType AniType;
 
-    [Tooltip("移动速度")]
+    [Tooltip("单位米/秒，需大于等于 0")]
     public float MoveSpeed;
 
-    [Tooltip("攻击间隔")]
+    [Tooltip("单位秒，需大于等于 0")]
     public float AttackInterval;
 
-    [Tooltip("攻击伤害")]
+    [Tooltip("需大于等于 0")]
     public int AttackDamage;
 
-    [Tooltip("攻击范围")]
+    [Tooltip("单位米，同时影响索敌和远程站位")]
     public float AttackRange;
 
-    [Tooltip("攻击模式")]
     public AniAttackMode AttackMode;
 }
 

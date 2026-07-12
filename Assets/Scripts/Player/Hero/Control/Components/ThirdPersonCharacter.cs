@@ -5,7 +5,9 @@ using Unity.Mathematics;
 using UnityEngine;
 using Unity.CharacterController;
 
-/// <summary>保存第三人称 KCC 角色的移动物理配置</summary>
+/// <summary>
+/// 保存第三人称 KCC 角色的移动物理配置
+/// </summary>
 [Serializable]
 public struct ThirdPersonCharacter : IComponentData
 {
@@ -23,7 +25,9 @@ public struct ThirdPersonCharacter : IComponentData
     public BasicStepAndSlopeHandlingParameters StepAndSlopeHandling;
 }
 
-/// <summary>保存第三人称角色当前预测帧的移动向量</summary>
+/// <summary>
+/// 保存第三人称角色当前预测帧的移动向量
+/// </summary>
 [Serializable]
 public struct ThirdPersonCharacterControl : IComponentData
 {

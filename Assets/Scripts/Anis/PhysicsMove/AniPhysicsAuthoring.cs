@@ -15,24 +15,17 @@ public class AniPhysicsAuthoring : MonoBehaviour
     public Vector3 ProbeOffset = new Vector3(0, 0.5f, 0); // 从角色 pivot 往上多少作为起点
 
     [Header("碰撞过滤")]
-    [Tooltip("参与碰撞的类别 bitmask")]
+    [Tooltip("探测查询所属类别的位掩码")]
     public uint BelongsTo   = ~0u;
     
-    [Tooltip("碰撞对象类别")]
+    [Tooltip("探测查询可命中的类别位掩码")]
     public uint CollidesWith = ~0u;
 
-    [Tooltip("碰撞组索引")]
+    [Tooltip("有效范围 -32768 至 32767；同组正值强制命中，负值禁止命中")]
     public int GroupIndex = 0;
 
-    /// <summary>
-    /// 将探测参数和初始探测结果写入实体
-    /// </summary>
     class Baker : Baker<AniPhysicsAuthoring>
     {
-        /// <summary>
-        /// 烘焙射线长度、偏移和 Unity Physics 过滤器
-        /// </summary>
-        /// <param name="authoring">Ani 物理探测创作组件</param>
         public override void Bake(AniPhysicsAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

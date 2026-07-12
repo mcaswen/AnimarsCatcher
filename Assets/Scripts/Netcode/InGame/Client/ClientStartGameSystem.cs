@@ -4,20 +4,26 @@ using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>在 Client World 接收开局通知并切换到服务器指定场景</summary>
+/// <summary>
+/// 在 Client World 接收开局通知并切换到服务器指定场景
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ClientStartGameSystem : ISystem
 {
-    /// <summary>等待客户端连接完成后处理开局 RPC</summary>
+    /// <summary>
+    /// 等待客户端连接完成后处理开局 RPC
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkId>();
     }
 
-    /// <summary>消费开局 RPC、建立客户端对局状态并启动场景过渡</summary>
+    /// <summary>
+    /// 消费开局 RPC、建立客户端对局状态并启动场景过渡
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

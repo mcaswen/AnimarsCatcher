@@ -8,9 +8,6 @@ using UnityEngine;
 /// </summary>
 public static class FixToonLitKeywordState {
     
-    /// <summary>
-    /// 扫描项目材质并重建目标 Shader 的关键字状态
-    /// </summary>
     [MenuItem("Tools/Materials/Resync Local Keywords (Custom/ToonLitURP)")]
     static void Run() {
         

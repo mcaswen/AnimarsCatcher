@@ -5,7 +5,9 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using Unity.NetCode;
 
-/// <summary>在客户端预测世界中按固定角度跟随受控角色</summary>
+/// <summary>
+/// 在客户端预测世界中按固定角度跟随受控角色
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
 // 角色姿态确定后再计算相机，避免读取上一帧的 KCC 状态
@@ -15,7 +17,9 @@ using Unity.NetCode;
 [BurstCompile]
 public partial struct FixedFollowCameraSystem : ISystem
 {
-    /// <summary>声明固定相机运行所需的组件查询</summary>
+    /// <summary>
+    /// 声明固定相机运行所需的组件查询
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -26,7 +30,9 @@ public partial struct FixedFollowCameraSystem : ISystem
                 .Build());
     }
 
-    /// <summary>根据预测角色姿态更新固定相机的位置和朝向</summary>
+    /// <summary>
+    /// 根据预测角色姿态更新固定相机的位置和朝向
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)

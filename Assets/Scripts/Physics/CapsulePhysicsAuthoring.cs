@@ -20,14 +20,8 @@ public class CapsulePhysicsAuthoring : MonoBehaviour
 {
     public CapsuleCollider SourceCollider;
 
-    /// <summary>
-    /// 读取显式引用或同对象上的 CapsuleCollider
-    /// </summary>
     class Baker : Baker<CapsulePhysicsAuthoring>
     {
-        /// <summary>
-        /// 校正胶囊体高度并写入运行时组件
-        /// </summary>
         public override void Bake(CapsulePhysicsAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

@@ -3,10 +3,14 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.NetCode;
 
-/// <summary>提供服务器权威角色实例化和出生点选择逻辑</summary>
+/// <summary>
+/// 提供服务器权威角色实例化和出生点选择逻辑
+/// </summary>
 public static class CharacterSpawnUtility
 {
-    /// <summary>实例化角色并写入初始姿态、所有者和阵营</summary>
+    /// <summary>
+    /// 实例化角色并写入初始姿态、所有者和阵营
+    /// </summary>
     /// <param name="entityCommandBuffer">延迟结构变更命令缓冲区</param>
     /// <param name="prefab">角色 Ghost Prefab</param>
     /// <param name="ownerNetworkId">角色所有者的 NetworkId</param>
@@ -33,7 +37,9 @@ public static class CharacterSpawnUtility
         return character;
     }
 
-    /// <summary>按配置策略为连接选择出生点</summary>
+    /// <summary>
+    /// 按配置策略为连接选择出生点
+    /// </summary>
     /// <param name="stateRW">出生点轮询状态</param>
     /// <param name="connectionAspect">待分配出生点的连接</param>
     /// <param name="pointsRO">可选出生点列表</param>

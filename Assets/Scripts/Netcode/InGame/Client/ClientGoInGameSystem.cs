@@ -5,12 +5,16 @@ using Unity.Entities;
 using UnityEngine.SceneManagement;
 #endif
 
-/// <summary>在编辑器游戏场景中自动完成客户端 InGame 调试握手</summary>
+/// <summary>
+/// 在编辑器游戏场景中自动完成客户端 InGame 调试握手
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct ClientGoInGameSystem : ISystem
 {
-    /// <summary>连接建立后发送一次 GoInGameRequest 并标记本地连接</summary>
+    /// <summary>
+    /// 连接建立后发送一次 GoInGameRequest 并标记本地连接
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

@@ -7,13 +7,17 @@ using Unity.Networking.Transport;
 using UnityEngine.SceneManagement;
 #endif
 
-/// <summary>根据编辑器场景或运行时启动参数创建服务器监听请求</summary>
+/// <summary>
+/// 根据编辑器场景或运行时启动参数创建服务器监听请求
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct StartServerListenSystem : ISystem
 {
-    /// <summary>仅执行一次自动监听决策并避免重复监听实体</summary>
+    /// <summary>
+    /// 仅执行一次自动监听决策并避免重复监听实体
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {

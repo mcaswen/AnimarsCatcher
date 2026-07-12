@@ -4,7 +4,9 @@ using UnityEngine.Serialization;
 using Unity.Mathematics;
 using Unity.Transforms;
 
-/// <summary>配置固定第三人称相机的视角和网络吸附参数</summary>
+/// <summary>
+/// 配置固定第三人称相机的视角和网络吸附参数
+/// </summary>
 [DisallowMultipleComponent]
 public class FixedCameraAuthoring : MonoBehaviour
 {
@@ -12,24 +14,20 @@ public class FixedCameraAuthoring : MonoBehaviour
     // 固定视角参数决定相机相对角色的稳定构图
     [Header("Fixed Config")]
     
-    [Tooltip("Distance")]
     public float Distance = 6f;
 
-    [Tooltip("Vertical angle")]
     [FormerlySerializedAs("PitchDeg")]
     [Range(-89, 89)] public float PitchDegrees = 20f;
 
-    [Tooltip("Horizontal angle")]
     [FormerlySerializedAs("YawDeg")]
     public float YawDegrees = 45f;
 
-    [Tooltip("Target Height")]
+    [Tooltip("相机相对目标的垂直偏移，单位米")]
     public float Height = 1.5f;
 
-    [Tooltip("Friction Damping")]
     public float Damping = 0.12f;
 
-    [Tooltip("Look Up Bias")]
+    [Tooltip("观察点相对目标的垂直偏移，单位米")]
     public float LookUpBias = 0.8f;
 
     // 网络偏差超过阈值时跳过阻尼直接吸附
@@ -38,11 +36,8 @@ public class FixedCameraAuthoring : MonoBehaviour
     [FormerlySerializedAs("SnapAngleDeg")]
     public float SnapAngleDegrees = 8f;
 
-    /// <summary>负责把固定相机配置烘焙到实体</summary>
     class Baker : Baker<FixedCameraAuthoring>
     {
-        /// <summary>创建固定相机运行时组件</summary>
-        /// <param name="authoring">固定相机 Authoring 配置</param>
         public override void Bake(FixedCameraAuthoring authoring)
         {
 

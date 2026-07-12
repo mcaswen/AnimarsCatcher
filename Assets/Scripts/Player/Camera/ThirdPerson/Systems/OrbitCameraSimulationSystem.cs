@@ -7,7 +7,9 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
 
-/// <summary>在模拟阶段根据玩家输入计算环绕相机的目标姿态</summary>
+/// <summary>
+/// 在模拟阶段根据玩家输入计算环绕相机的目标姿态
+/// </summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
 [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
@@ -16,7 +18,9 @@ using UnityEngine;
 [BurstCompile]
 public partial struct OrbitCameraSimulationSystem : ISystem
 {
-    /// <summary>声明环绕相机模拟所需的组件查询</summary>
+    /// <summary>
+    /// 声明环绕相机模拟所需的组件查询
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -24,7 +28,9 @@ public partial struct OrbitCameraSimulationSystem : ISystem
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
     }
 
-    /// <summary>调度相机输入和目标姿态计算任务</summary>
+    /// <summary>
+    /// 调度相机输入和目标姿态计算任务
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
@@ -41,7 +47,9 @@ public partial struct OrbitCameraSimulationSystem : ISystem
         job.Schedule();
     }
 
-    /// <summary>并行计算每个环绕相机的目标旋转、距离和未修正位置</summary>
+    /// <summary>
+    /// 并行计算每个环绕相机的目标旋转、距离和未修正位置
+    /// </summary>
     [BurstCompile]
     [WithAll(typeof(Simulate))]
     public partial struct OrbitCameraSimulationJob : IJobEntity

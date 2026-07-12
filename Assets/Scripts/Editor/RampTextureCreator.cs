@@ -7,9 +7,6 @@ using UnityEditor;
 /// </summary>
 public class RampTextureCreator : EditorWindow
 {
-    /// <summary>
-    /// 创建纹理并写入项目 Assets 根目录
-    /// </summary>
     [MenuItem("Tools/Create Ramp Texture")]
     static void CreateRampTexture()
     {

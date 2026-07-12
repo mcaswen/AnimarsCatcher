@@ -2,11 +2,12 @@ using Unity.Entities;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-/// <summary>配置实体对应的托管角色表现 Prefab 和表现类型</summary>
+/// <summary>
+/// 配置实体对应的托管角色表现 Prefab 和表现类型
+/// </summary>
 [DisallowMultipleComponent]
 public class AvatarViewAuthoring : MonoBehaviour
 {
-    /// <summary>负责把表现 Prefab 引用烘焙为托管组件</summary>
     [FormerlySerializedAs("ViewPrefab")]
     [SerializeField] private GameObject _viewPrefab;
     [FormerlySerializedAs("avatarViewType")]
@@ -14,8 +15,6 @@ public class AvatarViewAuthoring : MonoBehaviour
     
     class Baker : Baker<AvatarViewAuthoring>
     {
-        /// <summary>烘焙角色表现 Prefab 和类型</summary>
-        /// <param name="authoring">角色表现 Authoring 配置</param>
         public override void Bake(AvatarViewAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);
@@ -29,14 +28,18 @@ public class AvatarViewAuthoring : MonoBehaviour
     }
 }
 
-/// <summary>保存实体创建托管表现对象所需的 Prefab 引用</summary>
+/// <summary>
+/// 保存实体创建托管表现对象所需的 Prefab 引用
+/// </summary>
 public class AvatarViewPrefabReference : IComponentData
 {
     public GameObject ViewPrefab;
     public AvatarViewType ViewType;
 }
 
-/// <summary>定义角色表现对象需要附加的行为类型</summary>
+/// <summary>
+/// 定义角色表现对象需要附加的行为类型
+/// </summary>
 public enum AvatarViewType
 {
     None = 0,
@@ -47,5 +50,7 @@ public enum AvatarViewType
 }
 
 
-/// <summary>标记实体已经创建对应的托管表现对象</summary>
+/// <summary>
+/// 标记实体已经创建对应的托管表现对象
+/// </summary>
 public struct AvatarViewSpawnedTag : IComponentData {}

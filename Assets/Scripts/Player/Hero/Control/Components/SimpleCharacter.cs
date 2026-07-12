@@ -3,7 +3,9 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using UnityEngine;
 
-/// <summary>保存简化角色的静态移动和碰撞配置</summary>
+/// <summary>
+/// 保存简化角色的静态移动和碰撞配置
+/// </summary>
 [GhostComponent]
 public struct SimpleCharacter : IComponentData
 {
@@ -16,7 +18,9 @@ public struct SimpleCharacter : IComponentData
     public float ColliderRadius;
 }
 
-/// <summary>保存简化角色本帧需要执行的移动指令</summary>
+/// <summary>
+/// 保存简化角色本帧需要执行的移动指令
+/// </summary>
 [GhostComponent]
 public struct SimpleCharacterControl : IComponentData
 {

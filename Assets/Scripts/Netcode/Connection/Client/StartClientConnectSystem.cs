@@ -7,13 +7,17 @@ using Unity.Networking.Transport;
 using UnityEngine.SceneManagement;
 #endif
 
-/// <summary>在编辑器游戏场景中自动创建本机客户端连接请求</summary>
+/// <summary>
+/// 在编辑器游戏场景中自动创建本机客户端连接请求
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct StartClientConnectSystem : ISystem
 {
-    /// <summary>仅执行一次编辑器自动连接并随后禁用系统</summary>
+    /// <summary>
+    /// 仅执行一次编辑器自动连接并随后禁用系统
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {

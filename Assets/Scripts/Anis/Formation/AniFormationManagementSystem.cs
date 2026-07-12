@@ -91,12 +91,7 @@ public partial struct AniFormationManagementSystem : ISystem
         slotsByLeader.Dispose();
     }
 
-    /// <summary>
-    /// 为队长分配最小可用槽位并立即登记，避免同帧后续请求获得重复槽位
-    /// </summary>
-    /// <param name="leader">需要分配槽位的队长实体</param>
-    /// <param name="slotsByLeader">本帧已确认的槽位占用表</param>
-    /// <returns>从零开始的最小可用槽位</returns>
+    // 分配最小可用槽位并立即登记，避免同帧后续请求获得重复槽位
     private static int AllocateSlotForLeader(
         Entity leader,
         ref NativeParallelMultiHashMap<Entity, int> slotsByLeader)

@@ -15,15 +15,8 @@ public class AniSpawnPointAuthoring : MonoBehaviour
 {
     public CampType campType = CampType.Alpha;
 
-    /// <summary>
-    /// 将出生点转换为带阵营和变换的实体
-    /// </summary>
     class Baker : Baker<AniSpawnPointAuthoring>
     {
-        /// <summary>
-        /// 烘焙服务器生成流程需要的出生点数据
-        /// </summary>
-        /// <param name="authoring">Ani 出生点创作组件</param>
         public override void Bake(AniSpawnPointAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

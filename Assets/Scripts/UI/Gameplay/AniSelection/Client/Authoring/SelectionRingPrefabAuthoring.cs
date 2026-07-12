@@ -10,9 +10,6 @@ public class SelectionRingPrefabAuthoring : MonoBehaviour
     public GameObject RingPrefab;
     public float YOffset = 0.02f;
 
-    /// <summary>
-    /// 将光圈 GameObject 转换为可实例化实体配置
-    /// </summary>
     class Baker : Baker<SelectionRingPrefabAuthoring>
     {
         public override void Bake(SelectionRingPrefabAuthoring authoring)

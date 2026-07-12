@@ -3,7 +3,9 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>在客户端为带表现配置的实体创建并绑定 GameObject 视图</summary>
+/// <summary>
+/// 在客户端为带表现配置的实体创建并绑定 GameObject 视图
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
@@ -11,7 +13,9 @@ public partial class SpawnAvatarViewSystem : SystemBase
 {
     private EntityQuery _spawnQuery;
 
-    /// <summary>查询尚未创建托管表现对象的实体</summary>
+    /// <summary>
+    /// 查询尚未创建托管表现对象的实体
+    /// </summary>
     protected override void OnCreate()
     {
         _spawnQuery = SystemAPI.QueryBuilder()
@@ -22,7 +26,9 @@ public partial class SpawnAvatarViewSystem : SystemBase
         RequireForUpdate(_spawnQuery);
     }
 
-    /// <summary>实例化视图并按表现类型绑定对应行为</summary>
+    /// <summary>
+    /// 实例化视图并按表现类型绑定对应行为
+    /// </summary>
     protected override void OnUpdate()
     {
         EntityManager entityManager = EntityManager;

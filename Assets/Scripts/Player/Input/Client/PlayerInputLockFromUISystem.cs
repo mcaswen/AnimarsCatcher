@@ -2,7 +2,9 @@ using Unity.Entities;
 using Unity.Burst;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>在客户端根据 UI 面板占用情况维护玩法输入锁</summary>
+/// <summary>
+/// 在客户端根据 UI 面板占用情况维护玩法输入锁
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial class PlayerInputLockFromUISystem : SystemBase

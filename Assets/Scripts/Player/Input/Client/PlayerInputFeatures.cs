@@ -1,13 +1,17 @@
 using Unity.Mathematics;
 
-/// <summary>保存一次输入转换所需的时间和网络 Tick</summary>
+/// <summary>
+/// 保存一次输入转换所需的时间和网络 Tick
+/// </summary>
 public readonly struct InputContext
 {
     public readonly float DeltaTime;
     public readonly uint NetworkTick;
     public readonly float RightLongPressThreshold;
 
-    /// <summary>创建本帧输入转换上下文</summary>
+    /// <summary>
+    /// 创建本帧输入转换上下文
+    /// </summary>
     /// <param name="deltaTime">本帧时长</param>
     /// <param name="tick">当前网络 Tick</param>
     /// <param name="longPressThreshold">右键长按阈值</param>
@@ -17,7 +21,9 @@ public readonly struct InputContext
     }
 }
 
-/// <summary>保存从 Input System 读取的原始键鼠状态</summary>
+/// <summary>
+/// 保存从 Input System 读取的原始键鼠状态
+/// </summary>
 public struct KeyboardMouseState
 {
     public float2 Move;
@@ -31,10 +37,14 @@ public struct KeyboardMouseState
     public float2 MousePosition;
 }
 
-/// <summary>把原始键鼠状态转换为可预测的玩家输入组件</summary>
+/// <summary>
+/// 把原始键鼠状态转换为可预测的玩家输入组件
+/// </summary>
 public static class PlayerInputFeature
 {
-    /// <summary>更新相机、鼠标按钮和长按脉冲</summary>
+    /// <summary>
+    /// 更新相机、鼠标按钮和长按脉冲
+    /// </summary>
     /// <param name="input">待更新玩家输入</param>
     /// <param name="rawInputState">原始键鼠状态</param>
     /// <param name="context">输入转换上下文</param>
@@ -71,7 +81,9 @@ public static class PlayerInputFeature
     }
 
     
-    /// <summary>更新移动输入和键盘按键脉冲</summary>
+    /// <summary>
+    /// 更新移动输入和键盘按键脉冲
+    /// </summary>
     /// <param name="input">待更新玩家输入</param>
     /// <param name="rawInputState">原始键鼠状态</param>
     /// <param name="context">输入转换上下文</param>

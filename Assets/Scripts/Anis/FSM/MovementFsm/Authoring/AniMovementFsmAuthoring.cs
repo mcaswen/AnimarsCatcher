@@ -3,9 +3,9 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class AniMovementFsmAuthoring : MonoBehaviour
 {
-    [Tooltip("黑板初始容量")]
+    [Tooltip("仅预分配容量，小于 4 时按 4 处理")]
     public int initialBlackboardCapacity = 32;
 
-    [Tooltip("初始状态")]
+    [Tooltip("当前仅支持 IdleStateId")]
     public ushort initialState = AniMovementFsmIds.IdleStateId;
 }

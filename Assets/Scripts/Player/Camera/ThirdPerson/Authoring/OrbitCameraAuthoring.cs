@@ -5,7 +5,9 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-/// <summary>配置环绕相机的旋转、缩放、遮挡和忽略实体</summary>
+/// <summary>
+/// 配置环绕相机的旋转、缩放、遮挡和忽略实体
+/// </summary>
 [DisallowMultipleComponent]
 public class OrbitCameraAuthoring : MonoBehaviour
 {
@@ -37,10 +39,14 @@ public class OrbitCameraAuthoring : MonoBehaviour
     [Header("Misc")]
     public List<GameObject> IgnoredEntities = new List<GameObject>();
 
-    /// <summary>负责把环绕相机配置及忽略列表烘焙到实体</summary>
+    /// <summary>
+    /// 负责把环绕相机配置及忽略列表烘焙到实体
+    /// </summary>
     public class Baker : Baker<OrbitCameraAuthoring>
     {
-        /// <summary>创建环绕相机运行时组件和忽略实体缓冲区</summary>
+        /// <summary>
+        /// 创建环绕相机运行时组件和忽略实体缓冲区
+        /// </summary>
         /// <param name="authoring">环绕相机 Authoring 配置</param>
         public override void Bake(OrbitCameraAuthoring authoring)
         {

@@ -9,15 +9,8 @@ public class AniRegistry : MonoBehaviour
     public GameObject BlasterAniGhostPrefab;
     public GameObject PickerAniGhostPrefab;
 
-    /// <summary>
-    /// 将预制体引用转换为实体注册表
-    /// </summary>
     class Baker : Baker<AniRegistry>
     {
-        /// <summary>
-        /// 烘焙 Blaster 和 Picker 的 Ghost 预制体实体引用
-        /// </summary>
-        /// <param name="authoring">Ani 预制体注册组件</param>
         public override void Bake(AniRegistry authoring)
         {
             var entity = GetEntity(TransformUsageFlags.None);

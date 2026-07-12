@@ -5,14 +5,15 @@ using Unity.NetCode;
 using Unity.Transforms;
 using UnityEngine;
 
-/// <summary>在服务器进程中显示连接和角色位置的即时调试信息</summary>
+/// <summary>
+/// 在服务器进程中显示连接和角色位置的即时调试信息
+/// </summary>
 public class ServerDebugHUD : MonoBehaviour
 {
     World _serverWorld;
     EntityManager _entityManager;
     EntityQuery _connectionQuery, _inGameQuery, _characterQuery;
 
-    /// <summary>绑定 Server World 并准备调试查询</summary>
     void Start()
     {
         // HUD 必须绑定 Server World，找不到时禁用以避免查询错误世界
@@ -25,7 +26,6 @@ public class ServerDebugHUD : MonoBehaviour
         Debug.Log("[ServerDebugHUD] HUD started on Server World: " + _serverWorld.Name);
     }
 
-    /// <summary>绘制服务器连接状态和角色位置</summary>
     void OnGUI()
     {
         if (_serverWorld == null)
@@ -64,9 +64,6 @@ public class ServerDebugHUD : MonoBehaviour
         GUILayout.EndArea();
     }
 
-    /// <summary>判断服务器进程是否包含指定启动参数</summary>
-    /// <param name="flag">待查询参数</param>
-    /// <returns>参数是否存在</returns>
     static bool HasArgument(string flag)
     {
         var arguments = System.Environment.GetCommandLineArgs();
@@ -77,8 +74,6 @@ public class ServerDebugHUD : MonoBehaviour
         return false;
     }
 
-    /// <summary>查找 Server World 并创建 HUD 使用的实体查询</summary>
-    /// <returns>是否成功绑定服务器世界</returns>
     bool TryBindServerWorld()
     {
         // Host 进程同时存在多个 World，必须按 World 标志查找服务器实例
@@ -105,9 +100,6 @@ public class ServerDebugHUD : MonoBehaviour
         return false;
     }
 
-    /// <summary>根据 NetCode World 标志判断服务器职责</summary>
-    /// <param name="world">待判断 World</param>
-    /// <returns>是否为服务器世界</returns>
     static bool IsServerWorld(World world)
     {
         if (world.IsServer()) return true;

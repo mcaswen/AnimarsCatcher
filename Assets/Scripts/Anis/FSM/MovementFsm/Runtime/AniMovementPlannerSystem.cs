@@ -179,10 +179,7 @@ public partial struct AniMovementPlannerSystem : ISystem
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.MoveArrived, true);
     }
 
-    /// <summary>
-    /// 根据阵型中心、朝向和槽位计算 Ani 的世界目标并写入导航黑板
-    /// 槽位先在局部空间布局，再旋转到阵型世界空间
-    /// </summary>
+    // 槽位先在局部空间布局并旋转到阵型世界空间，再将目标写入导航黑板
     private static void PlanFormationMovement(
         in float3 aniPosition,
         in float3 formationCenter,

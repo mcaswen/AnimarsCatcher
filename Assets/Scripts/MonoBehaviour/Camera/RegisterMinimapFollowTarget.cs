@@ -7,7 +7,6 @@ namespace AnimarsCatcher.Mono
     /// </summary>
     public class RegisterMinimapFollowTarget : MonoBehaviour
     {
-        [Tooltip("是否在 Start 时自动注册为小地图跟随目标")]
         public bool AutoRegisterOnStart = true;
 
         // 等待其他对象完成 Awake 后再查找小地图跟随器

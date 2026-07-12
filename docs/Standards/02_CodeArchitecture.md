@@ -38,18 +38,43 @@
 6. 不手工修改 `.meta` GUID。
 7. `UnityEditor` API 只能存在于 Editor-only 编译范围，Runtime 类型不得依赖 Editor 类型。
 
+### 3.1 Inspector 字段提示
+
+1. `Tooltip` 只用于补充字段名、字段类型、`Header`、`Range` 或枚举选项无法直接表达的信息。
+2. 只把英文字段名翻译成中文，或原样重复字段名和枚举选项时，省略 `Tooltip`。
+3. 单位、有效范围、阈值触发后的行为、回退策略和非直观副作用适合使用 `Tooltip` 说明。
+4. 保留的提示使用简短中文；API、类型名和通用缩写可以保留英文，末尾不使用中文句号或英文句号。
+5. 可由 `Range`、`Min`、枚举或自定义 Inspector 明确表达的约束，优先使用对应编辑器能力，不用长段提示替代。
+
+```csharp
+[SerializeField] private float _connectTimeoutSeconds = 5f;
+
+[Tooltip("超时后尝试备用 IP，单位秒")]
+[SerializeField] private float _discoveryTimeoutSeconds = 5f;
+```
+
 ## 4. 注释与编码
 
 ### 4.1 注释质量
 
 1. 注释用于解释设计原因、约束、协议、生命周期和非直观行为，不逐句翻译代码。
-2. 公共 API、复杂算法、网络协议、状态机和非直观生命周期使用 XML 文档注释。
-3. 简单属性、明显的 Unity 回调和自解释私有方法不强制写注释。
+2. 公共类型、公共 API 和受保护 API 使用 XML 文档注释；网络协议、状态机等公开契约必须说明用途和约束。
+3. 公共类中的私有成员和默认私有成员不使用 XML 文档注释；自解释实现不写注释，确需解释原因、约束或非直观行为时使用中文 `//` 注释。
 4. 删除 AI 生成残留的“第一步、第二步、新增代码、引用命名空间”等无上下文价值注释。
 5. 临时调试日志、注释掉的大段旧实现和无效 `using` 不进入正式提交。
 6. `#pragma warning disable` 必须限定范围并说明原因。
 7. 注释正文统一使用中文；API、类型名、参数名和业内通用缩写可以保留英文，但完整语义必须由中文表达。
 8. 注释正文结尾不使用中文句号 `。` 或英文句号 `.`；XML 标签独占一行时不受此限制。
+9. 公共 API 的说明即使只有一行，`<summary>`、正文和 `</summary>` 也必须各占一行，禁止写成 `/// <summary>说明</summary>`。
+
+正确格式：
+
+```csharp
+/// <summary>
+/// 获取当前玩家资源
+/// </summary>
+public PlayerResourceState GetPlayerResource()
+```
 
 ### 4.2 注释率
 
@@ -67,7 +92,7 @@
 7. 禁止通过重复描述代码、堆积分隔线、保留废弃代码或生成无意义注释提高比例。
 8. 注释率是最低质量门槛，不替代 Code Review。即使达到比例，无效或过时注释仍必须修改。
 9. 数据结构可能低于推荐值，协议、状态机、复杂系统和生命周期代码应高于推荐值，以整体达到目标。
-10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾和被注释掉的旧代码。
+10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾、Inspector 提示和被注释掉的旧代码。
 
 ### 4.3 文件格式
 

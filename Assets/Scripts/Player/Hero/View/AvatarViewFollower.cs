@@ -3,26 +3,27 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-/// <summary>让托管角色表现对象跟随 ECS 实体并驱动移动动画</summary>
+/// <summary>
+/// 让托管角色表现对象跟随 ECS 实体并驱动移动动画
+/// </summary>
 [DisallowMultipleComponent]
 public class AvatarViewFollower : MonoBehaviour
 {
     public Entity TargetEntity;
     public EntityManager BoundEntityManager;
 
-    [Tooltip("Animator 移速 参数名")]
+    [Tooltip("Animator 中接收移动速度的 Float 参数名")]
     public string SpeedParameterName = "Speed";
 
-    [Tooltip("速度指数平滑强度")]
+    [Tooltip("值越大动画速度响应越快，需大于 0")]
     public float SpeedSmoothingStrength = 12f;
     
-    [Tooltip("瞬移吸附距离阈值")]
+    [Tooltip("位移超过该值时按瞬移处理并将动画速度清零，单位米")]
     public float TeleportSnapDistance = 2.0f;
 
-    [Tooltip("位移死区")]
+    [Tooltip("单帧位移低于该值时动画速度归零，单位米，0 表示禁用")]
     public float SpeedDeadbandMeters = 0.0f;
 
-    [Tooltip("LocalToWorld 读取")]
     public bool PreferLocalToWorld = true;
 
     private Animator _animator;
@@ -34,7 +35,9 @@ public class AvatarViewFollower : MonoBehaviour
     private Quaternion _appliedRotation;
 
 
-    /// <summary>绑定需要跟随的实体及其所属 EntityManager</summary>
+    /// <summary>
+    /// 绑定需要跟随的实体及其所属 EntityManager
+    /// </summary>
     /// <param name="entity">目标实体</param>
     /// <param name="entityManager">目标实体所属世界的 EntityManager</param>
     public void Bind(Entity entity, EntityManager entityManager)
@@ -45,7 +48,6 @@ public class AvatarViewFollower : MonoBehaviour
         _isBound = true;
     }
 
-    /// <summary>缓存 Animator 并禁用会与实体同步冲突的 Root Motion</summary>
     private void Awake()
     {
         _animator = GetComponentInChildren<Animator>();
@@ -55,7 +57,7 @@ public class AvatarViewFollower : MonoBehaviour
         _lastRenderPosition = transform.position;
     }
 
-    /// <summary>在渲染帧末同步实体姿态并更新移动动画参数</summary>
+    // 在渲染帧末同步实体姿态并更新移动动画参数
     private void LateUpdate()
     {
         if (!_isBound)

@@ -11,10 +11,10 @@ public class ResourceSpawnAreaAuthoring : MonoBehaviour
     [Header("区域来源")]
     public BoxCollider AreaBox;
 
-    [Tooltip("默认尺寸")]
+    [Tooltip("未配置 BoxCollider 时使用的 XZ 尺寸")]
     public Vector2 AreaSizeXZ = new Vector2(10f, 10f);
 
-    [Tooltip("生成点高度")]
+    [Tooltip("相对区域中心的生成高度偏移，单位米")]
     public float SpawnHeightOffset = 0f;
 
     [Header("阻挡检测设置")]
@@ -24,23 +24,18 @@ public class ResourceSpawnAreaAuthoring : MonoBehaviour
 
     [Header("Food 刷新配置")]
     public GameObject[] FoodPrefabs;
-    [Tooltip("区域内 Food 总上限")]
     public int MaxFoodCount = 5;
     public int FoodPerWave  = 2;
 
     [Header("Crystal 刷新配置")]
     public GameObject[] CrystalPrefabs;
 
-    [Tooltip("区域内 Crystal 总上限")]
     public int MaxCrystalCount = 5;
     public int CrystalPerWave  = 2;
 
     [Header("刷新节奏")]
     public float RespawnIntervalSeconds = 5f;
 
-    /// <summary>
-    /// 将区域范围 预制体列表和刷新参数烘焙到实体
-    /// </summary>
     class Baker : Baker<ResourceSpawnAreaAuthoring>
     {
         public override void Bake(ResourceSpawnAreaAuthoring authoring)

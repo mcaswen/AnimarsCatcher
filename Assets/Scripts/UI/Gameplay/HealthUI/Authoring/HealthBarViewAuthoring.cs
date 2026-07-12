@@ -8,15 +8,10 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class HealthBarViewAuthoring : MonoBehaviour
 {
-    [Tooltip("血条 UI 预制体")]
     public GameObject healthBarPrefab;
 
-    [Tooltip("世界空间偏移")]
     public Vector3 worldOffset = new Vector3(0f, 2f, 0f);
 
-    /// <summary>
-    /// 将托管血条预制体引用烘焙到目标实体
-    /// </summary>
     class Baker : Baker<HealthBarViewAuthoring>
     {
         public override void Bake(HealthBarViewAuthoring authoring)

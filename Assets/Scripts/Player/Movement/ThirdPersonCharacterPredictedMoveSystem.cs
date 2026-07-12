@@ -5,21 +5,27 @@ using Unity.Transforms;
 using Unity.Mathematics;
 using Unity.CharacterController;
 using System.Diagnostics;
-/// <summary>保存预测移动更新所需的时间信息</summary>
+/// <summary>
+/// 保存预测移动更新所需的时间信息
+/// </summary>
 public struct NetCodeMoveUpdateContext
 {
     public float DeltaTime;
     public NetworkTick Tick;
 }
 
-/// <summary>在每个预测 Tick 将网络输入命令写入第三人称角色控制组件</summary>
+/// <summary>
+/// 在每个预测 Tick 将网络输入命令写入第三人称角色控制组件
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(PredictedFixedStepSimulationSystemGroup), OrderFirst = true)]
 [UpdateBefore(typeof(KinematicCharacterPhysicsUpdateGroup))]
 public partial struct ThirdPersonCharacterPredictedMoveSystem : ISystem
 {
-    /// <summary>等待预测角色和输入命令缓冲可用</summary>
+    /// <summary>
+    /// 等待预测角色和输入命令缓冲可用
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
@@ -28,7 +34,9 @@ public partial struct ThirdPersonCharacterPredictedMoveSystem : ISystem
             .Build());
     }
 
-    /// <summary>读取当前服务器 Tick 对应的命令并更新预测移动向量</summary>
+    /// <summary>
+    /// 读取当前服务器 Tick 对应的命令并更新预测移动向量
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

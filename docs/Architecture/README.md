@@ -1,0 +1,100 @@
+# AnimarsCatcher 项目架构总览
+
+[返回项目文档总目录](../README.md)
+
+本文档描述 2026-07-12 当前仓库实现。它是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。如果代码与文档不一致，应先以实际运行结果为准，再同步修正文档。
+
+## 1. 技术基线
+
+项目建立在 Unity DOTS 和 NetCode 之上，同时保留 GameObject UI、相机和表现层。当前采用的主要版本如下：
+
+- Unity 使用 `6000.2.7f2`
+- Entities 使用 `1.4.3`，具体版本以 `packages-lock.json` 为准
+- NetCode 使用 `1.9.0`
+- Unity Physics 使用 `1.3.14`
+- Character Controller 使用 `1.3.12`
+- Entities Graphics 使用 `1.4.16`
+- URP 使用 `17.2.0`
+- Input System 使用 `1.14.2`
+
+仓库中目前有 241 个自有业务脚本，该数字不包含 `Obsolete` 目录。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
+
+当前也没有 `Assets/Tests` 和 `Assets/SO`。静态配置主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
+
+## 2. 文档阅读顺序
+
+第一次接触项目时，建议按照下面的顺序阅读。前几份文档先建立整体认识，后几份再深入具体链路和风险：
+
+1. [模块与资产地图](01_ModuleMap.md)：先了解各代码目录负责什么，以及 Scene、SubScene 和 Prefab 如何组织
+2. [ECS 数据模型](02_ECSDataModel.md)：了解 Entity 由哪些 Component、Buffer 和 Tag 组成，以及 Authoring、Baker、System 如何衔接
+3. [客户端与服务端边界](03_NetworkBoundaries.md)：确认 World、Ghost、Command 和 RPC 分别解决什么问题，并理解数据所有权
+4. [启动、连接与开局链路](04_StartupAndMatchFlow.md)：沿着程序启动、LAN 房间、场景加载、进入 InGame 和角色出生的顺序阅读
+5. [核心玩法链路](05_GameplayFlows.md)：查看玩家移动、Ani 选择与移动、战斗、资源和胜负的完整数据流
+6. [关键类与扩展点](06_KeyClasses.md)：需要定位代码或增加功能时，从入口类、桥接类、Aspect 和工具类开始查找
+7. [已知边界与演进方向](07_KnownRisks.md)：修改公共逻辑前，先确认当前的安全、生命周期、性能和结构风险
+
+## 3. 总体运行架构
+
+运行时同时存在 GameObject 场景和 ECS World。主菜单与游戏场景承载用户界面和客户端表现，SubScene 负责把 Authoring 配置烘焙为 Entity 数据。客户端通过 Command 或 RPC 提交输入和请求，服务器执行权威规则，再通过 Ghost 快照或结果 RPC 把状态同步回来。
+
+```mermaid
+flowchart LR
+    Menu[SCN_MainMenu<br/>认证 房间 LAN 加载界面]
+    Game[SCN_GameLevel<br/>HUD 相机 过场 Mono 表现]
+    Sub[SCN_GameLevel_SubScene<br/>Authoring Registry Spawn 配置]
+    UI[Mono UI 与输入]
+    Bridge[EventBus / NetworkUIEventBridge<br/>静态或托管桥接]
+    Client[Client World<br/>输入 预测 RPC 表现]
+    Net[Unity NetCode<br/>Command RPC Ghost]
+    Server[Server World<br/>校验 规则 生成 结算]
+    View[GameObject View<br/>Avatar 血条 VFX UI]
+
+    Menu --> Bridge
+    Menu --> Client
+    Game --> UI
+    UI --> Bridge
+    UI --> Client
+    Sub -->|Baker 生成场景实体与 Prefab 引用| Client
+    Sub -->|Baker 生成权威配置与注册表| Server
+    Client -->|InputCommand 与请求 RPC| Net
+    Net --> Server
+    Server -->|Ghost 快照与结果 RPC| Net
+    Net --> Client
+    Client -->|Presentation 与托管组件| View
+    View -->|动画事件和候选命中| Client
+```
+
+这张图强调的是数据由谁产生、由谁决定、最终由谁显示。理解项目时可以先抓住三个边界：服务器决定玩法结果，客户端负责输入与表现，Scene 和 Prefab 通过 Baker 为两个 World 提供初始数据。
+
+## 4. 核心设计原则
+
+当前实现遵循以下分工。新增功能应先判断它属于权威规则、玩家输入还是视觉表现，再选择对应的 World 和通信方式。
+
+- **服务器决定结果**：Server World 负责阵营分配、出生、实体生成、Ani 指令结果、伤害、资源和胜负
+- **客户端提供输入与表现**：Client World 负责设备输入、本地预测、框选、射线候选、动画时机和画面表现
+- **通信方式按用途选择**：`InputCommand` 传递逐 Tick 的预测输入，RPC 处理一次性请求，Ghost 持续同步状态
+- **配置先经过烘焙**：Authoring 和 Baker 把 Scene 或 Prefab 中的配置转换为运行时 Entity 数据与 Prefab 注册表
+- **视图只消费状态**：Hybrid View 读取 ECS 状态并生成 GameObject 表现，不直接持有服务器权威业务状态
+- **模块隔离目前依赖约定**：目录、命名和 `WorldSystemFilter` 构成现有边界，asmdef 尚未提供编译期约束
+
+## 5. 当前构建入口
+
+`ProjectSettings/EditorBuildSettings.asset` 当前启用了三个场景，正式流程从主菜单进入游戏场景：
+
+1. `Assets/Scenes/SCN_MainMenu.unity`
+2. `Assets/Scenes/LevelScene/SCN_GameLevel_SubScene.unity`
+3. `Assets/Scenes/LevelScene/SCN_GameLevel.unity`
+
+其中，`SCN_MainMenu` 是用户进入项目后的主要入口，`SCN_GameLevel` 是正式玩法场景，`SCN_GameLevel_SubScene` 提供 ECS 场景数据。
+
+`SCN_Main`、`SCN_Start`、`SCN_MainTest` 和 `SCN_Level` 不在当前 Build Settings 中，主要保留旧场景或测试内容。正式玩法入口以 `SCN_MainMenu -> SCN_GameLevel` 为准。
+
+## 6. 什么时候更新这些文档
+
+架构文档记录的是当前实际实现，而不是一次写完后长期不变的设计稿。出现下面任一变化时，应同步更新本目录：
+
+- 新增或删除 World、Ghost、RPC、Command 或关键单例
+- 调整系统的 `WorldSystemFilter`、System Group 或显式更新顺序
+- 改变主菜单、游戏场景、SubScene 或 Prefab 注册关系
+- 改变客户端请求与服务器校验边界
+- 新增跨 ECS/Mono、跨 World 或跨模块桥接

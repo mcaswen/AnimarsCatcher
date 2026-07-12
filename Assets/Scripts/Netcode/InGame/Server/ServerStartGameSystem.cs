@@ -6,14 +6,18 @@ using Unity.NetCode;
 using Unity.Transforms;
 using AnimarsCatcher.Mono.Global;
 
-/// <summary>在 Server World 接收开局请求并向所有连接广播权威场景</summary>
+/// <summary>
+/// 在 Server World 接收开局请求并向所有连接广播权威场景
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ServerStartGameSystem : ISystem
 {
-    /// <summary>创建唯一的服务器开局状态单例</summary>
+    /// <summary>
+    /// 创建唯一的服务器开局状态单例
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
@@ -36,7 +40,9 @@ public partial struct ServerStartGameSystem : ISystem
         state.RequireForUpdate<ServerMatchStartState>();
     }
 
-    /// <summary>消费 StartGameRpc 并向当前所有连接广播开局通知</summary>
+    /// <summary>
+    /// 消费 StartGameRpc 并向当前所有连接广播开局通知
+    /// </summary>
     /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {

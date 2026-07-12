@@ -14,14 +14,13 @@ public class BlasterAniAttackView : MonoBehaviour
     public Entity TargetEntity;
     public EntityManager BoundEntityManager;
 
-    [Tooltip("这是不是 Server World 里的视图（只有 Server 才驱动伤害）")]
     public bool IsServerWorld = true;
 
     [Header("Animator & 参数")]
     public Animator Animator;
-    [Tooltip("动画里用于开火的 Trigger 名")]
+    [Tooltip("留空则不设置 Trigger，非空需匹配 Animator 参数名")]
     public string ShootTriggerName = "Shoot";
-    [Tooltip("用作上半身 Mask 的 Bool，可选")]
+    [Tooltip("可留空，非空需匹配 Animator Bool 参数名")]
     public string IsShootingBoolName = "IsShooting";
 
     [Header("IK 绑定")]

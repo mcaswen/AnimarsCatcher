@@ -10,14 +10,18 @@ using Unity.CharacterController;
 using Unity.NetCode;
 
 
-/// <summary>把本地玩家输入转换为受控第三人称相机的控制数据</summary>
+/// <summary>
+/// 把本地玩家输入转换为受控第三人称相机的控制数据
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
 [BurstCompile]
 public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
 {
-    /// <summary>等待本地输入和玩家控制关系可用</summary>
+    /// <summary>
+    /// 等待本地输入和玩家控制关系可用
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -25,7 +29,9 @@ public partial struct ThirdPersonPlayerBuildCameraControlSystem : ISystem
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerInput, ThirdPersonPlayerControl>().Build());
     }
 
-    /// <summary>更新环绕或固定相机的跟随目标与本帧输入</summary>
+    /// <summary>
+    /// 更新环绕或固定相机的跟随目标与本帧输入
+    /// </summary>
     /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)

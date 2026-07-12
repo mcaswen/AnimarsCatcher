@@ -23,9 +23,6 @@ public class PickableResourceAuthoring : MonoBehaviour
     // 搬运 Ani 相对资源中心的局部站位列表 为空时使用中心槽位
     public Vector3[] CarrierSlotLocalOffsets;
 
-    /// <summary>
-    /// 烘焙搬运配置和站位槽缓冲区
-    /// </summary>
     class Baker : Baker<PickableResourceAuthoring>
     {
         public override void Bake(PickableResourceAuthoring authoring)
