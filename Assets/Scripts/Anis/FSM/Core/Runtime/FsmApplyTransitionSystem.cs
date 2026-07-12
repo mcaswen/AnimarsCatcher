@@ -11,7 +11,7 @@ using Unity.Burst;
 [UpdateAfter(typeof(FsmEvaluateSystem))]
 public partial struct FsmApplyTransitionSystem : ISystem
 {
-    private BufferLookup<FsmVar> _blackboardLookupRO;
+    private BufferLookup<FsmVar> _writableBlackboardLookup;
 
     /// <summary>
     /// 缓存可写黑板查询并等待状态机上下文
@@ -19,7 +19,7 @@ public partial struct FsmApplyTransitionSystem : ISystem
     /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
-        _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: false);
+        _writableBlackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         state.RequireForUpdate<FsmContext>();
     }
     
@@ -29,28 +29,28 @@ public partial struct FsmApplyTransitionSystem : ISystem
     /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
-        _blackboardLookupRO.Update(ref state);
+        _writableBlackboardLookup.Update(ref state);
 
         var context = SystemAPI.GetSingleton<FsmContext>();
-        context.BlackboardLookup = _blackboardLookupRO;
+        context.BlackboardLookup = _writableBlackboardLookup;
 
         foreach (var (fsm, entity) in SystemAPI.Query<RefRW<Fsm>>().WithEntityAccess()) 
         {
-            ref var f = ref fsm.ValueRW;
-            if (f.HasPending == 0) continue; // 只有评估阶段选中的迁移才能进入应用阶段
+            ref var fsmData = ref fsm.ValueRW;
+            if (fsmData.HasPending == 0) continue; // 只有评估阶段选中的迁移才能进入应用阶段
 
             // 退出动作仍在旧状态上下文中执行
-            FsmRegistry.InvokeAction(f.PendingExit, in entity, ref f, context);
+            FsmRegistry.InvokeAction(fsmData.PendingExit, in entity, ref fsmData, context);
 
-            f.Current     = f.Next;
-            f.TimeInState = 0f;
+            fsmData.Current     = fsmData.Next;
+            fsmData.TimeInState = 0f;
 
             // 状态切换完成后再执行目标状态进入动作
-            FsmRegistry.InvokeAction(f.PendingEnter, in entity, ref f, context);
+            FsmRegistry.InvokeAction(fsmData.PendingEnter, in entity, ref fsmData, context);
 
-            f.PendingExit  = ActionId.None;
-            f.PendingEnter = ActionId.None;
-            f.HasPending   = 0;
+            fsmData.PendingExit  = ActionId.None;
+            fsmData.PendingEnter = ActionId.None;
+            fsmData.HasPending   = 0;
         }
     }
 }

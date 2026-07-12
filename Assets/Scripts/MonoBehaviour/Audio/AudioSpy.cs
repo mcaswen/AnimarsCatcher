@@ -26,10 +26,14 @@ namespace AnimarsCatcher.Mono.Audio
         }
 
         // 从当前节点向根节点拼接稳定的层级路径
-        string GetPath(Transform t)
+        string GetPath(Transform currentTransform)
         {
             System.Text.StringBuilder sb = new();
-            while (t != null) { sb.Insert(0, "/" + t.name); t = t.parent; }
+            while (currentTransform != null)
+            {
+                sb.Insert(0, "/" + currentTransform.name);
+                currentTransform = currentTransform.parent;
+            }
             return sb.ToString();
         }
 

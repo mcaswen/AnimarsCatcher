@@ -9,7 +9,7 @@ using Cinemachine;
 public class TopDownAimExtension : CinemachineExtension
 {
     protected override void PostPipelineStageCallback(
-        CinemachineVirtualCameraBase vcam,
+        CinemachineVirtualCameraBase virtualCamera,
         CinemachineCore.Stage stage,
         ref CameraState state,
         float deltaTime)

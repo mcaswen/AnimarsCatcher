@@ -46,22 +46,22 @@ public class VelocityDrivenSmoke : MonoBehaviour
         if (deltaTime <= 0f)
             return;
 
-        Vector3 currentPos = transform.position;
+        Vector3 currentPosition = transform.position;
 
         // 第一帧缺少上一帧位置，不能计算有效速度
         if (!_hasLastPosition)
         {
-            _lastPosition = currentPos;
+            _lastPosition = currentPosition;
             _hasLastPosition = true;
             return;
         }
 
-        Vector3 delta = currentPos - _lastPosition;
+        Vector3 delta = currentPosition - _lastPosition;
 
         // 瞬移距离不应转化为速度，否则会产生异常强烈的尾烟
         if (delta.sqrMagnitude > teleportSnapDistance * teleportSnapDistance)
         {
-            _lastPosition = currentPos;
+            _lastPosition = currentPosition;
             ControlSmokeParticleSystem(Vector3.zero);
             return;
         }
@@ -71,7 +71,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
 
         ControlSmokeParticleSystem(speed);
 
-        _lastPosition = currentPos;
+        _lastPosition = currentPosition;
     }
 
     /// <summary>

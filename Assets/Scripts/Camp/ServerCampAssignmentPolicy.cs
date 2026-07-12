@@ -12,7 +12,7 @@ public static class ServerCampAssignmentPolicy
     /// <returns>该连接应使用的阵营</returns>
     public static CampType GetCampForConnection(int networkId)
     {
-        if (NetRuntimeRole.IsHost)
+        if (NetworkRuntimeRole.IsHost)
         {
             return networkId == 1 ? CampType.Alpha : CampType.Beta;
         } else

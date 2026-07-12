@@ -58,21 +58,21 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">业务定义的变量键</param>
-    /// <param name="v">成功时返回原始条目</param>
+    /// <param name="value">成功时返回原始条目</param>
     /// <returns>找到对应键时返回真</returns>
     [BurstCompile]
-    public static bool TryGet(ref this DynamicBuffer<FsmVar> blackboard, uint key, out FsmVar v)
+    public static bool TryGet(ref this DynamicBuffer<FsmVar> blackboard, uint key, out FsmVar value)
     {
         for (int i = 0; i < blackboard.Length; i++)
         {
             if (blackboard[i].Key == key)
             {
-                v = blackboard[i];
+                value = blackboard[i];
                 return true;
             }
         }
 
-        v = default;
+        value = default;
         return false;
     }
 
@@ -81,12 +81,12 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">整数变量键</param>
-    /// <param name="def">读取失败时的默认值</param>
+    /// <param name="defaultValue">读取失败时的默认值</param>
     /// <returns>黑板中的整数或默认值</returns>
-    public static int GetInt(ref this DynamicBuffer<FsmVar> blackboard, uint key, int def = 0)
+    public static int GetInt(ref this DynamicBuffer<FsmVar> blackboard, uint key, int defaultValue = 0)
     {
-        return blackboard.TryGet(key, out var v) &&
-            v.Type == FsmVarType.Int ? v.Int : def;
+        return blackboard.TryGet(key, out var value) &&
+            value.Type == FsmVarType.Int ? value.Int : defaultValue;
     }
 
     /// <summary>
@@ -94,12 +94,12 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">浮点变量键</param>
-    /// <param name="def">读取失败时的默认值</param>
+    /// <param name="defaultValue">读取失败时的默认值</param>
     /// <returns>黑板中的浮点值或默认值</returns>
-    public static float GetFloat(ref this DynamicBuffer<FsmVar> blackboard, uint key, float def = 0)
+    public static float GetFloat(ref this DynamicBuffer<FsmVar> blackboard, uint key, float defaultValue = 0)
     {
-        return blackboard.TryGet(key, out var v) &&
-            v.Type == FsmVarType.Float ? v.Float : def;
+        return blackboard.TryGet(key, out var value) &&
+            value.Type == FsmVarType.Float ? value.Float : defaultValue;
     }
 
     /// <summary>
@@ -107,12 +107,12 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">布尔变量键</param>
-    /// <param name="def">读取失败时的默认值</param>
+    /// <param name="defaultValue">读取失败时的默认值</param>
     /// <returns>黑板中的布尔值或默认值</returns>
-    public static bool GetBool(ref this DynamicBuffer<FsmVar> blackboard, uint key, bool def = false)
+    public static bool GetBool(ref this DynamicBuffer<FsmVar> blackboard, uint key, bool defaultValue = false)
     {
-        return blackboard.TryGet(key, out var v) &&
-            v.Type == FsmVarType.Bool ? v.Bool != 0 : def;
+        return blackboard.TryGet(key, out var value) &&
+            value.Type == FsmVarType.Bool ? value.Bool != 0 : defaultValue;
     }
 
     /// <summary>
@@ -120,12 +120,12 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">三维向量变量键</param>
-    /// <param name="def">读取失败时的默认值</param>
+    /// <param name="defaultValue">读取失败时的默认值</param>
     /// <returns>黑板中的三维向量或默认值</returns>
-    public static float3 GetFloat3(ref this DynamicBuffer<FsmVar> blackboard, uint key, float3 def = default)
+    public static float3 GetFloat3(ref this DynamicBuffer<FsmVar> blackboard, uint key, float3 defaultValue = default)
     {
-        return blackboard.TryGet(key, out var v) &&
-            v.Type == FsmVarType.Float3 ? v.Float3 : def;
+        return blackboard.TryGet(key, out var value) &&
+            value.Type == FsmVarType.Float3 ? value.Float3 : defaultValue;
     }
 
     /// <summary>
@@ -133,12 +133,12 @@ public static class Blackboard
     /// </summary>
     /// <param name="blackboard">实体黑板缓冲区</param>
     /// <param name="key">实体变量键</param>
-    /// <param name="def">读取失败时的默认值</param>
+    /// <param name="defaultValue">读取失败时的默认值</param>
     /// <returns>黑板中的实体引用或默认值</returns>
-    public static Entity GetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity def = default)
+    public static Entity GetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity defaultValue = default)
     {
-        return blackboard.TryGet(key, out var v) &&
-            v.Type == FsmVarType.Entity ? v.Entity : def;
+        return blackboard.TryGet(key, out var value) &&
+            value.Type == FsmVarType.Entity ? value.Entity : defaultValue;
     }
 
     /// <summary>
@@ -154,10 +154,10 @@ public static class Blackboard
         {
             if (blackboard[i].Key == key)
             {
-                var t = blackboard[i];
-                t.Type = FsmVarType.Int;
-                t.Int = value;
-                blackboard[i] = t;
+                var entry = blackboard[i];
+                entry.Type = FsmVarType.Int;
+                entry.Int = value;
+                blackboard[i] = entry;
                 return;
             }
         }
@@ -183,10 +183,10 @@ public static class Blackboard
         {
             if (blackboard[i].Key == key)
             {
-                var t = blackboard[i];
-                t.Type = FsmVarType.Float;
-                t.Float = value;
-                blackboard[i] = t;
+                var entry = blackboard[i];
+                entry.Type = FsmVarType.Float;
+                entry.Float = value;
+                blackboard[i] = entry;
                 return;
             }
         }
@@ -211,10 +211,10 @@ public static class Blackboard
         {
             if (blackboard[i].Key == key)
             {
-                var t = blackboard[i];
-                t.Type = FsmVarType.Float3;
-                t.Float3 = value;
-                blackboard[i] = t;
+                var entry = blackboard[i];
+                entry.Type = FsmVarType.Float3;
+                entry.Float3 = value;
+                blackboard[i] = entry;
                 return;
             }
         }
@@ -240,10 +240,10 @@ public static class Blackboard
         {
             if (blackboard[i].Key == key)
             {
-                var t = blackboard[i];
-                t.Type = FsmVarType.Bool;
-                t.Bool = (byte)(value ? 1 : 0);
-                blackboard[i] = t;
+                var entry = blackboard[i];
+                entry.Type = FsmVarType.Bool;
+                entry.Bool = (byte)(value ? 1 : 0);
+                blackboard[i] = entry;
                 return;
             }
         }
@@ -268,10 +268,10 @@ public static class Blackboard
         {
             if (blackboard[i].Key == key)
             {
-                var t = blackboard[i];
-                t.Type = FsmVarType.Entity;
-                t.Entity = value;
-                blackboard[i] = t;
+                var entry = blackboard[i];
+                entry.Type = FsmVarType.Entity;
+                entry.Entity = value;
+                blackboard[i] = entry;
                 return;
             }
         }

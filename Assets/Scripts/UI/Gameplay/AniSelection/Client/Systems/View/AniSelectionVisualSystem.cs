@@ -16,7 +16,7 @@ public partial struct AniSelectionVisualSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<AniSelectionDragState>();
-        state.RequireForUpdate<AniSelectionUIRef>();
+        state.RequireForUpdate<AniSelectionUIReference>();
     }
 
     /// <summary>
@@ -26,7 +26,7 @@ public partial struct AniSelectionVisualSystem : ISystem
     {
         var drag = SystemAPI.GetSingleton<AniSelectionDragState>();
 
-        foreach (var ui in SystemAPI.Query<AniSelectionUIRef>())
+        foreach (var ui in SystemAPI.Query<AniSelectionUIReference>())
         {
             var rect = ui.SelectionRect;
             if (!rect) continue;

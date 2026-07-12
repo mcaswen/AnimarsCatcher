@@ -10,7 +10,7 @@ using Unity.Burst;
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct FsmEvaluateSystem : ISystem
 {
-    private BufferLookup<FsmVar> _blackboardLookupRO;
+    private BufferLookup<FsmVar> _writableBlackboardLookup;
 
     /// <summary>
     /// 缓存可写黑板查询并等待状态机上下文
@@ -18,7 +18,7 @@ public partial struct FsmEvaluateSystem : ISystem
     /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
-        _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: false);
+        _writableBlackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         state.RequireForUpdate<FsmContext>(); 
     }
 
@@ -28,30 +28,30 @@ public partial struct FsmEvaluateSystem : ISystem
     /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
-        _blackboardLookupRO.Update(ref state);
+        _writableBlackboardLookup.Update(ref state);
 
         var context = SystemAPI.GetSingleton<FsmContext>();
-        context.BlackboardLookup = _blackboardLookupRO;
+        context.BlackboardLookup = _writableBlackboardLookup;
 
         foreach (var (fsm, graphRef, entity) in
                  SystemAPI.Query<RefRW<Fsm>, RefRO<FsmGraphRef>>()
                  .WithEntityAccess())
         {
-            ref var f = ref fsm.ValueRW;
-            if (f.HasPending == 1) continue; // 待应用迁移尚未消费时不能再次评估
+            ref var fsmData = ref fsm.ValueRW;
+            if (fsmData.HasPending == 1) continue; // 待应用迁移尚未消费时不能再次评估
 
             ref var graph = ref graphRef.ValueRO.Value.Value;
-            ref var node = ref graph.States[(int)f.Current];
+            ref var node = ref graph.States[(int)fsmData.Current];
 
             for (int i = 0; i < node.Transitions.Length; i++)
             {
                 // 边的声明顺序同时定义条件优先级，首个满足条件的边获胜
                 var transition = node.Transitions[i];
                 if (FsmRegistry.InvokeCondition(transition.Condition, entity, context)) {
-                    f.Next         = transition.To;
-                    f.PendingExit  = transition.OnExit;
-                    f.PendingEnter = transition.OnEnter;
-                    f.HasPending   = 1;
+                    fsmData.Next         = transition.To;
+                    fsmData.PendingExit  = transition.OnExit;
+                    fsmData.PendingEnter = transition.OnEnter;
+                    fsmData.HasPending   = 1;
                     break;
                 }
             }

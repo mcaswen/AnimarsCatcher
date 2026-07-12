@@ -71,10 +71,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FixedFollowCameraAuthoring
   Distance: 40
-  PitchDeg: 45
-  YawDeg: -45
+  PitchDegrees: 45
+  YawDegrees: -45
   Height: 1.5
   Damping: 0.2
   LookUpBias: 0.8
   SnapDistance: 0.5
-  SnapAngleDeg: 8
+  SnapAngleDegrees: 8

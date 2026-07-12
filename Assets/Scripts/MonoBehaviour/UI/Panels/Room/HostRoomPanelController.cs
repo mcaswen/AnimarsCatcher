@@ -31,7 +31,7 @@ public class HostRoomPanelController : MonoBehaviour
     [Header("Net Settings")]
     [SerializeField] private string _localIpAddress = "127.0.0.1";
 
-    [SerializeField] private ushort _gamePort = NetPorts.Game;
+    [SerializeField] private ushort _gamePort = NetworkPorts.Game;
     [SerializeField] private LanDiscoveryHost _lanDiscoveryHost;
 
     [Header("Game Settings")]
@@ -60,16 +60,16 @@ public class HostRoomPanelController : MonoBehaviour
     {
         _onCreateRoomHandler = data => OnCreateRoomRequested();
         EventBus.Instance?.Subscribe(_onCreateRoomHandler);
-        NetUIEventBridge.LobbyClientJoinedEvent.AddListener(OnLobbyClientJoined);
-        NetUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
+        NetworkUIEventBridge.LobbyClientJoinedEvent.AddListener(OnLobbyClientJoined);
+        NetworkUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
     }
 
     // 对称解除静态事件监听 防止场景切换后重复回调
     private void OnDestroy()
     {
        EventBus.Instance?.Unsubscribe(_onCreateRoomHandler);
-       NetUIEventBridge.LobbyClientJoinedEvent.RemoveListener(OnLobbyClientJoined);
-       NetUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
+       NetworkUIEventBridge.LobbyClientJoinedEvent.RemoveListener(OnLobbyClientJoined);
+       NetworkUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
     }
 
     // 启动服务端监听 本机客户端回连和局域网广播
@@ -131,7 +131,7 @@ public class HostRoomPanelController : MonoBehaviour
 
         _clientNameText.text = eventData.PlayerName;
 
-        Debug.Log($"[HostRoomPanel] Remote client joined lobby: {eventData.PlayerName} (NetId={eventData.NetworkId}, Source={eventData.Source})");
+        Debug.Log($"[HostRoomPanel] Remote client joined lobby: {eventData.PlayerName} (NetworkId={eventData.NetworkId}, Source={eventData.Source})");
     }
 
     private void OnMatchStarted(MatchStartedEventData info)

@@ -9,7 +9,7 @@ using Unity.CharacterController;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
-public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
+public partial struct BuildThirdPersonMoveCommandWithOrbitCameraSystem : ISystem
 {
     /// <summary>等待客户端进入 InGame 且玩家输入关系可用</summary>
     /// <param name="state">系统状态</param>

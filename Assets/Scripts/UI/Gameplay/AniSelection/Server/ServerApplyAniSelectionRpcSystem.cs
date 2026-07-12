@@ -57,8 +57,10 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
                      .WithAll<ReceiveRpcCommandRequest>()
                      .WithEntityAccess())
         {
-            var senderNetId = SystemAPI.GetComponent<ReceiveRpcCommandRequest>(requestedEntity).SourceConnection;
-            int playerNetId = SystemAPI.GetComponent<NetworkId>(senderNetId).Value;
+            var senderConnectionEntity =
+                SystemAPI.GetComponent<ReceiveRpcCommandRequest>(requestedEntity).SourceConnection;
+            int playerNetworkId =
+                SystemAPI.GetComponent<NetworkId>(senderConnectionEntity).Value;
 
             bool append = rpc.ValueRO.Append != 0;
 
@@ -70,7 +72,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
                              .WithAll<AniAttributes, AniSelectedTag>()
                              .WithEntityAccess())
                 {
-                    if (owner.ValueRO.NetworkId == playerNetId)
+                    if (owner.ValueRO.NetworkId == playerNetworkId)
                     {
                         entityCommandBuffer.SetComponentEnabled<AniSelectedTag>(aniEntity, false);
                     }
@@ -86,7 +88,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
                     continue;
 
                 var owner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
-                if (owner.NetworkId == playerNetId)
+                if (owner.NetworkId == playerNetworkId)
                 {
                     entityCommandBuffer.SetComponentEnabled<AniSelectedTag>(aniEntity, true);
                     UnityEngine.Debug.Log($"[ServerApplyAniSelectionRpcSystem] Selected Ani GhostId: {ghostId}.");

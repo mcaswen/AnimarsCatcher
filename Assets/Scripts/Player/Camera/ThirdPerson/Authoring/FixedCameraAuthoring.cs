@@ -1,5 +1,6 @@
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -15,10 +16,12 @@ public class FixedCameraAuthoring : MonoBehaviour
     public float Distance = 6f;
 
     [Tooltip("Vertical angle")]
-    [Range(-89, 89)] public float PitchDeg = 20f;
+    [FormerlySerializedAs("PitchDeg")]
+    [Range(-89, 89)] public float PitchDegrees = 20f;
 
     [Tooltip("Horizontal angle")]
-    public float YawDeg = 45f;
+    [FormerlySerializedAs("YawDeg")]
+    public float YawDegrees = 45f;
 
     [Tooltip("Target Height")]
     public float Height = 1.5f;
@@ -32,7 +35,8 @@ public class FixedCameraAuthoring : MonoBehaviour
     // 网络偏差超过阈值时跳过阻尼直接吸附
     [Header("Network Snap Settings")]
     public float SnapDistance = 0.5f;
-    public float SnapAngleDeg = 8f;
+    [FormerlySerializedAs("SnapAngleDeg")]
+    public float SnapAngleDegrees = 8f;
 
     /// <summary>负责把固定相机配置烘焙到实体</summary>
     class Baker : Baker<FixedCameraAuthoring>
@@ -47,8 +51,8 @@ public class FixedCameraAuthoring : MonoBehaviour
             AddComponent(cameraEntity, new FixedCamera
             {
                 Distance = authoring.Distance,
-                PitchDeg = authoring.PitchDeg,
-                YawDeg = authoring.YawDeg,
+                PitchDeg = authoring.PitchDegrees,
+                YawDeg = authoring.YawDegrees,
                 Height = authoring.Height,
                 Damping = math.max(0.0001f, authoring.Damping),
                 LookUpBias = authoring.LookUpBias

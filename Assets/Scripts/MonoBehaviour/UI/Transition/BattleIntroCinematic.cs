@@ -106,8 +106,8 @@ public class BattleIntroCinematic : MonoBehaviour
     private void SetInputEnabled(bool enabled)
     {
         if (enabled)
-            NetUIEventBridge.RaiseUIPanelInputUnlocked();
+            NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
         else
-            NetUIEventBridge.RaiseUIPanelInputLocked();
+            NetworkUIEventBridge.RaiseUIPanelInputLocked();
     }
 }

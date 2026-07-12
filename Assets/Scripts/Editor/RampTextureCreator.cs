@@ -11,7 +11,7 @@ public class RampTextureCreator : EditorWindow
     /// 创建纹理并写入项目 Assets 根目录
     /// </summary>
     [MenuItem("Tools/Create Ramp Texture")]
-    static void Init()
+    static void CreateRampTexture()
     {
         Texture2D rampTexture = new Texture2D(256, 1, TextureFormat.RGBA32, false);
 

@@ -88,7 +88,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
             MovementTargetKind targetKind = rpc.ValueRO.TargetKind;
             Entity             targetEntity = rpc.ValueRO.TargetEntity;
-            float3             clickPos     = rpc.ValueRO.TargetWorldPosition;
+            float3             targetWorldPosition = rpc.ValueRO.TargetWorldPosition;
 
             // 需要实体目标的命令在目标失效时整体拒绝，避免写入悬空引用
             if ((targetKind == MovementTargetKind.Ani ||
@@ -102,15 +102,15 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
             // 主角位置和朝向为地面移动提供稳定的阵型前方向
             Entity    leaderEntity = Entity.Null;
-            float3    leaderPos    = float3.zero;
-            quaternion leaderRot   = quaternion.identity;
+            float3    leaderPosition = float3.zero;
+            quaternion leaderRotation = quaternion.identity;
 
             if (leadersByNetworkId.TryGetValue(networkId, out leaderEntity) &&
                 SystemAPI.HasComponent<LocalTransform>(leaderEntity))
             {
                 var lt = SystemAPI.GetComponent<LocalTransform>(leaderEntity);
-                leaderPos = lt.Position;
-                leaderRot = lt.Rotation;
+                leaderPosition = lt.Position;
+                leaderRotation = lt.Rotation;
             }
 
             if (targetKind == MovementTargetKind.Resource)
@@ -161,7 +161,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         Blackboard.SetFloat3(ref blackboard,
                             AniMovementBlackboardKeys.MoveToPosition,
-                            clickPos);
+                            targetWorldPosition);
 
                         Blackboard.SetEntity(ref blackboard,
                             AniMovementBlackboardKeys.TargetEntity,
@@ -172,17 +172,17 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (leaderEntity != Entity.Null)
                         {
-                            float3 dir = clickPos - leaderPos;
+                            float3 dir = targetWorldPosition - leaderPosition;
                             dir.y = 0f;
 
                             if (math.lengthsq(dir) < 0.0001f)
                             {
-                                float3 f = math.mul(leaderRot, new float3(0, 0, 1));
-                                f.y = 0f;
-                                if (math.lengthsq(f) < 0.0001f)
-                                    f = new float3(0, 0, 1);
+                                float3 fallbackForward = math.mul(leaderRotation, new float3(0, 0, 1));
+                                fallbackForward.y = 0f;
+                                if (math.lengthsq(fallbackForward) < 0.0001f)
+                                    fallbackForward = new float3(0, 0, 1);
 
-                                forward = math.normalize(f);
+                                forward = math.normalize(fallbackForward);
                             }
                             else
                             {
@@ -196,7 +196,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         Blackboard.SetFloat3(ref blackboard,
                             AniMovementBlackboardKeys.MoveFormationTargetPoint,
-                            clickPos);
+                            targetWorldPosition);
 
                         Blackboard.SetFloat3(ref blackboard,
                             AniMovementBlackboardKeys.MoveFormationForward,
@@ -209,8 +209,8 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                     case MovementTargetKind.Ani:
                     {
-                        var o = SystemAPI.GetComponent<GhostOwner>(targetEntity);
-                        if (o.NetworkId == networkId)
+                        var targetOwner = SystemAPI.GetComponent<GhostOwner>(targetEntity);
+                        if (targetOwner.NetworkId == networkId)
                             break;
 
                         Blackboard.SetInt(ref blackboard,

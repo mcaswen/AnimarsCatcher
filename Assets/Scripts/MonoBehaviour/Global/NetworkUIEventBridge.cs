@@ -7,7 +7,7 @@ namespace AnimarsCatcher.Mono.Global
     /// 将不同 NetCode 世界产生的状态变化转发给主线程 UI
     /// Raise 方法负责构造不可变事件载体并统一触发入口
     /// </summary>
-    public static class NetUIEventBridge
+    public static class NetworkUIEventBridge
     {
         // 房间成员变化事件
         public static UnityEvent<LobbyClientJoinedEventData> LobbyClientJoinedEvent = new UnityEvent<LobbyClientJoinedEventData>();
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布房间成员加入事件
         /// </summary>
         public static void RaiseLobbyClientJoinedEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int networkId,
             string playerName,
             bool isLocalPlayer)
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布房间成员离开事件
         /// </summary>
         public static void RaiseLobbyClientLeftEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int networkId,
             string playerName)
         {
@@ -59,7 +59,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布对局开始事件
         /// </summary>
         public static void RaiseMatchStartedEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int localPlayerNetworkId)
         {
             MatchStartedEvent?.Invoke(
@@ -71,7 +71,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布对局结束事件
         /// </summary>
         public static void RaiseMatchEndedEvent(
-            NetUIEventSource source, 
+            NetworkUIEventSource source,
             string reason)
         {
             MatchEndedEvent?.Invoke(
@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布 Blaster Ani 生成请求
         /// </summary>
         public static void RaiseSpawnBlasterAniRequestedEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int requestedCount = 1)
         {
             SpawnBlasterAniRequestedEvent?.Invoke(
@@ -95,7 +95,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布资源变更请求
         /// </summary>
         public static void RaiseResourceChangedRequestedEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             ResourceType resourceType,
             int amount)
         {
@@ -138,7 +138,7 @@ namespace AnimarsCatcher.Mono.Global
         /// 发布连接中断事件
         /// </summary>
         public static void RaiseConnectionLostEvent(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int networkId,
             string reason)
         {

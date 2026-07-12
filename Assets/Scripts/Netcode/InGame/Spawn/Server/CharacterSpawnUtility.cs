@@ -15,7 +15,7 @@ public static class CharacterSpawnUtility
     /// <param name="camp">服务器分配阵营</param>
     /// <param name="scale">初始缩放</param>
     /// <returns>新创建的角色实体</returns>
-    public static Entity InstantiateAndInit(
+    public static Entity InstantiateAndInitialize(
         ref EntityCommandBuffer entityCommandBuffer,
         Entity prefab,
         int ownerNetworkId,

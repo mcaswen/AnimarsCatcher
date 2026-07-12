@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using UnityEngine;
+using UnityEngine.Serialization;
 using AnimarsCatcher.Mono.Items;
 using AnimarsCatcher.Mono.Utilities;
 
@@ -15,33 +16,35 @@ namespace AnimarsCatcher.Mono
         public float ControlRadiusMin = 0f;
         public float ControlRadiusMax = 5f;
 
-        public GameObject TargetPosGO;
+        [FormerlySerializedAs("TargetPosGO")]
+        public GameObject TargetPositionObject;
 
-        private float mCurrentRadius;
-        private Vector3 mTargetPos;
-        private bool mRightMouseButton;
+        private float _currentRadius;
+        private Vector3 _targetPosition;
+        private bool _isRightMouseButtonHeld;
 
-        private List<PICKER_Ani> mPickerAniList = new List<PICKER_Ani>();
-        private List<BLASTER_Ani> mBlasterAniList = new List<BLASTER_Ani>();
+        private List<PICKER_Ani> _pickerAnis = new List<PICKER_Ani>();
+        private List<BLASTER_Ani> _blasterAnis = new List<BLASTER_Ani>();
 
         //Components
-        private Rigidbody mRigidbody;
-        private CharacterController mCharacterController;
+        private Rigidbody _rigidbody;
+        private CharacterController _characterController;
         
         //MainCamera
-        private Camera mMainCamera;
+        private Camera _mainCamera;
 
         // Group Behaviour
-        private Dictionary<Transform, int> mIndex = new();
+        private Dictionary<Transform, int> _formationIndices = new();
 
         // Smoke
-        public ParticleSystem FX_SmokeParticleSystem;
+        [FormerlySerializedAs("FX_SmokeParticleSystem")]
+        public ParticleSystem SmokeParticleSystem;
 
         private void Awake()
         {
-            mRigidbody = GetComponent<Rigidbody>();
-            mCharacterController = GetComponent<CharacterController>();
-            mMainCamera = Camera.main;
+            _rigidbody = GetComponent<Rigidbody>();
+            _characterController = GetComponent<CharacterController>();
+            _mainCamera = Camera.main;
         }
 
         void Update()
@@ -50,21 +53,21 @@ namespace AnimarsCatcher.Mono
             DrawRayFromScreenCenter();
             if (Input.GetMouseButton(1))
             {
-                mRightMouseButton = true;
-                mTargetPos = GetMouseWorldPos();
+                _isRightMouseButtonHeld = true;
+                _targetPosition = GetMouseWorldPosition();
                 GetControlAnis();
             }
             else
             {
-                mRightMouseButton = false;
+                _isRightMouseButtonHeld = false;
             }
             AssignAniToCarry();
             AssignAniToShoot();
 
-            mCurrentRadius = Mathf.Lerp(mCurrentRadius, mRightMouseButton ? ControlRadiusMax : ControlRadiusMin,
+            _currentRadius = Mathf.Lerp(_currentRadius, _isRightMouseButtonHeld ? ControlRadiusMax : ControlRadiusMin,
                 Time.deltaTime * 10f);
-            TargetPosGO.transform.position = GetMouseWorldPos();
-            TargetPosGO.transform.Find("Cylinder").localScale = Vector3.one * (2 * mCurrentRadius);
+            TargetPositionObject.transform.position = GetMouseWorldPosition();
+            TargetPositionObject.transform.Find("Cylinder").localScale = Vector3.one * (2 * _currentRadius);
         }
         
         private void DrawRayFromScreenCenter()
@@ -83,19 +86,19 @@ namespace AnimarsCatcher.Mono
 
         private void RobotMove()
         {
-            float h = Input.GetAxis("Horizontal");
-            float v = Input.GetAxis("Vertical");
-            float y = mMainCamera.transform.rotation.eulerAngles.y;
-            
-            Vector3 targetDirection = new Vector3(h, 0, v);
+            float horizontalInput = Input.GetAxis("Horizontal");
+            float verticalInput = Input.GetAxis("Vertical");
+            float y = _mainCamera.transform.rotation.eulerAngles.y;
+
+            Vector3 targetDirection = new Vector3(horizontalInput, 0, verticalInput);
             targetDirection = Quaternion.Euler(0, y, 0) * targetDirection;
 
             if (targetDirection != Vector3.zero)
                 transform.forward = Vector3.Lerp(transform.forward, targetDirection, 10f * Time.deltaTime);
             
             var speed = targetDirection * MoveSpeed;
-            //mRigidbody.velocity = speed;
-            mCharacterController.SimpleMove(speed);
+            //_rigidbody.velocity = speed;
+            _characterController.SimpleMove(speed);
 
             ControlSmokeParticleSystem(speed);
         }
@@ -103,26 +106,26 @@ namespace AnimarsCatcher.Mono
         private void GetControlAnis()
         {
             Collider[] hitColliders = new Collider[50];
-            int numColliders = Physics.OverlapSphereNonAlloc(mTargetPos, mCurrentRadius, hitColliders);
-            for (int i = 0; i < numColliders; i++)
+            int colliderCount = Physics.OverlapSphereNonAlloc(_targetPosition, _currentRadius, hitColliders);
+            for (int i = 0; i < colliderCount; i++)
             {
                 if (hitColliders[i].CompareTag("PICKER_Ani"))
                 {
                     var pickerAni = hitColliders[i].GetComponent<PICKER_Ani>();
-                    if (!mPickerAniList.Contains(pickerAni))
+                    if (!_pickerAnis.Contains(pickerAni))
                     {
-                        mPickerAniList.Add(pickerAni);
+                        _pickerAnis.Add(pickerAni);
                         pickerAni.IsFollow = true;
-                        mIndex.Add(pickerAni.transform, mIndex.Count);
+                        _formationIndices.Add(pickerAni.transform, _formationIndices.Count);
                     }
                 }else if (hitColliders[i].CompareTag("BLASTER_Ani"))
                 {
                     var blasterAni = hitColliders[i].GetComponent<BLASTER_Ani>();
-                    if (!mBlasterAniList.Contains(blasterAni))
+                    if (!_blasterAnis.Contains(blasterAni))
                     {
-                        mBlasterAniList.Add(blasterAni);
+                        _blasterAnis.Add(blasterAni);
                         blasterAni.IsFollow = true;
-                        mIndex.Add(blasterAni.transform, mIndex.Count);
+                        _formationIndices.Add(blasterAni.transform, _formationIndices.Count);
                     }
                 }
             }
@@ -157,7 +160,7 @@ namespace AnimarsCatcher.Mono
 
         private PICKER_Ani ChooseOnePickerAni()
         {
-            foreach (var pickerAni in mPickerAniList)
+            foreach (var pickerAni in _pickerAnis)
             {
                 if (!pickerAni.IsPick)
                 {
@@ -195,7 +198,7 @@ namespace AnimarsCatcher.Mono
         
         private BLASTER_Ani ChooseOneBlasterAni()
         {
-            foreach (var blasterAni in mBlasterAniList)
+            foreach (var blasterAni in _blasterAnis)
             {
                 if (!blasterAni.IsShoot)
                 {
@@ -207,9 +210,9 @@ namespace AnimarsCatcher.Mono
 
 
 
-        private Vector3 GetMouseWorldPos()
+        private Vector3 GetMouseWorldPosition()
         {
-            Ray ray = mMainCamera.ScreenPointToRay(Input.mousePosition);
+            Ray ray = _mainCamera.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out var hit, 200))
             {
                 return hit.point;
@@ -219,19 +222,19 @@ namespace AnimarsCatcher.Mono
         
         private void SetDestinations()
         {
-            mPickerAniList.ForEach(item => item.Destination = FollowUtility.RectArrange(transform, mIndex[item.transform]));
-            mBlasterAniList.ForEach(item => item.Destination = FollowUtility.RectArrange(transform, mIndex[item.transform]));
+            _pickerAnis.ForEach(item => item.Destination = FollowUtility.RectArrange(transform, _formationIndices[item.transform]));
+            _blasterAnis.ForEach(item => item.Destination = FollowUtility.RectArrange(transform, _formationIndices[item.transform]));
         }
 
         private void ControlSmokeParticleSystem(Vector3 speed)
         {
-            if (speed.sqrMagnitude <= 0f && FX_SmokeParticleSystem.isPlaying)
+            if (speed.sqrMagnitude <= 0f && SmokeParticleSystem.isPlaying)
             {
-                FX_SmokeParticleSystem.Stop();
+                SmokeParticleSystem.Stop();
             } else if (speed.sqrMagnitude > 0f)
             {
-                FX_SmokeParticleSystem.transform.forward = -speed;
-                FX_SmokeParticleSystem.Play();
+                SmokeParticleSystem.transform.forward = -speed;
+                SmokeParticleSystem.Play();
             }
         }
     }

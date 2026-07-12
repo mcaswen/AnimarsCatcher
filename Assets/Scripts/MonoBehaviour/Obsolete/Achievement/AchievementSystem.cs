@@ -4,7 +4,7 @@ namespace AnimarsCatcher.Mono
 {
     public class AchievementSystem
     {
-        public void Init(GameModel gameModel)
+        public void Initialize(GameModel gameModel)
         {
             gameModel.FoodSum.Subscribe(value =>
             {

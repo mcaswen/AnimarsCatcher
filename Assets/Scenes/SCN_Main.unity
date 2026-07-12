@@ -4684,7 +4684,7 @@ MonoBehaviour:
   MenuPanel: {fileID: 2074839074}
   SelectionPanel: {fileID: 2114665415}
   VolumeAdjustPanel: {fileID: 455393071}
-  _panelAnimDuration: 0.25
+  _panelAnimationDuration: 0.25
 --- !u!4 &1176205765
 Transform:
   m_ObjectHideFlags: 0
@@ -14260,8 +14260,8 @@ MonoBehaviour:
   MoveSpeed: 20
   ControlRadiusMin: 0
   ControlRadiusMax: 8
-  TargetPosGO: {fileID: 364777480}
-  FX_SmokeParticleSystem: {fileID: 2077907387}
+  TargetPositionObject: {fileID: 364777480}
+  SmokeParticleSystem: {fileID: 2077907387}
 --- !u!95 &7989497854687752516
 Animator:
   serializedVersion: 7

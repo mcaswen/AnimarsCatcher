@@ -10,7 +10,7 @@ public static class AniMovementFsmIds
     public const ushort ConditionOffset = 64;
     public const ushort ActionOffset = 128;
 
-    // 状态标识符从一开始，零值保留给通用 S0
+    // 状态标识符从一开始，零值保留给通用 None
     public static readonly ushort IdleStateId = FsmIdSpace.Of(FsmIdSpace.AniMovementBase, StateOffset + 1);
     public static readonly ushort FollowStateId = FsmIdSpace.Of(FsmIdSpace.AniMovementBase, StateOffset + 2);
     public static readonly ushort FindStateId = FsmIdSpace.Of(FsmIdSpace.AniMovementBase, StateOffset + 3);

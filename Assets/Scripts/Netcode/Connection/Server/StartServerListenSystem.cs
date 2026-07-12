@@ -27,7 +27,7 @@ public partial struct StartServerListenSystem : ISystem
             return;
         }
 
-        var endPoint = NetworkEndpoint.AnyIpv4.WithPort(NetPorts.Game);
+        var endPoint = NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game);
         var requestListenEntity = state.EntityManager.CreateEntity();
 
         state.EntityManager.SetName(requestListenEntity, "ServerListenRequest (Editor SCN_GameLevel Auto)");
@@ -44,9 +44,9 @@ public partial struct StartServerListenSystem : ISystem
 #if !UNITY_EDITOR
         // Player 构建只有显式服务器角色才允许绑定监听端口
         bool shouldCreateListenRequest =
-            CommandLineManager.HasArg("-server") ||
-            CommandLineManager.HasArg("-serverui") ||
-            CommandLineManager.HasArg("-dedicated");
+            CommandLineManager.HasArgument("-server") ||
+            CommandLineManager.HasArgument("-serverui") ||
+            CommandLineManager.HasArgument("-dedicated");
 
         if (!shouldCreateListenRequest)
         {
@@ -61,7 +61,7 @@ public partial struct StartServerListenSystem : ISystem
         }
 
         // AnyIpv4 允许局域网和远端客户端访问服务器端口
-        var endPointRuntime = NetworkEndpoint.AnyIpv4.WithPort(NetPorts.Game);
+        var endPointRuntime = NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game);
         var requestEntityRuntime = state.EntityManager.CreateEntity();
 
         state.EntityManager.SetName(requestEntityRuntime, "ServerListenRequest (Runtime)");

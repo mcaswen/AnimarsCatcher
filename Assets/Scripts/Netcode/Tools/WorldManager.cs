@@ -15,22 +15,22 @@ public static class WorldManager
     /// <summary>判断系统是否运行在 Thin Client World</summary>
     /// <param name="state">系统状态</param>
     /// <returns>是否为 Thin Client 世界</returns>
-    public static bool IsThin(ref SystemState state) => state.WorldUnmanaged.IsThinClient();
+    public static bool IsThinClient(ref SystemState state) => state.WorldUnmanaged.IsThinClient();
 
     /// <summary>获取适合调试日志使用的 World 类型标签</summary>
     /// <param name="state">系统状态</param>
     /// <returns>World 类型标签</returns>
-    public static string Tag(ref SystemState state)
+    public static string GetWorldTag(ref SystemState state)
     {
-        var c = IsClient(ref state);
-        var sv = IsServer(ref state);
-        var th = IsThin(ref state);
+        var isClient = IsClient(ref state);
+        var isServer = IsServer(ref state);
+        var isThinClient = IsThinClient(ref state);
 
-        if (sv && !c) return "[Server]";
+        if (isServer && !isClient) return "[Server]";
 
-        if (c && !sv) return "[Client]";
+        if (isClient && !isServer) return "[Client]";
 
-        if (th) return "[ThinClient]";
+        if (isThinClient) return "[ThinClient]";
 
         return "[Client & Server]"; // 本地模拟世界同时具备客户端和服务器标志
     }

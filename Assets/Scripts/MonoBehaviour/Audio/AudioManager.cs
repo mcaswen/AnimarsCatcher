@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Audio;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 namespace AnimarsCatcher.Mono.Audio
@@ -15,10 +16,12 @@ namespace AnimarsCatcher.Mono.Audio
         public static AudioManager Instance { get; private set; }
 
         public AudioMixer AudioMixer;
-        private AudioSource _uIAudioSource;
+        private AudioSource _uiAudioSource;
         
-        public AudioClip MenuBtnClick;
-        public AudioClip SwitchBtnClick;
+        [FormerlySerializedAs("MenuBtnClick")]
+        public AudioClip MenuButtonClickClip;
+        [FormerlySerializedAs("SwitchBtnClick")]
+        public AudioClip SwitchButtonClickClip;
 
         public Scrollbar MasterVolumeScrollbar;
         public Scrollbar BGMVolumeScrollbar;
@@ -40,7 +43,7 @@ namespace AnimarsCatcher.Mono.Audio
         // 绑定音量滑杆并写入默认混音参数
         private void Start()
         {
-            _uIAudioSource = GetComponent<AudioSource>();
+            _uiAudioSource = GetComponent<AudioSource>();
 
             MasterVolumeScrollbar.onValueChanged.AddListener(value =>
             {
@@ -65,15 +68,15 @@ namespace AnimarsCatcher.Mono.Audio
         /// </summary>
         public void PlayMenuButtonAudio()
         {
-            _uIAudioSource.PlayOneShot(MenuBtnClick);
+            _uiAudioSource.PlayOneShot(MenuButtonClickClip);
         }
 
         /// <summary>
         /// 播放开关控件音效
         /// </summary>
-        public void PlaySwitchBtnAudio()
+        public void PlaySwitchButtonAudio()
         {
-            _uIAudioSource.PlayOneShot(SwitchBtnClick);
+            _uiAudioSource.PlayOneShot(SwitchButtonClickClip);
         }
 
         /// <summary>

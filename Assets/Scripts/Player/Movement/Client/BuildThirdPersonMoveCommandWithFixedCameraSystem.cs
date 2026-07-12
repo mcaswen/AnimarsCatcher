@@ -11,7 +11,7 @@ using AnimarsCatcher.Mono;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
-public partial struct BuildTPMoveCommandWithFixedCameraSystem : ISystem
+public partial struct BuildThirdPersonMoveCommandWithFixedCameraSystem : ISystem
 {
     /// <summary>仅在客户端进入 InGame 后启用命令构建</summary>
     /// <param name="state">系统状态</param>

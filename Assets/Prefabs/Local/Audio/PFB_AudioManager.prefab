@@ -46,8 +46,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AnimarsCatcher.Mono.AudioManager
   AudioMixer: {fileID: 24100000, guid: 3cf930cd5d8dcf94ba072a7554818929, type: 2}
-  MenuBtnClick: {fileID: 8300000, guid: fc4ff9039a97a5c458290ab0f33adb00, type: 3}
-  SwitchBtnClick: {fileID: 8300000, guid: 3bac70107bb26844a9b3f8418923a72b, type: 3}
+  MenuButtonClickClip: {fileID: 8300000, guid: fc4ff9039a97a5c458290ab0f33adb00, type: 3}
+  SwitchButtonClickClip: {fileID: 8300000, guid: 3bac70107bb26844a9b3f8418923a72b, type: 3}
   MasterVolumeScrollbar: {fileID: 0}
   BGMVolumeScrollbar: {fileID: 0}
   UIVolumeScrollbar: {fileID: 0}

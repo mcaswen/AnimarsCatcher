@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using AnimarsCatcher.Mono.Global;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Mono.Lan
 {
@@ -15,7 +16,8 @@ namespace AnimarsCatcher.Mono.Lan
     public class LanDiscoveredServer
     {
         public string HostName;
-        public string IpAddress;
+        [FormerlySerializedAs("IpAddress")]
+        public string IPAddress;
         public ushort GamePort;
         public float LastSeenTime;
     }
@@ -57,7 +59,7 @@ namespace AnimarsCatcher.Mono.Lan
         /// </summary>
         public void StartListening()
         {
-            if (_isListening || NetRuntimeRole.Current != NetworkRunRole.Client) 
+            if (_isListening || NetworkRuntimeRole.Current != NetworkRunRole.Client)
                 return;
 
             try
@@ -82,7 +84,7 @@ namespace AnimarsCatcher.Mono.Lan
         /// </summary>
         public void StopListening()
         {
-            if (!_isListening || NetRuntimeRole.Current != NetworkRunRole.Client) 
+            if (!_isListening || NetworkRuntimeRole.Current != NetworkRunRole.Client)
                 return;
 
             _isListening = false;
@@ -100,7 +102,7 @@ namespace AnimarsCatcher.Mono.Lan
 
         private void Update()
         {
-            if (!_isListening || _udpClient == null || NetRuntimeRole.Current != NetworkRunRole.Client) 
+            if (!_isListening || _udpClient == null || NetworkRuntimeRole.Current != NetworkRunRole.Client)
                 return;
 
             ReceivePackets();
@@ -156,7 +158,7 @@ namespace AnimarsCatcher.Mono.Lan
                 _serversByIp[ip] = new LanDiscoveredServer
                 {
                     HostName = hostName,
-                    IpAddress = ip,
+                    IPAddress = ip,
                     GamePort = gamePort,
                     LastSeenTime = now
                 };

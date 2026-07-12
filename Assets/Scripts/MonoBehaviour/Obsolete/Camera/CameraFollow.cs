@@ -55,10 +55,10 @@ namespace AnimarsCatcher.Mono
             distTarget = distance = toCam.magnitude > 0.0001f ? toCam.magnitude : distance;
             var lookRot = Quaternion.LookRotation(-toCam, Vector3.up);
 
-            var e = lookRot.eulerAngles;
+            var eulerAngles = lookRot.eulerAngles;
             
-            yawTarget   = yawSmooth   = e.y;
-            pitchTarget = pitchSmooth = e.x > 180f ? e.x - 360f : e.x;
+            yawTarget   = yawSmooth   = eulerAngles.y;
+            pitchTarget = pitchSmooth = eulerAngles.x > 180f ? eulerAngles.x - 360f : eulerAngles.x;
 
             pitchTarget = Mathf.Clamp(pitchTarget, pitchLimits.x, pitchLimits.y);
             pitchSmooth = Mathf.Clamp(pitchSmooth, pitchLimits.x, pitchLimits.y);

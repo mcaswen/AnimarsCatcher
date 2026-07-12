@@ -13,7 +13,7 @@ using UnityEngine;
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(ServerGoInGameDebugSystem))] 
 [UpdateAfter(typeof(ServerStartGameSystem))] 
-public partial struct ServerPlayerResourceInitSystem : ISystem
+public partial struct ServerPlayerResourceInitializationSystem : ISystem
 {
     /// <summary>
     /// 等待连接标识和资源 Ghost 预制体注册完成
@@ -69,7 +69,7 @@ public partial struct ServerPlayerResourceInitSystem : ISystem
                 CrystalSum            = 5
             });
 
-            Debug.Log($"[ServerPlayerResourceInitSystem] Created PlayerResourceState for NetworkId = {id}");
+            Debug.Log($"[ServerPlayerResourceInitializationSystem] Created PlayerResourceState for NetworkId = {id}");
         }
 
         entityCommandBuffer.Playback(state.EntityManager);

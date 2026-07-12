@@ -39,15 +39,15 @@ namespace AnimarsCatcher.Mono.UI
 
             Debug.Log($"MinimapIconLayer found {all.Length} targets.");
 
-            foreach (var t in all)
+            foreach (var target in all)
             {
                 var img = Instantiate(_iconPrefab, _overlayRect);
-                img.sprite = t.iconSprite;
-                img.color = t.iconColor;
+                img.sprite = target.iconSprite;
+                img.color = target.iconColor;
                 img.raycastTarget = false;
                 img.rectTransform.localScale = Vector3.one;
                 img.rectTransform.localRotation = Quaternion.identity;
-                _items.Add((t, img));
+                _items.Add((target, img));
             }
         }
 

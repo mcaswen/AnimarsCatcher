@@ -40,7 +40,7 @@ public struct SelectionRingPrefabConfig : IComponentData
 /// <summary>
 /// Ani 实体当前关联的选中光圈引用
 /// </summary>
-public struct SelectionRingRef : IComponentData
+public struct SelectionRingReference : IComponentData
 {
     public Entity RingEntity;
 }

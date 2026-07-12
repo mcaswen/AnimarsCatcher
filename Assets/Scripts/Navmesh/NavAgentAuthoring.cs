@@ -49,10 +49,10 @@ public class NavAgentBaker : Baker<NavAgentAuthoring>
         {
             for (int i = 0; i < authoring.InitialWaypoints.Length; i++)
             {
-                var t = authoring.InitialWaypoints[i];
-                if (t != null)
+                var waypointTransform = authoring.InitialWaypoints[i];
+                if (waypointTransform != null)
                 {
-                    buf.Add(new NavWaypoint { Position = t.position });
+                    buf.Add(new NavWaypoint { Position = waypointTransform.position });
                 }
             }
         }

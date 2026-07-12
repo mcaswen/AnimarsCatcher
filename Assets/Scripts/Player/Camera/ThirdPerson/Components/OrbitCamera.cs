@@ -11,8 +11,8 @@ public struct OrbitCamera : IComponentData
 {
     // 旋转配置
     public float RotationSpeed;
-    public float MaxVAngle;
-    public float MinVAngle;
+    public float MaxVerticalAngle;
+    public float MinVerticalAngle;
     public bool RotateWithCharacterParent;
 
     // 距离与缩放配置

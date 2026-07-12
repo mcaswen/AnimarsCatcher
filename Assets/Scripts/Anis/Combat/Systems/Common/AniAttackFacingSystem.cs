@@ -41,7 +41,7 @@ public partial struct AniAttackFacingSystem : ISystem
         _transformLookup.Update(ref state);
 
         float deltaTime = SystemAPI.Time.DeltaTime;
-        const float maxTurnSpeedDegPerSec = 540f; // 限制急转速度以保持攻击表现连续
+        const float maxTurnSpeedDegreesPerSecond = 540f; // 限制急转速度以保持攻击表现连续
 
         foreach (var (transform, attackTarget, entity) in
                  SystemAPI.Query<RefRW<LocalTransform>, RefRO<AniAttackTarget>>()
@@ -56,11 +56,11 @@ public partial struct AniAttackFacingSystem : ISystem
             if (!_transformLookup.HasComponent(targetEntity))
                 continue;
 
-            float3 myPos     = transform.ValueRO.Position;
+            float3 attackerPosition = transform.ValueRO.Position;
             float3 targetPos = _transformLookup[targetEntity].Position;
 
             // 攻击朝向限定在水平面，避免地形高度差造成模型倾斜
-            float3 toTarget = targetPos - myPos;
+            float3 toTarget = targetPos - attackerPosition;
             toTarget.y = 0f;
 
             if (math.lengthsq(toTarget) < 1e-4f)
@@ -78,7 +78,7 @@ public partial struct AniAttackFacingSystem : ISystem
                 continue; // 微小误差不再写回旋转，降低抖动
 
             // 最大步进随帧时间缩放，保证不同帧率下角速度一致
-            float maxStepDeg = maxTurnSpeedDegPerSec * deltaTime;
+            float maxStepDeg = maxTurnSpeedDegreesPerSecond * deltaTime;
 
             // 插值比例限制在零到一，避免越过目标方向
             float t = math.saturate(maxStepDeg / angleDeg);

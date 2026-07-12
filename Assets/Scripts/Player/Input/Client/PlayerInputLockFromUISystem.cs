@@ -5,7 +5,7 @@ using AnimarsCatcher.Mono.Global;
 /// <summary>在客户端根据 UI 面板占用情况维护玩法输入锁</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
-public partial class PlayerInputLockFromUiSystem : SystemBase
+public partial class PlayerInputLockFromUISystem : SystemBase
 {
     private Entity _lockStateEntity;
 
@@ -23,13 +23,13 @@ public partial class PlayerInputLockFromUiSystem : SystemBase
         });
 
         // UI 通过事件传递增量，避免表现层直接依赖 ECS 世界
-        NetUIEventBridge.UIPanelInputToggleEvent.AddListener(OnUIPanelInputToggle);
+        NetworkUIEventBridge.UIPanelInputToggleEvent.AddListener(OnUIPanelInputToggle);
     }
 
     protected override void OnDestroy()
     {
         // 系统销毁时必须退订，避免退出 Play 后事件仍持有托管回调
-        NetUIEventBridge.UIPanelInputToggleEvent.RemoveListener(OnUIPanelInputToggle);
+        NetworkUIEventBridge.UIPanelInputToggleEvent.RemoveListener(OnUIPanelInputToggle);
         base.OnDestroy();
     }
 

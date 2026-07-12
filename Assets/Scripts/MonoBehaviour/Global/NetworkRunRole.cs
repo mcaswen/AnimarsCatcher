@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Mono.Global
     /// <summary>
     /// 在启动早期检测并公开当前网络运行角色
     /// </summary>
-    public static class NetRuntimeRole
+    public static class NetworkRuntimeRole
     {
         public static NetworkRunRole Current { get; private set; } = NetworkRunRole.Host;
 
@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Mono.Global
         public static void SetRole(NetworkRunRole role, string reason = null)
         {
             Current = role;
-            Debug.Log($"[NetRuntimeRole] Set role = {role}" +
+            Debug.Log($"[NetworkRuntimeRole] Set role = {role}" +
                       (string.IsNullOrEmpty(reason) ? "" : $" (from {reason})"));
         }
 
@@ -59,21 +59,21 @@ namespace AnimarsCatcher.Mono.Global
             }
 #else
             // 非 Editor 环境从命令行参数推断角色
-            var args = Environment.GetCommandLineArgs();
+            var arguments = Environment.GetCommandLineArgs();
 
-            bool has(string flag)
-                => Array.Exists(args, a =>
-                    string.Equals(a, flag, StringComparison.OrdinalIgnoreCase));
+            bool HasArgument(string flag)
+                => Array.Exists(arguments, argument =>
+                    string.Equals(argument, flag, StringComparison.OrdinalIgnoreCase));
 
-            if (has("-dedicated"))
+            if (HasArgument("-dedicated"))
             {
                 Current = NetworkRunRole.DedicatedServer;
             }
-            else if (has("-client"))
+            else if (HasArgument("-client"))
             {
                 Current = NetworkRunRole.Client;
             }
-            else if (has("-host"))
+            else if (HasArgument("-host"))
             {
                 Current = NetworkRunRole.Host;
             }
@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Mono.Global
                 Current = NetworkRunRole.Client;
             }
 
-            Debug.Log($"[NetRuntimeRole] Launch as {Current}.");
+            Debug.Log($"[NetworkRuntimeRole] Launch as {Current}.");
 #endif
         }
     }

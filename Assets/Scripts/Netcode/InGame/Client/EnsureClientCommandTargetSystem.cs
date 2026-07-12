@@ -31,13 +31,13 @@ public partial struct EnsureClientCommandTargetSystem : ISystem
         var commandTarget = SystemAPI.GetComponent<CommandTarget>(connection);
         if (commandTarget.targetEntity == Entity.Null)
         {
-            var localNetId = SystemAPI.GetComponent<NetworkId>(connection).Value;
+            var localNetworkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
 
             // 只有归属本地 NetworkId 的预测 Ghost 可以接收该连接的输入命令
             foreach (var (owner, characterEntity)
                      in SystemAPI.Query<RefRO<GhostOwner>>().WithAll<CharacterTag, PredictedGhost>().WithEntityAccess())
             {
-                if (owner.ValueRO.NetworkId == localNetId)
+                if (owner.ValueRO.NetworkId == localNetworkId)
                 {
                     entityCommandBuffer.SetComponent(connection, new CommandTarget { targetEntity = characterEntity });
                     if (SystemAPI.TryGetSingleton<ThirdPersonPlayerControl>(out var playerControl))

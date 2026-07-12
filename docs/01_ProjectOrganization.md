@@ -102,6 +102,48 @@ Scripts/<Domain>/<Feature>/
 7. `Manager` 仅用于确实管理生命周期或跨模块协调的类型。
 8. DOTS 组件、RPC 和 Buffer Element 等纯数据结构允许使用 public 字段。
 
+### 5.1 缩写与变量生命周期
+
+1. 同一概念在项目中只使用一种约定写法，不混用自创缩写。例如配置统一使用 `Config`，不同时出现 `Cfg`、`Conf`；标识符统一使用 `Id`，不混用 `ID`。
+2. 十分常见且不会产生歧义的技术缩写可以直接使用，例如 `UI`、`Id`、`Rpc`、`Fsm`、`Config`、`Info`、`Min`、`Max`、`HP`、`HUD`、`IK`、`Lan`、`IP`、`VFX`、`SFX`、`BGM` 和 `AABB`。
+3. 名称的可见范围越大、生命周期越长，越应使用完整单词；生命周期越短、上下文越明确，越允许使用约定俗成的缩写。
+4. 类型名、文件名、公共 API、序列化字段、网络协议字段和长期状态只使用完整单词或项目统一缩写，不使用仅在当前作者上下文中才能理解的简写。
+5. 私有字段、方法参数和跨越多个分支的局部变量应优先保持完整语义，例如 `_targetPosition`、`resourceConfig`、`requestEntity`。
+6. 只在少量相邻语句中使用的局部变量可以采用常见缩写，例如 `targetPos`、`moveDir`、`velocity`、`deltaTime`；若离开当前语句块后含义不再明显，则改用完整名称。
+7. 循环索引和明确的数学坐标允许使用 `i`、`j`、`k`、`x`、`y`、`z`、`t`，除此之外不使用单字母变量。
+8. 禁止使用可能对应多个概念的单字母或自创缩写。例如不使用 `e` 表示 Entity、event 或 exception，应分别写成 `entity`、`eventData`、`exception`。
+9. 常见词在不同作用域中的推荐写法如下：
+
+| 概念 | PascalCase 标识符片段 | camelCase 片段或短局部 |
+|---|---|---|
+| Identifier | `Id` | `id` |
+| Remote Procedure Call | `Rpc` | `rpc` |
+| Finite State Machine | `Fsm` | `fsm` |
+| User Interface | `UI` | `ui` |
+| Hit Points | `HP` | `hp` |
+| Heads-Up Display | `HUD` | `hud` |
+| Inverse Kinematics | `IK` | `ik` |
+| Local Area Network | `Lan` | `lan` |
+| Internet Protocol | `IP` | `ip` |
+| Axis-Aligned Bounding Box | `AABB` | `aabb` |
+| Configuration | `Config` | `config` |
+| Information | `Info` | `info` |
+| Position | `Position` | `pos` 或 `position` |
+| Direction | `Direction` | `dir` 或 `direction` |
+| Velocity | `Velocity` | `vel` 或 `velocity` |
+| Rotation | `Rotation` | `rot` 或 `rotation` |
+| Squared | `Squared` | `sq` |
+| Degrees | `Degrees` | `deg` |
+| Command | `Command` | `cmd` 或 `command` |
+| Request | `Request` | `req` 或 `request` |
+| Response | `Response` | `resp` 或 `response` |
+| Context | `Context` | `ctx` 或 `context` |
+| Entity | `Entity` | `entity`，不使用 `e` |
+
+10. 未列入统一表的缩写默认不进入公共命名；确需新增时先在 Code Review 中确认，并同步更新本表。
+11. Unity、NetCode 和 NavMesh 等官方产品或 API 名称沿用官方大小写，不自行改写为 `Netcode`、`Net` 或 `Navmesh`。
+12. 不为了统一缩写直接破坏序列化引用、Ghost 协议或公共 API；存量协议名称按迁移规范渐进处理。当前 `FsmVar`、`FsmVarType`、`FsmGraphRef` 及 Ghost 字段中的 `Deg` 属于兼容性保留名称，不作为新代码命名示例。
+
 新业务代码使用 `AnimarsCatcher` 根命名空间，例如：
 
 ```text

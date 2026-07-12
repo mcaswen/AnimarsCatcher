@@ -38,11 +38,11 @@ public class CustomBootstrap : ClientServerBootstrap
         }
         return true;
 #else
-        // Player 构建由启动流程写入的 NetRuntimeRole 决定进程职责
+        // Player 构建由启动流程写入的 NetworkRuntimeRole 决定进程职责
         DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
         AutoConnectPort = 0;
 
-        switch (NetRuntimeRole.Current)
+        switch (NetworkRuntimeRole.Current)
         {
             case NetworkRunRole.Host:
                 CreateServerWorld("Server World");

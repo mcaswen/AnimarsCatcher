@@ -96,8 +96,8 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
         _hasSent = true;
 
         // 此时客户端已具备运行对局的全部网络状态，可通知 UI 退出等待界面
-        int localNetId = SystemAPI.GetSingleton<NetworkId>().Value;
-        NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ClientWorld, localNetId);
+        int localNetworkId = SystemAPI.GetSingleton<NetworkId>().Value;
+        NetworkUIEventBridge.RaiseMatchStartedEvent(NetworkUIEventSource.ClientWorld, localNetworkId);
     }
 
     private bool IsClientSceneReady(ref SystemState state, DynamicBuffer<GhostCollectionPrefab> prefabs)

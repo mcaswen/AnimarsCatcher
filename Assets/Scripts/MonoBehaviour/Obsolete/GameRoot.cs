@@ -44,7 +44,7 @@ namespace AnimarsCatcher.Mono.Global
             _timer = new Timer();
             _gameModel = new GameModel();
             _achievementSystem = new AchievementSystem();
-            _achievementSystem.Init(_gameModel);
+            _achievementSystem.Initialize(_gameModel);
 
             _pickerAniPrefab = Resources.Load<GameObject>(ResourcePath.PickerAniPath);
             _blasterAniPrefab = Resources.Load<GameObject>(ResourcePath.BlasterAniPath);
@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Mono.Global
             _info = JsonUtility.FromJson<DetailedLevelInfo>(json);
 
             _currentLevelTime = new ReactiveProperty<int>(60);
-            UIManager.Instance.Init(_gameModel, _currentLevelTime, _info.PickerAniFoodCostCount, _info.PickerAniCrystalCostCount,
+            UIManager.Instance.Initialize(_gameModel, _currentLevelTime, _info.PickerAniFoodCostCount, _info.PickerAniCrystalCostCount,
                 _info.BlasterAniFoodCostCount, _info.BlasterAniCrystalCostCount);
         }
 

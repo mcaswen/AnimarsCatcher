@@ -24,7 +24,7 @@ public partial struct StartClientConnectSystem : ISystem
         {
             return;
         }
-        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(NetPorts.Game);
+        var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(NetworkPorts.Game);
 
         var entity = state.EntityManager.CreateEntity();
         state.EntityManager.AddComponentData(entity, new NetworkStreamRequestConnect { Endpoint = endPoint });

@@ -105,7 +105,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
             // 至少一个角色创建成功后记录服务器已进入角色阶段
             matchStateRW.ValueRW.CharactersSpawned = 1;
 
-            NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ServerWorld, localPlayerNetworkId: -1);
+            NetworkUIEventBridge.RaiseMatchStartedEvent(NetworkUIEventSource.ServerWorld, localPlayerNetworkId: -1);
         }
 
         entityCommandBuffer.Playback(entityManager);
@@ -155,7 +155,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
                 return false;
             }
 
-            var character = CharacterSpawnUtility.InstantiateAndInit(
+            var character = CharacterSpawnUtility.InstantiateAndInitialize(
                 ref entityCommandBuffer,
                 characterPrefab,
                 id,

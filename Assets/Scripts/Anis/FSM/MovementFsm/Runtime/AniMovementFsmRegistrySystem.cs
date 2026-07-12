@@ -17,12 +17,12 @@ public partial struct AniMovementFsmRegistrySystem : ISystem
         state.EntityManager.CreateEntity(typeof(AniMovementRegistryInitialized));
 
         // 条件注册
-        var commandIdlePtr   = BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.IsCommandIdle);
-        var commandFollowPtr = BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.IsCommandFollow);
-        var commandFindPtr   = BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.IsCommandFind);
-        var commandMovePtr   = BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.IsCommandMoveTo);
-        var targetGonePtr= BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.IsTargetGone);
-        var arrivedPtr   = BurstCompiler.CompileFunctionPointer<ConditionFn>(AniMovementFsmConditions.HasMoveArrived);
+        var commandIdlePtr   = BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.IsCommandIdle);
+        var commandFollowPtr = BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.IsCommandFollow);
+        var commandFindPtr   = BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.IsCommandFind);
+        var commandMovePtr   = BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.IsCommandMoveTo);
+        var targetGonePtr= BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.IsTargetGone);
+        var arrivedPtr   = BurstCompiler.CompileFunctionPointer<ConditionFunction>(AniMovementFsmConditions.HasMoveArrived);
 
         FsmRegistry.RegisterCondition((ConditionId)AniMovementFsmIds.CommandIdleConditionId,   commandIdlePtr);
         FsmRegistry.RegisterCondition((ConditionId)AniMovementFsmIds.CommandFollowConditionId, commandFollowPtr);
@@ -32,14 +32,14 @@ public partial struct AniMovementFsmRegistrySystem : ISystem
         FsmRegistry.RegisterCondition((ConditionId)AniMovementFsmIds.MoveArrivedConditionId,   arrivedPtr);
 
         // 动作注册
-        var enterIdlePtr   = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.EnterIdle);
-        var exitIdlePtr    = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.ExitIdle);
-        var enterFollowPtr = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.EnterFollow);
-        var exitFollowPtr  = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.ExitFollow);
-        var enterFindPtr   = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.EnterFind);
-        var exitFindPtr    = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.ExitFind);
-        var enterMovePtr   = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.EnterMoveTo);
-        var exitMovePtr    = BurstCompiler.CompileFunctionPointer<ActionFn>(AniMovementFsmActions.ExitMoveTo);
+        var enterIdlePtr   = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.EnterIdle);
+        var exitIdlePtr    = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.ExitIdle);
+        var enterFollowPtr = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.EnterFollow);
+        var exitFollowPtr  = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.ExitFollow);
+        var enterFindPtr   = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.EnterFind);
+        var exitFindPtr    = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.ExitFind);
+        var enterMovePtr   = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.EnterMoveTo);
+        var exitMovePtr    = BurstCompiler.CompileFunctionPointer<ActionFunction>(AniMovementFsmActions.ExitMoveTo);
 
         FsmRegistry.RegisterAction((ActionId)AniMovementFsmIds.EnterIdleActionId,   enterIdlePtr);
         FsmRegistry.RegisterAction((ActionId)AniMovementFsmIds.ExitIdleActionId,    exitIdlePtr);

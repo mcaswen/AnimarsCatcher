@@ -59,7 +59,7 @@ public partial class PlayerInputSystem : SystemBase
         uint tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick.SerializedData;
         var context   = new InputContext(deltaTime, tick, RightMouseLongPressThreshold);
 
-        var raw = new KeyboardMouseState
+        var rawInputState = new KeyboardMouseState
         {
             Move = new float2(
                 (keyboard.dKey.isPressed ? 1f : 0f) + (keyboard.aKey.isPressed ? -1f : 0f),
@@ -70,7 +70,7 @@ public partial class PlayerInputSystem : SystemBase
             Scroll = mouse != null ? -mouse.scroll.ReadValue().y : 0f,
 
             SpaceDown = keyboard.spaceKey.wasPressedThisFrame,
-            EDown = keyboard.eKey.wasPressedThisFrame,
+            EKeyDown = keyboard.eKey.wasPressedThisFrame,
 
             RightHeld = mouse != null && mouse.rightButton.isPressed,
             LeftMousePressed = mouse != null && mouse.leftButton.wasPressedThisFrame,
@@ -80,8 +80,8 @@ public partial class PlayerInputSystem : SystemBase
 
         foreach (var inputRW in SystemAPI.Query<RefRW<PlayerInput>>())
         {
-            PlayerInputFeature.ApplyKeyboardInput(ref inputRW.ValueRW, in raw, in context);
-            PlayerInputFeature.ApplyMouseInputs(ref inputRW.ValueRW, in raw, in context);
+            PlayerInputFeature.ApplyKeyboardInput(ref inputRW.ValueRW, in rawInputState, in context);
+            PlayerInputFeature.ApplyMouseInputs(ref inputRW.ValueRW, in rawInputState, in context);
         }
     }
 }

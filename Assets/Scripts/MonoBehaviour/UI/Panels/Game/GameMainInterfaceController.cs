@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Audio;
 using DG.Tweening;
@@ -36,20 +37,21 @@ namespace AnimarsCatcher.Mono.UI
 
         public GameObject MenuPanel;
 
-        private Vector3 _bigIconPos;
-        private Vector3 _smallIconPos;
+        private Vector3 _bigIconPosition;
+        private Vector3 _smallIconPosition;
         private Vector2 _bigIconSizeDelta;
         private Vector2 _smallIconSizeDelta;
 
         [SerializeField] private AniInfoType _aniInfoType = AniInfoType.Picker;
 
-        [SerializeField] private float _panelAnimDuration = 0.25f;
+        [FormerlySerializedAs("_panelAnimDuration")]
+        [SerializeField] private float _panelAnimationDuration = 0.25f;
 
         // 缓存两种图标布局尺寸供页签切换复用
         private void Awake()
         {
-            _bigIconPos = PickerAniIcon.GetComponent<RectTransform>().position;
-            _smallIconPos = BlasterAniIcon.GetComponent<RectTransform>().position;
+            _bigIconPosition = PickerAniIcon.GetComponent<RectTransform>().position;
+            _smallIconPosition = BlasterAniIcon.GetComponent<RectTransform>().position;
             _bigIconSizeDelta = PickerAniIcon.GetComponent<RectTransform>().sizeDelta;
             _smallIconSizeDelta = BlasterAniIcon.GetComponent<RectTransform>().sizeDelta;
         }
@@ -61,8 +63,8 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.EnterMenu();
-                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
-                NetUIEventBridge.RaiseUIPanelInputLocked();
+                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimationDuration);
+                NetworkUIEventBridge.RaiseUIPanelInputLocked();
                 Time.timeScale = 0;
             });
 
@@ -113,11 +115,11 @@ namespace AnimarsCatcher.Mono.UI
             {
                 if (_aniInfoType == AniInfoType.Picker)
                 {    
-                    AniIconBtnClick(PickerAniIcon, BlasterAniIcon);
+                    HandleAniIconButtonClick(PickerAniIcon, BlasterAniIcon);
                 }
                 else if (_aniInfoType == AniInfoType.Blaster)
                 {
-                    AniIconBtnClick(BlasterAniIcon, PickerAniIcon);
+                    HandleAniIconButtonClick(BlasterAniIcon, PickerAniIcon);
                 }
                 
             }
@@ -125,9 +127,9 @@ namespace AnimarsCatcher.Mono.UI
         }
 
         // 交换主次图标的尺寸和位置并更新当前信息类别
-        private void AniIconBtnClick(Button button1, Button button2)
+        private void HandleAniIconButtonClick(Button primaryButton, Button secondaryButton)
         {
-            AudioManager.Instance.PlaySwitchBtnAudio();
+            AudioManager.Instance.PlaySwitchButtonAudio();
             bool success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
             
             if (!success)
@@ -143,7 +145,7 @@ namespace AnimarsCatcher.Mono.UI
                     Text_InTeamAniCount.text = playerResourceState.InTeamBlasterAniCount.ToString();
                     Text_TotalAniCount.text = playerResourceState.TotalBlasterAniCount.ToString();
                     Text_SelectedAniCount.text = playerResourceState.SelectedBlasterAniCount.ToString();
-                    NetUIEventBridge.RaiseAniSelectionModeChanged(AniSelectionMode.Blaster);
+                    NetworkUIEventBridge.RaiseAniSelectionModeChanged(AniSelectionMode.Blaster);
                     Debug.Log("[GameMainInterfaceController] Switched to Blaster Mode");
 
                     break;
@@ -152,19 +154,19 @@ namespace AnimarsCatcher.Mono.UI
                     Text_InTeamAniCount.text = playerResourceState.InTeamPickerAniCount.ToString();
                     Text_TotalAniCount.text = playerResourceState.TotalPickerAniCount.ToString();
                     Text_SelectedAniCount.text = playerResourceState.SelectedPickerAniCount.ToString();
-                    NetUIEventBridge.RaiseAniSelectionModeChanged(AniSelectionMode.Picker);
+                    NetworkUIEventBridge.RaiseAniSelectionModeChanged(AniSelectionMode.Picker);
                     Debug.Log("[GameMainInterfaceController] Switched to Picker Mode");
                     break;
                 default:
                     break;
             }
 
-            button1.GetComponent<RectTransform>().DOMove(_smallIconPos, 0.3f);
-            button1.GetComponent<RectTransform>().DOSizeDelta(_smallIconSizeDelta, 0.3f);
-            button1.enabled = false;
-            button2.GetComponent<RectTransform>().DOMove(_bigIconPos, 0.3f);
-            button2.GetComponent<RectTransform>().DOSizeDelta(_bigIconSizeDelta, 0.3f);
-            button2.enabled = true;
+            primaryButton.GetComponent<RectTransform>().DOMove(_smallIconPosition, 0.3f);
+            primaryButton.GetComponent<RectTransform>().DOSizeDelta(_smallIconSizeDelta, 0.3f);
+            primaryButton.enabled = false;
+            secondaryButton.GetComponent<RectTransform>().DOMove(_bigIconPosition, 0.3f);
+            secondaryButton.GetComponent<RectTransform>().DOSizeDelta(_bigIconSizeDelta, 0.3f);
+            secondaryButton.enabled = true;
         }
 
     }

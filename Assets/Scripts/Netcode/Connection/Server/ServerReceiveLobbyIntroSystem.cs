@@ -32,8 +32,8 @@ public partial struct ServerReceiveLobbyIntroSystem : ISystem
             Debug.Log($"[ServerLobbyIntroSystem] Received lobby intro from connection {networkId}: '{playerName}'");
 
             // 通过桥接事件通知托管 UI，避免 ECS 系统直接引用面板对象
-            NetUIEventBridge.RaiseLobbyClientJoinedEvent(
-                NetUIEventSource.ServerWorld,
+            NetworkUIEventBridge.RaiseLobbyClientJoinedEvent(
+                NetworkUIEventSource.ServerWorld,
                 networkId,
                 playerName,
                 isLocalPlayer: false // Server World 中的连接都不属于本地 UI 玩家

@@ -2,6 +2,7 @@ using System;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Audio;
@@ -37,7 +38,8 @@ namespace AnimarsCatcher.Mono.UI
         [SerializeField] private int _blasterAniFoodCostCount = 2;
         [SerializeField] private int _blasterAniCrystalCostCount = 1;
 
-        [SerializeField] private float _panelAnimDuration = 0.25f;
+        [FormerlySerializedAs("_panelAnimDuration")]
+        [SerializeField] private float _panelAnimationDuration = 0.25f;
 
         // 绑定按钮事件并建立面板初始状态
         private void Awake()
@@ -79,8 +81,8 @@ namespace AnimarsCatcher.Mono.UI
                 Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
                 Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
 
-                NetUIEventBridge.RaiseUIPanelInputUnlocked();
-                SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
+                NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
+                SmoothPanelView.HidePanel(SelectionPanel, _panelAnimationDuration);
             });
         }
 
@@ -89,8 +91,8 @@ namespace AnimarsCatcher.Mono.UI
         {
             if (Input.GetKeyDown(KeyCode.E))
             {
-                SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimDuration);
-                NetUIEventBridge.RaiseUIPanelInputLocked();
+                SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimationDuration);
+                NetworkUIEventBridge.RaiseUIPanelInputLocked();
             }
         }
 
@@ -112,13 +114,13 @@ namespace AnimarsCatcher.Mono.UI
                 _spawningPickerAniCount++;
                 Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
 
-                NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetUIEventSource.ClientWorld,
+                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                    NetworkUIEventSource.ClientWorld,
                     ResourceType.Food,
                     -_pickerAniFoodCostCount);
             
-                NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                        NetUIEventSource.ClientWorld,
+                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                        NetworkUIEventSource.ClientWorld,
                         ResourceType.Crystal,
                         -_pickerAniCrystalCostCount);
             
@@ -136,13 +138,13 @@ namespace AnimarsCatcher.Mono.UI
             _spawningPickerAniCount--;
             Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
 
-            NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetUIEventSource.ClientWorld,
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                NetworkUIEventSource.ClientWorld,
                 ResourceType.Food,
                 _pickerAniFoodCostCount);
             
-            NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetUIEventSource.ClientWorld,
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                    NetworkUIEventSource.ClientWorld,
                     ResourceType.Crystal,
                     _pickerAniCrystalCostCount);
 
@@ -169,13 +171,13 @@ namespace AnimarsCatcher.Mono.UI
                 _spawningBlasterAniCount++;
                 Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
 
-                NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetUIEventSource.ClientWorld,
+                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                    NetworkUIEventSource.ClientWorld,
                     ResourceType.Food,
                     -_blasterAniFoodCostCount);
             
-                NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                        NetUIEventSource.ClientWorld,
+                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                        NetworkUIEventSource.ClientWorld,
                         ResourceType.Crystal,
                         -_blasterAniCrystalCostCount);
 
@@ -193,13 +195,13 @@ namespace AnimarsCatcher.Mono.UI
             _spawningBlasterAniCount--;
             Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
 
-            NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetUIEventSource.ClientWorld,
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                NetworkUIEventSource.ClientWorld,
                 ResourceType.Food,
                 _blasterAniFoodCostCount);
             
-            NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetUIEventSource.ClientWorld,
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                    NetworkUIEventSource.ClientWorld,
                     ResourceType.Crystal,
                     _blasterAniCrystalCostCount);
 
@@ -210,8 +212,8 @@ namespace AnimarsCatcher.Mono.UI
         // 发布最终选择并关闭面板输入锁
         private void OnSelectionMenuConfirmed()
         {
-            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
-            NetUIEventBridge.RaiseUIPanelInputUnlocked();
+            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimationDuration);
+            NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
 
             AniSpawnRequestSender.RequestSpawnAnis(_spawningBlasterAniCount, _spawningPickerAniCount);
 

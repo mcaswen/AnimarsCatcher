@@ -26,7 +26,7 @@ public static class GameResourceGetter
 
         if (!entityManager.CreateEntityQuery(typeof(NetworkId)).IsEmpty)
         {
-            var localNetId = entityManager.CreateEntityQuery(typeof(NetworkId)).GetSingleton<NetworkId>().Value;
+            var localNetworkId = entityManager.CreateEntityQuery(typeof(NetworkId)).GetSingleton<NetworkId>().Value;
 
             var query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<PlayerResourceState>(),
@@ -41,7 +41,7 @@ public static class GameResourceGetter
             bool found = false;
             for (int i = 0; i < entities.Length; i++)
             {
-                if (owners[i].NetworkId == localNetId)
+                if (owners[i].NetworkId == localNetworkId)
                 {
                     result = states[i];
                     found = true;

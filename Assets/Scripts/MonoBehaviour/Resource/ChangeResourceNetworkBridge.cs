@@ -4,16 +4,16 @@ using UnityEngine;
 /// <summary>
 /// 将 Mono 层资源变更事件转发为客户端资源 RPC
 /// </summary>
-public class ChangeResourceNetBridge : MonoBehaviour
+public class ChangeResourceNetworkBridge : MonoBehaviour
 {
     private void Start()
     {
-        NetUIEventBridge.ResourceChangedRequestedEvent.AddListener(OnResourceChangedRequested);
+        NetworkUIEventBridge.ResourceChangedRequestedEvent.AddListener(OnResourceChangedRequested);
     }
 
     private void OnDestroy()
     {
-        NetUIEventBridge.ResourceChangedRequestedEvent.RemoveListener(OnResourceChangedRequested);
+        NetworkUIEventBridge.ResourceChangedRequestedEvent.RemoveListener(OnResourceChangedRequested);
     }
 
     private void OnResourceChangedRequested(ResourceChangedRequestedEventData data)

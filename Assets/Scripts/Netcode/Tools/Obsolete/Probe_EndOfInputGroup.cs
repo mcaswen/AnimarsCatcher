@@ -14,8 +14,8 @@
 //     public void OnUpdate(ref SystemState s)
 //     {
 //         if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var conn)) return;
-//         var e = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
-//        // UnityEngine.Debug.LogWarning($"[Probe/InputEnd] target={e}");
+//         var targetEntity = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
+//        // UnityEngine.Debug.LogWarning($"[Probe/InputEnd] target={targetEntity}");
 //     }
 // }
 
@@ -26,8 +26,8 @@
 //     public void OnUpdate(ref SystemState s)
 //     {
 //         if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var conn)) return;
-//         var e = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
-//         //UnityEngine.Debug.LogWarning($"[Probe/PredBegin] target={e}");
+//         var targetEntity = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
+//         //UnityEngine.Debug.LogWarning($"[Probe/PredBegin] target={targetEntity}");
 //     }
 // }
 
@@ -40,7 +40,7 @@
 // //     public void OnUpdate(ref SystemState s)
 // //     {
 // //         if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var conn)) return;
-// //         var e = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
-// //         // UnityEngine.Debug.LogWarning($"[Probe/PreIn] target={e}");
+// //         var targetEntity = SystemAPI.GetComponent<CommandTarget>(conn).targetEntity;
+// //         // UnityEngine.Debug.LogWarning($"[Probe/PreIn] target={targetEntity}");
 // //     }
 // // }

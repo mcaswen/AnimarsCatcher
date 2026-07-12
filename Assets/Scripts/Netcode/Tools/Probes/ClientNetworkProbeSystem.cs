@@ -6,7 +6,7 @@ using UnityEngine;
 /// <summary>按固定间隔输出 Client World 的连接阶段状态</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-public partial struct ClientNetProbeSystem : ISystem
+public partial struct ClientNetworkProbeSystem : ISystem
 {
     private double _nextLogTime;
 
@@ -17,10 +17,10 @@ public partial struct ClientNetProbeSystem : ISystem
         if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;
         _nextLogTime = SystemAPI.Time.ElapsedTime + 1.0;
 
-        bool hasConn = !SystemAPI.QueryBuilder().WithAll<NetworkStreamConnection>().Build().IsEmpty;
-        bool hasId = SystemAPI.HasSingleton<NetworkId>();
-        bool inGame = !SystemAPI.QueryBuilder().WithAll<NetworkId, NetworkStreamInGame>().Build().IsEmpty;
+        bool hasConnection = !SystemAPI.QueryBuilder().WithAll<NetworkStreamConnection>().Build().IsEmpty;
+        bool hasNetworkId = SystemAPI.HasSingleton<NetworkId>();
+        bool hasInGameConnection = !SystemAPI.QueryBuilder().WithAll<NetworkId, NetworkStreamInGame>().Build().IsEmpty;
         
-        Debug.Log($"[Client NetProbe] hasConn = {hasConn} hasId = {hasId} inGame = {inGame}");
+        Debug.Log($"[Client NetworkProbe] hasConnection = {hasConnection} hasNetworkId = {hasNetworkId} hasInGameConnection = {hasInGameConnection}");
     }
 }

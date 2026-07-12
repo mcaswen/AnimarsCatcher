@@ -18,7 +18,7 @@ public static class SmoothPanelView
     /// <summary>
     /// 激活面板并播放进入动画
     /// </summary>
-    public static void ShowPanel(GameObject panel, float panelAnimDuration = 0.25f)
+    public static void ShowPanel(GameObject panel, float panelAnimationDuration = 0.25f)
     {
         var canvasGroup = GetOrAddCanvasGroup(panel);
         var rectTransform = panel.transform as RectTransform;
@@ -33,8 +33,8 @@ public static class SmoothPanelView
         canvasGroup.blocksRaycasts = false;
 
         DOTween.Sequence().SetUpdate(true)
-            .Append(rectTransform.DOScale(1f, panelAnimDuration).SetEase(Ease.OutBack))
-            .Join(DOTween.To(() => canvasGroup.alpha, a => canvasGroup.alpha = a, 1f, panelAnimDuration))
+            .Append(rectTransform.DOScale(1f, panelAnimationDuration).SetEase(Ease.OutBack))
+            .Join(DOTween.To(() => canvasGroup.alpha, alpha => canvasGroup.alpha = alpha, 1f, panelAnimationDuration))
             .OnComplete(() =>
             {
                 canvasGroup.interactable = true;
@@ -45,7 +45,7 @@ public static class SmoothPanelView
     /// <summary>
     /// 禁用交互并在退出动画完成后隐藏面板
     /// </summary>
-    public static void HidePanel(GameObject panel, float panelAnimDuration = 0.25f)
+    public static void HidePanel(GameObject panel, float panelAnimationDuration = 0.25f)
     {
         var canvasGroup = GetOrAddCanvasGroup(panel);
         var rectTransform = panel.transform as RectTransform;
@@ -56,8 +56,8 @@ public static class SmoothPanelView
         canvasGroup.blocksRaycasts = false;
 
         DOTween.Sequence().SetUpdate(true)
-            .Append(rectTransform.DOScale(0.85f, panelAnimDuration * 0.8f).SetEase(Ease.InSine))
-            .Join(DOTween.To(() => canvasGroup.alpha, a => canvasGroup.alpha = a, 0f, panelAnimDuration * 0.8f))
+            .Append(rectTransform.DOScale(0.85f, panelAnimationDuration * 0.8f).SetEase(Ease.InSine))
+            .Join(DOTween.To(() => canvasGroup.alpha, alpha => canvasGroup.alpha = alpha, 0f, panelAnimationDuration * 0.8f))
             .OnComplete(() => panel.SetActive(false));
     }
 }

@@ -33,7 +33,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
         foreach (var (attributes, owner, aniEntity) in SystemAPI
                      .Query<RefRO<AniAttributes>, RefRO<GhostOwner>>()
                      .WithAll<AniSelectedTag>()
-                     .WithNone<SelectionRingRef>()
+                     .WithNone<SelectionRingReference>()
                      .WithEntityAccess())
         {
 
@@ -52,7 +52,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
             });
 
             // 保存引用作为幂等标记
-            entityCommandBuffer.AddComponent(aniEntity, new SelectionRingRef { RingEntity = ring });
+            entityCommandBuffer.AddComponent(aniEntity, new SelectionRingReference { RingEntity = ring });
 
             // 加入 LinkedEntityGroup 让父实体销毁时级联清理
             if (!state.EntityManager.HasBuffer<LinkedEntityGroup>(aniEntity))
@@ -63,7 +63,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
 
         // 未选中 Ani 的光圈立即回收并移除引用标记
         foreach (var (ringRef, aniEntity) in SystemAPI
-                     .Query<RefRO<SelectionRingRef>>()
+                     .Query<RefRO<SelectionRingReference>>()
                      .WithNone<AniSelectedTag>()
                      .WithEntityAccess())
         {
@@ -71,7 +71,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
             if (state.EntityManager.Exists(ring))
                 entityCommandBuffer.DestroyEntity(ring);
 
-            entityCommandBuffer.RemoveComponent<SelectionRingRef>(aniEntity);
+            entityCommandBuffer.RemoveComponent<SelectionRingReference>(aniEntity);
         }
 
         entityCommandBuffer.Playback(state.EntityManager);

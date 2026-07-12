@@ -15,7 +15,7 @@ using Unity.Physics;
 public partial struct AniPhysicsMoveSystem : ISystem
 {
 
-    private ComponentLookup<AniPhysicsConfig> _aniLookup;
+    private ComponentLookup<AniPhysicsConfig> _physicsConfigLookup;
 
     /// <summary>
     /// 缓存 Ani 物理配置查询并等待物理世界和移动实体可用
@@ -30,7 +30,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 .WithAll<LocalTransform, AniMoveIntent, AniPhysicsConfig>()
                 .Build());
         
-        _aniLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
+        _physicsConfigLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
     /// <summary>
@@ -40,7 +40,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        _aniLookup.Update(ref state);
+        _physicsConfigLookup.Update(ref state);
 
         var physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
         var physicsWorld = physicsWorldSingleton.PhysicsWorld;
@@ -58,7 +58,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
             var filter = config.ValueRO.Filter;
 
             // 分离方向只参与速度合成，不能直接改位置以免绕过碰撞截断
-            float3 separationDir = float3.zero;
+            float3 separationDirection = float3.zero;
             float  maxWeight     = 0f; // 分离权重
             {
                 const float SeparationRadius = 0.8f;
@@ -87,7 +87,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                         if (hitEntity == entity)
                             continue;
                         
-                        if (!_aniLookup.HasComponent(hitEntity))
+                        if (!_physicsConfigLookup.HasComponent(hitEntity))
                             continue;
 
                         float distance    = hit.Distance;
@@ -95,24 +95,24 @@ public partial struct AniPhysicsMoveSystem : ISystem
                         if (penetration <= 0f)
                             continue;
 
-                        float3 n = hit.SurfaceNormal;
-                        n.y = 0;
-                        n   = math.normalizesafe(n);
+                        float3 surfaceNormal = hit.SurfaceNormal;
+                        surfaceNormal.y = 0;
+                        surfaceNormal   = math.normalizesafe(surfaceNormal);
 
-                        if (math.all(n == float3.zero))
+                        if (math.all(surfaceNormal == float3.zero))
                             continue;
 
                         float weight = math.saturate(penetration / SeparationRadius);
 
-                        accumulated += n * weight;
+                        accumulated += surfaceNormal * weight;
                         totalWeight += weight;
                         maxWeight    = math.max(maxWeight, weight);
                     }
 
                     if (totalWeight > 0f)
                     {
-                        separationDir = accumulated / totalWeight;
-                        separationDir = math.normalizesafe(separationDir);
+                        separationDirection = accumulated / totalWeight;
+                        separationDirection = math.normalizesafe(separationDirection);
                     }
                 }
             }
@@ -133,18 +133,18 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 // 移动时保留导航意图并叠加按穿透程度衰减的分离力
                 finalVelocity = baseVelocity;
 
-                if (math.lengthsq(separationDir) > 1e-6f)
+                if (math.lengthsq(separationDirection) > 1e-6f)
                 {
                     // 权重随穿透程度变化，避免接触边缘产生突变
-                    finalVelocity += separationDir * (SeparationStrength * maxWeight);
+                    finalVelocity += separationDirection * (SeparationStrength * maxWeight);
                 }
             }
             else
             {
                 // 静止时只修复严重重叠，避免阵型成员在目标点持续漂移
-                if (hasStrongSeparation && math.lengthsq(separationDir) > 1e-6f)
+                if (hasStrongSeparation && math.lengthsq(separationDirection) > 1e-6f)
                 {
-                    finalVelocity = separationDir * (SeparationStrength * maxWeight);
+                    finalVelocity = separationDirection * (SeparationStrength * maxWeight);
                 }
                 else
                 {

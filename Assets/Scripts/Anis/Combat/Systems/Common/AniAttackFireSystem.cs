@@ -44,10 +44,10 @@ public partial struct AniAttackFireSystem : ISystem
                      .WithEntityAccess())
         { 
 
-            ref AniAttackState st = ref attackState.ValueRW;
+            ref AniAttackState attackStateData = ref attackState.ValueRW;
 
-            st.CooldownRemaining -= deltaTime;
-            if (st.CooldownRemaining > 0f)
+            attackStateData.CooldownRemaining -= deltaTime;
+            if (attackStateData.CooldownRemaining > 0f)
                 continue;
 
             // 没有目标时保留已完成的冷却，使新目标出现后可立即攻击
@@ -59,7 +59,7 @@ public partial struct AniAttackFireSystem : ISystem
                 continue;
 
             // 仅在确认发起攻击后重置冷却
-            st.CooldownRemaining = attributes.ValueRO.AttackInterval;
+            attackStateData.CooldownRemaining = attributes.ValueRO.AttackInterval;
 
             uint shotId = ++_shotCounter;
 

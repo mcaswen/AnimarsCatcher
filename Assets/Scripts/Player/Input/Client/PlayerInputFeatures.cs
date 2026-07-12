@@ -4,7 +4,7 @@ using Unity.Mathematics;
 public readonly struct InputContext
 {
     public readonly float DeltaTime;
-    public readonly uint NetTick;
+    public readonly uint NetworkTick;
     public readonly float RightLongPressThreshold;
 
     /// <summary>创建本帧输入转换上下文</summary>
@@ -13,7 +13,7 @@ public readonly struct InputContext
     /// <param name="longPressThreshold">右键长按阈值</param>
     public InputContext(float deltaTime, uint tick, float longPressThreshold)
     {
-        DeltaTime = deltaTime; NetTick = tick; RightLongPressThreshold = longPressThreshold;
+        DeltaTime = deltaTime; NetworkTick = tick; RightLongPressThreshold = longPressThreshold;
     }
 }
 
@@ -24,8 +24,8 @@ public struct KeyboardMouseState
     public float2 LookDelta;
     public float Scroll;
     public bool SpaceDown;
-    public bool EDown;
-    public bool ESCDown;
+    public bool EKeyDown;
+    public bool EscapeKeyDown;
     public bool LeftMousePressed;
     public bool RightHeld;
     public float2 MousePosition;
@@ -36,14 +36,14 @@ public static class PlayerInputFeature
 {
     /// <summary>更新相机、鼠标按钮和长按脉冲</summary>
     /// <param name="input">待更新玩家输入</param>
-    /// <param name="raw">原始键鼠状态</param>
+    /// <param name="rawInputState">原始键鼠状态</param>
     /// <param name="context">输入转换上下文</param>
-    public static void ApplyMouseInputs(ref PlayerInput input, in KeyboardMouseState raw, in InputContext context)
+    public static void ApplyMouseInputs(ref PlayerInput input, in KeyboardMouseState rawInputState, in InputContext context)
     {
-        input.CameraLookInput = raw.LookDelta;
-        input.CameraZoomInput = raw.Scroll;
+        input.CameraLookInput = rawInputState.LookDelta;
+        input.CameraZoomInput = rawInputState.Scroll;
 
-        if (raw.RightHeld)
+        if (rawInputState.RightHeld)
         {
             SetRightMouseHeldTimeAndLongPress(ref input, in context);
         }
@@ -53,9 +53,9 @@ public static class PlayerInputFeature
             input.RightMouseHeldTime = 0f;
         }
 
-        input.MousePosition = raw.MousePosition;
-        if (raw.LeftMousePressed)
-            input.LeftMousePressed.Set(context.NetTick);
+        input.MousePosition = rawInputState.MousePosition;
+        if (rawInputState.LeftMousePressed)
+            input.LeftMousePressed.Set(context.NetworkTick);
     }
 
     private static void SetRightMouseHeldTimeAndLongPress(ref PlayerInput input, in InputContext context)
@@ -67,21 +67,21 @@ public static class PlayerInputFeature
 
         // 只在跨过阈值的 Tick 产生一次长按脉冲
         if (previousHeldTime < context.RightLongPressThreshold && input.RightMouseHeldTime >= context.RightLongPressThreshold)
-            input.RightMouseLongPress.Set(context.NetTick);
+            input.RightMouseLongPress.Set(context.NetworkTick);
     }
 
     
     /// <summary>更新移动输入和键盘按键脉冲</summary>
     /// <param name="input">待更新玩家输入</param>
-    /// <param name="raw">原始键鼠状态</param>
+    /// <param name="rawInputState">原始键鼠状态</param>
     /// <param name="context">输入转换上下文</param>
-    public static void ApplyKeyboardInput(ref PlayerInput input, in KeyboardMouseState raw, in InputContext context)
+    public static void ApplyKeyboardInput(ref PlayerInput input, in KeyboardMouseState rawInputState, in InputContext context)
     {
-        input.MoveInput = raw.Move;
+        input.MoveInput = rawInputState.Move;
 
-        if (raw.SpaceDown) input.JumpPressed.Set(context.NetTick);
-        if (raw.EDown) input.InteractPressed.Set(context.NetTick);
-        if (raw.ESCDown) input.PausePressed.Set(context.NetTick);
+        if (rawInputState.SpaceDown) input.JumpPressed.Set(context.NetworkTick);
+        if (rawInputState.EKeyDown) input.InteractPressed.Set(context.NetworkTick);
+        if (rawInputState.EscapeKeyDown) input.PausePressed.Set(context.NetworkTick);
     }
 
 }

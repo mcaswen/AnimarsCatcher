@@ -351,12 +351,12 @@ public partial struct AniMovementPlannerSystem : ISystem
 
             if (math.lengthsq(dir) < 0.0001f)
             {
-                float3 f = math.mul(leaderTransform.Rotation, new float3(0, 0, 1));
-                f.y = 0f;
-                if (math.lengthsq(f) < 0.0001f)
-                    f = new float3(0, 0, 1);
+                float3 fallbackForward = math.mul(leaderTransform.Rotation, new float3(0, 0, 1));
+                fallbackForward.y = 0f;
+                if (math.lengthsq(fallbackForward) < 0.0001f)
+                    fallbackForward = new float3(0, 0, 1);
 
-                forward = math.normalize(f);
+                forward = math.normalize(fallbackForward);
             }
             else
             {

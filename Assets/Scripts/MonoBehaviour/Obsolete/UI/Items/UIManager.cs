@@ -2,6 +2,7 @@ using System;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Audio;
@@ -43,8 +44,8 @@ namespace AnimarsCatcher.Mono.UI
         public GameObject SelectionPanel;
         public GameObject VolumeAdjustPanel;
 
-        private Vector3 _bigIconPos;
-        private Vector3 _smallIconPos;
+        private Vector3 _bigIconPosition;
+        private Vector3 _smallIconPosition;
         private Vector2 _bigIconSizeDelta;
         private Vector2 _smallIconSizeDelta;
 
@@ -56,18 +57,19 @@ namespace AnimarsCatcher.Mono.UI
         private int _blasterAniFoodCostCount = 0;
         private int _blasterAniCrystalCostCount = 0;
 
-        [SerializeField] private float _panelAnimDuration = 0.25f;
+        [FormerlySerializedAs("_panelAnimDuration")]
+        [SerializeField] private float _panelAnimationDuration = 0.25f;
 
         private void Awake()
         {
             Instance = this;
-            _bigIconPos = PickerAniIcon.GetComponent<RectTransform>().position;
-            _smallIconPos = BlasterAniIcon.GetComponent<RectTransform>().position;
+            _bigIconPosition = PickerAniIcon.GetComponent<RectTransform>().position;
+            _smallIconPosition = BlasterAniIcon.GetComponent<RectTransform>().position;
             _bigIconSizeDelta = PickerAniIcon.GetComponent<RectTransform>().sizeDelta;
             _smallIconSizeDelta = BlasterAniIcon.GetComponent<RectTransform>().sizeDelta;
         }
 
-        public void Init(GameModel gameModel, ReactiveProperty<int> levelTime, int pickerAniFoodCostCount, int pickerAniCrystalCostCount,
+        public void Initialize(GameModel gameModel, ReactiveProperty<int> levelTime, int pickerAniFoodCostCount, int pickerAniCrystalCostCount,
             int blasterAniFoodCostCount, int blasterAniCrystalCostCount)
         {
             _gameModel = gameModel;
@@ -93,7 +95,7 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.EnterMenu();
-                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
+                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimationDuration);
                 Time.timeScale = 0;
             });
 
@@ -101,22 +103,22 @@ namespace AnimarsCatcher.Mono.UI
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.ExitMenu();
-                SmoothPanelView.HidePanel(MenuPanel, _panelAnimDuration);
+                SmoothPanelView.HidePanel(MenuPanel, _panelAnimationDuration);
                 Time.timeScale = 1;
             });
 
             Button_AdjustVolume.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                SmoothPanelView.HidePanel(MenuPanel, _panelAnimDuration);
-                SmoothPanelView.ShowPanel(VolumeAdjustPanel, _panelAnimDuration);
+                SmoothPanelView.HidePanel(MenuPanel, _panelAnimationDuration);
+                SmoothPanelView.ShowPanel(VolumeAdjustPanel, _panelAnimationDuration);
             });
             
             Button_VolumeConfirm.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                SmoothPanelView.HidePanel(VolumeAdjustPanel, _panelAnimDuration);
-                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimDuration);
+                SmoothPanelView.HidePanel(VolumeAdjustPanel, _panelAnimationDuration);
+                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimationDuration);
             });
             
             Button_QuitGame.onClick.AddListener(() =>
@@ -133,12 +135,12 @@ namespace AnimarsCatcher.Mono.UI
             
             PickerAniIcon.onClick.AddListener(() =>
             {
-                AniIconBtnClick(PickerAniIcon,BlasterAniIcon);
+                HandleAniIconButtonClick(PickerAniIcon,BlasterAniIcon);
             });
 
             BlasterAniIcon.onClick.AddListener(() =>
             {
-                AniIconBtnClick(BlasterAniIcon, PickerAniIcon);
+                HandleAniIconButtonClick(BlasterAniIcon, PickerAniIcon);
             });
 
             Selection_AddPickerAniButton.onClick.AddListener(() =>
@@ -197,9 +199,9 @@ namespace AnimarsCatcher.Mono.UI
             });
         }
 
-        private void AniIconBtnClick(Button button1, Button button2)
+        private void HandleAniIconButtonClick(Button primaryButton, Button secondaryButton)
         {
-            AudioManager.Instance.PlaySwitchBtnAudio();
+            AudioManager.Instance.PlaySwitchButtonAudio();
             switch (_aniInfoType)
             {
                 case AniInfoType.Picker:
@@ -218,17 +220,17 @@ namespace AnimarsCatcher.Mono.UI
                     throw new ArgumentOutOfRangeException();
             }
 
-            button1.GetComponent<RectTransform>().DOMove(_smallIconPos, 0.3f);
-            button1.GetComponent<RectTransform>().DOSizeDelta(_smallIconSizeDelta, 0.3f);
-            button1.enabled = false;
-            button2.GetComponent<RectTransform>().DOMove(_bigIconPos, 0.3f);
-            button2.GetComponent<RectTransform>().DOSizeDelta(_bigIconSizeDelta, 0.3f);
-            button2.enabled = true;
+            primaryButton.GetComponent<RectTransform>().DOMove(_smallIconPosition, 0.3f);
+            primaryButton.GetComponent<RectTransform>().DOSizeDelta(_smallIconSizeDelta, 0.3f);
+            primaryButton.enabled = false;
+            secondaryButton.GetComponent<RectTransform>().DOMove(_bigIconPosition, 0.3f);
+            secondaryButton.GetComponent<RectTransform>().DOSizeDelta(_bigIconSizeDelta, 0.3f);
+            secondaryButton.enabled = true;
         }
 
         private void OnLevelDayEnded(LevelDayEndedEventData eventData)
         {
-            SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimDuration);
+            SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimationDuration);
             Time.timeScale = 0;
             _spawningPickerAniCount = 0;
             _spawningBlasterAniCount = 0;
@@ -241,7 +243,7 @@ namespace AnimarsCatcher.Mono.UI
 
         private void OnSelectionMenuConfirmed()
         {
-            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);
+            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimationDuration);
             Time.timeScale = 1;
                 
             EventBus.Instance.Publish(new LevelDayStartedEventData(_spawningBlasterAniCount,

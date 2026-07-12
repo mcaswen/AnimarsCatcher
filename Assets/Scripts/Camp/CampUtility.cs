@@ -8,24 +8,24 @@ public static class CampUtility
     /// <summary>
     /// 判断两个阵营是否应按敌对关系处理
     /// </summary>
-    /// <param name="a">第一个阵营</param>
-    /// <param name="b">第二个阵营</param>
+    /// <param name="firstCamp">第一个阵营</param>
+    /// <param name="secondCamp">第二个阵营</param>
     /// <returns>阵营值不同时返回真</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsEnemy(CampType a, CampType b)
+    public static bool IsEnemy(CampType firstCamp, CampType secondCamp)
     {
-        return a != b;
+        return firstCamp != secondCamp;
     }
 
     /// <summary>
     /// 判断两个阵营是否应按友方关系处理
     /// </summary>
-    /// <param name="a">第一个阵营</param>
-    /// <param name="b">第二个阵营</param>
+    /// <param name="firstCamp">第一个阵营</param>
+    /// <param name="secondCamp">第二个阵营</param>
     /// <returns>阵营值相同时返回真</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsAlly(CampType a, CampType b)
+    public static bool IsAlly(CampType firstCamp, CampType secondCamp)
     {
-        return a == b;
+        return firstCamp == secondCamp;
     }
 }

@@ -54,10 +54,10 @@ namespace AnimarsCatcher.Mono
                 }
             }
 
-            Vector3 tPos = _followTarget.position;
+            Vector3 targetPosition = _followTarget.position;
 
             // 固定世界高度并只跟随目标的水平位置
-            transform.position = new Vector3(tPos.x, height, tPos.z);
+            transform.position = new Vector3(targetPosition.x, height, targetPosition.z);
 
             // 按配置选择固定北向或同步目标偏航角
             if (copyTargetYaw)

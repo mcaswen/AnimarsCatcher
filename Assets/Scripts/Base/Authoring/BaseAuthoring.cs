@@ -50,20 +50,20 @@ class BaseAuthoringBaker : Baker<BaseAuthoring>
                 return;
             }
 
-            Bounds b = collider.bounds;
+            Bounds bounds = collider.bounds;
             AddComponent(entity, new BaseWorldAABB
             {
-                Center      = b.center,
-                HalfExtents = b.extents
+                Center      = bounds.center,
+                HalfExtents = bounds.extents
             });
         }
         else
         {
-            Bounds b = box.bounds;
+            Bounds bounds = box.bounds;
             AddComponent(entity, new BaseWorldAABB
             {
-                Center      = b.center,
-                HalfExtents = b.extents
+                Center      = bounds.center,
+                HalfExtents = bounds.extents
             });
         }
     }

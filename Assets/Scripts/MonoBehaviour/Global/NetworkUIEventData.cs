@@ -5,7 +5,7 @@ namespace AnimarsCatcher.Mono.Global
     /// <summary>
     /// 事件产生的 NetCode 世界
     /// </summary>
-    public enum NetUIEventSource
+    public enum NetworkUIEventSource
     {
         Unknown = 0,
         ServerWorld,
@@ -19,13 +19,13 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct LobbyClientJoinedEventData
     {
-        public readonly NetUIEventSource Source;
+        public readonly NetworkUIEventSource Source;
         public readonly int NetworkId;         // -1 表示当前无法取得网络标识
         public readonly string PlayerName;
         public readonly bool IsLocalPlayer;    // 是否为当前进程控制的玩家
 
         public LobbyClientJoinedEventData(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             int networkId,
             string playerName,
             bool isLocalPlayer)
@@ -42,11 +42,11 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct LobbyClientLeftEventData
     {
-        public readonly NetUIEventSource Source;
+        public readonly NetworkUIEventSource Source;
         public readonly int NetworkId;
         public readonly string PlayerName;
 
-        public LobbyClientLeftEventData(NetUIEventSource source, int networkId, string playerName)
+        public LobbyClientLeftEventData(NetworkUIEventSource source, int networkId, string playerName)
         {
             Source = source;
             NetworkId = networkId;
@@ -63,13 +63,13 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct MatchStartedEventData
     {
-        public readonly NetUIEventSource Source;
+        public readonly NetworkUIEventSource Source;
         public readonly int LocalPlayerNetworkId;
 
-        public MatchStartedEventData(NetUIEventSource source, int localId)
+        public MatchStartedEventData(NetworkUIEventSource source, int localPlayerNetworkId)
         {
             Source = source;
-            LocalPlayerNetworkId = localId;
+            LocalPlayerNetworkId = localPlayerNetworkId;
         }
     }
 
@@ -78,10 +78,10 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct MatchEndedEventData
     {
-        public readonly NetUIEventSource Source;
+        public readonly NetworkUIEventSource Source;
         public readonly string Reason; // 使用 HostExit AllDead Timeout 等稳定原因码
 
-        public MatchEndedEventData(NetUIEventSource source, string reason)
+        public MatchEndedEventData(NetworkUIEventSource source, string reason)
         {
             Source = source;
             Reason = reason;
@@ -96,11 +96,11 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct ConnectionLostEventData
     {
-        public readonly NetUIEventSource Source;
+        public readonly NetworkUIEventSource Source;
         public readonly int NetworkId;
         public readonly string Reason;
 
-        public ConnectionLostEventData(NetUIEventSource source, int networkId, string reason)
+        public ConnectionLostEventData(NetworkUIEventSource source, int networkId, string reason)
         {
             Source = source;
             NetworkId = networkId;
@@ -117,10 +117,10 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct SpawnBlasterAniRequestedEventData
     {
-        public NetUIEventSource Source { get; }
+        public NetworkUIEventSource Source { get; }
         public int RequestedCount { get; }  
 
-        public SpawnBlasterAniRequestedEventData(NetUIEventSource source, int requestedCount = 1)
+        public SpawnBlasterAniRequestedEventData(NetworkUIEventSource source, int requestedCount = 1)
         {
             Source = source;
             RequestedCount = requestedCount;
@@ -141,12 +141,12 @@ namespace AnimarsCatcher.Mono.Global
     /// </summary>
     public readonly struct ResourceChangedRequestedEventData
     {
-        public NetUIEventSource Source { get; }
+        public NetworkUIEventSource Source { get; }
         public ResourceType ResourceType { get; }
         public int Amount { get; }
 
         public ResourceChangedRequestedEventData(
-            NetUIEventSource source,
+            NetworkUIEventSource source,
             ResourceType resourceType,
             int amount)
         {

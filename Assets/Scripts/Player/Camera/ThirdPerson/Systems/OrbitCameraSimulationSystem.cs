@@ -90,7 +90,7 @@ public partial struct OrbitCameraSimulationSystem : ISystem
 
                 // 累计俯仰输入并限制垂直视角
                 orbitCamera.PitchAngle += -cameraControl.LookDegreesDelta.y * orbitCamera.RotationSpeed;
-                orbitCamera.PitchAngle = math.clamp(orbitCamera.PitchAngle, orbitCamera.MinVAngle, orbitCamera.MaxVAngle);
+                orbitCamera.PitchAngle = math.clamp(orbitCamera.PitchAngle, orbitCamera.MinVerticalAngle, orbitCamera.MaxVerticalAngle);
 
                 // 合成最终相机旋转
                 quaternion cameraRotation = OrbitCameraUtilities.CalculateCameraRotation(targetUp, orbitCamera.PlanarForward, orbitCamera.PitchAngle);

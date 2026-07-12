@@ -39,7 +39,7 @@ public partial struct AniSelectionModeSyncSystem : ISystem
         AniSelectionModeSyncContext.CurrentMode = AniSelectionMode.Picker;
         AniSelectionModeSyncContext.Dirty = false;
 
-        NetUIEventBridge.AniSelectionModeChanged.AddListener(OnSelectionModeChanged);
+        NetworkUIEventBridge.AniSelectionModeChanged.AddListener(OnSelectionModeChanged);
 
         entityCommandBuffer.Playback(state.EntityManager);
         entityCommandBuffer.Dispose();
@@ -50,7 +50,7 @@ public partial struct AniSelectionModeSyncSystem : ISystem
     /// </summary>
     public void OnDestroy()
     {
-        NetUIEventBridge.AniSelectionModeChanged.RemoveListener(OnSelectionModeChanged);
+        NetworkUIEventBridge.AniSelectionModeChanged.RemoveListener(OnSelectionModeChanged);
     }
 
     // 事件回调仅写入托管上下文 由 ECS 更新阶段正式提交

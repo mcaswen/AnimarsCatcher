@@ -39,8 +39,8 @@ public partial struct AniFormationManagementSystem : ISystem
                      .Query<RefRO<AniFormationMember>>()
                      .WithNone<AniFormationLeaveRequest, AniFormationJoinRequest>())
         {
-            var m = member.ValueRO;
-            slotsByLeader.Add(m.leader, m.slotIndex);
+            var formationMember = member.ValueRO;
+            slotsByLeader.Add(formationMember.leader, formationMember.slotIndex);
         }
 
         // 离开请求只负责解除成员关系并消费请求组件

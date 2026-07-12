@@ -97,7 +97,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                 );
 
                 // 角色创建只能在 Server World 执行
-                var character = CharacterSpawnUtility.InstantiateAndInit(
+                var character = CharacterSpawnUtility.InstantiateAndInitialize(
                     ref entityCommandBuffer,
                     characterPrefab.Value,
                     id,

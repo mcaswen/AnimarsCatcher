@@ -32,13 +32,13 @@ public partial struct ClientLocalPlayerCampSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        int myId = SystemAPI.GetSingleton<NetworkId>().Value;
+        int localNetworkId = SystemAPI.GetSingleton<NetworkId>().Value;
 
         // 以 GhostOwner 为准，避免把其他客户端角色误认成本地玩家
         foreach (var (camp, owner) in SystemAPI
                      .Query<RefRO<Camp>, RefRO<GhostOwner>>())
         {
-            if (owner.ValueRO.NetworkId != myId)
+            if (owner.ValueRO.NetworkId != localNetworkId)
                 continue;
 
             var localCamp = SystemAPI.GetSingletonRW<LocalPlayerCamp>();

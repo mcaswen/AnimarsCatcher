@@ -46,12 +46,12 @@ public partial struct MovementClickRaycastSystem : ISystem
 
         Camera cam = context.WorldCamera;
 
-        Ray rayO = cam.ScreenPointToRay(screenPos3);
+        Ray debugRay = cam.ScreenPointToRay(screenPos3);
 
         Debug.Log(
             $"[MovementClickRaycastSystem] cam={cam.name}, camPos={cam.transform.position}, " +
             $"camForward={cam.transform.forward}, screenPos={screenPos3}, " +
-            $"rayOrigin={rayO.origin}, rayDir={rayO.direction}");
+            $"rayOrigin={debugRay.origin}, rayDir={debugRay.direction}");
 
         // 玩家优先级最高，点击重叠时优先解释为跟随命令
         if (Physics.Raycast(ray, out RaycastHit hitPlayer, 1000f, context.PlayerMask))

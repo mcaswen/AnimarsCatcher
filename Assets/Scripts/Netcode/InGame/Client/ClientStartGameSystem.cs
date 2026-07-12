@@ -42,26 +42,26 @@ public partial struct ClientStartGameSystem : ISystem
         if (!hasStart)
             return;
 
-        string sceneNameStr = sceneName.ToString();
-        Debug.Log($"[ClientStartGameSystem] Received ClientStartGameRpc, loading scene '{sceneNameStr}' via GlobalLoadingUI.");
+        string sceneNameString = sceneName.ToString();
+        Debug.Log($"[ClientStartGameSystem] Received ClientStartGameRpc, loading scene '{sceneNameString}' via GlobalLoadingUI.");
 
         // 本地状态用于阻止场景就绪系统在开局通知前运行
         var matchStateEntity = state.EntityManager.CreateEntity(typeof(ClientMatchStartState));
         state.EntityManager.SetComponentData(matchStateEntity, new ClientMatchStartState { Active = 1 });
 
-        int localNetId = SystemAPI.GetSingleton<NetworkId>().Value;
-        NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ClientWorld, localNetId);
+        int localNetworkId = SystemAPI.GetSingleton<NetworkId>().Value;
+        NetworkUIEventBridge.RaiseMatchStartedEvent(NetworkUIEventSource.ClientWorld, localNetworkId);
 
         // 优先通过全局加载界面异步切场景并遮挡加载过程
         if (GlobalLoadingUI.Instance != null)
         {
-            GlobalLoadingUI.Instance.StartLoadingAndTransition(sceneNameStr);
+            GlobalLoadingUI.Instance.StartLoadingAndTransition(sceneNameString);
         }
         else
         {
             // 加载界面缺失时同步切场景，保证协议仍能继续完成
             Debug.LogWarning("[ClientStartGameSystem] GlobalLoadingUI.Instance is null, fallback to direct LoadScene.");
-            UnityEngine.SceneManagement.SceneManager.LoadScene(sceneNameStr);
+            UnityEngine.SceneManagement.SceneManager.LoadScene(sceneNameString);
             ClientCinematicState.ShouldRunIntro = true;
         }
     }

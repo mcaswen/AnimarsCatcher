@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 /// <summary>配置环绕相机的旋转、缩放、遮挡和忽略实体</summary>
 [DisallowMultipleComponent]
@@ -11,8 +12,10 @@ public class OrbitCameraAuthoring : MonoBehaviour
     // 旋转参数控制输入响应以及相对移动平台的朝向继承
     [Header("Rotation")]
     public float RotationSpeed = 2f;
-    public float MaxVAngle = 89f;
-    public float MinVAngle = -89f;
+    [FormerlySerializedAs("MaxVAngle")]
+    public float MaxVerticalAngle = 89f;
+    [FormerlySerializedAs("MinVAngle")]
+    public float MinVerticalAngle = -89f;
     public bool RotateWithCharacterParent = true;
 
     // 距离平滑与输入速度分开配置，避免缩放手感依赖帧率
@@ -46,8 +49,8 @@ public class OrbitCameraAuthoring : MonoBehaviour
             AddComponent(entity, new OrbitCamera
             {
                 RotationSpeed = authoring.RotationSpeed,
-                MaxVAngle = authoring.MaxVAngle,
-                MinVAngle = authoring.MinVAngle,
+                MaxVerticalAngle = authoring.MaxVerticalAngle,
+                MinVerticalAngle = authoring.MinVerticalAngle,
                 RotateWithCharacterParent = authoring.RotateWithCharacterParent,
 
                 MinDistance = authoring.MinDistance,

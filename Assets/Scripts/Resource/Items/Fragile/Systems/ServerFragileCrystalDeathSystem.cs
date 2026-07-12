@@ -31,7 +31,7 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        EntityCommandBuffer ecb = new EntityCommandBuffer(Allocator.Temp);
+        EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
         foreach (var (stoneRef, transformRef, health, stoneEntity) in
                  SystemAPI.Query<RefRO<FragileCrystal>, RefRO<LocalTransform>, RefRO<Health>>()
@@ -47,7 +47,7 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
             if (stone.PickablePrefab == Entity.Null ||
                 !SystemAPI.HasComponent<PickableResource>(stone.PickablePrefab))
             {
-                ecb.DestroyEntity(stoneEntity);
+                entityCommandBuffer.DestroyEntity(stoneEntity);
                 continue;
             }
 
@@ -61,7 +61,7 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
 
             for (int i = 0; i < pieceCount; i++)
             {
-                Entity piece = ecb.Instantiate(stone.PickablePrefab);
+                Entity piece = entityCommandBuffer.Instantiate(stone.PickablePrefab);
 
                 // 在圆环上均匀分布掉落位置
                 float angle = (2f * math.PI / pieceCount) * i;
@@ -72,7 +72,7 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
                 float3 spawnPos = origin + offset;
 
                 // 设置小矿的位置
-                ecb.SetComponent(piece, new LocalTransform
+                entityCommandBuffer.SetComponent(piece, new LocalTransform
                 {
                     Position = spawnPos,
                     Rotation = transformRef.ValueRO.Rotation,
@@ -80,9 +80,9 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
                 });
             }
 
-            ecb.DestroyEntity(stoneEntity);
+            entityCommandBuffer.DestroyEntity(stoneEntity);
         }
 
-        ecb.Playback(state.EntityManager);
+        entityCommandBuffer.Playback(state.EntityManager);
     }
 }

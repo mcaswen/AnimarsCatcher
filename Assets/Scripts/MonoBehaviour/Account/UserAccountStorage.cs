@@ -119,9 +119,9 @@ public static class UserAccountStorage
 
             Debug.Log($"[UserAccountStorage] Saved {_accounts.Count} accounts to disk. Path = {FilePath}");
         }
-        catch (Exception e)
+        catch (Exception exception)
         {
-            Debug.LogError($"[UserAccountStorage] Failed to save accounts: {e}");
+            Debug.LogError($"[UserAccountStorage] Failed to save accounts: {exception}");
         }
     }
 

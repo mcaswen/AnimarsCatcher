@@ -32,7 +32,7 @@ public class ClientRoomPanelController : MonoBehaviour
     [SerializeField] private TMP_Text _hostNotFoundPromptText;
 
     [Header("Net Settings")]
-    [SerializeField] private ushort _gamePort = NetPorts.Game;
+    [SerializeField] private ushort _gamePort = NetworkPorts.Game;
     [SerializeField] private string _fallbackHostIp = "192.168.0.101";
     [SerializeField] private LanDiscoveryClient _lanDiscoveryClient;
 
@@ -77,14 +77,14 @@ public class ClientRoomPanelController : MonoBehaviour
     {
         _onJoinRoomRequestedHandler = data => OnJoinRoomRequested();
         EventBus.Instance.Subscribe(_onJoinRoomRequestedHandler);
-        NetUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
+        NetworkUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
     }
 
     // 对称解除事件监听并停止局域网发现
     private void OnDestroy()
     {
         EventBus.Instance.Unsubscribe(_onJoinRoomRequestedHandler);
-        NetUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
+        NetworkUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
     }
 
     // 清空一次连接尝试的计时器 状态标记和提示界面
@@ -214,7 +214,7 @@ public class ClientRoomPanelController : MonoBehaviour
         var server = servers[0];
 
         // 先展示主机信息再进入连接阶段
-        string ip = server.IpAddress;
+        string ip = server.IPAddress;
         ushort port = server.GamePort;
         string hostName = server.HostName;
 

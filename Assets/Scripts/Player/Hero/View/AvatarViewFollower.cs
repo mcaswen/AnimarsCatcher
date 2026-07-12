@@ -30,8 +30,8 @@ public class AvatarViewFollower : MonoBehaviour
     private bool _isBound;
     private Vector3 _lastRenderPosition;
 
-    private Vector3 _appliedPos;
-    private Quaternion _appliedRot;
+    private Vector3 _appliedPosition;
+    private Quaternion _appliedRotation;
 
 
     /// <summary>绑定需要跟随的实体及其所属 EntityManager</summary>
@@ -87,12 +87,12 @@ public class AvatarViewFollower : MonoBehaviour
         quaternion targetEntityRotation;
 
         var ltw = BoundEntityManager.GetComponentData<LocalToWorld>(TargetEntity);
-        float4x4 m = ltw.Value;
+        float4x4 localToWorldMatrix = ltw.Value;
 
         // LocalToWorld 的三个列向量同时包含轴向和各轴缩放
-        float3 right   = m.c0.xyz;
-        float3 up      = m.c1.xyz;
-        float3 forward = m.c2.xyz;
+        float3 right   = localToWorldMatrix.c0.xyz;
+        float3 up      = localToWorldMatrix.c1.xyz;
+        float3 forward = localToWorldMatrix.c2.xyz;
 
         // 从 LocalToWorld 列向量长度恢复非均匀缩放
         float3 scale;
@@ -104,12 +104,12 @@ public class AvatarViewFollower : MonoBehaviour
         targetEntityRotation = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Rotation;
 
         // 首帧或大位移直接吸附，避免出生和传送时表现对象缓慢追赶
-        Vector3 currentPos = targetEntityPosition;
-        if (!_initialized || (currentPos - transform.position).sqrMagnitude > TeleportSnapDistance * TeleportSnapDistance)
+        Vector3 currentPosition = targetEntityPosition;
+        if (!_initialized || (currentPosition - transform.position).sqrMagnitude > TeleportSnapDistance * TeleportSnapDistance)
         {
-            transform.SetPositionAndRotation(currentPos, targetEntityRotation);
+            transform.SetPositionAndRotation(currentPosition, targetEntityRotation);
             transform.localScale = new Vector3(scale.x, scale.y, scale.z);
-            _lastRenderPosition = currentPos;
+            _lastRenderPosition = currentPosition;
             _initialized = true;
 
             // 吸附帧不应把传送距离误判为移动速度
@@ -119,13 +119,13 @@ public class AvatarViewFollower : MonoBehaviour
             return;
         }
 
-        transform.SetPositionAndRotation(currentPos, targetEntityRotation);
+        transform.SetPositionAndRotation(currentPosition, targetEntityRotation);
         transform.localScale = new Vector3(scale.x, scale.y, scale.z);
 
         // 只平滑 Animator 速度，实体位置保持逐帧精确跟随
         if (_animator != null)
         {
-            float distance = (currentPos - _lastRenderPosition).magnitude;
+            float distance = (currentPosition - _lastRenderPosition).magnitude;
             if (SpeedDeadbandMeters > 0f && distance < SpeedDeadbandMeters)
                 distance = 0f;
 
@@ -138,9 +138,9 @@ public class AvatarViewFollower : MonoBehaviour
             _animator.SetFloat(SpeedParameterName, smoothedSpeed);
         }
 
-        _lastRenderPosition = currentPos;
+        _lastRenderPosition = currentPosition;
 
-        _appliedPos = transform.position;
-        _appliedRot = transform.rotation;
+        _appliedPosition = transform.position;
+        _appliedRotation = transform.rotation;
     }
 }

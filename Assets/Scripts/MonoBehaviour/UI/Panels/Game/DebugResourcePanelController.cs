@@ -25,8 +25,8 @@ public class DebugResourcePanelController : MonoBehaviour
     // 请求服务端增加配置数量的食物
     private void OnAddFoodClicked()
     {
-        NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-            NetUIEventSource.ClientWorld,
+        NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+            NetworkUIEventSource.ClientWorld,
             ResourceType.Food,
             _debugAddAmount
         );
@@ -35,8 +35,8 @@ public class DebugResourcePanelController : MonoBehaviour
     // 请求服务端增加配置数量的水晶
     private void OnAddCrystalClicked()
     {
-        NetUIEventBridge.RaiseResourceChangedRequestedEvent(
-            NetUIEventSource.ClientWorld,
+        NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+            NetworkUIEventSource.ClientWorld,
             ResourceType.Crystal,
             _debugAddAmount
         );

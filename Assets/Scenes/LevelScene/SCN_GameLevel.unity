@@ -548,7 +548,7 @@ MonoBehaviour:
   _pickerAniCrystalCostCount: 0
   _blasterAniFoodCostCount: 2
   _blasterAniCrystalCostCount: 1
-  _panelAnimDuration: 0.25
+  _panelAnimationDuration: 0.25
 --- !u!1001 &49537091
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4017,7 +4017,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6a20a128ec390404b806e9c43ec981b7, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::ChangeResourceNetBridge
+  m_EditorClassIdentifier: Assembly-CSharp::ChangeResourceNetworkBridge
 --- !u!4 &355909226
 Transform:
   m_ObjectHideFlags: 0
@@ -7414,7 +7414,7 @@ MonoBehaviour:
   BlasterAniIcon: {fileID: 1475374819}
   MenuPanel: {fileID: 1475374818}
   _aniInfoType: 0
-  _panelAnimDuration: 0.25
+  _panelAnimationDuration: 0.25
 --- !u!1001 &587355834
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -12621,7 +12621,7 @@ MonoBehaviour:
   Button_AdjustVolume: {fileID: 1475374816}
   Button_QuitGame: {fileID: 1475374815}
   Button_VolumeConfirm: {fileID: 1475374814}
-  _panelAnimDuration: 0.25
+  _panelAnimationDuration: 0.25
 --- !u!1001 &1100902665
 PrefabInstance:
   m_ObjectHideFlags: 0

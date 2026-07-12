@@ -10,7 +10,7 @@ using UnityEngine.AI;
 /// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct ServerNavmeshPlannerSystem : ISystem
+public partial struct ServerNavMeshPlannerSystem : ISystem
 {
     private BufferLookup<FsmVar> _blackboardLookup;
     private BufferTypeHandle<NavWaypoint> _waypointBufferHandle;

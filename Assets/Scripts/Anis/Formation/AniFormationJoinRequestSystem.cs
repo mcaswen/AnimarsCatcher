@@ -50,8 +50,8 @@ public partial struct AniFormationJoinRequestSystem : ISystem
                           .WithAll<CharacterTag>()   
                           .WithEntityAccess())
         {
-            int netId = owner.ValueRO.NetworkId;
-            leadersByNetworkId.TryAdd(netId, entity);
+            int networkId = owner.ValueRO.NetworkId;
+            leadersByNetworkId.TryAdd(networkId, entity);
         }
 
         // 仅为具有移动黑板和网络拥有权的 Ani 生成请求
@@ -83,9 +83,9 @@ public partial struct AniFormationJoinRequestSystem : ISystem
                 continue;
 
             // 使用 Ani 自身 GhostOwner 查找同一连接拥有的玩家主角
-            int ownerNetId = _ghostOwnerLookup[entity].NetworkId;
+            int ownerNetworkId = _ghostOwnerLookup[entity].NetworkId;
 
-            if (!leadersByNetworkId.TryGetValue(ownerNetId, out Entity leader))
+            if (!leadersByNetworkId.TryGetValue(ownerNetworkId, out Entity leader))
             {
                 // 玩家主角尚未生成时延后到后续帧重试
                 continue;

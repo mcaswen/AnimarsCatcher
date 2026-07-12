@@ -13079,8 +13079,8 @@ MonoBehaviour:
   MoveSpeed: 20
   ControlRadiusMin: 0
   ControlRadiusMax: 8
-  TargetPosGO: {fileID: 364777480}
-  FX_SmokeParticleSystem: {fileID: 2077907387}
+  TargetPositionObject: {fileID: 364777480}
+  SmokeParticleSystem: {fileID: 2077907387}
 --- !u!95 &7989497854687752516
 Animator:
   serializedVersion: 7

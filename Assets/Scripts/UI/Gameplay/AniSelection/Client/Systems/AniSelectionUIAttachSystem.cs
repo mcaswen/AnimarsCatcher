@@ -30,7 +30,7 @@ public partial class AniSelectionUIAttachSystem : SystemBase
         if (!SystemAPI.TryGetSingletonEntity<AniSelectionDragState>(out dragStateEntity))
             dragStateEntity = entityManager.CreateEntity(typeof(AniSelectionDragState));
 
-        entityManager.AddComponentObject(dragStateEntity, new AniSelectionUIRef
+        entityManager.AddComponentObject(dragStateEntity, new AniSelectionUIReference
         {
             WorldCamera = bootstrap.worldCamera,
             RootCanvas = bootstrap.rootCanvas,

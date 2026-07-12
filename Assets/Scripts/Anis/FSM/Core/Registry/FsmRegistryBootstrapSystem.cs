@@ -18,7 +18,7 @@ public partial struct FsmRegistryBootstrapSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
         state.EntityManager.CreateSingleton(new FsmContext()); // 供运行时系统注入时间和黑板查询
-        FsmRegistry.Init();
+        FsmRegistry.Initialize();
     }
 
     /// <summary>

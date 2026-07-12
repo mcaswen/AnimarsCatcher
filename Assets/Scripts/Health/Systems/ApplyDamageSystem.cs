@@ -49,9 +49,9 @@ public partial struct ApplyDamageSystem : ISystem
             if (totalDamage == 0)
                 continue;
 
-            var h = health.ValueRW;
-            h.current = math.max(0, h.current - totalDamage);
-            health.ValueRW = h;
+            var healthData = health.ValueRW;
+            healthData.current = math.max(0, healthData.current - totalDamage);
+            health.ValueRW = healthData;
         }
     }
 }

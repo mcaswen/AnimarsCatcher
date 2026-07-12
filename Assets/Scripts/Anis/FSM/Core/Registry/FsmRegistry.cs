@@ -9,12 +9,12 @@ using UnityEngine.PlayerLoop;
 /// <summary>
 /// 定义可由 Burst 函数指针调用的状态迁移条件
 /// </summary>
-public delegate bool ConditionFn(in Entity entity, in FsmContext context);
+public delegate bool ConditionFunction(in Entity entity, in FsmContext context);
 
 /// <summary>
 /// 定义可由 Burst 函数指针调用的状态动作
 /// </summary>
-public delegate void ActionFn(in Entity entity, ref Fsm fsm, in FsmContext context);
+public delegate void ActionFunction(in Entity entity, ref Fsm fsm, in FsmContext context);
 
 /// <summary>
 /// 使用固定索引的 Burst 函数指针表替代运行时多态分派
@@ -23,8 +23,8 @@ public delegate void ActionFn(in Entity entity, ref Fsm fsm, in FsmContext conte
 [BurstCompile]
 public static class FsmRegistry
 {
-    private static NativeArray<FunctionPointer<ConditionFn>> s_Conditions;
-    private static NativeArray<FunctionPointer<ActionFn>> s_Actions;
+    private static NativeArray<FunctionPointer<ConditionFunction>> s_Conditions;
+    private static NativeArray<FunctionPointer<ActionFunction>> s_Actions;
     private static bool s_Alive = true;
     private static bool s_Initialized = false;
     private const int MaxConditionCount = 1024;
@@ -33,12 +33,12 @@ public static class FsmRegistry
     /// <summary>
     /// 分配持久化条件表和动作表，重复调用不会再次分配
     /// </summary>
-    public static void Init()
+    public static void Initialize()
     {
         if (s_Initialized) return;
 
-        s_Conditions  = new NativeArray<FunctionPointer<ConditionFn>>(MaxConditionCount, Allocator.Persistent);
-        s_Actions = new NativeArray<FunctionPointer<ActionFn>>(MaxActionCount, Allocator.Persistent);
+        s_Conditions  = new NativeArray<FunctionPointer<ConditionFunction>>(MaxConditionCount, Allocator.Persistent);
+        s_Actions = new NativeArray<FunctionPointer<ActionFunction>>(MaxActionCount, Allocator.Persistent);
 
         s_Initialized = true;
     }
@@ -57,22 +57,26 @@ public static class FsmRegistry
     /// 把条件函数指针登记到指定条件标识符
     /// </summary>
     /// <param name="id">条件函数的全局标识符</param>
-    /// <param name="fn">已由 Burst 编译的函数指针</param>
-    public static void RegisterCondition(ConditionId id, FunctionPointer<ConditionFn> fn)
+    /// <param name="conditionFunctionPointer">已由 Burst 编译的条件函数指针</param>
+    public static void RegisterCondition(
+        ConditionId id,
+        FunctionPointer<ConditionFunction> conditionFunctionPointer)
     {
         var conditions = s_Conditions;
-        conditions[(int)id] = fn;
+        conditions[(int)id] = conditionFunctionPointer;
     }
 
     /// <summary>
     /// 把动作函数指针登记到指定动作标识符
     /// </summary>
     /// <param name="id">动作函数的全局标识符</param>
-    /// <param name="fn">已由 Burst 编译的函数指针</param>
-    public static void RegisterAction(ActionId id, FunctionPointer<ActionFn> fn)
+    /// <param name="actionFunctionPointer">已由 Burst 编译的动作函数指针</param>
+    public static void RegisterAction(
+        ActionId id,
+        FunctionPointer<ActionFunction> actionFunctionPointer)
     {
         var actions = s_Actions;
-        actions[(int)id] = fn;
+        actions[(int)id] = actionFunctionPointer;
     }
 
     /// <summary>

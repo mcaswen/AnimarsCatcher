@@ -85,10 +85,10 @@ public partial struct AniAttackSenseSystem : ISystem
             if (isPicker && isPicking)
                 continue;
 
-            float3   myPos   = transform.ValueRO.Position;
+            float3   attackerPosition = transform.ValueRO.Position;
             float    range   = attributes.ValueRO.AttackRange;
             float    rangeSq = range * range;
-            CampType myCamp  = camp.ValueRO.Value;
+            CampType attackerCamp = camp.ValueRO.Value;
 
             Entity              bestTarget = Entity.Null;
             AniAttackTargetKind bestKind   = AniAttackTargetKind.None;
@@ -102,10 +102,10 @@ public partial struct AniAttackSenseSystem : ISystem
                 CampType targetCamp   = enemyCamps[i].Value;
 
                 // 阵营相同的 Ani 不进入候选
-                if (targetCamp == myCamp)
+                if (targetCamp == attackerCamp)
                     continue;
 
-                float distSq = math.lengthsq(targetPos - myPos);
+                float distSq = math.lengthsq(targetPos - attackerPosition);
                 if (distSq > rangeSq)
                     continue;
 
@@ -124,7 +124,7 @@ public partial struct AniAttackSenseSystem : ISystem
                 var    baseCamp   = baseCamps[i];
 
                 // 友方基地不进入候选
-                if (baseCamp.Value == myCamp)
+                if (baseCamp.Value == attackerCamp)
                     continue;
 
                 // 已摧毁基地由胜负系统处理，不再作为攻击目标
@@ -133,7 +133,7 @@ public partial struct AniAttackSenseSystem : ISystem
 
                 // 当前规则使用基地中心点距离判断攻击范围
                 float3 basePos       = baseTransforms[i].Position;
-                float  distSqToBase  = math.lengthsq(basePos - myPos);
+                float  distSqToBase  = math.lengthsq(basePos - attackerPosition);
                 if (distSqToBase > rangeSq)
                     continue;
 
@@ -167,7 +167,7 @@ public partial struct AniAttackSenseSystem : ISystem
                     Entity targetEntity = resourceEntities[i];
                     float3 targetPos    = resourceTransforms[i].Position;
 
-                    float distSq = math.lengthsq(targetPos - myPos);
+                    float distSq = math.lengthsq(targetPos - attackerPosition);
                     if (distSq > rangeSq)
                         continue;
 

@@ -103,11 +103,11 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
                 continue;
             }
 
-            var pending = _pendingLookup[attackerEntity];
-            var attr    = _attributesLookup[attackerEntity];
+            var pending    = _pendingLookup[attackerEntity];
+            var attributes = _attributesLookup[attackerEntity];
 
             // 攻击模式必须与远程 RPC 链路匹配
-            if (attr.AttackMode != AniAttackMode.Ranged)
+            if (attributes.AttackMode != AniAttackMode.Ranged)
             {
                 ecb.DestroyEntity(rpcEntity);
                 continue;
@@ -158,7 +158,7 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
             // 伤害写入缓冲区，由统一伤害系统在后续阶段汇总
             ecb.AddBuffer<DamageEvent>(targetEntity).Add(new DamageEvent
             {
-                amount = attr.AttackDamage,
+                amount = attributes.AttackDamage,
             });
 
             // 待结算快照只能成功消费一次

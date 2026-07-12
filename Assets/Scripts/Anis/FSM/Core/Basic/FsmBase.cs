@@ -6,7 +6,7 @@ using Unity.Entities;
 /// <summary>
 /// 表示状态图中的状态索引，零值保留为通用占位状态
 /// </summary>
-public enum StateId : ushort { S0 = 0 }
+public enum StateId : ushort { None = 0 }
 
 /// <summary>
 /// 表示注册表中的条件函数索引，零值表示永不满足

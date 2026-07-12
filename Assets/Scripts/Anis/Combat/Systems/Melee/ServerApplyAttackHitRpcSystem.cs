@@ -97,11 +97,11 @@ public partial struct ServerApplyAttackHitRpcSystem : ISystem
                 continue;
             }
 
-            var pending   = _pendingLookup[attackerEntity];
-            var attr      = _attributesLookup[attackerEntity];
+            var pending    = _pendingLookup[attackerEntity];
+            var attributes = _attributesLookup[attackerEntity];
 
             // 攻击模式必须与近战 RPC 链路匹配
-            if (attr.AttackMode != AniAttackMode.Melee)
+            if (attributes.AttackMode != AniAttackMode.Melee)
             {
                 entityCommandBuffer.DestroyEntity(rpcEntity);
                 continue;
@@ -139,7 +139,7 @@ public partial struct ServerApplyAttackHitRpcSystem : ISystem
             // 伤害写入缓冲区，由统一伤害系统在后续阶段汇总
             entityCommandBuffer.AddBuffer<DamageEvent>(target).Add(new DamageEvent
             {
-                amount = attr.AttackDamage,
+                amount = attributes.AttackDamage,
             });
 
             // 待结算快照只能成功消费一次

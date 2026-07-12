@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Mono.Lan
     {
         [Header("Discovery Settings")]
         [SerializeField] private int _discoveryPort = 47777;
-        [SerializeField] private ushort _gamePort = NetPorts.Game;
+        [SerializeField] private ushort _gamePort = NetworkPorts.Game;
         [SerializeField] private float _broadcastInterval = 1.0f;
 
         [Header("Debug")]
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Mono.Lan
         /// </summary>
         public void StartBroadcast(string hostName, ushort gamePort)
         {
-            if (_isBroadcasting || NetRuntimeRole.Current != NetworkRunRole.Host) 
+            if (_isBroadcasting || NetworkRuntimeRole.Current != NetworkRunRole.Host)
                 return;
 
             _hostName = string.IsNullOrEmpty(hostName) ? "UnknownHost" : hostName;
@@ -61,9 +61,9 @@ namespace AnimarsCatcher.Mono.Lan
 
                 Debug.Log($"[LanDiscoveryHost] Start broadcasting on port {_discoveryPort}, gamePort={_gamePort}.");
             }
-            catch (System.Exception e)
+            catch (System.Exception exception)
             {
-                Debug.LogError($"[LanDiscoveryHost] Failed to start broadcast: {e}");
+                Debug.LogError($"[LanDiscoveryHost] Failed to start broadcast: {exception}");
                 _isBroadcasting = false;
             }
         }
@@ -73,7 +73,7 @@ namespace AnimarsCatcher.Mono.Lan
         /// </summary>
         public void StopBroadcast()
         {
-            if (!_isBroadcasting || NetRuntimeRole.Current != NetworkRunRole.Host) 
+            if (!_isBroadcasting || NetworkRuntimeRole.Current != NetworkRunRole.Host)
                 return;
 
             _isBroadcasting = false;
@@ -89,7 +89,7 @@ namespace AnimarsCatcher.Mono.Lan
 
         private void Update()
         {
-            if (!_isBroadcasting || _udpClient == null || NetRuntimeRole.Current != NetworkRunRole.Host)
+            if (!_isBroadcasting || _udpClient == null || NetworkRuntimeRole.Current != NetworkRunRole.Host)
                 return;
 
             _timeSinceLastBroadcast += Time.deltaTime;

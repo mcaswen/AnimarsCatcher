@@ -33,7 +33,7 @@ public partial struct FixedFollowCameraSystem : ISystem
     {
         float deltaTime = SystemAPI.Time.DeltaTime;
 
-        foreach (var (config, control, camTransform, camEntity)
+        foreach (var (config, control, cameraTransform, _)
                  in SystemAPI
                     .Query<RefRO<FixedCamera>, RefRO<FixedCameraControl>, RefRW<LocalTransform>>()
                     .WithEntityAccess())
@@ -72,11 +72,11 @@ public partial struct FixedFollowCameraSystem : ISystem
 
             float3 lookAt      = targetPos + new float3(0, config.ValueRO.LookUpBias, 0);
             float3 forward     = math.normalizesafe(lookAt - desiredPos);
-            quaternion camRot  = quaternion.LookRotationSafe(forward, up);
+            quaternion cameraRotation = quaternion.LookRotationSafe(forward, up);
 
-            camTransform.ValueRW.Position = desiredPos;
-            camTransform.ValueRW.Rotation = camRot;
-            camTransform.ValueRW.Scale    = 1f;
+            cameraTransform.ValueRW.Position = desiredPos;
+            cameraTransform.ValueRW.Rotation = cameraRotation;
+            cameraTransform.ValueRW.Scale    = 1f;
         }
     }
 }

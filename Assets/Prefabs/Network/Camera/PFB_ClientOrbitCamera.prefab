@@ -71,8 +71,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::OrbitCameraAuthoring
   RotationSpeed: 0.5
-  MaxVAngle: 89
-  MinVAngle: -89
+  MaxVerticalAngle: 89
+  MinVerticalAngle: -89
   RotateWithCharacterParent: 1
   StartDistance: 5
   MinDistance: 0

@@ -39,10 +39,10 @@ public partial struct AniDeathSystem : ISystem
                  SystemAPI.Query<RefRO<Health>>()
                      .WithEntityAccess())
         {
-            var h = health.ValueRO;
+            var healthData = health.ValueRO;
 
             // 只处理本帧伤害结算后生命值耗尽的实体
-            if (h.current > 0)
+            if (healthData.current > 0)
                 continue;
 
             // 基地和脆弱资源具有独立的胜负或资源生命周期

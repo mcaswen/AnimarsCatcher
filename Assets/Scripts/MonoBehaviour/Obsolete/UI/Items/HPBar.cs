@@ -9,25 +9,25 @@ namespace AnimarsCatcher.Mono.UI
 {
     public class HPBar : MonoBehaviour
     {
-        private ReactiveProperty<int> _hP;
-        private Image _hPBar;
-        private int _hPMax;
+        private ReactiveProperty<int> _hp;
+        private Image _hpBar;
+        private int _hpMax;
 
         private void Awake()
         {
-            _hPBar = GetComponent<Image>();
+            _hpBar = GetComponent<Image>();
         }
 
-        public void Init(ReactiveProperty<int> hp)
+        public void Initialize(ReactiveProperty<int> hp)
         {
-            _hP = hp;
-            _hP.Subscribe(OnHPChanged);
-            _hPMax = _hP.Value;
+            _hp = hp;
+            _hp.Subscribe(OnHPChanged);
+            _hpMax = _hp.Value;
         }
 
         private void OnHPChanged(int hp)
         {
-            _hPBar.fillAmount = (float)hp / _hPMax;
+            _hpBar.fillAmount = (float)hp / _hpMax;
             if (hp <= 0)
             {
                 Destroy(transform.parent.parent.gameObject);
@@ -36,7 +36,7 @@ namespace AnimarsCatcher.Mono.UI
 
         private void OnDestroy()
         {
-            _hP.Unsubscribe(OnHPChanged);
+            _hp.Unsubscribe(OnHPChanged);
         }
 
     }

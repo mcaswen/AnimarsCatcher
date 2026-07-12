@@ -20,7 +20,7 @@ public struct AniSelectionDragState : IComponentData
 /// <summary>
 /// 客户端 ECS 持有的 UGUI 托管对象引用
 /// </summary>
-public class AniSelectionUIRef : IComponentData
+public class AniSelectionUIReference : IComponentData
 {
     public Camera WorldCamera;
     public Canvas RootCanvas;
@@ -55,7 +55,7 @@ public struct AniSelectionModeSingleton : IComponentData
 /// <summary>
 /// 已选 Ani 的 Ghost 标识缓冲元素
 /// </summary>
-public struct SelectedAniGhostRef : IBufferElementData
+public struct SelectedAniGhostReference : IBufferElementData
 {
     public int AniGhostId;
 }
