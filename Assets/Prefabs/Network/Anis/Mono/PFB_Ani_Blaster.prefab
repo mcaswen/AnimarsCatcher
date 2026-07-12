@@ -9120,7 +9120,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2937466211808263992}
   - component: {fileID: 8679497521785161202}
-  - component: {fileID: 8745159997502399642}
   - component: {fileID: 4848697848478907697}
   - component: {fileID: 5001182136528572341}
   - component: {fileID: 5648979602093846805}
@@ -9174,25 +9173,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &8745159997502399642
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8575613061903006214}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e615dfd8688e8d54a872e3b8cfa265e1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  LeftHandIKTrans: {fileID: 5808535170519233412}
-  RightHandIKTrans: {fileID: 4495061747606160776}
-  IsFollow: 0
-  IsShoot: 0
-  FragileItem: {fileID: 0}
-  GunTrans: {fileID: 7574197150920046139}
-  Destination: {x: 0, y: 0, z: 0}
 --- !u!54 &4848697848478907697
 Rigidbody:
   m_ObjectHideFlags: 0

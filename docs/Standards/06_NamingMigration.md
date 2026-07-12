@@ -60,7 +60,7 @@ Scroll of the wind walker      -> BGM_ScrollOfTheWindWalker
 ```
 3. TMP SDF、NavMesh、Lightmap、Build Profile 和物理材质模板等生成或工具资产遵循 Unity 工具链名称，不机械添加业务前缀。
 4. Ghost Variant 和 RPC 类型不会在纯命名任务中改名，避免改变 NetCode 类型哈希和协议兼容性。
-5. `Obsolete` 下的大部分旧脚本保持原状，应删除或移出 Unity 项目，不为保留废弃代码而投入批量改名成本。
+5. 原 `Obsolete` 旧脚本已移出 Unity 项目；后续废弃源码直接删除并依赖 Git 历史，不为保留旧代码投入批量改名成本。
 
 ## 5. 后续任务
 

@@ -101,7 +101,7 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 
 - 自有业务代码没有 asmdef，Runtime、Editor 和各领域边界只能靠目录与命名维持
 - 当前没有 `Assets/Tests`，权限校验、FSM、资源事务和开局链路都缺少自动回归保护
-- 旧 Scene 和 `Obsolete` 代码仍在 Unity 项目内，应确认引用后移出编译范围或删除
+- 旧 Scene 仍在 Unity 项目内，应确认用途和引用后归档或删除
 - Build Settings 同时列入主场景和 SubScene，需要确认 SubScene 是否真的需要作为独立 Player 入口
 - `Assets/SO` 当前不存在，这本身不是缺陷；以后新增静态策划配置时再按规范建立
 

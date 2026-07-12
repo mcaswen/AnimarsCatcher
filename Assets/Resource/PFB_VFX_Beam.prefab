@@ -11,7 +11,6 @@ GameObject:
   - component: {fileID: 6230788153175558620}
   - component: {fileID: 8012729599469398743}
   - component: {fileID: 7487248794476889994}
-  - component: {fileID: 8452496433297426405}
   m_Layer: 0
   m_Name: PFB_VFX_Beam
   m_TagString: Untagged
@@ -4838,18 +4837,6 @@ ParticleSystemRenderer:
   m_MeshWeighting2: 1
   m_MeshWeighting3: 1
   m_MaskInteraction: 0
---- !u!114 &8452496433297426405
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 408926372943890478}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6aa7966f303634a41b47578c75d146dd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BeamDebug
 --- !u!1 &3277137811045167371
 GameObject:
   m_ObjectHideFlags: 0

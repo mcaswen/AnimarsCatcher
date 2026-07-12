@@ -77,7 +77,6 @@ GameObject:
   - component: {fileID: 2473826963750230579}
   - component: {fileID: 537831121369235209}
   - component: {fileID: 5210041726832888015}
-  - component: {fileID: 3490176257292295292}
   - component: {fileID: 2290847171256608517}
   m_Layer: 7
   m_Name: PFB_Ani_Picker
@@ -176,27 +175,6 @@ CapsuleCollider:
   m_Height: 4
   m_Direction: 1
   m_Center: {x: 0, y: 2, z: 0}
---- !u!114 &3490176257292295292
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 104725653572107597}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2a91beae94548dfa4ace719b756297b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _speed: 5
-  _carrySpeed: 3
-  IsFollow: 0
-  IsPick: 0
-  ReadyToCarry: 0
-  PickableItem: {fileID: 0}
-  Destination: {x: 0, y: 0, z: 0}
-  LeftHandEffector: {fileID: 0}
-  RightHandEffector: {fileID: 0}
 --- !u!195 &2290847171256608517
 NavMeshAgent:
   m_ObjectHideFlags: 0

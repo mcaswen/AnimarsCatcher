@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 3262016376858774220}
   - component: {fileID: 8461979964838597930}
   - component: {fileID: 6351803089743964287}
-  - component: {fileID: 4313740166633104661}
   - component: {fileID: 6808897548907751490}
   - component: {fileID: 6534256099203863763}
   m_Layer: 0
@@ -115,30 +114,6 @@ NavMeshAgent:
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &4313740166633104661
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3078034370496434138}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a36d231359029d458de84d6b8222473, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _resourceCount: 1
-  ItemType: 0
-  _IsSpecialItem: 0
-  _aniSpeedMutiplier: 1.5
-  _pickerAniTag: PICKER_Ani
-  Positions:
-  - {x: 1.5, y: -1, z: 0}
-  - {x: -1.5, y: -1, z: 0}
-  - {x: 0, y: -1, z: 1.5}
-  - {x: 0, y: -1, z: -1.5}
-  MaxAniCount: 4
-  CurrentAniCount: 0
 --- !u!65 &6808897548907751490
 BoxCollider:
   m_ObjectHideFlags: 0

@@ -42,7 +42,7 @@
 - **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
 - **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
 
-`Assets/Scripts/MonoBehaviour/Obsolete` 和其他 `Obsolete` 目录不属于当前主链路。理解或修改正式玩法时，不应把这些旧代码当作现行实现依据。
+原 `Obsolete` 目录已从 Unity 项目移除。需要追溯旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。
 
 ## 2. 依赖方向
 

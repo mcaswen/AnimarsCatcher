@@ -253,7 +253,6 @@ GameObject:
   - component: {fileID: 7000132671116901632}
   - component: {fileID: -2045206399977237470}
   - component: {fileID: -3092276483731654593}
-  - component: {fileID: 9200422670585487338}
   - component: {fileID: -8172400249956140925}
   m_Layer: 0
   m_Name: PFB_Resource_PickableFruit_01
@@ -377,27 +376,6 @@ NavMeshAgent:
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &9200422670585487338
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5898448688037096166}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a36d231359029d458de84d6b8222473, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _resourceCount: 1
-  ItemType: 0
-  _IsSpecialItem: 1
-  _aniSpeedMutiplier: 1.5
-  _pickerAniTag: PICKER_Ani
-  Positions:
-  - {x: 0, y: -1, z: -1.5}
-  MaxAniCount: 1
-  CurrentAniCount: 0
 --- !u!114 &-8172400249956140925
 MonoBehaviour:
   m_ObjectHideFlags: 0

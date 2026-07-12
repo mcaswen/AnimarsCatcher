@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 1101198840548113454}
   - component: {fileID: 3415628077276926591}
   - component: {fileID: -8419626486830581717}
-  - component: {fileID: 9223265433331081827}
   - component: {fileID: 6261195932613603021}
   m_Layer: 0
   m_Name: PFB_Resource_FragileCrystal_04
@@ -113,27 +112,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.5387731, y: 0.53713423, z: 0.44108385}
   m_Center: {x: 0.012487769, y: 0.18838096, z: 0.02348394}
---- !u!114 &9223265433331081827
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6125005442144882315}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3a081c44f1b30204f9b0f62d4b611da5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _resourceCount: 0
-  _health: 200
-  _damagePerShoot: 10
-  _instantiateRadius: 1
-  PickableCrystals:
-  - {fileID: 7313421980259677226, guid: 890294b5157d69442babc9883ddac694, type: 3}
-  - {fileID: 3320517679385806202, guid: da18aabd6e8fe61498307386bd561c0a, type: 3}
-  - {fileID: 2801192330186450393, guid: 0876f0945ca7e0640bbb247bcb619de7, type: 3}
-  - {fileID: 6125005442144882315, guid: 44d63ca64edc04747a3357c6c53a7d98, type: 3}
 --- !u!114 &6261195932613603021
 MonoBehaviour:
   m_ObjectHideFlags: 0

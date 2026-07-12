@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 241 个自有业务脚本，该数字不包含 `Obsolete` 目录。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
+仓库中目前有 241 个自有业务脚本。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
 
 当前也没有 `Assets/Tests` 和 `Assets/SO`。静态配置主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 

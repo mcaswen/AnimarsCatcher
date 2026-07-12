@@ -6,7 +6,6 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Audio;
-using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.UI
 {
