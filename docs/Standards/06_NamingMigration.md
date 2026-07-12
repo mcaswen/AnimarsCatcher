@@ -61,6 +61,7 @@ Scroll of the wind walker      -> BGM_ScrollOfTheWindWalker
 3. TMP SDF、NavMesh、Lightmap、Build Profile 和物理材质模板等生成或工具资产遵循 Unity 工具链名称，不机械添加业务前缀。
 4. Ghost Variant 和 RPC 类型不会在纯命名任务中改名，避免改变 NetCode 类型哈希和协议兼容性。
 5. 原 `Obsolete` 旧脚本已移出 Unity 项目；后续废弃源码直接删除并依赖 Git 历史，不为保留旧代码投入批量改名成本。
+6. `Assets/Scripts/Benchmarks/LegacyNavMesh` 是为 Grid 移动重构保留的可执行性能基线，不属于废弃源码；它只接受编译、可复现性和 Benchmark Harness 接入所需修改，不继续增加正式玩法能力。
 
 ## 5. 后续任务
 

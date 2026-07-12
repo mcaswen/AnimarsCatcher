@@ -44,6 +44,7 @@ Assets/
 │   ├── Camp/
 │   ├── UI/
 │   ├── Shared/
+│   ├── Benchmarks/
 │   ├── Editor/
 │   └── Tools/
 ├── SO/
@@ -81,7 +82,7 @@ Scripts/<Domain>/<Feature>/
 3. 使用 `UnityEditor` 的代码只能位于 `Editor` 目录、Editor-only asmdef 或正确的条件编译区域。
 4. 测试脚本放在独立测试目录和测试 asmdef 中。
 5. ScriptableObject 配置放在 `Assets/SO/<Domain>`，或模块明确约定的数据目录。
-6. `Obsolete` 不是 Unity 编译排除目录。废弃源码应删除并依赖 Git 历史，或移至 Unity 项目外归档。
+6. `Obsolete` 不是 Unity 编译排除目录。废弃源码应删除并依赖 Git 历史，或移至 Unity 项目外归档。经负责人确认、具有固定输入和指标的可执行性能基线不属于废弃源码，只能放在 `Assets/Scripts/Benchmarks`，并明确后端开关、启用范围、维护责任和删除条件。
 7. 不新增 `Assets/Resource` 来代替 Unity 特殊目录 `Resources`。
 8. 尽量避免 `Resources.Load`，优先使用 Inspector 引用、Authoring Registry 或 Prefab Registry。
 

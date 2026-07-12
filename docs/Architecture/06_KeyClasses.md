@@ -63,6 +63,8 @@ FSM 本身分成三个步骤：
 
 FSM 和阵型数据最终汇入移动规划：
 
+下面这些类型已经整体移动到 `Assets/Scripts/Benchmarks/LegacyNavMesh`。它们当前仍是正式场景正在使用的移动实现，目录迁移只用于固定重构前基线，不会自动禁用 System。
+
 - `AniFormationManagementSystem` 维护队伍槽位和成员关系
 - `AniMovementPlannerSystem` 把 FSM 命令与阵型状态转换为导航目标
 - `ServerNavMeshPlannerSystem` 调用 Unity NavMesh 生成 `NavWaypoint` Buffer，并发布 `NavSteering`

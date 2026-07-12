@@ -20,8 +20,8 @@
 
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
-- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM、阵型、导航意图、物理移动和战斗。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Navmesh`、`Camp`、`Health` 与 `Resource`
-- **`Navmesh`**：在服务器上规划路径，维护路径点缓冲，并把跟随意图转换为 Steering 和移动目标。它依赖 Unity AI Navigation，并为 Ani 移动提供路径结果
+- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及未来的 Grid 移动后端。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
+- **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
 - **`Resource`**：处理资源刷新、脆弱资源、搬运任务、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示
 - **`Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
 - **`Base`**：保存基地配置，负责基地出生、大小标签和 AABB 数据。它主要在服务器运行，并与 `Camp`、`Health` 和 `Global` 配合
@@ -42,7 +42,7 @@
 - **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
 - **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
 
-原 `Obsolete` 目录已从 Unity 项目移除。需要追溯旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。
+原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
 ## 2. 依赖方向
 
@@ -54,8 +54,8 @@ flowchart TD
     UI[UI ECS Presentation]
     Net[Netcode Bootstrap Protocol Spawn]
     Player[Player Input KCC Camera]
-    Ani[Anis FSM Formation Combat]
-    Nav[Navmesh]
+    Ani[Anis Input Common FSM Combat]
+    Legacy[Benchmarks LegacyNavMesh]
     Resource[Resource]
     Health[Health]
     Base[Base Global Camp]
@@ -68,9 +68,10 @@ flowchart TD
     Net --> Player
     Net --> Base
     Player --> Net
-    Ani --> Nav
+    Ani --> Legacy
     Ani --> Health
     Ani --> Resource
+    Resource --> Legacy
     Resource --> Player
     Base --> Health
     Physics --> Ani
@@ -105,7 +106,7 @@ Network Entity Prefab 通过 `AvatarViewAuthoring` 和 `HealthBarViewAuthoring` 
 
 - 修改连接、开局或角色出生时，先查看 `Netcode/Connection` 和 `Netcode/InGame`
 - 修改玩家手感或预测时，先查看 `Player/Input`、`Player/Movement` 和 `Player/Hero/Control`
-- 修改 Ani 指令和状态时，先查看 `Anis/Perception`、`Anis/FSM` 和 `Anis/Formation`
+- 修改 Ani 指令和状态时，先查看 `Anis/Perception` 和 `Anis/FSM`；分析当前旧移动结果时查看 `Benchmarks/LegacyNavMesh`，新移动能力不得继续写入该目录
 - 修改攻击和伤害时，先查看 `Anis/Combat` 和 `Health`
 - 修改采集和资源经济时，先查看 `Resource` 和 `Anis/Spawn`
 - 修改 HUD 或 Hybrid View 时，先查看 `UI`、`MonoBehaviour/UI` 和 `Player/Hero/View`
