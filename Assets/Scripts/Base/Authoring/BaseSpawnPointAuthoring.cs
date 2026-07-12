@@ -3,6 +3,9 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
+/// <summary>
+/// 区分基地规模并为后续规则提供稳定枚举值
+/// </summary>
 public enum BaseSizeKind : byte
 {
     Small = 0,
@@ -10,7 +13,7 @@ public enum BaseSizeKind : byte
 }
 
 /// <summary>
-/// 基地刷新点：挂在场景中的空物体上
+/// 描述服务器需要实例化的基地及其出生参数
 /// </summary>
 public struct BaseSpawnPoint : IComponentData
 {
@@ -27,6 +30,9 @@ public struct BaseSpawnPoint : IComponentData
     public int Health;
 }
 
+/// <summary>
+/// 在场景中配置基地预制体、阵营、规模和初始生命值
+/// </summary>
 [DisallowMultipleComponent]
 public class BaseSpawnPointAuthoring : MonoBehaviour
 {

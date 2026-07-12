@@ -4,21 +4,30 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
 
+/// <summary>
+/// 在服务端为资源拾取请求分配目标玩家已选中的 Picker Ani
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerAssignSelectedAniToResourceSystem : ISystem
 {
+    /// <summary>
+    /// 仅在存在待处理资源拾取请求时启用系统
+    /// </summary>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // 只要场景中出现了 PickableResource + ResourcePickupRequest 才更新
+        // 请求组件作为一次性命令存在时才运行
         state.RequireForUpdate(
             SystemAPI.QueryBuilder()
                 .WithAll<PickableResource, ResourcePickupRequest>()
                 .Build());
     }
 
+    /// <summary>
+    /// 选择符合所有权和状态条件的 Ani 并创建搬运任务
+    /// </summary>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -29,7 +38,7 @@ public partial struct ServerAssignSelectedAniToResourceSystem : ISystem
                  SystemAPI.Query<RefRO<PickableResource>, RefRO<ResourcePickupRequest>>()
                      .WithEntityAccess())
         {
-            // 已经有搬运任务了就忽略这次请求
+            // 同一资源只允许一个活动搬运任务
             if (SystemAPI.HasComponent<ResourceCarryAssignment>(resourceEntity))
             {
                 entityCommandBuffer.RemoveComponent<ResourcePickupRequest>(resourceEntity);

@@ -3,8 +3,8 @@ using Unity.Entities;
 using Unity.Mathematics;
 
 /// <summary>
-/// 远程 / 激光命中结果：
-/// 视图层已经算出了命中目标、命中位置、法线和伤害。
+/// 描述远程视图射线产生的候选命中结果
+/// 最终伤害仍由服务器根据攻击快照和目标规则结算
 /// </summary>
 public struct AniHitResultData
 {
@@ -18,15 +18,17 @@ public struct AniHitResultData
 }
 
 /// <summary>
-/// 远程命中结果桥：
-/// Blaster 的 View 在 Raycast 后把命中结果塞进来，
-/// ECS 统一在 ApplyHitSystem 里消费并改 Health。
+/// 在线程安全队列中桥接 Blaster 视图射线和 ECS 客户端系统
 /// </summary>
 public static class AniHitBridge
 {
     private static Queue<AniHitResultData> Hits = new Queue<AniHitResultData>();
     private static object LockObject = new object();
 
+    /// <summary>
+    /// 将一次远程射线结果加入待发送队列
+    /// </summary>
+    /// <param name="hitData">视图计算出的候选命中数据</param>
     public static void Enqueue(in AniHitResultData hitData)
     {
         lock (LockObject)
@@ -35,6 +37,11 @@ public static class AniHitBridge
         }
     }
 
+    /// <summary>
+    /// 尝试按进入顺序取出下一次远程命中结果
+    /// </summary>
+    /// <param name="hitData">成功时返回候选命中数据</param>
+    /// <returns>队列中存在结果时返回真</returns>
     public static bool TryDequeue(out AniHitResultData hitData)
     {
         lock (LockObject)

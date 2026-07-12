@@ -4,13 +4,19 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
+/// <summary>
+/// 在服务端按区域上限 波次配置和阻挡检测刷新资源
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerResourceRespawnSystem : ISystem
 {
-    // 每帧全局最多刷多少个资源（Food+Crystal 总数）
+    // 限制全局生成预算以避免单帧实例化峰值
     private const int MaxSpawnsPerFrame = 2;
 
+    /// <summary>
+    /// 仅在场景存在资源刷新区域时启用系统
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
@@ -19,20 +25,23 @@ public partial struct ServerResourceRespawnSystem : ISystem
                 .Build());
     }
 
+    /// <summary>
+    /// 推进区域计时器并在预算内补足两类资源
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         float deltaTime = SystemAPI.Time.DeltaTime;
 
         EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        // 本帧全局剩余可刷资源数
+        // 所有刷新区域共享同一个单帧生成预算
         int globalSpawnBudget = MaxSpawnsPerFrame;
 
         foreach (var (areaRef, areaEntity) in
                 SystemAPI.Query<RefRW<ResourceSpawnArea>>()
                         .WithEntityAccess())
         {
-            // 本帧预算耗尽了，剩下的区域留到下帧
+            // 预算耗尽后其余区域保留计时状态到下一帧
             if (globalSpawnBudget <= 0)
                 break;
 
@@ -40,7 +49,7 @@ public partial struct ServerResourceRespawnSystem : ISystem
 
             area.RespawnTimer += deltaTime;
 
-            // —— 冷却未结束：这片区域本帧不刷 —— 
+            // 刷新间隔未到时只更新计时器
             if (area.RespawnTimer < area.RespawnInterval)
             {
                 areaRef.ValueRW = area;

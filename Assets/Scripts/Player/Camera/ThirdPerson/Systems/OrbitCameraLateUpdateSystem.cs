@@ -7,6 +7,7 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using UnityEngine;
 
+/// <summary>在物理和 Transform 更新后修正环绕相机的平滑距离与遮挡</summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(TransformSystemGroup))]
 [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
@@ -15,6 +16,8 @@ using UnityEngine;
 [BurstCompile]
 public partial struct OrbitCameraLateUpdateSystem : ISystem
 {
+    /// <summary>声明遮挡检测所需的物理世界和相机组件</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -22,6 +25,8 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
     }
 
+    /// <summary>调度相机遮挡检测和最终姿态写回任务</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -36,6 +41,7 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
         job.Schedule();
     }
 
+    /// <summary>使用插值后的物理姿态计算客户端最终相机位置</summary>
     [BurstCompile]
     [WithAll(typeof(Simulate))]
     public partial struct OrbitCameraLateUpdateJob : IJobEntity
@@ -67,13 +73,10 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
                 float3 cameraForward = math.mul(cameraRotation, math.forward());
                 float3 targetPosition = targetWorldTransform.Position;
 
-                // Distance smoothing
+                // 平滑玩家输入产生的目标距离变化
                 orbitCamera.SmoothedTargetDistance = math.lerp(orbitCamera.SmoothedTargetDistance, orbitCamera.TargetDistance, MathUtilities.GetSharpnessInterpolant(orbitCamera.DistanceMovementSharpness, DeltaTime));
 
-                // Obstruction handling
-                // Obstruction detection is handled here, because we have to adjust the obstruction distance
-                // to match the interpolated physics body transform (as opposed to the "simulation" transform). Otherwise, a
-                // camera getting obstructed by a moving physics body would have visible jitter.
+                // 遮挡检测必须匹配插值后的刚体姿态，否则移动刚体会让相机在固定帧之间抖动
                 if (orbitCamera.ObstructionRadius > 0f)
                 {
                     float obstructionCheckDistance = orbitCamera.SmoothedTargetDistance;
@@ -93,13 +96,13 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
                     {
                         newObstructedDistance = obstructionCheckDistance * collector.ClosestHit.Fraction;
 
-                        // Redo cast with the interpolated body transform to prevent FixedUpdate jitter in obstruction detection
+                        // 使用命中刚体的插值姿态重新检测，消除 FixedUpdate 采样差导致的抖动
                         if (orbitCamera.PreventFixedUpdateJitter)
                         {
                             RigidBody hitBody = PhysicsWorld.Bodies[collector.ClosestHit.RigidBodyIndex];
                             if (LocalToWorldLookup.TryGetComponent(hitBody.Entity, out LocalToWorld hitBodyLocalToWorld))
                             {
-                                // Adjust the rigidbody transform for interpolation, so we can raycast it in that state
+                                // 临时替换刚体姿态，使二次球形投射基于插值位置
                                 hitBody.WorldFromBody = new RigidTransform(quaternion.LookRotationSafe(hitBodyLocalToWorld.Forward, hitBodyLocalToWorld.Up), hitBodyLocalToWorld.Position);
 
                                 collector = new CameraObstructionHitsCollector(cameraControl.FollowedCharacterEntity, ignoredEntitiesBuffer, cameraForward);
@@ -120,15 +123,15 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
                         }
                     }
 
-                    // Update current distance based on obstructed distance
+                    // 靠近遮挡物时快速收缩，远离遮挡物时平滑恢复距离
                     if (orbitCamera.ObstructedDistance < newObstructedDistance)
                     {
-                        // Move outer
+                        // 向外恢复使用较缓的平滑参数
                         orbitCamera.ObstructedDistance = math.lerp(orbitCamera.ObstructedDistance, newObstructedDistance, MathUtilities.GetSharpnessInterpolant(orbitCamera.ObstructionOuterSmoothingSharpness, DeltaTime));
                     }
                     else if (orbitCamera.ObstructedDistance > newObstructedDistance)
                     {
-                        // Move inner
+                        // 向内收缩使用较快的平滑参数
                         orbitCamera.ObstructedDistance = math.lerp(orbitCamera.ObstructedDistance, newObstructedDistance, MathUtilities.GetSharpnessInterpolant(orbitCamera.ObstructionInnerSmoothingSharpness, DeltaTime));
                     }
                 }
@@ -137,10 +140,10 @@ public partial struct OrbitCameraLateUpdateSystem : ISystem
                     orbitCamera.ObstructedDistance = orbitCamera.SmoothedTargetDistance;
                 }
 
-                // Place camera at the final distance (includes smoothing and obstructions)
+                // 使用平滑且经过遮挡修正的距离计算最终位置
                 float3 cameraPosition = OrbitCameraUtilities.CalculateCameraPosition(targetPosition, cameraRotation, orbitCamera.ObstructedDistance);
 
-                // Write to LtW
+                // 写入 LocalToWorld，供主相机表现系统读取
                 LocalToWorldLookup[entity] = new LocalToWorld { Value = new float4x4(cameraRotation, cameraPosition) };
             }
         }

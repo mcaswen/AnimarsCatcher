@@ -3,8 +3,15 @@ using UnityEngine;
 
 namespace AnimarsCatcher.Mono.Audio
 {
+    /// <summary>
+    /// 输出当前正在播放的 AudioSource 路径和混音信息
+    /// 用于定位场景中重复播放或路由错误的音源
+    /// </summary>
     public class AudioSpy : MonoBehaviour
     {
+        /// <summary>
+        /// 扫描并输出所有正在播放的音源
+        /// </summary>
         [ContextMenu("Dump Playing AudioSources")]
         void Dump()
         {
@@ -18,6 +25,7 @@ namespace AnimarsCatcher.Mono.Audio
             }
         }
 
+        // 从当前节点向根节点拼接稳定的层级路径
         string GetPath(Transform t)
         {
             System.Text.StringBuilder sb = new();
@@ -25,6 +33,7 @@ namespace AnimarsCatcher.Mono.Audio
             return sb.ToString();
         }
 
-        void Start() { Dump(); } // 进场自动 dump 一次
+        // 进入场景时自动记录一次音频快照
+        void Start() { Dump(); }
     }
 }

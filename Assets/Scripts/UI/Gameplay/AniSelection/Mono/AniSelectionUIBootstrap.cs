@@ -2,7 +2,9 @@ using Unity.Entities;
 using UnityEngine;
 using Unity.NetCode;
 
-// 用于承载托管UI对象引用
+/// <summary>
+/// 承载客户端框选功能需要注入 ECS 的场景 UI 引用
+/// </summary>
 public class AniSelectionUIBootstrap : MonoBehaviour
 {
     public Camera worldCamera;

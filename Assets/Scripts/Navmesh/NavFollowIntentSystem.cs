@@ -3,10 +3,17 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.NetCode;
 
+/// <summary>
+/// 将同步后的导航目标转换为角色移动意图
+/// 客户端负责平滑跟随 服务端额外负责推进路径点
+/// </summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 public partial struct NavFollowIntentSystem : ISystem
 {
+    /// <summary>
+    /// 仅在存在完整导航代理数据时启用系统
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
@@ -15,6 +22,9 @@ public partial struct NavFollowIntentSystem : ISystem
                 .Build());
     }
 
+    /// <summary>
+    /// 计算本帧期望速度并在服务端推进路径状态
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         bool isServer = state.WorldUnmanaged.Flags.HasFlag(WorldFlags.GameServer);
@@ -28,7 +38,7 @@ public partial struct NavFollowIntentSystem : ISystem
                          RefRW<AniMoveIntent>>()
                      .WithEntityAccess())
         {
-            // 默认不动
+            // 每帧先清空意图 防止失效路径沿用上一帧速度
             moveIntent.ValueRW.DesiredVelocity = float3.zero;
 
             if (navSteering.ValueRO.HasPath == 0)
@@ -45,14 +55,14 @@ public partial struct NavFollowIntentSystem : ISystem
             {
                 float3 direction = toTarget / distance;
 
-                // 这个帧的期望移动距离
+                // 根据帧时长限制最大步长 避免低帧率下越过目标
                 float maxStepDistance = navAgent.ValueRO.Speed * deltaTime;
 
                 float3 desiredVelocity;
 
                 if (distance <= maxStepDistance)
                 {
-                    // 防止 overshoot：刚好停在目标点
+                    // 用剩余位移反推速度 使本帧恰好停在目标点
                     desiredVelocity = toTarget / deltaTime;
                 }
                 else
@@ -63,7 +73,7 @@ public partial struct NavFollowIntentSystem : ISystem
                 moveIntent.ValueRW.DesiredVelocity = desiredVelocity;
             }
 
-            // 仅服务端推进路径点  
+            // 路径点索引属于权威状态 仅由服务端推进
 
             if (!isServer)
                 continue;
@@ -83,7 +93,7 @@ public partial struct NavFollowIntentSystem : ISystem
                     }
                     else
                     {
-                        // 已到终点：通知黑板、清路径
+                        // 到达终点后更新黑板版本并停止当前路径
                         var blackboard = SystemAPI.GetBuffer<FsmVar>(entity);
                         blackboard.SetBool(AniMovementBlackboardKeys.NavStop, true);
                         int version = blackboard.GetInt(AniMovementBlackboardKeys.NavRequestVersion);

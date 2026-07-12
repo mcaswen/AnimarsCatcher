@@ -1,5 +1,6 @@
 using UnityEngine;
 
+/// <summary>根据表现对象位移速度控制尾烟方向和发射状态</summary>
 [DisallowMultipleComponent]
 public class VelocityDrivenSmoke : MonoBehaviour
 {
@@ -27,7 +28,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
             _emission = SmokeParticleSystem.emission;
             _emissionInitialized = true;
 
-            // 确保系统处于播放状态，但一开始可以关 emission
+            // 保持粒子系统播放，仅切换 emission 可保留已发射粒子的自然消散
             if (!SmokeParticleSystem.isPlaying)
             {
                 SmokeParticleSystem.Play();
@@ -47,7 +48,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
 
         Vector3 currentPos = transform.position;
 
-        // 第一帧只记录位置，不计算速度
+        // 第一帧缺少上一帧位置，不能计算有效速度
         if (!_hasLastPosition)
         {
             _lastPosition = currentPos;
@@ -57,7 +58,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
 
         Vector3 delta = currentPos - _lastPosition;
 
-        // 瞬移：直接认为没速度，并重置位置
+        // 瞬移距离不应转化为速度，否则会产生异常强烈的尾烟
         if (delta.sqrMagnitude > teleportSnapDistance * teleportSnapDistance)
         {
             _lastPosition = currentPos;
@@ -65,7 +66,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
             return;
         }
 
-        // 视觉层自己算速度
+        // 视觉层按渲染帧位移计算速度，避免依赖预测实体的回滚速度
         Vector3 speed = delta / deltaTime;
 
         ControlSmokeParticleSystem(speed);
@@ -74,8 +75,9 @@ public class VelocityDrivenSmoke : MonoBehaviour
     }
 
     /// <summary>
-    /// 有速度时向反方向发粒子，没速度就停。
+    /// 有速度时向反方向发射粒子，静止时关闭发射
     /// </summary>
+    /// <param name="speed">表现对象的渲染帧速度</param>
     private void ControlSmokeParticleSystem(Vector3 speed)
     {
         if (SmokeParticleSystem == null || !_emissionInitialized)
@@ -86,7 +88,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
 
         if (sqrSpeed <= sqrMinSpeed)
         {
-            // ❌ 不再 Stop()，只关 emission
+            // 只关闭发射模块，让已存在粒子继续完成生命周期
             _emission.enabled = false;
         }
         else
@@ -99,7 +101,7 @@ public class VelocityDrivenSmoke : MonoBehaviour
                 SmokeParticleSystem.Play();
             }
 
-            // ✅ 开启 emission，让粒子持续喷
+            // 恢复发射前确保粒子系统仍处于播放状态
             _emission.enabled = true;
         }
     }

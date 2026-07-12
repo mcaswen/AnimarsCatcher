@@ -3,7 +3,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
-
+/// <summary>让托管角色表现对象跟随 ECS 实体并驱动移动动画</summary>
 [DisallowMultipleComponent]
 public class AvatarViewFollower : MonoBehaviour
 {
@@ -34,7 +34,9 @@ public class AvatarViewFollower : MonoBehaviour
     private Quaternion _appliedRot;
 
 
-    // 由生成系统在实例化后调用
+    /// <summary>绑定需要跟随的实体及其所属 EntityManager</summary>
+    /// <param name="entity">目标实体</param>
+    /// <param name="entityManager">目标实体所属世界的 EntityManager</param>
     public void Bind(Entity entity, EntityManager entityManager)
     {
         TargetEntity = entity;
@@ -43,6 +45,7 @@ public class AvatarViewFollower : MonoBehaviour
         _isBound = true;
     }
 
+    /// <summary>缓存 Animator 并禁用会与实体同步冲突的 Root Motion</summary>
     private void Awake()
     {
         _animator = GetComponentInChildren<Animator>();
@@ -52,6 +55,7 @@ public class AvatarViewFollower : MonoBehaviour
         _lastRenderPosition = transform.position;
     }
 
+    /// <summary>在渲染帧末同步实体姿态并更新移动动画参数</summary>
     private void LateUpdate()
     {
         if (!_isBound)
@@ -59,6 +63,7 @@ public class AvatarViewFollower : MonoBehaviour
             return;
         }
 
+        // 所属 World 已销毁或目标实体失效时同步回收托管视图
         if (BoundEntityManager == default || !BoundEntityManager.Exists(TargetEntity))
         {
             Destroy(gameObject);
@@ -71,6 +76,7 @@ public class AvatarViewFollower : MonoBehaviour
             return;
         }
 
+        // 生成标记被移除表示实体表现生命周期已经结束
         if (!BoundEntityManager.HasComponent<AvatarViewSpawnedTag>(TargetEntity))
         {
             Destroy(gameObject);
@@ -83,11 +89,12 @@ public class AvatarViewFollower : MonoBehaviour
         var ltw = BoundEntityManager.GetComponentData<LocalToWorld>(TargetEntity);
         float4x4 m = ltw.Value;
 
-        // 列向量分别是 right / up / forward * 各自的缩放
+        // LocalToWorld 的三个列向量同时包含轴向和各轴缩放
         float3 right   = m.c0.xyz;
         float3 up      = m.c1.xyz;
         float3 forward = m.c2.xyz;
 
+        // 从 LocalToWorld 列向量长度恢复非均匀缩放
         float3 scale;
         scale.x = math.length(right);
         scale.y = math.length(up);
@@ -96,7 +103,7 @@ public class AvatarViewFollower : MonoBehaviour
         targetEntityPosition = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Position;
         targetEntityRotation = BoundEntityManager.GetComponentData<LocalTransform>(TargetEntity).Rotation;
 
-        // 首帧或大位移,直接吸附
+        // 首帧或大位移直接吸附，避免出生和传送时表现对象缓慢追赶
         Vector3 currentPos = targetEntityPosition;
         if (!_initialized || (currentPos - transform.position).sqrMagnitude > TeleportSnapDistance * TeleportSnapDistance)
         {
@@ -105,7 +112,7 @@ public class AvatarViewFollower : MonoBehaviour
             _lastRenderPosition = currentPos;
             _initialized = true;
 
-            // 清零速度
+            // 吸附帧不应把传送距离误判为移动速度
             if (_animator != null)
                 _animator.SetFloat(SpeedParameterName, 0f);
 
@@ -115,7 +122,7 @@ public class AvatarViewFollower : MonoBehaviour
         transform.SetPositionAndRotation(currentPos, targetEntityRotation);
         transform.localScale = new Vector3(scale.x, scale.y, scale.z);
 
-        // 仅对 Animator 的 Speed 做指数平滑
+        // 只平滑 Animator 速度，实体位置保持逐帧精确跟随
         if (_animator != null)
         {
             float distance = (currentPos - _lastRenderPosition).magnitude;

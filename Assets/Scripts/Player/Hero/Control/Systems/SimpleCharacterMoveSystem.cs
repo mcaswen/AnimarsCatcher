@@ -5,18 +5,23 @@ using Unity.Transforms;
 using Unity.NetCode;
 using UnityEngine;
 
+/// <summary>在客户端预测与服务器权威世界中移动简化角色</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
 [UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
 [UpdateBefore(typeof(TransformSystemGroup))]
 public partial struct SimpleCharacterMoveSystem : ISystem
 {
+    /// <summary>等待网络时间可用后启用预测移动</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkTime>();
     }
 
+    /// <summary>对本预测 Tick 内需要模拟的角色执行碰撞移动</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         float deltaTime = SystemAPI.Time.DeltaTime;
@@ -55,7 +60,7 @@ public partial struct SimpleCharacterMoveSystem : ISystem
             return;
         }
 
-        // 平面移动
+        // 简化角色只允许在水平面移动
         moveDirection = math.normalizesafe(new float3(moveDirection.x, 0, moveDirection.z));
         float3 delta = moveDirection * config.MoveSpeed * deltaTime;
 
@@ -64,17 +69,17 @@ public partial struct SimpleCharacterMoveSystem : ISystem
 
         quaternion rotation = localTransform.Rotation;
 
-        // 计算 Box 的世界中心
+        // BoxCast 从碰撞盒世界中心发起，不能直接使用角色原点
         float3 localCenter = boxInfo.Center;
         float3 worldCenterFloat3 = startPosition + math.mul(rotation, localCenter);
         Vector3 worldCenter = (Vector3)worldCenterFloat3;
 
-        // HalfExtents + 旋转
+        // 使用 Authoring 烘焙的半尺寸和角色当前旋转构建检测盒
         Vector3 halfExtents = (Vector3)boxInfo.HalfExtents;
         Quaternion worldRotation =
             new Quaternion(rotation.value.x, rotation.value.y, rotation.value.z, rotation.value.w);
 
-        // 移动向量 & 距离
+        // Physics.BoxCast 需要归一化方向和独立距离
         Vector3 moveVector = (Vector3)(endPosition - startPosition);
         float distance = moveVector.magnitude;
 
@@ -82,7 +87,7 @@ public partial struct SimpleCharacterMoveSystem : ISystem
         {
             Vector3 direction = moveVector / distance;
 
-            // 用 BoxCast 检测前方是否有碰撞
+            // 在完整位移路径上检测碰撞，避免高速移动穿过薄墙
             if (Physics.BoxCast(
                     worldCenter,
                     halfExtents,
@@ -93,11 +98,11 @@ public partial struct SimpleCharacterMoveSystem : ISystem
                     ~0,
                     QueryTriggerInteraction.Ignore))
             {
-                // 若检测到碰撞，移动到距离墙面一点点的地方
+                // 保留少量安全距离，避免下一帧从墙体内部开始检测
                 float safeDistance = Mathf.Max(hit.distance - 0.01f, 0f);
                 Vector3 corrected = worldCenter + direction * safeDistance;
 
-                // 把 Box 中心的位置反推回角色中心
+                // 将修正后的碰撞盒中心反推为角色原点
                 float3 correctedOffset = corrected - (Vector3)math.mul(rotation, localCenter);
 
                 localTransform.Position = new float3(
@@ -108,7 +113,7 @@ public partial struct SimpleCharacterMoveSystem : ISystem
             }
             else
             {
-                // 未检测到碰撞，直接走到目标位置
+                // 路径无碰撞时直接采用目标位置
                 localTransform.Position = endPosition;
             }
         }
@@ -117,7 +122,7 @@ public partial struct SimpleCharacterMoveSystem : ISystem
             localTransform.Position = endPosition;
         }
 
-        // 旋转朝向移动方向
+        // 使用指数平滑转向移动方向，使不同帧率下转向速度一致
         quaternion targetRotation = quaternion.LookRotationSafe(moveDirection, math.up());
         float rotationLerp = 1f - math.exp(-config.RotationSharpness * deltaTime);
         localTransform.Rotation = math.slerp(localTransform.Rotation, targetRotation, rotationLerp);

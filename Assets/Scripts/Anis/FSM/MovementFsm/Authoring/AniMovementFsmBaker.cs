@@ -9,7 +9,7 @@ public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-        // Fsm Blob
+        // 构建所有实体共享的不可变状态图
         BlobBuilder builder;
         BlobBuilderArray<FsmStateNode> states;
 
@@ -24,7 +24,7 @@ public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
 
         AddComponent(entity, new FsmGraphRef { Value = graphRef });
 
-        // Fsm
+        // 初始化首帧需要执行进入动作的状态机数据
         var fsm = new Fsm
         {
             Current = (StateId)authoring.initialState,
@@ -39,11 +39,11 @@ public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
 
         AddComponent(entity, fsm);
 
-        // Blackboard
+        // 预留黑板容量，降低常用变量写入时的扩容次数
         var blackboard = AddBuffer<FsmVar>(entity);
-        blackboard.EnsureCapacity(math.max(4, authoring.initialBlackboardCapacity)); // 预留容量
+        blackboard.EnsureCapacity(math.max(4, authoring.initialBlackboardCapacity));
 
-        // Move
+        // 导航系统从零速度意图开始接管移动
         AddComponent(entity, new AniMoveIntent { DesiredVelocity = float3.zero });
 
     }

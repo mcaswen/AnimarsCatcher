@@ -2,8 +2,14 @@
 using UnityEngine;
 using UnityEditor;
 
+/// <summary>
+/// 生成供卡通光照使用的三阶灰度 Ramp 纹理
+/// </summary>
 public class RampTextureCreator : EditorWindow
 {
+    /// <summary>
+    /// 创建纹理并写入项目 Assets 根目录
+    /// </summary>
     [MenuItem("Tools/Create Ramp Texture")]
     static void Init()
     {
@@ -11,6 +17,7 @@ public class RampTextureCreator : EditorWindow
 
         Color[] colors = new Color[256];
 
+        // 将亮度区间离散为暗部 中间调和亮部三个台阶
         for (int i = 0; i < 256; i++)
         {
             if (i < 85)
@@ -24,6 +31,7 @@ public class RampTextureCreator : EditorWindow
         rampTexture.SetPixels(colors);
         rampTexture.Apply();
 
+        // 写入后刷新 AssetDatabase 以便编辑器立即导入资源
         byte[] bytes = rampTexture.EncodeToPNG();
         System.IO.File.WriteAllBytes(Application.dataPath + "/RampTexture.png", bytes);
         AssetDatabase.Refresh();

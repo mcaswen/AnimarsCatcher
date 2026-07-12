@@ -3,8 +3,17 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
+/// <summary>
+/// 从 NetCode 世界读取玩家资源和全局资源快照
+/// 所有查询均为即时只读 查询失败时返回 false
+/// </summary>
 public static class GameResourceGetter
 {
+    /// <summary>
+    /// 查找 GhostOwner 与本地 NetworkId 匹配的玩家资源状态
+    /// </summary>
+    /// <param name="result">找到的本地玩家资源快照</param>
+    /// <returns>找到匹配实体时返回 true</returns>
     public static bool TryGetLocalPlayerResourceState(out PlayerResourceState result)
     {
         result = default;
@@ -28,6 +37,7 @@ public static class GameResourceGetter
             var owners   = query.ToComponentDataArray<GhostOwner>(Unity.Collections.Allocator.Temp);
             var states   = query.ToComponentDataArray<PlayerResourceState>(Unity.Collections.Allocator.Temp);
 
+            // 通过 GhostOwner 过滤其他连接同步到本机的玩家资源实体
             bool found = false;
             for (int i = 0; i < entities.Length; i++)
             {
@@ -50,6 +60,11 @@ public static class GameResourceGetter
         return false;
     }
 
+    /// <summary>
+    /// 从服务端世界读取唯一的全局资源状态
+    /// </summary>
+    /// <param name="state">全局资源快照</param>
+    /// <returns>服务端世界和单例均存在时返回 true</returns>
     public static bool TryGlobalGameResourceState(out GlobalGameResourceState state)
     {
         state = default;

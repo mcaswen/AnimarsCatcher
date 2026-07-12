@@ -5,20 +5,23 @@ using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>等待客户端 Ghost 资源稳定后完成正式 InGame 握手</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))] // 收完 ClientStartGameRpc 之后
 public partial struct ClientSetInGameWhenReadySystem : ISystem
 {
-    private bool   _hasSent;          // 已经发过 SetInGameRpc
-    private bool   _sceneReadyOnce;   // 是否已经至少 ready 过一次
-    private double _sceneReadyTime;   // 第一次 ready 的时间戳（秒）
+    private bool   _hasSent;          // 是否已经发送 SetInGameRpc
+    private bool   _sceneReadyOnce;   // Ghost 资源是否至少完整过一次
+    private double _sceneReadyTime;   // 首次资源完整的时间戳
     
 
+    /// <summary>声明连接、Ghost 集合和开局状态依赖</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
-        // 必须有连接、必须有 GhostCollection、必须对局已开始 才跑
+        // 三项依赖同时存在才能进入正式游戏握手
         state.RequireForUpdate<NetworkId>();
         state.RequireForUpdate<GhostCollection>();
         state.RequireForUpdate<ClientMatchStartState>();
@@ -28,6 +31,8 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
         _sceneReadyTime  = 0.0;
     }
 
+    /// <summary>确认 Ghost 集合稳定后通知服务器并启用本地输入流</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         if (_hasSent)
@@ -36,7 +41,7 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
         var entityManager = state.EntityManager;
         double elapsed    = SystemAPI.Time.ElapsedTime;
 
-        // 1. 检查 GhostCollection 是否已经包含关键 prefab（说明 Game 场景 SubScene 已经加载）
+        // GhostCollection 包含关键 Prefab 表示游戏 SubScene 已完成加载
         Entity ghostCollectionEntity = SystemAPI.GetSingletonEntity<GhostCollection>();
         DynamicBuffer<GhostCollectionPrefab> prefabs =
             SystemAPI.GetBuffer<GhostCollectionPrefab>(ghostCollectionEntity);
@@ -45,12 +50,12 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
 
         if (!readyNow)
         {
-            // 如果中途又不 ready 了，就重置标记
+            // 稳定等待期间资源再次失效时重新计时
             _sceneReadyOnce = false;
             return;
         }
 
-        // 第一次从“不 ready”变成“ready”
+        // 首次完整只记录时间，避免资源刚注册时立即开始预测
         if (!_sceneReadyOnce)
         {
             _sceneReadyOnce = true;
@@ -59,18 +64,18 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
             return;
         }
 
-        // ready 但等待时间不足 2 秒，继续等
+        // 额外等待窗口用于覆盖 Ghost 集合和 SubScene 状态传播延迟
         const double extraDelaySeconds = 3.0;
         if (elapsed - _sceneReadyTime < extraDelaySeconds)
             return;
 
-        // 2. 拿到本地这条连接的实体
+        // 后续 RPC 和本地 InGame 标记必须指向当前连接实体
         if (!SystemAPI.TryGetSingletonEntity<NetworkId>(out var connectionEntity))
             return;
 
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        // 3. 发送 SetInGameRpc 给服务器
+        // 服务器收到 SetInGameRpc 后才有权创建角色并设置 CommandTarget
         Entity rpcEntity = entityCommandBuffer.CreateEntity();
         entityCommandBuffer.AddComponent(rpcEntity, new SetInGameRpc());
         entityCommandBuffer.AddComponent(rpcEntity, new SendRpcCommandRequest
@@ -78,7 +83,7 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
             TargetConnection = connectionEntity
         });
 
-        // 4. 本地也加 NetworkStreamInGame（让客户端输入/本地系统开始跑）
+        // 本地同步进入 InGame，使输入和预测系统开始运行
         if (!entityManager.HasComponent<NetworkStreamInGame>(connectionEntity))
         {
             entityCommandBuffer.AddComponent<NetworkStreamInGame>(connectionEntity);
@@ -90,7 +95,7 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
 
         _hasSent = true;
 
-        // 真正意义上的“对局开始”也可以在这里再通知一次 UI（可选）
+        // 此时客户端已具备运行对局的全部网络状态，可通知 UI 退出等待界面
         int localNetId = SystemAPI.GetSingleton<NetworkId>().Value;
         NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ClientWorld, localNetId);
     }
@@ -101,7 +106,6 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
 
         if (prefabs.Length == 0)
         {
-            // Debug.Log("[ClientSetInGameWhenReadySystem] GhostCollectionPrefab buffer is empty.");
             return false;
         }
 
@@ -110,12 +114,12 @@ public partial struct ClientSetInGameWhenReadySystem : ISystem
         for (int i = 0; i < prefabs.Length; i++)
         {
             var entry        = prefabs[i];
-            var prefabEntity = entry.GhostPrefab; // 或 entry.Prefab，看你版本
+            var prefabEntity = entry.GhostPrefab;
 
             if (prefabEntity == Entity.Null || !entityManager.Exists(prefabEntity))
             {
                 Debug.LogError($"[ClientSetInGameWhenReadySystem] Prefab[{i}] is invalid: {prefabEntity}, Exists={entityManager.Exists(prefabEntity)}");
-                // 只要有一个无效，就认为场景还没 ready，继续等
+                // 任一注册项无效都说明 Ghost 集合仍在变动
                 return false;
             }
 

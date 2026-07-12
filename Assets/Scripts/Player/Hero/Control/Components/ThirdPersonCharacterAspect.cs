@@ -15,45 +15,53 @@ using Unity.Physics.Systems;
 using Unity.Transforms;
 using UnityEngine;
 
+/// <summary>保存一次 KCC 更新期间需要跨回调共享的上下文</summary>
 public struct ThirdPersonCharacterUpdateContext
 {
-    // Here, you may add additional global data for your character updates, such as ComponentLookups, Singletons, NativeCollections, etc...
-    // The data you add here will be accessible in your character updates and all of your character "callbacks".
+    // Lookup、单例或原生容器应集中放在此处，供同一帧的角色回调复用
 
     public uint DebugTick;
 
+    /// <summary>初始化角色更新上下文中的长期数据</summary>
+    /// <param name="state">创建上下文的系统状态</param>
     public void OnSystemCreate(ref SystemState state)
     {
-        // Get lookups
+        // 当前上下文没有需要长期缓存的 Lookup
     }
 
+    /// <summary>刷新角色更新上下文中的逐帧数据</summary>
+    /// <param name="state">执行更新的系统状态</param>
     public void OnSystemUpdate(ref SystemState state)
     {
-        // Update lookups
+        // 当前上下文没有需要逐帧刷新的 Lookup
     }
 }
 
+/// <summary>实现第三人称角色的 KCC 物理、速度和碰撞处理策略</summary>
 public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicCharacterProcessor<ThirdPersonCharacterUpdateContext>
 {
     public readonly KinematicCharacterAspect CharacterAspect;
     public readonly RefRW<ThirdPersonCharacter> CharacterComponent;
     public readonly RefRW<ThirdPersonCharacterControl> CharacterControl;
 
+    /// <summary>按 KCC 固定物理阶段的顺序更新角色接地、速度和碰撞</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
     public void PhysicsUpdate(ref ThirdPersonCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
         ref ThirdPersonCharacter characterComponent = ref CharacterComponent.ValueRW;
         ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
         ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
 
-        // First phase of default character update
+        // 第一阶段先处理父实体位移和接地，以便后续速度计算使用当前地面状态
         CharacterAspect.Update_Initialize(in this, ref context, ref baseContext, ref characterBody, baseContext.Time.DeltaTime);
         CharacterAspect.Update_ParentMovement(in this, ref context, ref baseContext, ref characterBody, ref characterPosition, characterBody.WasGroundedBeforeCharacterUpdate);
         CharacterAspect.Update_Grounding(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
 
-        // Update desired character velocity after grounding was detected, but before doing additional processing that depends on velocity
+        // 接地完成后更新期望速度，后续推挤和碰撞阶段依赖该结果
         HandleVelocityControl(ref context, ref baseContext);
 
-        // Second phase of default character update
+        // 第二阶段处理斜坡限制、地面推挤、位移解穿透和移动平台动量
         CharacterAspect.Update_PreventGroundingFromFutureSlopeChange(in this, ref context, ref baseContext, ref characterBody, in characterComponent.StepAndSlopeHandling);
         CharacterAspect.Update_GroundPushing(in this, ref context, ref baseContext, characterComponent.Gravity);
         CharacterAspect.Update_MovementAndDecollisions(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
@@ -69,50 +77,46 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         ref ThirdPersonCharacter characterComponent = ref CharacterComponent.ValueRW;
         ref ThirdPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
 
-        // Rotate move input and velocity to take into account parent rotation
+        // 站在旋转父实体上时同步旋转输入和相对速度
         if (characterBody.ParentEntity != Entity.Null)
         {
             characterControl.MoveVector = math.rotate(characterBody.RotationFromParent, characterControl.MoveVector);
             characterBody.RelativeVelocity = math.rotate(characterBody.RotationFromParent, characterBody.RelativeVelocity);
 
-            // var audit = SystemAPI.GetComponentRW<MoveVectorWriteAudit>(CharacterAspect.CharacterEntity);
-            // audit.ValueRW = new MoveVectorWriteAudit {
-            //     writer = (FixedString64Bytes)"KCC.PhysicsUpdate.RotateByParent",
-            //     tick   = context.DebugTick, 
-            //     value  = characterControl.MoveVector
-            // };
         }
 
         if (characterBody.IsGrounded)
         {
-            // Move on ground
+            // 接地时将速度平滑收敛到地面切线上的目标速度
             float3 targetVelocity = characterControl.MoveVector * characterComponent.GroundMaxSpeed;
             CharacterControlUtilities.StandardGroundMove_Interpolated(ref characterBody.RelativeVelocity, targetVelocity, characterComponent.GroundedMovementSharpness, deltaTime, characterBody.GroundingUp, characterBody.GroundHit.Normal);
         }
         else
         {
-            // Move in air
+            // 空中移动只施加加速度，并受最大空速限制
             float3 airAcceleration = characterControl.MoveVector * characterComponent.AirAcceleration;
             if (math.lengthsq(airAcceleration) > 0f)
             {
                 float3 tmpVelocity = characterBody.RelativeVelocity;
                 CharacterControlUtilities.StandardAirMove(ref characterBody.RelativeVelocity, airAcceleration, characterComponent.AirMaxSpeed, characterBody.GroundingUp, deltaTime, false);
 
-                // Cancel air acceleration from input if we would hit a non-grounded surface (prevents air-climbing slopes at high air accelerations)
+                // 若输入加速度会撞上非地面表面则回退，避免高加速度沿陡坡爬升
                 if (characterComponent.PreventAirAccelerationAgainstUngroundedHits && CharacterAspect.MovementWouldHitNonGroundedObstruction(in this, ref context, ref baseContext, characterBody.RelativeVelocity * deltaTime, out ColliderCastHit hit))
                 {
                     characterBody.RelativeVelocity = tmpVelocity;
                 }
             }
 
-            // Gravity
+            // 重力和阻力只在离地阶段作用于相对速度
             CharacterControlUtilities.AccelerateVelocity(ref characterBody.RelativeVelocity, characterComponent.Gravity, deltaTime);
 
-            // Drag
             CharacterControlUtilities.ApplyDragToVelocity(ref characterBody.RelativeVelocity, deltaTime, characterComponent.AirDrag);
         }
     }
 
+    /// <summary>在可变帧率阶段更新父实体旋转插值和角色朝向</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
     public void VariableUpdate(ref ThirdPersonCharacterUpdateContext context, ref KinematicCharacterUpdateContext baseContext)
     {
         ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
@@ -120,18 +124,20 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         ref ThirdPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
         ref quaternion characterRotation = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
 
-        // Add rotation from parent body to the character rotation
-        // (this is for allowing a rotating moving platform to rotate your character as well, and handle interpolation properly)
+        // 以可变帧率插值父实体旋转，使旋转平台上的角色表现连续
         KinematicCharacterUtilities.AddVariableRateRotationFromFixedRateRotation(ref characterRotation, characterBody.RotationFromParent, baseContext.Time.DeltaTime, characterBody.LastPhysicsUpdateDeltaTime);
 
-        // Rotate towards move direction
+        // 有移动输入时平滑转向移动方向
         if (math.lengthsq(characterControl.MoveVector) > 0f)
         {
             CharacterControlUtilities.SlerpRotationTowardsDirectionAroundUp(ref characterRotation, baseContext.Time.DeltaTime, math.normalizesafe(characterControl.MoveVector), characterBody.GroundingUp, characterComponent.RotationSharpness);
         }
     }
 
-    #region Character Processor Callbacks
+    #region KCC 角色处理回调
+    /// <summary>更新角色用于接地判定的上方向</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
     public void UpdateGroundingUp(
         ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext)
@@ -141,6 +147,11 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         CharacterAspect.Default_UpdateGroundingUp(ref characterBody);
     }
 
+    /// <summary>判断命中材质是否允许参与角色碰撞</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
+    /// <param name="hit">基础碰撞命中</param>
+    /// <returns>命中是否可碰撞</returns>
     public bool CanCollideWithHit(
         ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
@@ -149,6 +160,12 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         return PhysicsUtilities.IsCollidable(hit.Material);
     }
 
+    /// <summary>按斜坡和台阶配置判断命中是否可作为地面</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
+    /// <param name="hit">基础碰撞命中</param>
+    /// <param name="groundingEvaluationType">接地评估类型</param>
+    /// <returns>命中是否满足接地条件</returns>
     public bool IsGroundedOnHit(
         ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
@@ -166,6 +183,14 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
             groundingEvaluationType);
     }
 
+    /// <summary>使用默认 KCC 规则处理移动碰撞和台阶跨越</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
+    /// <param name="hit">本次角色移动命中</param>
+    /// <param name="remainingMovementDirection">剩余移动方向</param>
+    /// <param name="remainingMovementLength">剩余移动距离</param>
+    /// <param name="originalVelocityDirection">原始速度方向</param>
+    /// <param name="hitDistance">命中距离</param>
     public void OnMovementHit(
             ref ThirdPersonCharacterUpdateContext context,
             ref KinematicCharacterUpdateContext baseContext,
@@ -195,6 +220,12 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
             characterComponent.StepAndSlopeHandling.CharacterWidthForStepGroundingCheck);
     }
 
+    /// <summary>保留 KCC 默认动态碰撞质量</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
+    /// <param name="characterMass">角色质量</param>
+    /// <param name="otherMass">被命中物体质量</param>
+    /// <param name="hit">基础碰撞命中</param>
     public void OverrideDynamicHitMasses(
         ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,
@@ -202,9 +233,17 @@ public readonly partial struct ThirdPersonCharacterAspect : IAspect, IKinematicC
         ref PhysicsMass otherMass,
         BasicHit hit)
     {
-        // Custom mass overrides
+        // 当前玩法不覆盖质量，保留接口以明确采用 KCC 默认行为
     }
 
+    /// <summary>按命中法线和地面约束投影角色速度</summary>
+    /// <param name="context">第三人称角色更新上下文</param>
+    /// <param name="baseContext">KCC 基础更新上下文</param>
+    /// <param name="velocity">待投影速度</param>
+    /// <param name="characterIsGrounded">角色接地状态</param>
+    /// <param name="characterGroundHit">当前地面命中</param>
+    /// <param name="velocityProjectionHits">速度投影命中集合</param>
+    /// <param name="originalVelocityDirection">原始速度方向</param>
     public void ProjectVelocityOnHits(
         ref ThirdPersonCharacterUpdateContext context,
         ref KinematicCharacterUpdateContext baseContext,

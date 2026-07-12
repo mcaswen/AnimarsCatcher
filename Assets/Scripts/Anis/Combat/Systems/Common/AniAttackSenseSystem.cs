@@ -5,6 +5,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
+/// <summary>
+/// 在服务器按敌方 Ani、敌方基地、资源的优先级选择范围内最近目标
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -14,53 +17,61 @@ public partial struct AniAttackSenseSystem : ISystem
     private EntityQuery _resourceQuery;
     private EntityQuery _baseQuery;
 
+    /// <summary>
+    /// 建立三类候选目标查询并等待至少一个可攻击 Ani
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // 有 Ani + Camp 就开始跑
+        // 感知依赖攻击属性、位置和阵营三类基础数据
         state.RequireForUpdate(
             SystemAPI.QueryBuilder()
                 .WithAll<AniAttributes, LocalTransform, Camp>()
                 .WithAny<PickerAniTag, BlasterAniTag>()
                 .Build());
 
-        // 敌 Ani：位置 + 阵营 + 属性
+        // Ani 候选需要位置、阵营和属性以排除自身类型缺失实体
         _enemyAniQuery = SystemAPI.QueryBuilder()
             .WithAll<LocalTransform, Camp, AniAttributes>()
             .Build();
 
-        // 资源：位置 + 可攻击标记
+        // 资源候选只包含显式允许攻击的资源
         _resourceQuery = SystemAPI.QueryBuilder()
             .WithAll<LocalTransform, AttackableResourceTag>()
             .Build();
 
-        // ★ 基地：改成用 LocalTransform 做中心点，不再依赖 BaseWorldAABB 做体积检测
+        // 基地感知使用中心点距离，并排除已经失去生命值的基地
         _baseQuery = SystemAPI.QueryBuilder()
-            .WithAll<BaseTag, Camp, LocalTransform, Health>()  // ★ 改这里
+            .WithAll<BaseTag, Camp, LocalTransform, Health>()
             .Build();
     }
 
+    /// <summary>
+    /// 为每个 Ani 计算范围内的最高优先级最近目标并更新目标组件
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-        // —— 敌 Ani
+        // 查询快照在整帧复用，避免为每个感知主体重复收集候选
         var enemyEntities   = _enemyAniQuery.ToEntityArray(Allocator.Temp);
         var enemyTransforms = _enemyAniQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
         var enemyCamps      = _enemyAniQuery.ToComponentDataArray<Camp>(Allocator.Temp);
 
-        // —— 资源
+        // 资源不需要阵营数据，只参与 Blaster 的最低优先级选择
         var resourceEntities   = _resourceQuery.ToEntityArray(Allocator.Temp);
         var resourceTransforms = _resourceQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
 
-        // —— 基地
+        // 基地需要阵营和生命值以排除友方及已摧毁目标
         var baseEntities   = _baseQuery.ToEntityArray(Allocator.Temp);
         var baseCamps      = _baseQuery.ToComponentDataArray<Camp>(Allocator.Temp);
-        var baseTransforms = _baseQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp); // ★ 新增
+        var baseTransforms = _baseQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
         var baseHealth     = _baseQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-        // —— 对每个 Ani 自己找目标
+        // 每个 Ani 独立按攻击范围和类型执行目标仲裁
         foreach (var (attributes, transform, camp, entity) in
                  SystemAPI.Query<RefRO<AniAttributes>, RefRO<LocalTransform>, RefRO<Camp>>()
                      .WithAny<PickerAniTag, BlasterAniTag>()
@@ -69,7 +80,7 @@ public partial struct AniAttackSenseSystem : ISystem
             bool isPicker  = SystemAPI.HasComponent<PickerAniTag>(entity);
             bool isBlaster = SystemAPI.HasComponent<BlasterAniTag>(entity);
 
-            // Picker 在 Pick 状态下不攻击
+            // Picker 搬运资源期间不应被攻击行为打断
             bool isPicking = SystemAPI.HasComponent<AniCarryResourceOrder>(entity);
             if (isPicker && isPicking)
                 continue;
@@ -83,14 +94,14 @@ public partial struct AniAttackSenseSystem : ISystem
             AniAttackTargetKind bestKind   = AniAttackTargetKind.None;
             float               bestDistSq = float.MaxValue;
 
-            // —— 敌 Ani
+            // 敌方 Ani 始终是最高优先级，并选择范围内最近者
             for (int i = 0; i < enemyEntities.Length; i++)
             {
                 Entity   targetEntity = enemyEntities[i];
                 float3   targetPos    = enemyTransforms[i].Position;
                 CampType targetCamp   = enemyCamps[i].Value;
 
-                // 友军跳过
+                // 阵营相同的 Ani 不进入候选
                 if (targetCamp == myCamp)
                     continue;
 
@@ -106,23 +117,23 @@ public partial struct AniAttackSenseSystem : ISystem
                 }
             }
 
-            // —— 敌方基地（不抢走 EnemyAni，只抢 None/Resource 或更近的 EnemyBase）
+            // 敌方基地不会覆盖已找到的敌方 Ani
             for (int i = 0; i < baseEntities.Length; i++)
             {
                 Entity baseEntity = baseEntities[i];
                 var    baseCamp   = baseCamps[i];
 
-                // 友军基地不算
+                // 友方基地不进入候选
                 if (baseCamp.Value == myCamp)
                     continue;
 
-                // 已经没血了的基地忽略
+                // 已摧毁基地由胜负系统处理，不再作为攻击目标
                 if (baseHealth[i].current <= 0f)
                     continue;
 
-                // ★ 用基地中心点做检测
+                // 当前规则使用基地中心点距离判断攻击范围
                 float3 basePos       = baseTransforms[i].Position;
-                float  distSqToBase  = math.lengthsq(basePos - myPos);   // ★ 改这里
+                float  distSqToBase  = math.lengthsq(basePos - myPos);
                 if (distSqToBase > rangeSq)
                     continue;
 
@@ -138,7 +149,7 @@ public partial struct AniAttackSenseSystem : ISystem
                 {
                     replace = true;
                 }
-                // bestKind == EnemyAni 时不替换：基地不抢 Ani 目标
+                // 已选中敌方 Ani 时保持目标，基地不参与替换
 
                 if (!replace)
                     continue;
@@ -148,7 +159,7 @@ public partial struct AniAttackSenseSystem : ISystem
                 bestDistSq = distSqToBase;
             }
 
-            // —— Blaster：如果还没找到敌 Ani / 基地，再考虑资源
+            // 只有 Blaster 在没有战斗目标时才把资源作为最低优先级目标
             if (isBlaster && bestKind == AniAttackTargetKind.None)
             {
                 for (int i = 0; i < resourceEntities.Length; i++)
@@ -169,7 +180,7 @@ public partial struct AniAttackSenseSystem : ISystem
                 }
             }
 
-            // —— 写 / 删 AniAttackTarget
+            // 目标组件只保存当前帧有效结果，无候选时立即移除
             if (bestKind != AniAttackTargetKind.None)
             {
                 var data = new AniAttackTarget
@@ -199,7 +210,7 @@ public partial struct AniAttackSenseSystem : ISystem
 
         baseEntities.Dispose();
         baseCamps.Dispose();
-        baseTransforms.Dispose();   // ★ 注意这里换成 Transform
+        baseTransforms.Dispose();
         baseHealth.Dispose();
 
         ecb.Playback(state.EntityManager);

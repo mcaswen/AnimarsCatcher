@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
+/// <summary>在客户端为带表现配置的实体创建并绑定 GameObject 视图</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
@@ -10,6 +11,7 @@ public partial class SpawnAvatarViewSystem : SystemBase
 {
     private EntityQuery _spawnQuery;
 
+    /// <summary>查询尚未创建托管表现对象的实体</summary>
     protected override void OnCreate()
     {
         _spawnQuery = SystemAPI.QueryBuilder()
@@ -20,6 +22,7 @@ public partial class SpawnAvatarViewSystem : SystemBase
         RequireForUpdate(_spawnQuery);
     }
 
+    /// <summary>实例化视图并按表现类型绑定对应行为</summary>
     protected override void OnUpdate()
     {
         EntityManager entityManager = EntityManager;
@@ -34,8 +37,10 @@ public partial class SpawnAvatarViewSystem : SystemBase
 
             if (prefabReference == null || prefabReference.ViewPrefab == null) continue;
 
+            // 表现对象只在 Client World 创建，服务器保持纯实体状态
             GameObject spawnedGameObject = Object.Instantiate(prefabReference.ViewPrefab);
 
+            // Prefab 缺少跟随组件时动态补齐，保证实体和表现对象生命周期一致
             AvatarViewFollower follower = spawnedGameObject.GetComponent<AvatarViewFollower>()?? spawnedGameObject.AddComponent<AvatarViewFollower>();
 
             var proxy = spawnedGameObject.GetComponent<MovementSelectableProxy>();
@@ -44,7 +49,7 @@ public partial class SpawnAvatarViewSystem : SystemBase
                 proxy.Entity = targetEntity;
             }
 
-            // 注入 Entity 与 EntityManager
+            // 显式注入所属世界，避免表现对象通过默认世界访问错误实体
             follower.Bind(targetEntity, entityManager);
 
             switch (prefabReference.ViewType)
@@ -57,9 +62,9 @@ public partial class SpawnAvatarViewSystem : SystemBase
                     PickerAniAttackView pickerView = spawnedGameObject.GetComponent<PickerAniAttackView>()?? spawnedGameObject.AddComponent<PickerAniAttackView>();
                     pickerView.Bind(targetEntity, entityManager, false);
                     break;
-                // 可根据需要添加更多类型
             }
 
+            // 所有绑定完成后再标记，防止异常中断留下半初始化视图
             entityManager.AddComponent<AvatarViewSpawnedTag>(targetEntity);
         }
     }

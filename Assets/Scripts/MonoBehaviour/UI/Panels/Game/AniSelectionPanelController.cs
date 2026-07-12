@@ -9,6 +9,10 @@ using AnimarsCatcher.Mono.Utilities;
 
 namespace AnimarsCatcher.Mono.UI
 {
+    /// <summary>
+    /// 管理本地玩家准备生成的 Picker 和 Blaster 数量
+    /// 所有增减操作都会先按当前资源快照校验成本
+    /// </summary>
     public class AniSelectionPanelController : MonoBehaviour
     {
         public TextMeshProUGUI Text_Selection_SpawningPickerAniCount;
@@ -25,7 +29,7 @@ namespace AnimarsCatcher.Mono.UI
 
         public GameObject SelectionPanel;
 
-        //Count
+        // 当前面板中的临时选择值 确认前不会提交到服务端
         private int _spawningBlasterAniCount = 0;
         private int _spawningPickerAniCount = 0;
         [SerializeField] private int _pickerAniFoodCostCount = 2;
@@ -35,6 +39,7 @@ namespace AnimarsCatcher.Mono.UI
 
         [SerializeField] private float _panelAnimDuration = 0.25f;
 
+        // 绑定按钮事件并建立面板初始状态
         private void Awake()
         {
             SelectionPanel?.SetActive(false);
@@ -79,6 +84,7 @@ namespace AnimarsCatcher.Mono.UI
             });
         }
 
+        // 持续刷新按钮可用状态和选择数量显示
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.E))
@@ -88,6 +94,7 @@ namespace AnimarsCatcher.Mono.UI
             }
         }
 
+        // 校验食物和水晶成本后增加 Picker 计划数量
         private void CheckAddPickerAni()
         {
             var success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
@@ -120,6 +127,7 @@ namespace AnimarsCatcher.Mono.UI
             }
         }
 
+        // 在不低于零的前提下减少 Picker 计划数量
         private void CheckDeductPickerAni()
         {
             if (_spawningPickerAniCount <= 0)
@@ -142,6 +150,7 @@ namespace AnimarsCatcher.Mono.UI
                            $"Food +{_pickerAniFoodCostCount}, Crystal +{_pickerAniCrystalCostCount}");
         }
 
+        // 校验食物和水晶成本后增加 Blaster 计划数量
         private void CheckAddBlasterAni()
         {
             var success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
@@ -175,6 +184,7 @@ namespace AnimarsCatcher.Mono.UI
             }
         }
 
+        // 在不低于零的前提下减少 Blaster 计划数量
         private void CheckDeductBlasterAni()
         {
             if (_spawningBlasterAniCount <= 0)
@@ -197,6 +207,7 @@ namespace AnimarsCatcher.Mono.UI
                            $"Food +{_blasterAniFoodCostCount}, Crystal +{_blasterAniCrystalCostCount}");
         }
 
+        // 发布最终选择并关闭面板输入锁
         private void OnSelectionMenuConfirmed()
         {
             SmoothPanelView.HidePanel(SelectionPanel, _panelAnimDuration);

@@ -8,9 +8,10 @@ using AnimarsCatcher.Mono.Lan;
 using UnityEngine.Events;
 
 
-// 订阅 JoinRoomRequested 事件
-// 显示 IP 输入 UI
-// 调用 NetCodeClientConnector.RequestConnect 进行连接
+/// <summary>
+/// 驱动客户端房间发现 连接和连接结果提示流程
+/// 优先使用局域网广播 超时后可按配置尝试备用地址
+/// </summary>
 public class ClientRoomPanelController : MonoBehaviour
 {
     [Header("Panels")]
@@ -56,6 +57,7 @@ public class ClientRoomPanelController : MonoBehaviour
 
     private UnityAction<JoinGameRoomRequestEventData> _onJoinRoomRequestedHandler;
 
+    // 建立初始 UI 状态并绑定返回按钮
     private void Awake()
     {
         if (_clientRoomPanel != null)
@@ -70,6 +72,7 @@ public class ClientRoomPanelController : MonoBehaviour
         ResetState();
     }
 
+    // 订阅加入房间和对局开始事件
     private void Start()
     {
         _onJoinRoomRequestedHandler = data => OnJoinRoomRequested();
@@ -77,12 +80,14 @@ public class ClientRoomPanelController : MonoBehaviour
         NetUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
     }
 
+    // 对称解除事件监听并停止局域网发现
     private void OnDestroy()
     {
         EventBus.Instance.Unsubscribe(_onJoinRoomRequestedHandler);
         NetUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
     }
 
+    // 清空一次连接尝试的计时器 状态标记和提示界面
     private void ResetState()
     {
         _isSearchingServer = false;
@@ -101,27 +106,29 @@ public class ClientRoomPanelController : MonoBehaviour
         _connectionSucceededPromptText.gameObject.SetActive(false);
     }
 
+    // 按当前阶段分别推进房间发现或连接状态检测
     private void Update()
     {
-        // 更新 LAN 发现
+        // 搜索阶段轮询局域网房间列表
         if (_isSearchingServer)
         {
             UpdateDiscovery();
         }
 
-        // 如果已经发起连接，请求 NetCode 连接状态
+        // 连接阶段等待 NetworkId 单例出现
         if (_isConnecting)
         {
             CheckConnectionStatus();
         }
         else if (!_isConnecting && !_isSearchingServer && !_connectionInfoUpdated)
         {
-            // 连接流程结束，更新 UI 提示一次
+            // 流程结束后只更新一次最终提示
             UpdateConnectionInfo();
             _connectionInfoUpdated = true;
         }
     }
 
+    // 打开客户端房间面板并开始监听局域网广播
     private void OnJoinRoomRequested()
     {
         ResetState();
@@ -132,7 +139,7 @@ public class ClientRoomPanelController : MonoBehaviour
         
         _clientNameText.text = PlayerSession.CurrentUserName;
 
-        // 开始监听 LAN 广播
+        // 记录搜索开始时间用于超时回退
         _lanDiscoveryClient?.StartListening();
 
         _isSearchingServer = true;
@@ -160,18 +167,18 @@ public class ClientRoomPanelController : MonoBehaviour
         _mainMenuPanel?.SetActive(true);
     }
 
-    // 周期性刷新 LAN 服务器列表，如有房间则发起连接；超时则提示失败或兜底。
+    // 周期刷新房间列表 找到主机后立即发起连接
     private void UpdateDiscovery()
     {
         var now = Time.time;
 
-        // 超时：一直没发现任何房间
+        // 搜索超时后尝试备用地址或显示未发现主机
         if (now - _discoveryStartTime > _discoveryTimeoutSeconds)
         {
             _isSearchingServer = false;
             _lanDiscoveryClient?.StopListening();
 
-            // 尝试保底ip连接
+            // 未配置备用地址时直接结束本次连接流程
             if (string.IsNullOrEmpty(_fallbackHostIp))
             {
                 _connectionFailed = true;
@@ -184,7 +191,7 @@ public class ClientRoomPanelController : MonoBehaviour
                 return;
             }
 
-            // 尝试连默认 IP
+            // 使用备用 IP 发起最后一次连接尝试
             StartConnectToServer(_fallbackHostIp, _gamePort, "默认主机");
             return;
         }
@@ -196,17 +203,17 @@ public class ClientRoomPanelController : MonoBehaviour
 
         _lastDiscoveryPollTime = now;
 
-        // 拿当前发现的服务器列表
+        // 获取独立快照以避免遍历时缓存被更新
         var servers = _lanDiscoveryClient?.GetCurrentServers();
         if (servers == null || servers.Count == 0)
         {
-            return; // 还没发现房间
+            return;
         }
 
-        // 取第一个
+        // 当前产品只支持展示并连接首个发现的房间
         var server = servers[0];
 
-        // 设置提示文本
+        // 先展示主机信息再进入连接阶段
         string ip = server.IpAddress;
         ushort port = server.GamePort;
         string hostName = server.HostName;
@@ -221,13 +228,14 @@ public class ClientRoomPanelController : MonoBehaviour
         StartConnectToServer(ip, port, hostName);
     }
 
+    // 停止发现并向 NetCode 客户端连接器提交目标地址
     private void StartConnectToServer(string ip, ushort port, string hostName)
     {
         Debug.Log($"[ClientRoomPanel] Connecting to discovered server {hostName} at {ip}:{port}");
 
         _lanDiscoveryClient?.StopListening();
 
-        // 发起 NetCode 连接请求
+        // 连接请求会在客户端世界异步建立连接实体
         NetCodeClientConnector.RequestConnect(ip, port);
 
         _isSearchingServer = false;
@@ -238,9 +246,7 @@ public class ClientRoomPanelController : MonoBehaviour
         _connectingPromptText?.gameObject.SetActive(true);
     }
 
-    // 每帧检查 NetCode 的连接状态：
-    // 有 NetworkId 了：连接成功
-    // 超时还没连上：提示失败
+    // 以 NetworkId 单例作为握手完成标志并处理连接超时
     private void CheckConnectionStatus()
     {
         if (!_isConnecting) return;
@@ -250,26 +256,27 @@ public class ClientRoomPanelController : MonoBehaviour
 
         var entityManager = clientWorld.EntityManager;
 
-        // 成功条件：已经有 NetworkId singleton
+        // NetCode 在握手成功后为连接创建 NetworkId 单例
         if (!entityManager.CreateEntityQuery(typeof(NetworkId)).IsEmpty)
         {
             _isConnecting = false;
             _connectionSucceeded = true;
             Debug.Log("[ClientRoomPanel] Detected successful connection (NetworkId present).");
             
-            // 发送玩家信息Rpc
+            // 连接建立后再发送玩家身份 避免 RPC 早于连接可用
             ClientLobbyIntroSender.SendIntro(clientWorld, PlayerSession.CurrentUserName);
 
             return;
         }
 
-        // 超时判定
+        // 超过配置时限仍无 NetworkId 时标记连接失败
         if (Time.time - _connectStartTime > _connectTimeoutSeconds)
         {
             _isConnecting = false;
             _connectionFailed = true;
         }
     }
+    // 根据最终连接结果切换互斥提示文本
     private void UpdateConnectionInfo()
     { 
         if (_connectionFailed)

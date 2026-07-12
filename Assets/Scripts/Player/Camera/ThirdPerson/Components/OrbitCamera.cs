@@ -5,28 +5,29 @@ using Unity.Mathematics;
 using UnityEngine;
 using Unity.NetCode;
 
+/// <summary>保存环绕相机配置以及跨帧运行状态</summary>
 [Serializable]
 public struct OrbitCamera : IComponentData
 {
-    // Rotation
+    // 旋转配置
     public float RotationSpeed;
     public float MaxVAngle;
     public float MinVAngle;
     public bool RotateWithCharacterParent;
 
-    // Distance
+    // 距离与缩放配置
     public float MinDistance;
     public float MaxDistance;
     public float DistanceMovementSpeed;
     public float DistanceMovementSharpness;
 
-    // Obstruction
+    // 遮挡检测与平滑配置
     public float ObstructionRadius;
     public float ObstructionInnerSmoothingSharpness;
     public float ObstructionOuterSmoothingSharpness;
     public bool PreventFixedUpdateJitter;
 
-    // State
+    // 跨帧状态
     public float TargetDistance;
     public float SmoothedTargetDistance;
     public float ObstructedDistance;
@@ -34,6 +35,7 @@ public struct OrbitCamera : IComponentData
     public float3 PlanarForward;
 }
 
+/// <summary>保存玩家本帧对环绕相机的控制输入</summary>
 [Serializable]
 public struct OrbitCameraControl : IComponentData
 {
@@ -42,6 +44,7 @@ public struct OrbitCameraControl : IComponentData
     public float ZoomDelta;
 }
 
+/// <summary>记录遮挡检测需要忽略的实体</summary>
 [Serializable]
 public struct OrbitCameraIgnoredEntityBufferElement : IBufferElementData
 {

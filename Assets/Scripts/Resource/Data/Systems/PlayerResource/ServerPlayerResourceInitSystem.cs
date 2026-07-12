@@ -5,6 +5,9 @@ using Unity.NetCode;
 using UnityEngine;
 
 
+/// <summary>
+/// 为进入游戏且尚无资源状态的连接生成玩家资源 Ghost
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -12,25 +15,31 @@ using UnityEngine;
 [UpdateAfter(typeof(ServerStartGameSystem))] 
 public partial struct ServerPlayerResourceInitSystem : ISystem
 {
+    /// <summary>
+    /// 等待连接标识和资源 Ghost 预制体注册完成
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkId>();
         state.RequireForUpdate<PlayerResourceGhostPrefab>();
     }
 
+    /// <summary>
+    /// 为缺少资源实体的连接补建并设置 GhostOwner
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
         var prefab = SystemAPI.GetSingleton<PlayerResourceGhostPrefab>().Value;
 
-        // 遍历所有连接，给没有 PlayerResourceState 的连接补一份
+        // 遍历连接并保证每个 NetworkId 只有一份资源实体
         foreach (var (networkId, connectionEntity) in SystemAPI
                      .Query<RefRO<NetworkId>>()
                      .WithEntityAccess())
         {
             int id = networkId.ValueRO.Value;
 
-            // 检查是否已经有对应资源实体
+            // 先查询已有 GhostOwner 防止重复实例化
             bool hasResource = false;
             foreach (var owner in SystemAPI
                          .Query<RefRO<GhostOwner>>()

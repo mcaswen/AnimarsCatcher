@@ -4,6 +4,9 @@ using Unity.NetCode;
 
 namespace AnimarsCatcher.Mono.Global
 {
+    /// <summary>
+    /// 当前进程承担的网络运行角色
+    /// </summary>
     public enum NetworkRunRole
     {
         Host,   // Server + Client 同进程
@@ -11,6 +14,9 @@ namespace AnimarsCatcher.Mono.Global
         DedicatedServer // 服务端，暂未启用
     }
 
+    /// <summary>
+    /// 在启动早期检测并公开当前网络运行角色
+    /// </summary>
     public static class NetRuntimeRole
     {
         public static NetworkRunRole Current { get; private set; } = NetworkRunRole.Host;
@@ -19,6 +25,9 @@ namespace AnimarsCatcher.Mono.Global
         public static bool IsClient => Current == NetworkRunRole.Client;
         public static bool IsDedicatedServer => Current == NetworkRunRole.DedicatedServer;
 
+        /// <summary>
+        /// 显式设置当前运行角色并记录来源
+        /// </summary>
         public static void SetRole(NetworkRunRole role, string reason = null)
         {
             Current = role;
@@ -26,12 +35,13 @@ namespace AnimarsCatcher.Mono.Global
                       (string.IsNullOrEmpty(reason) ? "" : $" (from {reason})"));
         }
 
+        // 编辑器依据 NetCode PlayMode 工具判断 构建版本依据命令行参数判断
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void DetectRole()
         {
             
 #if UNITY_EDITOR
-            // Editor中从 PlayMode Tools 的 PlayType 推断角色
+            // Editor 中从 PlayMode Tools 的 PlayType 推断角色
             switch (ClientServerBootstrap.RequestedPlayType)
             {
                 case ClientServerBootstrap.PlayType.ClientAndServer:
@@ -48,7 +58,7 @@ namespace AnimarsCatcher.Mono.Global
                     break;
             }
 #else
-            // 非 Editor 下从命令行参数推断角色
+            // 非 Editor 环境从命令行参数推断角色
             var args = Environment.GetCommandLineArgs();
 
             bool has(string flag)
@@ -69,7 +79,7 @@ namespace AnimarsCatcher.Mono.Global
             }
             else
             {
-                // 默认Host
+                // 无显式参数时按普通客户端启动
                 Current = NetworkRunRole.Client;
             }
 

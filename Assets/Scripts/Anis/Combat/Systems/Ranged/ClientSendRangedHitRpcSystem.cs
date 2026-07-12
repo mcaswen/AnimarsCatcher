@@ -4,24 +4,34 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 在客户端把 Blaster 视图射线结果转换为远程命中 RPC
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientSendRangedHitRpcSystem : ISystem
 {
+    /// <summary>
+    /// 等待客户端进入游戏网络流后再发送射线结果
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkStreamInGame>();
     }
 
-    // [BurstCompile]
+    /// <summary>
+    /// 将本地实体映射为 GhostId 并发送候选命中给服务器
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
         var entityManager = state.EntityManager;
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-        // 客户端只会有一条到服务器的连接
+        // 客户端世界只维护一条到服务器的游戏连接
         Entity connection = SystemAPI.GetSingletonEntity<NetworkStreamInGame>();
 
         while (AniHitBridge.TryDequeue(out var hit))
@@ -55,8 +65,6 @@ public partial struct ClientSendRangedHitRpcSystem : ISystem
                 HitNormal       = hit.HitNormal,
                 ShotId          = hit.ShotId
             });
-
-            // UnityEngine.Debug.Log($"ClientSendRangedHitRpcSystem: Enqueue RangedHitRpc: AttackerGhostId={attackerGhostId}, TargetGhostId={targetGhostId}, ShotId={hit.ShotId}");
 
             ecb.AddComponent(rpcEntity, new SendRpcCommandRequest
             {

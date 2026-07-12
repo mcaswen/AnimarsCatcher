@@ -3,7 +3,9 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Burst;
 
-// 应用迁移：一次性动作（Exit/Enter），不做增删组件
+/// <summary>
+/// 在服务器应用已经选定的迁移，依次执行退出动作、切换状态和进入动作
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(FsmEvaluateSystem))]
@@ -11,12 +13,20 @@ public partial struct FsmApplyTransitionSystem : ISystem
 {
     private BufferLookup<FsmVar> _blackboardLookupRO;
 
+    /// <summary>
+    /// 缓存可写黑板查询并等待状态机上下文
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         state.RequireForUpdate<FsmContext>();
     }
     
+    /// <summary>
+    /// 一次性消费 Pending 迁移且不执行结构组件变更
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookupRO.Update(ref state);
@@ -27,15 +37,15 @@ public partial struct FsmApplyTransitionSystem : ISystem
         foreach (var (fsm, entity) in SystemAPI.Query<RefRW<Fsm>>().WithEntityAccess()) 
         {
             ref var f = ref fsm.ValueRW;
-            if (f.HasPending == 0) continue; //若未处于pending状态，则不执行转换
+            if (f.HasPending == 0) continue; // 只有评估阶段选中的迁移才能进入应用阶段
 
-            // 回调当前状态退出方法
+            // 退出动作仍在旧状态上下文中执行
             FsmRegistry.InvokeAction(f.PendingExit, in entity, ref f, context);
 
             f.Current     = f.Next;
             f.TimeInState = 0f;
 
-            // 回调目标状态进入方法
+            // 状态切换完成后再执行目标状态进入动作
             FsmRegistry.InvokeAction(f.PendingEnter, in entity, ref f, context);
 
             f.PendingExit  = ActionId.None;

@@ -3,6 +3,9 @@ using Unity.Entities;
 using Unity.Collections;
 using System.Diagnostics;
 
+/// <summary>
+/// 在服务器按冷却生成唯一攻击序号、视图请求和目标快照
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -11,6 +14,10 @@ public partial struct AniAttackFireSystem : ISystem
 {
     private uint _shotCounter;
 
+    /// <summary>
+    /// 等待具有攻击属性和冷却状态的 Ani 实体可用
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -21,6 +28,10 @@ public partial struct AniAttackFireSystem : ISystem
                 .Build());
     }
 
+    /// <summary>
+    /// 为冷却结束且目标有效的 Ani 创建一次不可重复的攻击快照
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -39,7 +50,7 @@ public partial struct AniAttackFireSystem : ISystem
             if (st.CooldownRemaining > 0f)
                 continue;
 
-            // 没有目标就不攻击，也不重置 CD
+            // 没有目标时保留已完成的冷却，使新目标出现后可立即攻击
             if (!SystemAPI.HasComponent<AniAttackTarget>(entity))
                 continue;
 
@@ -47,29 +58,12 @@ public partial struct AniAttackFireSystem : ISystem
             if (target.Target == Entity.Null || target.Kind == AniAttackTargetKind.None)
                 continue;
 
-            // 冷却时间归位
+            // 仅在确认发起攻击后重置冷却
             st.CooldownRemaining = attributes.ValueRO.AttackInterval;
-
-            // string debugKind = "";
-
-            // switch (target.Kind)
-            // {
-            //     case AniAttackTargetKind.None:
-            //         debugKind = "None";
-            //         break;
-            //     case AniAttackTargetKind.EnemyAni:
-            //         debugKind = "EnemyAni";
-            //         break;
-            //     case AniAttackTargetKind.Resource:
-            //         debugKind = "Resource";
-            //         break;  
-            // }
-
-            // UnityEngine.Debug.Log($"[AniAttackFireSystem] Ani Entity {entity.Index} firing at target {target.Target} of kind " + debugKind);
 
             uint shotId = ++_shotCounter;
 
-            // 给视图看的：FireRequest（用于触发动画）
+            // FireRequest 通过 Ghost 同步驱动视图动画
             var fireRequest = new AniAttackFireRequest
             {
                 ShotId = shotId
@@ -80,7 +74,7 @@ public partial struct AniAttackFireSystem : ISystem
             else
                 entityCommandBuffer.AddComponent(entity, fireRequest);
 
-            // 给逻辑用的：PendingAttack 快照
+            // PendingAttack 冻结本次目标，避免动画期间感知变化改写结算对象
             var pending = new AniPendingAttack
             {
                 Target = target.Target,

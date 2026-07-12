@@ -5,6 +5,9 @@ using AnimarsCatcher.Mono.Global;
 
 namespace AnimarsCatcher.Mono.UI
 {
+    /// <summary>
+    /// 将主菜单创建房间和加入房间命令发布到对应流程
+    /// </summary>
     public class MainMenuPanelController : MonoBehaviour
     {
         [Header("Panels")]
@@ -17,6 +20,7 @@ namespace AnimarsCatcher.Mono.UI
         [Header("Feedback")]
         [SerializeField] private FloatingMessageView _messageText;
 
+        // 初始化面板反馈并绑定主菜单按钮
         private void Awake()
         {
             if (_mainMenuPanel != null)
@@ -40,6 +44,7 @@ namespace AnimarsCatcher.Mono.UI
             }
         }
 
+        // 发布创建房间事件并隐藏主菜单
         private void OnCreateRoomClicked()
         {
             EventBus.Instance.Publish(new GameRoomCreatedEventData());
@@ -51,6 +56,7 @@ namespace AnimarsCatcher.Mono.UI
             }
         }
 
+        // 发布加入房间事件并隐藏主菜单
         private void OnJoinRoomClicked()
         {
             EventBus.Instance.Publish(new JoinGameRoomRequestEventData());

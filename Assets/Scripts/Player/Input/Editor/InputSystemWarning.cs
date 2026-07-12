@@ -5,6 +5,7 @@ using UnityEngine;
 namespace Unity.CharacterController.Editor
 {
 #if !ENABLE_INPUT_SYSTEM
+    /// <summary>在编辑器启动时提示项目缺少必需的 Input System</summary>
     [InitializeOnLoad]
     class InputSystemWarning
     {

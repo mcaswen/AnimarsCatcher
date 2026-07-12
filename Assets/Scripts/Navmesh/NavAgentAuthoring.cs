@@ -2,6 +2,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
+/// <summary>
+/// 配置可由服务端规划路径的导航代理
+/// </summary>
 [DisallowMultipleComponent]
 public class NavAgentAuthoring : MonoBehaviour
 {
@@ -11,8 +14,15 @@ public class NavAgentAuthoring : MonoBehaviour
     public Transform[] InitialWaypoints;
 }
 
+/// <summary>
+/// 将导航代理配置和初始路径点烘焙为 ECS 数据
+/// </summary>
 public class NavAgentBaker : Baker<NavAgentAuthoring>
 {
+    /// <summary>
+    /// 创建导航状态 转向状态和路径点缓冲区
+    /// </summary>
+    /// <param name="authoring">场景中的导航代理配置</param>
     public override void Bake(NavAgentAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
@@ -32,6 +42,7 @@ public class NavAgentBaker : Baker<NavAgentAuthoring>
             HasPath = 0
         });
 
+        // 即使没有初始路径点也创建缓冲区 便于运行时直接写入规划结果
         var buf = AddBuffer<NavWaypoint>(entity);
 
         if (authoring.InitialWaypoints != null && authoring.InitialWaypoints.Length > 0)

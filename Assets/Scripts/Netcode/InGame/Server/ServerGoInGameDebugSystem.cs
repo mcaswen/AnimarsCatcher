@@ -9,15 +9,14 @@ using Unity.Transforms;
 using UnityEngine.SceneManagement;
 #endif
 
-// Editor 调试模式专用
-// 只在 UNITY_EDITOR 下生效
-// 只在当前场景为 "SCN_GameLevel" 时工作
-// 收到 GoInGameRequest 后：标记 InGame + 为该连接 Spawn 角色与相机
+/// <summary>在编辑器游戏场景中处理跳过大厅的调试 InGame 请求</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ServerGoInGameDebugSystem : ISystem
 {
+    /// <summary>仅在编辑器中声明角色 Prefab 和出生点依赖</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
 #if UNITY_EDITOR
@@ -28,12 +27,15 @@ public partial struct ServerGoInGameDebugSystem : ISystem
 #endif
     }
 
+    /// <summary>消费调试请求并由服务器创建角色及所有权关系</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
 
 #if !UNITY_EDITOR
         return;
 #else
+        // 场景限制防止调试协议介入正式大厅和菜单流程
         if (SceneManager.GetActiveScene().name != "SCN_GameLevel")
         {
             return;
@@ -44,13 +46,14 @@ public partial struct ServerGoInGameDebugSystem : ISystem
         var hasCharacterPrefab = SystemAPI.TryGetSingleton<CharacterGhostPrefab>(out var characterPrefab);
         var hasCameraPrefab    = SystemAPI.TryGetSingleton<CameraGhostPrefab>(out var cameraPrefab);
 
+        // Prefab 注册未完成时保留请求，等待后续帧继续处理
         if (!hasCharacterPrefab || !hasCameraPrefab)
         {
             entityCommandBuffer.Playback(state.EntityManager);
             return;
         }
 
-        // 处理 GoInGameRequest
+        // 调试协议仍由服务器选择阵营、出生点并授予角色所有权
         foreach (var (request, src, rpcEntity) in SystemAPI
                      .Query<RefRO<GoInGameRequest>, RefRO<ReceiveRpcCommandRequest>>()
                      .WithEntityAccess())
@@ -73,7 +76,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                 if (groupCamp.ValueRO.Value != camp)
                     continue;
 
-                // 标记 InGame
+                // 先标记 InGame，允许该连接开始收发 Ghost 和输入快照
                 connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
 
                 if (connectionAspect.HasSpawned(ref state))
@@ -83,7 +86,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                     continue;
                 }
 
-                // 选取出生点
+                // 出生点选择保持与正式开局流程一致
                 bool spawnPointSelected = CharacterSpawnUtility.TrySelectCharacterSpawnPoint(
                     spawnState.ValueRW,
                     connectionAspect,
@@ -93,7 +96,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                     out var spawnRotation
                 );
 
-                // 实例化角色
+                // 角色创建只能在 Server World 执行
                 var character = CharacterSpawnUtility.InstantiateAndInit(
                     ref entityCommandBuffer,
                     characterPrefab.Value,
@@ -104,7 +107,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                     1f
                 );
 
-                // 设置 CommandTarget / GhostOwner
+                // CommandTarget 决定输入流向，GhostOwner 决定客户端预测权限
                 connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
                 entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
                 entityCommandBuffer.AddComponent(character, new Camp { Value = camp });

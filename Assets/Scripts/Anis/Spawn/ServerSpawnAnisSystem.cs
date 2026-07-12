@@ -7,18 +7,29 @@ using Unity.Transforms;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>
+/// 在服务器验证生成 RPC，并按连接阵营实例化拥有权正确的 Ani Ghost
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ServerSpawnAnisSystem : ISystem
 {
+    /// <summary>
+    /// 等待 Ghost 预制体注册表和场景出生点准备完成
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<AniGhostPrefabCollection>();
         state.RequireForUpdate<AniSpawnPointTag>();
     }
 
+    /// <summary>
+    /// 消费全部生成请求并为每个连接写入阵营和 GhostOwner
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
@@ -30,7 +41,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
             return;
         }
 
-        // 处理所有 SpawnBlasterAniRpc
+        // 服务器是生成数量、阵营归属和实体拥有权的最终执行方
         foreach (var (rpc, req, rpcEntity) in SystemAPI
                      .Query<RefRO<SpawnAniRpc>, RefRO<ReceiveRpcCommandRequest>>()
                      .WithEntityAccess())
@@ -48,7 +59,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
 
             var camp = ServerCampAssignmentPolicy.GetCampForConnection(networkId);
 
-            // 找到该阵营的 AniSpawnPoint
+            // 出生点按服务器分配的阵营匹配，不能信任客户端提供阵营
             bool foundSpawnPoint = false;
             float3 spawnPosition = default;
             quaternion spawnRotation = quaternion.identity;
@@ -73,7 +84,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
                 spawnRotation = quaternion.identity;
             }
             
-            // 生成指定数量的 Ani
+            // 两种 Ani 共用出生变换，但使用各自的 Ghost 预制体
             for (int i = 0; i < rpc.ValueRO.BlasterAniSpawnCount; i++)
             {
                 SpawnBlasterAniForConnection(
@@ -96,13 +107,14 @@ public partial struct ServerSpawnAnisSystem : ISystem
                     networkId);
             }
 
-            // 清理 RPC Entity
+            // RPC 实体消费后立即销毁，防止下一帧重复生成
             entityCommandBuffer.DestroyEntity(rpcEntity);
         }
 
         entityCommandBuffer.Playback(state.EntityManager);
     }
 
+    // 实例化 Blaster 并绑定服务器确定的阵营与连接拥有权
     private void SpawnBlasterAniForConnection(
         EntityCommandBuffer entityCommandBuffer,
         Entity blasterAniPrefab,
@@ -119,6 +131,7 @@ public partial struct ServerSpawnAnisSystem : ISystem
         entityCommandBuffer.AddComponent(ani, new BlasterAniTag());
     }
 
+    // 实例化 Picker 并绑定服务器确定的阵营与连接拥有权
     private void SpawnPickerAniForConnection(
         EntityCommandBuffer entityCommandBuffer,
         Entity pickerAniPrefab,

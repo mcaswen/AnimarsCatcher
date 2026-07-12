@@ -3,19 +3,29 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Burst;
 
-// 评估转换：只写 Pending，不做结构改动
+/// <summary>
+/// 在服务器按声明顺序评估当前状态的迁移条件并记录首个匹配结果
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct FsmEvaluateSystem : ISystem
 {
     private BufferLookup<FsmVar> _blackboardLookupRO;
 
+    /// <summary>
+    /// 缓存可写黑板查询并等待状态机上下文
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         _blackboardLookupRO = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         state.RequireForUpdate<FsmContext>(); 
     }
 
+    /// <summary>
+    /// 只写入 Pending 迁移信息，实际出入动作由后续系统执行
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookupRO.Update(ref state);
@@ -28,14 +38,14 @@ public partial struct FsmEvaluateSystem : ISystem
                  .WithEntityAccess())
         {
             ref var f = ref fsm.ValueRW;
-            if (f.HasPending == 1) continue; //若处于pending状态，则不进行转换评估
+            if (f.HasPending == 1) continue; // 待应用迁移尚未消费时不能再次评估
 
             ref var graph = ref graphRef.ValueRO.Value.Value;
             ref var node = ref graph.States[(int)f.Current];
 
             for (int i = 0; i < node.Transitions.Length; i++)
             {
-                // 获取每一个可能的目标节点的转换条件
+                // 边的声明顺序同时定义条件优先级，首个满足条件的边获胜
                 var transition = node.Transitions[i];
                 if (FsmRegistry.InvokeCondition(transition.Condition, entity, context)) {
                     f.Next         = transition.To;

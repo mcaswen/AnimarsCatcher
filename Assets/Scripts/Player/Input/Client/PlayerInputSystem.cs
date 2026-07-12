@@ -9,6 +9,7 @@ using UnityEngine.InputSystem;
 using Unity.CharacterController;
 using Unity.NetCode;
 
+/// <summary>在客户端输入组中采集键鼠状态并写入玩家输入组件</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
@@ -16,14 +17,17 @@ public partial class PlayerInputSystem : SystemBase
 {
     private const float RightMouseLongPressThreshold = 0.35f;
 
+    /// <summary>声明固定 Tick 和玩家控制组件依赖</summary>
     protected override void OnCreate()
     {
         RequireForUpdate<FixedTickSystem.Singleton>();
         RequireForUpdate(SystemAPI.QueryBuilder().WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
     }
 
+    /// <summary>采集当前设备状态并写入本地玩家输入组件</summary>
     protected override void OnUpdate()
     {
+        // UI 输入锁采用引用计数，任一面板占用时都不能向玩法层传递输入
         int lockCount = 0;
         if (SystemAPI.HasSingleton<PlayerInputLockState>())
         {
@@ -37,7 +41,7 @@ public partial class PlayerInputSystem : SystemBase
                 input.ValueRW.MoveInput        = float2.zero;
                 input.ValueRW.CameraZoomInput  = 0f;
 
-                // 清理按键信息，避免解锁瞬间触发操作
+                // 锁定期间清除脉冲，避免解锁后补触发旧操作
                 input.ValueRW.InteractPressed  = default;
                 input.ValueRW.PausePressed     = default;
 
@@ -46,10 +50,12 @@ public partial class PlayerInputSystem : SystemBase
             return;
         }
 
+        // 原始设备状态只采集一次，所有本地输入实体共享同一帧快照
         var keyboard = Keyboard.current;
         var mouse = Mouse.current;
 
         float deltaTime  = SystemAPI.Time.DeltaTime;
+        // 离散脉冲必须绑定服务器 Tick 才能参与 NetCode 预测和回滚
         uint tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick.SerializedData;
         var context   = new InputContext(deltaTime, tick, RightMouseLongPressThreshold);
 

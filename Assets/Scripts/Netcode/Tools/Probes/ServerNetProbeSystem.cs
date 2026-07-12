@@ -3,13 +3,15 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
-// 服务器连接情况探针
+/// <summary>按固定间隔输出 Server World 的连接阶段计数</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct ServerNetProbeSystem : ISystem
 {
     private double _nextLogTime;
 
+    /// <summary>每秒统计连接、NetworkId 和 InGame 实体数量</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;

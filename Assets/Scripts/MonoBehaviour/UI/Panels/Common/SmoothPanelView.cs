@@ -2,6 +2,10 @@ using TMPro;
 using UnityEngine;
 using DG.Tweening;
 
+/// <summary>
+/// 为普通 UI 面板提供统一的缩放和淡入淡出过渡
+/// 动画使用独立更新时间 因此暂停游戏时仍可操作菜单
+/// </summary>
 public static class SmoothPanelView
 {
     private static CanvasGroup GetOrAddCanvasGroup(GameObject panel)
@@ -11,11 +15,15 @@ public static class SmoothPanelView
             return cg;
         }
 
+    /// <summary>
+    /// 激活面板并播放进入动画
+    /// </summary>
     public static void ShowPanel(GameObject panel, float panelAnimDuration = 0.25f)
     {
         var canvasGroup = GetOrAddCanvasGroup(panel);
         var rectTransform = panel.transform as RectTransform;
 
+        // 完成旧动画后重设交互状态 避免快速切换产生残留 Tween
         rectTransform.DOKill(true); canvasGroup.DOKill(true);
 
         panel.SetActive(true);
@@ -34,6 +42,9 @@ public static class SmoothPanelView
             });
     }
 
+    /// <summary>
+    /// 禁用交互并在退出动画完成后隐藏面板
+    /// </summary>
     public static void HidePanel(GameObject panel, float panelAnimDuration = 0.25f)
     {
         var canvasGroup = GetOrAddCanvasGroup(panel);

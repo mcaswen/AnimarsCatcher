@@ -3,11 +3,18 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 在客户端把新点击结果和本地选择集封装为一次移动 RPC
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientMovementOrderSendRpcSystem : ISystem
 {
+    /// <summary>
+    /// 等待点击状态和网络连接完成初始化
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<MovementClickResult>();
@@ -15,6 +22,10 @@ public partial struct ClientMovementOrderSendRpcSystem : ISystem
         state.RequireForUpdate<NetworkStreamInGame>();
     }
 
+    /// <summary>
+    /// 对每个点击版本只发送一次属于本地连接的 Ani GhostId 快照
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -30,11 +41,11 @@ public partial struct ClientMovementOrderSendRpcSystem : ISystem
         if (result.TargetKind == MovementTargetKind.None)
             return;
 
-        // 找到这条连接（客户端只有一条到服务器的连接）
+        // 客户端世界只维护一条到服务器的游戏连接
         Entity connection = SystemAPI.GetSingletonEntity<NetworkStreamInGame>();
         int localNetworkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
 
-        // -------- 收集当前“选中的 Ani”快照（GhostId 列表） --------
+        // 选择集使用 GhostId 快照，避免 RPC 到达前本地选择变化影响命令
         var selectedAniGhostIds = new FixedList128Bytes<int>();
 
         foreach (var (ghostInstance, owner) in
@@ -42,7 +53,7 @@ public partial struct ClientMovementOrderSendRpcSystem : ISystem
                         .WithAll<AniSelectedTag>()
                         .WithNone<AniCommandLockedTag>())
         {
-            // 保险起见，只拿本地玩家的 Ani
+            // 客户端只能请求控制 GhostOwner 属于自己的 Ani
             if (owner.ValueRO.NetworkId != localNetworkId)
                 continue;
 
@@ -52,11 +63,11 @@ public partial struct ClientMovementOrderSendRpcSystem : ISystem
             selectedAniGhostIds.Add(ghostInstance.ValueRO.ghostId);
         }
 
-        // 没有选中任何 Ani
+        // 空选择不创建无意义的网络消息
         if (selectedAniGhostIds.Length == 0)
             return;
 
-        // -------- 创建 RPC 实体并发给服务端 --------
+        // RPC 只携带命令输入，最终权限和目标有效性由服务器复核
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
         Entity rpcEntity = entityCommandBuffer.CreateEntity();
@@ -67,11 +78,6 @@ public partial struct ClientMovementOrderSendRpcSystem : ISystem
             TargetEntity        = result.TargetEntity,
             SelectedAniGhostIds = selectedAniGhostIds
         });
-
-        // UnityEngine.Debug.Log(
-        //     $"[ClientMovementOrderSendRpcSystem] Sending MovementOrderRpc: " +
-        //     $"TargetKind={result.TargetKind}, TargetWorldPosition={result.TargetWorldPosition}, " +
-        //     $"AniCount={selectedAniGhostIds.Length}");
 
         entityCommandBuffer.AddComponent(rpcEntity, new SendRpcCommandRequest
         {

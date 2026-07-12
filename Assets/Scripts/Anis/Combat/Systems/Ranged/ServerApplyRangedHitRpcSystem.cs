@@ -5,6 +5,9 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 
+/// <summary>
+/// 在服务器验证远程攻击序号、模式、目标能力和阵营后写入伤害事件
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -20,6 +23,10 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
     private ComponentLookup<RangedAttackableTag>   _rangedAttackableLookup;
     private ComponentLookup<LocalTransform>        _transformLookup;
 
+    /// <summary>
+    /// 创建持久化 GhostId 映射并缓存远程结算所需查询
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -35,6 +42,10 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
         state.RequireForUpdate<GhostInstance>();
     }
 
+    /// <summary>
+    /// 释放跨帧持有的 GhostId 映射容器
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnDestroy(ref SystemState state)
     {
@@ -42,6 +53,10 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
             _ghostIdToEntity.Dispose();
     }
 
+    /// <summary>
+    /// 消费远程 RPC，并以服务器攻击快照和目标组件为准结算伤害
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -54,7 +69,7 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
         _rangedAttackableLookup.Update(ref state);
         _transformLookup.Update(ref state);
 
-        // 重建一次 ghostId -> Entity 映射
+        // Ghost 生命周期会改变映射，因此每帧从服务器世界重建
         _ghostIdToEntity.Clear();
         foreach (var (ghostInstance, entity) in
                  SystemAPI.Query<RefRO<GhostInstance>>()
@@ -73,9 +88,7 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
             int  targetGhostId   = rpc.ValueRO.TargetGhostId;
             uint shotId          = rpc.ValueRO.ShotId;
 
-            // UnityEngine.Debug.Log($"ServerApplyRangedHitRpcSystem: Received RangedHitRpc: AttackerGhostId={attackerGhostId}, TargetGhostId={targetGhostId}, ShotId={shotId}");  
-
-            // ghostId -> attacker Entity
+            // 先将客户端提供的 GhostId 映射回服务器权威攻击者实体
             if (!_ghostIdToEntity.TryGetValue(attackerGhostId, out var attackerEntity))
             {
                 ecb.DestroyEntity(rpcEntity);
@@ -93,21 +106,21 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
             var pending = _pendingLookup[attackerEntity];
             var attr    = _attributesLookup[attackerEntity];
 
-            // 只处理远程
+            // 攻击模式必须与远程 RPC 链路匹配
             if (attr.AttackMode != AniAttackMode.Ranged)
             {
                 ecb.DestroyEntity(rpcEntity);
                 continue;
             }
 
-            // ShotId 不匹配 -> 过期或乱序，丢掉
+            // ShotId 不匹配表示事件过期、乱序或重复
             if (pending.ShotId != shotId)
             {
                 ecb.DestroyEntity(rpcEntity);
                 continue;
             }
 
-            // 如果没打到实体（比如只命中地面），就结束这发，不扣血
+            // 未命中网络实体时仍需消费本次待结算快照
             if (targetGhostId < 0)
             {
                 ecb.RemoveComponent<AniPendingAttack>(attackerEntity);
@@ -134,7 +147,7 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
             var attackerCamp = _campLookup[attackerEntity];
             var targetCamp   = _campLookup[targetEntity];
 
-            // 友伤不算
+            // 阵营相同的候选目标不产生伤害
             if (attackerCamp.Value == targetCamp.Value)
             {
                 ecb.RemoveComponent<AniPendingAttack>(attackerEntity);
@@ -142,13 +155,13 @@ public partial struct ServerApplyRangedHitRpcSystem : ISystem
                 continue;
             }
 
-            // —— 真正扣血 —— //
+            // 伤害写入缓冲区，由统一伤害系统在后续阶段汇总
             ecb.AddBuffer<DamageEvent>(targetEntity).Add(new DamageEvent
             {
                 amount = attr.AttackDamage,
             });
 
-            // 这一发结算完毕
+            // 待结算快照只能成功消费一次
             ecb.RemoveComponent<AniPendingAttack>(attackerEntity);
             ecb.DestroyEntity(rpcEntity);
         }

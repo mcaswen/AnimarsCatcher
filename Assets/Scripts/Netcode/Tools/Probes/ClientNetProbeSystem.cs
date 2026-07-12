@@ -3,13 +3,15 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
-// 客户端连接情况探针
+/// <summary>按固定间隔输出 Client World 的连接阶段状态</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public partial struct ClientNetProbeSystem : ISystem
 {
     private double _nextLogTime;
 
+    /// <summary>每秒采样连接、NetworkId 和 InGame 状态</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;

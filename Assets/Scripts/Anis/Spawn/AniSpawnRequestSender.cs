@@ -2,8 +2,16 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
+/// <summary>
+/// 从客户端世界创建 Ani 生成请求并发送给服务器
+/// </summary>
 public static class AniSpawnRequestSender
 {
+    /// <summary>
+    /// 请求服务器为当前连接生成指定数量的两类 Ani
+    /// </summary>
+    /// <param name="blasterAniSpawnCount">需要生成的 Blaster 数量</param>
+    /// <param name="pickerAniSpawnCount">需要生成的 Picker 数量</param>
     public static void RequestSpawnAnis(int blasterAniSpawnCount, int pickerAniSpawnCount)
     {
         var clientWorld = WorldManager.FindClientWorld();
@@ -23,6 +31,7 @@ public static class AniSpawnRequestSender
                 return;
             }
 
+            // RPC 必须挂到当前客户端唯一的网络连接
             var connection = query.GetSingletonEntity();
 
             var rpcEntity = entityManager.CreateEntity();

@@ -7,6 +7,9 @@ using DG.Tweening;
 
 namespace AnimarsCatcher.Mono.UI
 {
+    /// <summary>
+    /// 管理游戏内暂停菜单和音量面板之间的切换
+    /// </summary>
     public class GameMenuPanelController: MonoBehaviour
     {
         public GameObject MenuPanel;
@@ -19,6 +22,7 @@ namespace AnimarsCatcher.Mono.UI
 
         [SerializeField] private float _panelAnimDuration = 0.25f;
 
+        // 绑定返回游戏 音量设置和退出命令
         void Start()
         {
             Button_ReturnGame.onClick.AddListener(() =>

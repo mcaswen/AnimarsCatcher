@@ -8,6 +8,9 @@ using UnityEngine;
 
 namespace AnimarsCatcher.Mono.Lan
 {
+    /// <summary>
+    /// 最近一次通过局域网广播发现的房间信息
+    /// </summary>
     [Serializable]
     public class LanDiscoveredServer
     {
@@ -17,10 +20,10 @@ namespace AnimarsCatcher.Mono.Lan
         public float LastSeenTime;
     }
 
-    // 客户端局域网发现模块：
-    // 监听 UDP 广播端口
-    // 维护“发现到的房间”列表
-    // 提供查询接口给 UI 使用
+    /// <summary>
+    /// 在客户端监听 UDP 广播并维护可加入房间的活动快照
+    /// 所有套接字读取均使用非阻塞模式避免卡住 Unity 主线程
+    /// </summary>
     public class LanDiscoveryClient : MonoBehaviour
     {
         [Header("Discovery Settings")]
@@ -49,6 +52,9 @@ namespace AnimarsCatcher.Mono.Lan
             StopListening();
         }
 
+        /// <summary>
+        /// 开始监听项目约定的局域网发现端口
+        /// </summary>
         public void StartListening()
         {
             if (_isListening || NetRuntimeRole.Current != NetworkRunRole.Client) 
@@ -71,6 +77,9 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
+        /// <summary>
+        /// 关闭发现套接字并清空过期房间缓存
+        /// </summary>
         public void StopListening()
         {
             if (!_isListening || NetRuntimeRole.Current != NetworkRunRole.Client) 
@@ -98,6 +107,7 @@ namespace AnimarsCatcher.Mono.Lan
             CleanupExpiredServers();
         }
 
+        // 消费当前帧已经到达的全部数据报
         private void ReceivePackets()
         {
             try
@@ -117,9 +127,10 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
+        // 校验协议头和端口后按来源 IP 更新房间快照
         private void ParseAndRegisterServer(string message, IPEndPoint remoteEndPoint)
         {
-            // 期望格式：ACATCH|1|HostName|GamePort
+            // 广播协议格式为 ACATCH|版本|主机名|游戏端口
             var parts = message.Split('|');
             if (parts.Length < 4)
                 return;
@@ -154,6 +165,7 @@ namespace AnimarsCatcher.Mono.Lan
             Debug.Log($"[LanDiscoveryClient] Discovered server: {hostName} at {ip}:{gamePort}");
         }
 
+        // 移除超过存活窗口仍未收到广播的主机
         private void CleanupExpiredServers()
         {
             if (_serversByIp.Count == 0)
@@ -176,13 +188,17 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
-        // 返回当前活跃的服务器列表快照。
+        /// <summary>
+        /// 返回当前活动房间的独立列表快照
+        /// </summary>
         public List<LanDiscoveredServer> GetCurrentServers()
         {
             return new List<LanDiscoveredServer>(_serversByIp.Values);
         }
 
-        // 尝试拿到“最近看到的第一个服务器”
+        /// <summary>
+        /// 尝试取得当前缓存中的第一个房间
+        /// </summary>
         public bool TryGetFirstServer(out LanDiscoveredServer server)
         {
             foreach (var kvp in _serversByIp)

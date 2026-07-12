@@ -4,6 +4,9 @@ using UnityEngine.Serialization;
 using Cinemachine;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>
+/// 播放战斗场景开场运镜并在演出期间锁定输入和 HUD
+/// </summary>
 public class BattleIntroCinematic : MonoBehaviour
 {
     [Header("Cinemachine")]
@@ -27,7 +30,7 @@ public class BattleIntroCinematic : MonoBehaviour
 
             if (_trackedDolly != null)
             {
-                // ★ 关键：PathPosition 用 0~1 范围的归一化单位
+                // 使用归一化路径位置使演出时长不依赖路径单位
                 _trackedDolly.m_PositionUnits = CinemachinePathBase.PositionUnits.Normalized;
             }
         }
@@ -35,17 +38,11 @@ public class BattleIntroCinematic : MonoBehaviour
 
     private void Start()
     {
-        // 只有在 LoadingUI 告诉我们需要运镜时才跑
-        // if (!ClientCinematicState.ShouldRunIntro)
-        // {
-        //     enabled = false;
-        //     return;
-        // }
-
         ClientCinematicState.ShouldRunIntro = false;
         StartCoroutine(RunCinematic());
     }
 
+    // 提升开场相机优先级并沿轨道推进 完成后恢复输入和 HUD
     private IEnumerator RunCinematic()
     {
         ClientCinematicState.IsRunning = true;
@@ -77,7 +74,7 @@ public class BattleIntroCinematic : MonoBehaviour
                         t += Time.deltaTime;
                         float normalized = Mathf.Clamp01(t / _cinematicDurationSeconds);
 
-                        // ★ 从 0 推到 1，Cinemachine 用 Normalized 单位解释
+                        // 按演出时间将轨道位置从零平滑推进到一
                         _trackedDolly.m_PathPosition = normalized;
 
                         yield return null;
@@ -105,6 +102,7 @@ public class BattleIntroCinematic : MonoBehaviour
         }
     }
 
+    // 通过共享 UI 输入锁桥接演出状态 避免直接依赖玩家输入系统
     private void SetInputEnabled(bool enabled)
     {
         if (enabled)

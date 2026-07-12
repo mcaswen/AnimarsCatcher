@@ -1,10 +1,15 @@
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>
+/// 集中管理服务器为新连接分配阵营的确定性规则
+/// </summary>
 public static class ServerCampAssignmentPolicy
 {
-    // 根据连接的 NetworkId 和运行角色，为该连接分配阵营
-    // Host 模式下：NetworkId == 1 的本地玩家是 Alpha，其余都是 Beta
-    // DedicatedServer 模式下：奇数 Alpha，偶数 Beta
+    /// <summary>
+    /// 根据连接编号和当前网络角色返回服务器权威阵营
+    /// </summary>
+    /// <param name="networkId">NetCode 分配的连接编号</param>
+    /// <returns>该连接应使用的阵营</returns>
     public static CampType GetCampForConnection(int networkId)
     {
         if (NetRuntimeRole.IsHost)

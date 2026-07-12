@@ -4,10 +4,18 @@ using Unity.Entities;
 using Unity.Mathematics;
 using System.Runtime.InteropServices;
 
+/// <summary>
+/// 构建移动状态机的不可变 Blob 图和有序迁移边
+/// </summary>
 public static class AniMovementFsmGraphBlobBuilder
 {
     private const int MaxCapacity = 1024;
 
+    /// <summary>
+    /// 创建状态图根节点并按全局状态标识符预分配节点数组
+    /// </summary>
+    /// <param name="builder">返回临时 Blob 构建器</param>
+    /// <param name="states">返回可写状态节点数组</param>
     public static void AllocateBuilderBase(out BlobBuilder builder, out BlobBuilderArray<FsmStateNode> states)
     {
         builder = new BlobBuilder(Allocator.Temp);
@@ -15,12 +23,17 @@ public static class AniMovementFsmGraphBlobBuilder
         states = builder.Allocate(ref graph.States, MaxCapacity);
     }
 
+    /// <summary>
+    /// 构建空闲状态到跟随、寻敌和定点移动的迁移边
+    /// </summary>
+    /// <param name="builder">状态图 Blob 构建器</param>
+    /// <param name="states">可写状态节点数组</param>
     public static void BuildIdleState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
     {
         states[AniMovementFsmIds.IdleStateId].State = (StateId)AniMovementFsmIds.IdleStateId;
         var transitions = builder.Allocate(ref states[AniMovementFsmIds.IdleStateId].Transitions, 3); // 共 3 条边
 
-        // Idle -> Follow
+        // 从 Idle 转到 Follow
         transitions[0] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FollowStateId,
@@ -29,7 +42,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitIdleActionId,
         };
 
-        // Idle -> Find
+        // 从 Idle 转到 Find
         transitions[1] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FindStateId,
@@ -38,7 +51,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitIdleActionId,
         };
 
-        // Idle -> MoveTo
+        // 从 Idle 转到 MoveTo
         transitions[2] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.MoveToStateId,
@@ -48,12 +61,17 @@ public static class AniMovementFsmGraphBlobBuilder
         };
     }
 
+    /// <summary>
+    /// 构建跟随状态到寻敌和定点移动的迁移边
+    /// </summary>
+    /// <param name="builder">状态图 Blob 构建器</param>
+    /// <param name="states">可写状态节点数组</param>
     public static void BuildFollowState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
     {
         states[AniMovementFsmIds.FollowStateId].State = (StateId)AniMovementFsmIds.FollowStateId;
         var transitions = builder.Allocate(ref states[AniMovementFsmIds.FollowStateId].Transitions, 2); // 共 2 条边
 
-        // Follow -> Find
+        // 从 Follow 转到 Find
         transitions[0] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FindStateId,
@@ -62,7 +80,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitFollowActionId,
         };
 
-        // Follow -> MoveTo
+        // 从 Follow 转到 MoveTo
         transitions[1] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.MoveToStateId,
@@ -72,12 +90,17 @@ public static class AniMovementFsmGraphBlobBuilder
         };
     }
 
+    /// <summary>
+    /// 构建寻敌状态到跟随、定点移动和空闲的迁移边
+    /// </summary>
+    /// <param name="builder">状态图 Blob 构建器</param>
+    /// <param name="states">可写状态节点数组</param>
     public static void BuildFindState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
     {
         states[AniMovementFsmIds.FindStateId].State = (StateId)AniMovementFsmIds.FindStateId;
         var transitions = builder.Allocate(ref states[AniMovementFsmIds.FindStateId].Transitions, 3); // 共 3 条边
 
-        // Find -> Follow （CommandFollow）
+        // 收到 CommandFollow 时从 Find 转到 Follow
         transitions[0] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FollowStateId,
@@ -86,7 +109,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitFindActionId,
         };
 
-        // Find -> MoveTo （CommandMoveTo）
+        // 收到 CommandMoveTo 时从 Find 转到 MoveTo
         transitions[1] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.MoveToStateId,
@@ -95,7 +118,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitFindActionId,
         };
 
-        // Find -> Idle （目标消失）
+        // 目标消失时从 Find 转到 Idle
         transitions[2] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.IdleStateId,
@@ -105,12 +128,17 @@ public static class AniMovementFsmGraphBlobBuilder
         };
     }
 
+    /// <summary>
+    /// 构建定点移动状态到空闲、跟随和寻敌的迁移边
+    /// </summary>
+    /// <param name="builder">状态图 Blob 构建器</param>
+    /// <param name="states">可写状态节点数组</param>
     public static void BuildMoveToState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
     {
         states[AniMovementFsmIds.MoveToStateId].State = (StateId)AniMovementFsmIds.MoveToStateId;
         var transitions = builder.Allocate(ref states[AniMovementFsmIds.MoveToStateId].Transitions, 3); // 共 3 条边
 
-        // MoveTo -> Idle （到达或者命令改为 Idle）
+        // 到达目标时从 MoveTo 转到 Idle
         transitions[0] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.IdleStateId,
@@ -119,7 +147,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitMoveToActionId,
         };
 
-        // MoveTo -> Follow
+        // 从 MoveTo 转到 Follow
         transitions[1] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FollowStateId,
@@ -128,7 +156,7 @@ public static class AniMovementFsmGraphBlobBuilder
             OnExit    = (ActionId)AniMovementFsmIds.ExitMoveToActionId,
         };
 
-        // MoveTo -> Find
+        // 从 MoveTo 转到 Find
         transitions[2] = new FsmTransition
         {
             To        = (StateId)AniMovementFsmIds.FindStateId,

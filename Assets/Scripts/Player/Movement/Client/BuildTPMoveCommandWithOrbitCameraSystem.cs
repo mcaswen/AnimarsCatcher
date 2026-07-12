@@ -5,12 +5,14 @@ using Unity.NetCode;
 using Unity.Transforms;
 using Unity.CharacterController;
 
-// 处理和计算输入数据，然后转换为移动命令（OrbitCamera）
+/// <summary>在客户端把环绕相机坐标系下的输入打包为网络移动命令</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
 {
+    /// <summary>等待客户端进入 InGame 且玩家输入关系可用</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkStreamInGame>();
@@ -18,6 +20,8 @@ public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
             .WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
     }
 
+    /// <summary>为当前预测 Tick 构建并写入环绕相机移动命令</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var connection))
@@ -32,11 +36,11 @@ public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
 
         foreach (var (input, player) in SystemAPI.Query<PlayerInput, ThirdPersonPlayerControl>())
         {
-            // 获得角色的向上方向
+            // 角色可能位于倾斜表面，移动平面必须使用角色自身上方向
             var characterLocalTransform = SystemAPI.GetComponent<LocalTransform>(player.ControlledCharacter);
             float3 up = MathUtilities.GetUpFromRotation(characterLocalTransform.Rotation);
 
-            // 计算相机朝向
+            // 从环绕相机状态重建与表现一致的相机旋转
             quaternion cameraRotation = quaternion.identity;
             if (SystemAPI.HasComponent<OrbitCamera>(player.ControlledCamera))
             {
@@ -46,19 +50,19 @@ public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
                     up, orbitCamera.PlanarForward, orbitCamera.PitchAngle);
             }
 
-            // 投射到水平面
+            // 前方向投影到角色移动平面，右方向由相机旋转直接获得
             float3 cameraForwardOnPlane = math.normalizesafe(
                 MathUtilities.ProjectOnPlane(MathUtilities.GetForwardFromRotation(cameraRotation), up));
 
             float3 cameraRight = MathUtilities.GetRightFromRotation(cameraRotation);
 
-            // 把输入折算为世界平面向量
+            // 将二维输入转换为服务器和客户端一致的世界方向
             float3 worldMove = input.MoveInput.y * cameraForwardOnPlane + input.MoveInput.x * cameraRight;
             worldMove = MathUtilities.ClampToMaxLength(worldMove, 1f);
 
             var tick = networkTime.ServerTick;
 
-            // 按位与取按键状态
+            // 离散输入合并为位标记，随同一 Tick 的移动命令发送
             var buttons = default(CommandButtons);
 
             if (input.RightMouseHeld != 0) buttons |= CommandButtons.RMBHold;
@@ -67,7 +71,7 @@ public partial struct BuildTPMoveCommandWithOrbitCameraSystem : ISystem
             if (input.InteractPressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Interact;
             if (input.PausePressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Pause;
 
-            // 打包命令
+            // 环绕相机需要同时发送视角和缩放增量
             InputCommand command = default;
             command.Tick = tick;
 

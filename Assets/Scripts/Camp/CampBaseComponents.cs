@@ -1,6 +1,9 @@
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 表示对局中的两个阵营以及不参与敌我判断的中立阵营
+/// </summary>
 public enum CampType : byte
 {
     Alpha = 0,
@@ -8,14 +11,18 @@ public enum CampType : byte
     Neutral = 2
 }
 
-// 阵营组件，附加在所有要参与规则判断的实体上
+/// <summary>
+/// 保存实体阵营并通过 Ghost 同步给客户端
+/// </summary>
 [GhostComponent]
 public struct Camp : IComponentData
 {
     [GhostField] public CampType Value;
 }
 
-// 仅用于“玩家/连接”的阵营归属，供服务器查询
+/// <summary>
+/// 保存玩家连接的服务器权威阵营归属
+/// </summary>
 public struct PlayerCamp : IComponentData
 {
     public CampType Value;

@@ -3,13 +3,17 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 
+/// <summary>配置相机需要跟随的目标对象</summary>
 [DisallowMultipleComponent]
 public class CameraTargetAuthoring : MonoBehaviour
 {
     public GameObject Target;
 
+    /// <summary>负责将相机目标引用转换为实体引用</summary>
     public class Baker : Baker<CameraTargetAuthoring>
     {
+        /// <summary>烘焙相机目标组件</summary>
+        /// <param name="authoring">相机目标 Authoring 配置</param>
         public override void Bake(CameraTargetAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic);

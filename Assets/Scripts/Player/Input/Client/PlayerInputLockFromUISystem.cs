@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.Burst;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>在客户端根据 UI 面板占用情况维护玩法输入锁</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial class PlayerInputLockFromUiSystem : SystemBase
@@ -12,7 +13,7 @@ public partial class PlayerInputLockFromUiSystem : SystemBase
     {
         base.OnCreate();
 
-        // 创建单例实体
+        // 使用计数而非布尔值，允许多个面板独立申请和释放输入锁
         _lockStateEntity = EntityManager.CreateEntity(typeof(PlayerInputLockState));
         EntityManager.SetName(_lockStateEntity, "PlayerInputLockStateSingleton");
 
@@ -21,13 +22,13 @@ public partial class PlayerInputLockFromUiSystem : SystemBase
             LockCount = 0
         });
 
-        // 订阅 UI 事件
+        // UI 通过事件传递增量，避免表现层直接依赖 ECS 世界
         NetUIEventBridge.UIPanelInputToggleEvent.AddListener(OnUIPanelInputToggle);
     }
 
     protected override void OnDestroy()
     {
-        // 取消订阅，防止退出 Play 时报 MissingReference
+        // 系统销毁时必须退订，避免退出 Play 后事件仍持有托管回调
         NetUIEventBridge.UIPanelInputToggleEvent.RemoveListener(OnUIPanelInputToggle);
         base.OnDestroy();
     }
@@ -41,13 +42,13 @@ public partial class PlayerInputLockFromUiSystem : SystemBase
 
         state.LockCount += data.Delta;
         if (state.LockCount < 0)
-            state.LockCount = 0; // 防御：避免调用不配对，锁计数变负数
+            state.LockCount = 0; // 防御未配对的释放请求，避免锁计数变为负数
 
         EntityManager.SetComponentData(_lockStateEntity, state);
     }
 
     protected override void OnUpdate()
     {
-        // 留空，事件驱动
+        // 状态完全由 UI 事件驱动，无需逐帧轮询
     }
 }

@@ -5,6 +5,9 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Physics;
 
+/// <summary>
+/// 在服务器将导航速度、邻居分离力和物理射线结果合成为最终移动
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(NavFollowIntentSystem))]
@@ -14,6 +17,10 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
     private ComponentLookup<AniPhysicsConfig> _aniLookup;
 
+    /// <summary>
+    /// 缓存 Ani 物理配置查询并等待物理世界和移动实体可用
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -26,6 +33,10 @@ public partial struct AniPhysicsMoveSystem : ISystem
         _aniLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
+    /// <summary>
+    /// 计算群体分离、截断障碍穿透并平滑更新服务器权威变换
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -36,20 +47,17 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
         float deltaTime = SystemAPI.Time.DeltaTime;
 
-        // 一个系统一帧共用一个列表即可
+        // 整帧复用同一临时列表，避免为每个 Ani 重复分配
         var separationHits = new NativeList<DistanceHit>(16, Allocator.Temp);
 
         foreach (var (transform, moveIntent, config, entity) in
                  SystemAPI.Query<RefRW<LocalTransform>, RefRO<AniMoveIntent>, RefRO<AniPhysicsConfig>>()
                           .WithEntityAccess())
         {
-            // UnityEngine.Debug.Log(
-            // $"[AniPhysicsMoveSystem] entity {entity.Index} filter: belongsTo={config.ValueRO.Filter.BelongsTo}, collidesWith={config.ValueRO.Filter.CollidesWith}");
-
             float3 currentPosition = transform.ValueRO.Position;
             var filter = config.ValueRO.Filter;
 
-            // 计算“分离方向”，只作为 steering 力，不直接改位置
+            // 分离方向只参与速度合成，不能直接改位置以免绕过碰撞截断
             float3 separationDir = float3.zero;
             float  maxWeight     = 0f; // 分离权重
             {
@@ -109,31 +117,31 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 }
             }
 
-            // 有意图时的移动（Nav + 分离 steering 合成）
+            // 导航速度提供主方向，分离力只用于缓解群体重叠
             float3 baseVelocity = moveIntent.ValueRO.DesiredVelocity;
             float  baseSpeedSq  = math.lengthsq(baseVelocity);
 
             const float SeparationStrength = 2.0f;
 
             bool isMoving            = baseSpeedSq > 1e-4f;
-            bool hasStrongSeparation = maxWeight > 0.4f;  // > 0.4 表示挤得比较厉害
+            bool hasStrongSeparation = maxWeight > 0.4f;  // 静止时只处理明显重叠，避免轻微接触持续抖动
 
             float3 finalVelocity;
 
             if (isMoving)
             {
-                // 移动时：在原有速度上加上分离 steering
+                // 移动时保留导航意图并叠加按穿透程度衰减的分离力
                 finalVelocity = baseVelocity;
 
                 if (math.lengthsq(separationDir) > 1e-6f)
                 {
-                    // 用权重衰减，避免抖动
+                    // 权重随穿透程度变化，避免接触边缘产生突变
                     finalVelocity += separationDir * (SeparationStrength * maxWeight);
                 }
             }
             else
             {
-                // 不在移动时：只在重叠部分大于阈值的情况下才进行分离
+                // 静止时只修复严重重叠，避免阵型成员在目标点持续漂移
                 if (hasStrongSeparation && math.lengthsq(separationDir) > 1e-6f)
                 {
                     finalVelocity = separationDir * (SeparationStrength * maxWeight);
@@ -155,7 +163,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 speedSq = 0f;
             }
 
-            // 先把旧的旋转取出来，后面做插值
+            // 基于旧旋转插值到移动方向，避免朝向瞬间跳变
             var newTransform = transform.ValueRO;
 
             if (speedSq > 0f)
@@ -180,11 +188,11 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
                 if (physicsWorld.CastRay(rayInput, out RaycastHit hit))
                 {
-                    // 查出命中的实体
+                    // 射线距离按皮肤宽度回退，阻止本帧位移穿过障碍
                     var hitBody   = physicsWorld.Bodies[hit.RigidBodyIndex];
                     var hitEntity = hitBody.Entity;
 
-                    // 命中自己忽略
+                    // 碰撞过滤器可能包含自身，需要显式忽略
                     if (hitEntity != entity)
                     {
                         float hitDistance    = desiredDistance * hit.Fraction;
@@ -195,13 +203,13 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
                 currentPosition += finalDelta;
 
-                // 只考虑平面（X-Z）方向，让 Up 永远是世界 Y 轴
+                // 朝向仅使用水平分量，保持世界 Y 轴为上方向
                 float3 flatDir = new float3(moveDirection.x, 0f, moveDirection.z);
                 if (math.lengthsq(flatDir) > 1e-6f)
                 {
                     quaternion targetRot = quaternion.LookRotationSafe(flatDir, math.up());
 
-                    // 加入简单平滑，避免瞬间转向导致卡顿
+                    // 使用帧时间归一化插值速度，降低急转造成的视觉卡顿
                     const float RotationLerpSpeed = 10f;
                     float t = math.saturate(RotationLerpSpeed * deltaTime);
 

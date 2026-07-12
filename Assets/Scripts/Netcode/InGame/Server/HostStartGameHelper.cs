@@ -3,9 +3,11 @@ using Unity.NetCode;
 using UnityEngine;
 using Unity.Collections;
 
+/// <summary>提供 Host UI 经本地 Client World 请求服务器开局的入口</summary>
 public static class HostStartGameHelper
 {
-    // 从本地 ClientWorld 发 StartGameRpc 给 Server
+    /// <summary>向服务器发送包含目标场景的开局 RPC</summary>
+    /// <param name="sceneName">服务器要求所有客户端加载的场景名</param>
     public static void SendStartGameRpc(string sceneName)
     {
         var clientWorld = WorldManager.FindClientWorld();

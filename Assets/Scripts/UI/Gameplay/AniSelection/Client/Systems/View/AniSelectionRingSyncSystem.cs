@@ -6,21 +6,30 @@ using Unity.Transforms;
 using Unity.NetCode;
 
 
+/// <summary>
+/// 在客户端为本地玩家已选 Ani 创建并回收选中光圈
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial struct AniSelectionRingSyncSystem : ISystem
 {
+    /// <summary>
+    /// 等待光圈预制体配置完成烘焙
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<SelectionRingPrefabConfig>();
     }
 
+    /// <summary>
+    /// 根据 AniSelectedTag 的启用状态同步光圈实体
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var config = SystemAPI.GetSingleton<SelectionRingPrefabConfig>();
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        // 生成选中Ani的光圈
+        // 只为本地玩家且尚无光圈的已选 Ani 创建实例
         foreach (var (attributes, owner, aniEntity) in SystemAPI
                      .Query<RefRO<AniAttributes>, RefRO<GhostOwner>>()
                      .WithAll<AniSelectedTag>()
@@ -33,7 +42,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
 
             var ring = entityCommandBuffer.Instantiate(config.Prefab);
 
-            // 作为 ani 的子物体，跟随移动
+            // 设为 Ani 子实体以自动跟随位置和生命周期
             entityCommandBuffer.AddComponent(ring, new Parent { Value = aniEntity });
             entityCommandBuffer.AddComponent(ring, new LocalTransform
             {
@@ -42,17 +51,17 @@ public partial struct AniSelectionRingSyncSystem : ISystem
                 Scale    = 1f
             });
 
-            // 记录引用，避免重复生成
+            // 保存引用作为幂等标记
             entityCommandBuffer.AddComponent(aniEntity, new SelectionRingRef { RingEntity = ring });
 
-            // 为了父物体死亡时一起清理：把子物体加入 LinkedEntityGroup
+            // 加入 LinkedEntityGroup 让父实体销毁时级联清理
             if (!state.EntityManager.HasBuffer<LinkedEntityGroup>(aniEntity))
                 entityCommandBuffer.AddBuffer<LinkedEntityGroup>(aniEntity);
             
             entityCommandBuffer.AppendToBuffer(aniEntity, new LinkedEntityGroup { Value = ring });
         }
 
-        // 销毁未选中Ani的光圈
+        // 未选中 Ani 的光圈立即回收并移除引用标记
         foreach (var (ringRef, aniEntity) in SystemAPI
                      .Query<RefRO<SelectionRingRef>>()
                      .WithNone<AniSelectedTag>()

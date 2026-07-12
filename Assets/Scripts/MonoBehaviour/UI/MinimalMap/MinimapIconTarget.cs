@@ -3,6 +3,9 @@ using UnityEngine.UI;
 
 namespace AnimarsCatcher.Mono.UI
 {
+    /// <summary>
+    /// 声明可显示在小地图上的场景目标及其图标样式
+    /// </summary>
     public class MinimapIconTarget : MonoBehaviour
     {
         [Header("Minimap Icon")]

@@ -7,12 +7,19 @@ using AnimarsCatcher.Mono.Global;
 
 namespace AnimarsCatcher.Mono.UI
 {
+    /// <summary>
+    /// 主界面当前展示的 Ani 信息类别
+    /// </summary>
     public enum AniInfoType
     {
         Picker,
         Blaster
     }
 
+    /// <summary>
+    /// 将本地玩家资源和全局比赛状态显示在游戏主界面
+    /// 同时负责 Picker 与 Blaster 信息页签的视觉切换
+    /// </summary>
     public class GameMainInterfaceController : MonoBehaviour
     {
         public TextMeshProUGUI Text_GameTime;
@@ -38,6 +45,7 @@ namespace AnimarsCatcher.Mono.UI
 
         [SerializeField] private float _panelAnimDuration = 0.25f;
 
+        // 缓存两种图标布局尺寸供页签切换复用
         private void Awake()
         {
             _bigIconPos = PickerAniIcon.GetComponent<RectTransform>().position;
@@ -46,6 +54,7 @@ namespace AnimarsCatcher.Mono.UI
             _smallIconSizeDelta = BlasterAniIcon.GetComponent<RectTransform>().sizeDelta;
         }
 
+        // 绑定菜单入口和两类 Ani 图标按钮
         void Start()
         {
             RobotIcon.onClick.AddListener(() =>
@@ -60,6 +69,7 @@ namespace AnimarsCatcher.Mono.UI
             Text_PlayerName.text = PlayerSession.CurrentUserName;
         }
 
+        // 从 ECS 世界读取只读快照并刷新本帧 HUD
         void Update()
         {
             bool success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
@@ -114,6 +124,7 @@ namespace AnimarsCatcher.Mono.UI
 
         }
 
+        // 交换主次图标的尺寸和位置并更新当前信息类别
         private void AniIconBtnClick(Button button1, Button button2)
         {
             AudioManager.Instance.PlaySwitchBtnAudio();

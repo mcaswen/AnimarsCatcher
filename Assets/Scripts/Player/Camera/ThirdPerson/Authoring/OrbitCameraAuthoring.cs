@@ -4,15 +4,18 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
 
+/// <summary>配置环绕相机的旋转、缩放、遮挡和忽略实体</summary>
 [DisallowMultipleComponent]
 public class OrbitCameraAuthoring : MonoBehaviour
 {
+    // 旋转参数控制输入响应以及相对移动平台的朝向继承
     [Header("Rotation")]
     public float RotationSpeed = 2f;
     public float MaxVAngle = 89f;
     public float MinVAngle = -89f;
     public bool RotateWithCharacterParent = true;
 
+    // 距离平滑与输入速度分开配置，避免缩放手感依赖帧率
     [Header("Distance")]
     public float StartDistance = 5f;
     public float MinDistance = 0f;
@@ -20,17 +23,22 @@ public class OrbitCameraAuthoring : MonoBehaviour
     public float DistanceMovementSpeed = 1f;
     public float DistanceMovementSharpness = 20f;
 
+    // 遮挡收缩和恢复使用不同平滑强度，减少穿模和相机弹跳
     [Header("Obstructions")]
     public float ObstructionRadius = 0.1f;
     public float ObstructionInnerSmoothingSharpness = float.MaxValue;
     public float ObstructionOuterSmoothingSharpness = 5f;
     public bool PreventFixedUpdateJitter = true;
 
+    // 忽略列表用于排除角色附件等不应阻挡相机的碰撞体
     [Header("Misc")]
     public List<GameObject> IgnoredEntities = new List<GameObject>();
 
+    /// <summary>负责把环绕相机配置及忽略列表烘焙到实体</summary>
     public class Baker : Baker<OrbitCameraAuthoring>
     {
+        /// <summary>创建环绕相机运行时组件和忽略实体缓冲区</summary>
+        /// <param name="authoring">环绕相机 Authoring 配置</param>
         public override void Bake(OrbitCameraAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.Dynamic | TransformUsageFlags.WorldSpace);

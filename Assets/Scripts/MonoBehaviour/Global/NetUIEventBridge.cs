@@ -3,28 +3,34 @@ using UnityEngine.Events;
 
 namespace AnimarsCatcher.Mono.Global
 {
+    /// <summary>
+    /// 将不同 NetCode 世界产生的状态变化转发给主线程 UI
+    /// Raise 方法负责构造不可变事件载体并统一触发入口
+    /// </summary>
     public static class NetUIEventBridge
     {
-        // Lobby 相关事件
+        // 房间成员变化事件
         public static UnityEvent<LobbyClientJoinedEventData> LobbyClientJoinedEvent = new UnityEvent<LobbyClientJoinedEventData>();
         public static UnityEvent<LobbyClientLeftEventData> LobbyClientLeftEvent = new UnityEvent<LobbyClientLeftEventData>();
 
-        // 对局相关事件
+        // 对局生命周期事件
         public static UnityEvent<MatchStartedEventData> MatchStartedEvent = new UnityEvent<MatchStartedEventData>();
         public static UnityEvent<MatchEndedEventData> MatchEndedEvent = new UnityEvent<MatchEndedEventData>();
 
-        // Gameplay 相关事件
+        // 玩法和输入状态事件
         public static UnityEvent<SpawnBlasterAniRequestedEventData> SpawnBlasterAniRequestedEvent = new UnityEvent<SpawnBlasterAniRequestedEventData>();
         public static UnityEvent<ResourceChangedRequestedEventData> ResourceChangedRequestedEvent = new UnityEvent<ResourceChangedRequestedEventData>();
         public static UnityEvent<UIPanelInputToggleEvent> UIPanelInputToggleEvent= new UnityEvent<UIPanelInputToggleEvent>();
         public static UnityEvent<AniSelectionModeChangedEvent> AniSelectionModeChanged = new UnityEvent<AniSelectionModeChangedEvent>();
 
-        // 连接相关事件
+        // 网络连接异常事件
         public static UnityEvent<ConnectionLostEventData> ConnectionLostEvent = new UnityEvent<ConnectionLostEventData>();
 
 #region 对外 Raise 封装
 
-        // Lobby 相关事件
+        /// <summary>
+        /// 发布房间成员加入事件
+        /// </summary>
         public static void RaiseLobbyClientJoinedEvent(
             NetUIEventSource source,
             int networkId,
@@ -36,6 +42,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
+        /// <summary>
+        /// 发布房间成员离开事件
+        /// </summary>
         public static void RaiseLobbyClientLeftEvent(
             NetUIEventSource source,
             int networkId,
@@ -46,7 +55,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
-        // 对局相关事件
+        /// <summary>
+        /// 发布对局开始事件
+        /// </summary>
         public static void RaiseMatchStartedEvent(
             NetUIEventSource source,
             int localPlayerNetworkId)
@@ -56,6 +67,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
+        /// <summary>
+        /// 发布对局结束事件
+        /// </summary>
         public static void RaiseMatchEndedEvent(
             NetUIEventSource source, 
             string reason)
@@ -65,7 +79,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
-        // Gameplay 相关事件
+        /// <summary>
+        /// 发布 Blaster Ani 生成请求
+        /// </summary>
         public static void RaiseSpawnBlasterAniRequestedEvent(
             NetUIEventSource source,
             int requestedCount = 1)
@@ -75,6 +91,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
+        /// <summary>
+        /// 发布资源变更请求
+        /// </summary>
         public static void RaiseResourceChangedRequestedEvent(
             NetUIEventSource source,
             ResourceType resourceType,
@@ -85,6 +104,9 @@ namespace AnimarsCatcher.Mono.Global
             );
         }
 
+        /// <summary>
+        /// 增加一层 UI 输入锁
+        /// </summary>
         public static void RaiseUIPanelInputLocked()
         {
             UIPanelInputToggleEvent?.Invoke(new UIPanelInputToggleEvent
@@ -93,6 +115,9 @@ namespace AnimarsCatcher.Mono.Global
             });
         }
 
+        /// <summary>
+        /// 释放一层 UI 输入锁
+        /// </summary>
         public static void RaiseUIPanelInputUnlocked()
         {
             UIPanelInputToggleEvent?.Invoke(new UIPanelInputToggleEvent
@@ -101,12 +126,17 @@ namespace AnimarsCatcher.Mono.Global
             });
         }
 
+        /// <summary>
+        /// 发布 Ani 选择模式变化
+        /// </summary>
         public static void RaiseAniSelectionModeChanged(AniSelectionMode mode)
         {
             AniSelectionModeChanged?.Invoke(new AniSelectionModeChangedEvent(mode));
         }
 
-        // 连接相关事件
+        /// <summary>
+        /// 发布连接中断事件
+        /// </summary>
         public static void RaiseConnectionLostEvent(
             NetUIEventSource source,
             int networkId,

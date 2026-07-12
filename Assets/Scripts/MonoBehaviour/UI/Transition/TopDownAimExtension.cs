@@ -2,7 +2,7 @@ using UnityEngine;
 using Cinemachine;
 
 /// <summary>
-/// 强制虚拟相机永远“向下看”：forward = Vector3.down。
+/// 在 Cinemachine Aim 阶段强制虚拟相机朝世界下方观察
 /// </summary>
 [ExecuteAlways]
 [DisallowMultipleComponent]
@@ -14,11 +14,11 @@ public class TopDownAimExtension : CinemachineExtension
         ref CameraState state,
         float deltaTime)
     {
-        // 只在 Aim 阶段改朝向
+        // 仅在 Aim 阶段覆盖方向 避免影响位置和镜头参数计算
         if (stage != CinemachineCore.Stage.Aim)
             return;
 
-        // forward 朝向世界 -Y，up 随便给个和 down 不平行的轴，这里用世界 +Z
+        // 使用世界 Z 轴作为不与向下方向平行的上方向
         Vector3 forward = Vector3.down;
         Vector3 up = Vector3.forward;
 

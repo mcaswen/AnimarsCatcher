@@ -10,6 +10,7 @@ using Unity.Burst.Intrinsics;
 using Unity.NetCode;
 
 
+/// <summary>在预测组中执行 KCC 可变帧率姿态更新</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
 [UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
@@ -21,6 +22,8 @@ public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
     private ThirdPersonCharacterUpdateContext _context;
     private KinematicCharacterUpdateContext _baseContext;
 
+    /// <summary>创建角色查询并初始化 KCC 可变更新上下文</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -38,6 +41,8 @@ public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
         state.RequireForUpdate(_characterQuery);
     }
 
+    /// <summary>刷新上下文并并行调度角色姿态插值更新</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -57,6 +62,7 @@ public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
         job.ScheduleParallel();
     }
 
+    /// <summary>以 Chunk 为单位复用 KCC 临时集合并执行可变更新</summary>
     [BurstCompile]
     [WithAll(typeof(Simulate))]
     public partial struct ThirdPersonCharacterVariableUpdateJob : IJobEntity, IJobEntityChunkBeginEnd
@@ -69,12 +75,24 @@ public partial struct ThirdPersonCharacterVariableUpdateSystem : ISystem
             characterAspect.VariableUpdate(ref Context, ref BaseContext);
         }
 
+        /// <summary>在处理 Chunk 前确保 KCC 临时集合已创建</summary>
+        /// <param name="chunk">当前实体块</param>
+        /// <param name="unfilteredChunkIndex">未过滤实体块索引</param>
+        /// <param name="useEnabledMask">是否使用启用掩码</param>
+        /// <param name="chunkEnabledMask">实体块启用掩码</param>
+        /// <returns>是否继续执行当前实体块</returns>
         public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             BaseContext.EnsureCreationOfTmpCollections();
             return true;
         }
 
+        /// <summary>完成当前实体块的可变姿态更新</summary>
+        /// <param name="chunk">当前实体块</param>
+        /// <param name="unfilteredChunkIndex">未过滤实体块索引</param>
+        /// <param name="useEnabledMask">是否使用启用掩码</param>
+        /// <param name="chunkEnabledMask">实体块启用掩码</param>
+        /// <param name="chunkWasExecuted">实体块是否已执行</param>
         public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
         { }
     }

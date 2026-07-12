@@ -4,11 +4,17 @@ using Unity.Entities;
 using Unity.Transforms;
 using Unity.NetCode;
 
+/// <summary>
+/// 将资源事件 Hub 中的增量应用到对应玩家资源 Ghost
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct PlayerResourceApplyCollectedSystem : ISystem
 {
+    /// <summary>
+    /// 消费本帧资源事件并批量回写玩家资源状态
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var resourceQuery = SystemAPI.QueryBuilder()
@@ -19,13 +25,14 @@ public partial struct PlayerResourceApplyCollectedSystem : ISystem
         var resourceStates = resourceQuery.ToComponentDataArray<PlayerResourceState>(Allocator.Temp);
         var owners = resourceQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
 
+        // 建立 NetworkId 到快照索引的映射 避免每条事件扫描全部玩家
         var idToIndex = new NativeHashMap<int, int>(resourceEntities.Length, Allocator.Temp);
         for (int i = 0; i < resourceEntities.Length; i++)
         {
             idToIndex.TryAdd(owners[i].NetworkId, i);
         }
 
-        // 遍历所有 FoodCollectedEvent buffer，应用收集数量
+        // 消费食物增量并在处理后清空缓冲区
         foreach (var buffer in SystemAPI.Query<DynamicBuffer<FoodAmountChangedEvent>>())
         {
             for (int i = 0; i < buffer.Length; i++)
@@ -42,7 +49,7 @@ public partial struct PlayerResourceApplyCollectedSystem : ISystem
             buffer.Clear();
         }
 
-        // 遍历所有 CrystalCollectedEvent buffer, 应用收集数量
+        // 消费水晶增量并在处理后清空缓冲区
         foreach (var buffer in SystemAPI.Query<DynamicBuffer<CrystalAmountChangedEvent>>())
         {
             for (int i = 0; i < buffer.Length; i++)

@@ -5,8 +5,16 @@ using AnimarsCatcher.Mono.Global;
 
 namespace AnimarsCatcher.Mono.Global
 {
+    /// <summary>
+    /// 在客户端世界创建资源变更 RPC 实体
+    /// </summary>
     public static class ClientResourceRpcSender
     {
+        /// <summary>
+        /// 请求服务端为本地连接调整指定资源
+        /// </summary>
+        /// <param name="type">资源类型</param>
+        /// <param name="amount">资源变化量</param>
         public static void RequestAddResource(ResourceType type, int amount)
         {
             var clientWorld = WorldManager.FindClientWorld();
@@ -28,6 +36,7 @@ namespace AnimarsCatcher.Mono.Global
 
                 var connection = query.GetSingletonEntity();
 
+                // RPC 实体和目标连接必须创建在同一个客户端世界
                 var rpcEntity = entityManager.CreateEntity();
                 entityManager.AddComponentData(rpcEntity, new ResourceChangedRpc
                 {

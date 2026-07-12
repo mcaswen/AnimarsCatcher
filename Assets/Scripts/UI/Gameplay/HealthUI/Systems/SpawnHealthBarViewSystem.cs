@@ -6,12 +6,18 @@ using AnimarsCatcher.Mono.Global;
 using Unity.Collections;
 
 
+/// <summary>
+/// 在客户端为带血条配置且尚未生成视图的实体创建 HUD
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial struct SpawnHealthBarViewSystem : ISystem
 {
     private static HealthHUDBootstrap s_GameHUDRoot;
 
+    /// <summary>
+    /// 仅在存在生命值和血条配置实体时启用系统
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
@@ -20,15 +26,18 @@ public partial struct SpawnHealthBarViewSystem : ISystem
                 .Build());
     }
 
+    /// <summary>
+    /// 延迟查找 HUD 根节点并创建缺失的血条视图
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
-        // 懒加载 HUD Root
+        // 场景切换后延迟查找当前活动 HUD 根节点
         if (s_GameHUDRoot == null)
         {
             s_GameHUDRoot = Object.FindFirstObjectByType<HealthHUDBootstrap>();
             if (s_GameHUDRoot == null)
             {
-                // HUD 还没初始化好，先别生成血条
+                // HUD 尚未初始化时保留实体到后续帧处理
                 return;
             }
         }
@@ -59,6 +68,7 @@ public partial struct SpawnHealthBarViewSystem : ISystem
 
             if (barView != null)
             {
+                // 依据本地玩家阵营决定友方和敌方血条颜色
                 bool isFriendly = false;
 
                 if (SystemAPI.TryGetSingleton<LocalPlayerCamp>(out var hudCamp))

@@ -3,6 +3,10 @@ using Unity.Burst;
 using UnityEngine;
 using Unity.NetCode;
 
+/// <summary>
+/// 将场景中的框选 UI 对象注入客户端 ECS 单例
+/// 托管引用只在 Presentation 阶段建立一次
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -10,7 +14,7 @@ public partial class AniSelectionUIAttachSystem : SystemBase
 {
     protected override void OnUpdate()
     {
-        // 已注入则跳过
+        // Attached 标签保证场景 UI 只注入一次
         var query = SystemAPI.QueryBuilder()
             .WithAll<SelectionUIAttachedTag>()
             .Build();
@@ -21,7 +25,7 @@ public partial class AniSelectionUIAttachSystem : SystemBase
 
         var entityManager = EntityManager;
         
-        // 准备单例
+        // 缺少拖拽状态单例时由桥接系统创建
         Entity dragStateEntity;
         if (!SystemAPI.TryGetSingletonEntity<AniSelectionDragState>(out dragStateEntity))
             dragStateEntity = entityManager.CreateEntity(typeof(AniSelectionDragState));
@@ -35,7 +39,7 @@ public partial class AniSelectionUIAttachSystem : SystemBase
         
         entityManager.AddComponent<SelectionUIAttachedTag>(dragStateEntity);
 
-        // 不作为射线目标，避免挡住 UI
+        // 框选矩形只负责显示 不参与 UI 射线检测
         if (bootstrap.selectionRect)
         {
             var image = bootstrap.selectionRect.GetComponent<UnityEngine.UI.Image>();

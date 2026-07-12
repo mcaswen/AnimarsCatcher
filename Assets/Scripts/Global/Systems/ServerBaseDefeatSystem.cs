@@ -3,17 +3,28 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 在服务器检测大基地死亡并向所有连接广播唯一的对局结果
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerBaseDefeatSystem : ISystem
 {
+    /// <summary>
+    /// 等待服务器存在对局结果实体后再进行胜负判断
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<GameResult>();
     }
 
+    /// <summary>
+    /// 首次发现大基地生命值耗尽时锁定结果并广播 RPC
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -22,11 +33,11 @@ public partial struct ServerBaseDefeatSystem : ISystem
         var gameResultEntity = SystemAPI.GetSingletonEntity<GameResult>();
         var gameResult = entityManager.GetComponentData<GameResult>(gameResultEntity);
 
-        // 已经结束就别再判了
+        // 对局结果一旦锁定就不允许后续帧覆盖
         if (gameResult.IsGameOver != 0)
             return;
 
-        // 找所有大基地（BigBaseTag）+ Health + Camp
+        // 只有大基地会触发全局胜负，小基地不参与此流程
         foreach (var (health, camp, baseEntity) in
                  SystemAPI.Query<RefRO<Health>, RefRO<Camp>>()
                      .WithAll<BigBaseTag>()
@@ -35,7 +46,7 @@ public partial struct ServerBaseDefeatSystem : ISystem
             if (health.ValueRO.current > 0f)
                 continue;
 
-            // 这座大基地被摧毁了
+            // 被摧毁基地的对立阵营成为胜方
             CampType loser  = camp.ValueRO.Value;
             CampType winner = loser == CampType.Alpha ? CampType.Beta : CampType.Alpha;
 
@@ -43,7 +54,7 @@ public partial struct ServerBaseDefeatSystem : ISystem
             gameResult.Winner = winner;
             entityCommandBuffer.SetComponent(gameResultEntity, gameResult);
 
-            // 可选：给这个基地打个“已毁”标记，防止后续系统再处理它
+            // 标记已毁基地，阻止其他系统重复处理同一生命周期
             if (!SystemAPI.HasComponent<BaseDestroyedTag>(baseEntity))
             {
                 entityCommandBuffer.AddComponent<BaseDestroyedTag>(baseEntity);
@@ -66,7 +77,7 @@ public partial struct ServerBaseDefeatSystem : ISystem
                 });
             }
 
-            break; // 一座大基地爆了就够了
+            break; // 首个被摧毁的大基地已经确定唯一结果
         }
 
         entityCommandBuffer.Playback(entityManager);
@@ -74,4 +85,7 @@ public partial struct ServerBaseDefeatSystem : ISystem
     }
 }
 
+/// <summary>
+/// 标记已经触发过胜负结算的基地实体
+/// </summary>
 public struct BaseDestroyedTag : IComponentData {}

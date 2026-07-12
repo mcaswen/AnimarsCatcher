@@ -3,18 +3,22 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
-// using UnityEngine.SceneManagement; // 备用
 
+/// <summary>在 Client World 接收开局通知并切换到服务器指定场景</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(RpcSystem))]
 public partial struct ClientStartGameSystem : ISystem
 {
+    /// <summary>等待客户端连接完成后处理开局 RPC</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkId>();
     }
 
+    /// <summary>消费开局 RPC、建立客户端对局状态并启动场景过渡</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
@@ -41,21 +45,21 @@ public partial struct ClientStartGameSystem : ISystem
         string sceneNameStr = sceneName.ToString();
         Debug.Log($"[ClientStartGameSystem] Received ClientStartGameRpc, loading scene '{sceneNameStr}' via GlobalLoadingUI.");
 
-        // 标记对局开始状态
+        // 本地状态用于阻止场景就绪系统在开局通知前运行
         var matchStateEntity = state.EntityManager.CreateEntity(typeof(ClientMatchStartState));
         state.EntityManager.SetComponentData(matchStateEntity, new ClientMatchStartState { Active = 1 });
 
         int localNetId = SystemAPI.GetSingleton<NetworkId>().Value;
         NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ClientWorld, localNetId);
 
-        // 通过全局 Loading UI 做异步加载 + 遮罩
+        // 优先通过全局加载界面异步切场景并遮挡加载过程
         if (GlobalLoadingUI.Instance != null)
         {
             GlobalLoadingUI.Instance.StartLoadingAndTransition(sceneNameStr);
         }
         else
         {
-            // 兜底：如果忘了在主菜单场景放 GlobalLoadingUI，就直接同步加载
+            // 加载界面缺失时同步切场景，保证协议仍能继续完成
             Debug.LogWarning("[ClientStartGameSystem] GlobalLoadingUI.Instance is null, fallback to direct LoadScene.");
             UnityEngine.SceneManagement.SceneManager.LoadScene(sceneNameStr);
             ClientCinematicState.ShouldRunIntro = true;

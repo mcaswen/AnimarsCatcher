@@ -5,6 +5,9 @@ using Unity.NetCode;
 using Unity.Mathematics;
 using System.Diagnostics;
 
+/// <summary>
+/// 在服务端校验 Ani 选择 RPC 的所有权并更新选中标签
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -12,6 +15,9 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
 {
     private NativeParallelHashMap<int, Entity> _ghostIdToEntity;
 
+    /// <summary>
+    /// 创建持久 GhostId 索引并等待 Ani Ghost 可用
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         _ghostIdToEntity = new NativeParallelHashMap<int, Entity>(200, Allocator.Persistent);
@@ -20,14 +26,20 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
             .WithAll<AniAttributes, GhostInstance, GhostOwner>().Build());
     }
 
+    /// <summary>
+    /// 释放持久 GhostId 索引
+    /// </summary>
     public void OnDestroy(ref SystemState state)
     {
         if (_ghostIdToEntity.IsCreated) _ghostIdToEntity.Dispose();
     }
 
+    /// <summary>
+    /// 重建 GhostId 映射并消费全部选择 RPC
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
-        // 建表：ghostId 与 entity 的映射
+        // 每帧重建映射以覆盖 Ghost 生成和销毁变化
         _ghostIdToEntity.Clear();
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
@@ -39,7 +51,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
             _ghostIdToEntity.TryAdd(ghostInstance.ValueRO.ghostId, entity);
         }
 
-        // 处理所有 AniSelectionApplyRpc
+        // 按发送连接解析玩家 NetworkId 并逐条处理选择请求
         foreach (var (rpc, requestedEntity) in SystemAPI
                      .Query<RefRO<AniSelectionApplyRpc>>()
                      .WithAll<ReceiveRpcCommandRequest>()
@@ -50,7 +62,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
 
             bool append = rpc.ValueRO.Append != 0;
 
-            // 替换模式：先清空旧选择
+            // 替换模式先清除发送玩家原有选择
             if (!append)
             {
                 foreach (var (owner, aniEntity) in SystemAPI
@@ -65,7 +77,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
                 }
             }
 
-            /// 应用本次选择
+            // 只允许发送玩家选择自己拥有的 Ani
             var ghostIds = rpc.ValueRO.GhostIds;
             for (int i = 0; i < ghostIds.Length; i++)
             {
@@ -81,7 +93,7 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
                 }
             }
 
-            // 消费并销毁 RPC 实体
+            // RPC 是一次性命令 处理完成后销毁实体
             entityCommandBuffer.DestroyEntity(requestedEntity);
         }
 

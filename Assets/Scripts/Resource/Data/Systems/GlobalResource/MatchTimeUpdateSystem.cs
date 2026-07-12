@@ -3,11 +3,17 @@ using Unity.Entities;
 using Unity.NetCode;
 using Unity.Mathematics;
 
+/// <summary>
+/// 在服务端按整秒更新并同步比赛已进行时间
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct MatchTimeUpdateSystem : ISystem
 {
+    /// <summary>
+    /// 等待全局资源单例和网络时间可用
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<GlobalGameResourceTag>();
@@ -15,9 +21,12 @@ public partial struct MatchTimeUpdateSystem : ISystem
         state.RequireForUpdate<NetworkTime>();
     }
 
+    /// <summary>
+    /// 仅在秒数变化时写入 Ghost 状态
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
-        // 服务器世界从开局到现在，总共跑了多少秒
+        // 使用服务端世界时间作为所有客户端一致的计时来源
         double elapsed = SystemAPI.Time.ElapsedTime;
 
         var resourceState = SystemAPI.GetSingletonRW<GlobalGameResourceState>();

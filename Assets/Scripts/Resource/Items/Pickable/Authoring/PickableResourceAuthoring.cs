@@ -2,6 +2,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
+/// <summary>
+/// 配置可由 Picker Ani 协作搬运的资源实体
+/// </summary>
 [DisallowMultipleComponent]
 public class PickableResourceAuthoring : MonoBehaviour
 {
@@ -17,9 +20,12 @@ public class PickableResourceAuthoring : MonoBehaviour
 
     public float CarryMoveSpeed = 3.0f;
 
-    // Ani 围在资源周围的相对坐标（局部空间），不填则默认只有一个槽位在资源中心
+    // 搬运 Ani 相对资源中心的局部站位列表 为空时使用中心槽位
     public Vector3[] CarrierSlotLocalOffsets;
 
+    /// <summary>
+    /// 烘焙搬运配置和站位槽缓冲区
+    /// </summary>
     class Baker : Baker<PickableResourceAuthoring>
     {
         public override void Bake(PickableResourceAuthoring authoring)
@@ -40,6 +46,7 @@ public class PickableResourceAuthoring : MonoBehaviour
             DynamicBuffer<PickableResourceCarrierSlot> slotBuffer =
                 AddBuffer<PickableResourceCarrierSlot>(entity);
 
+            // 自定义槽位按配置顺序写入 该顺序同时作为分配索引
             if (authoring.CarrierSlotLocalOffsets != null &&
                 authoring.CarrierSlotLocalOffsets.Length > 0)
             {

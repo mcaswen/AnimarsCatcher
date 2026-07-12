@@ -5,7 +5,10 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 
-// 登录 / 注册 UI 控制器
+/// <summary>
+/// 管理登录 注册和主菜单面板之间的认证流程
+/// 输入校验和账号持久化委托给 UserAccountStorage
+/// </summary>
 public class AuthPanelController : MonoBehaviour
 {
     [Header("Panels")]
@@ -34,6 +37,7 @@ public class AuthPanelController : MonoBehaviour
     [Header("Feedback")]
     [SerializeField] private FloatingMessageView _floatingMessageView;
 
+    // 初始化账号存储并集中绑定认证界面按钮
     private void Awake()
     {
         UserAccountStorage.InitializeIfNeeded();
@@ -77,6 +81,7 @@ public class AuthPanelController : MonoBehaviour
         }
     }
 
+    // 切换到登录表单并清除上一次反馈
     private void ShowLoginPanel()
     {
         if (_loginPanel != null)
@@ -95,6 +100,7 @@ public class AuthPanelController : MonoBehaviour
         }
     }
 
+    // 切换到注册表单并清除上一次反馈
     private void ShowRegisterPanel()
     {
         if (_loginPanel != null)
@@ -113,6 +119,7 @@ public class AuthPanelController : MonoBehaviour
         }
     }
 
+    // 验证凭据 成功后建立进程内玩家会话
     private void OnLoginClicked()
     {
         string userName = _loginUserNameInput != null ? _loginUserNameInput.text : string.Empty;
@@ -138,6 +145,7 @@ public class AuthPanelController : MonoBehaviour
         }
     }
 
+    // 创建本地账号并将用户名回填到登录表单
     private void OnRegisterClicked()
     {
         string userName = _registerUserNameInput != null ? _registerUserNameInput.text : string.Empty;
@@ -166,12 +174,14 @@ public class AuthPanelController : MonoBehaviour
         }
     }
 
+    // 认证流程完成后隐藏认证根面板并进入主菜单
     private void EnterMainMenuPanel()
     {
         _authPanel?.SetActive(false);
         _mainMenuPanel?.SetActive(true);
     }
 
+    // 返回认证入口并关闭当前表单
     private void ReturnFromRegisterOrLoginPanel()
     {
         _registerPanel?.SetActive(false);

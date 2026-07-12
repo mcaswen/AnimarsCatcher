@@ -5,11 +5,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
-// public struct AniMovementConfig
-// {
-//     public const int NavUpdateIntervalTicks = 5; // 每隔多少 Tick 更新一次导航目标
-// }
-
+/// <summary>
+/// 在服务器把移动命令、阵型槽位和攻击距离转换为导航黑板目标
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -58,7 +56,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             if (hasFormationMember)
             {
                 var member = SystemAPI.GetComponent<AniFormationMember>(entity);
-                leaderEntity = member.leader; // leader = 控制它的玩家实体
+                leaderEntity = member.leader; // 队长是拥有并控制该 Ani 的玩家实体
                 slotIndex   = member.slotIndex;
             }
 
@@ -174,8 +172,7 @@ public partial struct AniMovementPlannerSystem : ISystem
         }
     }
 
-    // ================= 通用逻辑 =================
-
+    // 空闲模式停止导航并保持到达状态
     private static void HandleIdle(ref DynamicBuffer<FsmVar> blackboard)
     {
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.NavStop,     true);
@@ -183,9 +180,8 @@ public partial struct AniMovementPlannerSystem : ISystem
     }
 
     /// <summary>
-    /// 给定阵型中心和朝向，基于 slotIndex 算出 Ani 目标位置，并写入 Nav blackboard。
-    /// 模式：targetPoint(=formationCenterBase) 已经算好，
-    /// 所有“前排/后排”都通过 localOffset → Rotate → 加到 formationCenter 上。
+    /// 根据阵型中心、朝向和槽位计算 Ani 的世界目标并写入导航黑板
+    /// 槽位先在局部空间布局，再旋转到阵型世界空间
     /// </summary>
     private static void PlanFormationMovement(
         in float3 aniPosition,
@@ -220,7 +216,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             in fsmContext);
     }
 
-    // 由“leader 位置 + 目标位置”推导阵型朝向（前向 = leader → target）。
+    // 根据队长到目标的水平向量推导阵型前向
     private static quaternion ComputeFormationRotationFromLeaderToTarget(
         float3 leaderPosition,
         float3 targetPosition,
@@ -231,7 +227,7 @@ public partial struct AniMovementPlannerSystem : ISystem
 
         if (math.lengthsq(dir) < 0.0001f)
         {
-            // leader 和目标几乎重合，就用 leader 自己朝向
+            // 队长与目标几乎重合时沿用队长朝向，避免零向量旋转
             return leaderFallbackRotation;
         }
 
@@ -239,8 +235,7 @@ public partial struct AniMovementPlannerSystem : ISystem
         return quaternion.LookRotationSafe(forward, new float3(0, 1, 0));
     }
 
-    // =============== Follow（目标点 = 玩家脚下） ===============
-
+    // 跟随模式以玩家位置为锚点并按 Ani 类型向后偏移
     private static void HandleFollow(
         in LocalTransform aniTransform,
         in LocalTransform leaderTransform,
@@ -255,7 +250,7 @@ public partial struct AniMovementPlannerSystem : ISystem
         quaternion rotation  = leaderTransform.Rotation;
         float3 forward       = math.mul(rotation, new float3(0, 0, 1));
 
-        // “目标点”定义为玩家脚下，然后统一从 targetPoint 往 -forward 偏移
+        // 从玩家脚下沿反前向偏移，保持 Ani 位于玩家后方
         float3 targetPoint = leaderPos;
 
         float backOffset = 0f;
@@ -283,8 +278,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             in fsmContext);
     }
 
-    // =============== Find（目标点 = 敌人位置） ===============
-
+    // 寻敌模式面向敌人并在攻击距离内保持阵型
     private static void HandleFind(
         in LocalTransform aniTransform,
         in LocalTransform leaderTransform,
@@ -304,13 +298,13 @@ public partial struct AniMovementPlannerSystem : ISystem
 
         float3 forward = math.mul(formationRotation, new float3(0, 0, 1));
 
-        // 统一规则：目标点 = 敌人位置，然后从目标点沿 -forward 偏移
+        // 从敌人位置沿反前向偏移，避免远程单位贴近目标
         float3 targetPoint = targetPos;
 
         float backOffset = 0f;
         if (isBlaster)
         {
-            backOffset = aniAttributes.AttackRange * AniFormationUtility.BlasterFindBackFactor; // 建议 0.5f
+            backOffset = aniAttributes.AttackRange * AniFormationUtility.BlasterFindBackFactor;
         }
 
         float3 formationCenter = targetPoint - forward * backOffset;
@@ -327,11 +321,10 @@ public partial struct AniMovementPlannerSystem : ISystem
             in fsmContext);
     }
 
-    // =============== MoveTo（目标点 = 点击点） ===============
-
+    // 定点移动使用命令接收时冻结的阵型锚点和前向
     private static void HandleMoveTo(
     in LocalTransform aniTransform,
-    in LocalTransform leaderTransform, // 现在只是兜底用，不再决定朝向
+    in LocalTransform leaderTransform, // 缓存前向无效时作为稳定兜底朝向
     int slotIndex,
     bool isPicker,
     bool isBlaster,
@@ -339,14 +332,14 @@ public partial struct AniMovementPlannerSystem : ISystem
     ref DynamicBuffer<FsmVar> blackboard,
     in FsmContext fsmContext)
     {
-        // 从黑板里拿“第一次点击时”缓存的阵列锚点
+        // 使用首次点击时缓存的阵型锚点，避免成员各自计算产生偏差
         float3 targetPoint = Blackboard.GetFloat3(ref blackboard,
             AniMovementBlackboardKeys.MoveFormationTargetPoint);
 
         float3 forward = Blackboard.GetFloat3(ref blackboard,
             AniMovementBlackboardKeys.MoveFormationForward);
 
-        // 如果 forward 还是默认的 0，说明没被正确初始化，兜底用当前 leader → target 的逻辑
+        // 前向未初始化时根据队长和点击点恢复稳定方向
         if (math.lengthsq(forward) < 0.0001f)
         {
             float3 leaderPos = leaderTransform.Position;
@@ -395,8 +388,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             in fsmContext);
     }
 
-    // =============== 公共 Nav 写入逻辑 ===============
-
+    // 统一写入到达状态、导航目标和请求版本
     private static void ApplyDestination(
     in float3 currentPosition,
     in float3 desiredPosition,
@@ -410,16 +402,15 @@ public partial struct AniMovementPlannerSystem : ISystem
         float arrivalRadiusSq = arrivalRadius * arrivalRadius;
         bool hasArrived = distanceSquared <= arrivalRadiusSq;
 
-        // 抵达标记
+        // 到达状态同时控制 FSM 迁移和导航停止
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.MoveArrived, hasArrived);
         Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.NavStop,    hasArrived);
 
-        // 到了就别再发寻路请求
+        // 已到达时不再产生新的寻路请求
         if (hasArrived)
             return;
 
-        // ❌ 不再看 K_NavNextUpdateTick / NavUpdateIntervalTicks
-        //    直接每 tick 写一遍目标和请求版本
+        // 每个 Tick 更新请求版本，使移动目标变化能立即传给导航系统
 
         Blackboard.SetFloat3(
             ref blackboard,
@@ -432,7 +423,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             AniMovementBlackboardKeys.NavRequestVersion,
             currentTick);
 
-        // 如果别的地方用过 K_NavNextUpdateTick，可以顺便清零避免误用
+        // 当前策略不做间隔限流，因此保持下一次允许更新 Tick 为零
         Blackboard.SetInt(
             ref blackboard,
             AniMovementBlackboardKeys.NavNextUpdateTick,

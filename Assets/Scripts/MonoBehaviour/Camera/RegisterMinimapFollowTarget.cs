@@ -3,13 +3,14 @@ using UnityEngine;
 namespace AnimarsCatcher.Mono
 {
     /// <summary>
-    /// 当本地玩家视图准备好时，把自己注册给 MinimapCameraFollower。
+    /// 在本地玩家视图就绪后注册小地图跟随目标
     /// </summary>
     public class RegisterMinimapFollowTarget : MonoBehaviour
     {
         [Tooltip("是否在 Start 时自动注册为小地图跟随目标")]
         public bool AutoRegisterOnStart = true;
 
+        // 等待其他对象完成 Awake 后再查找小地图跟随器
         private void Start()
         {
             if (!AutoRegisterOnStart)
@@ -22,7 +23,7 @@ namespace AnimarsCatcher.Mono
         }
 
         /// <summary>
-        /// 如果你在别处判断“这个玩家是本地玩家”，可以在那边手动调用。
+        /// 由外部本地玩家判定流程手动注册当前 Transform
         /// </summary>
         public void RegisterManually()
         {

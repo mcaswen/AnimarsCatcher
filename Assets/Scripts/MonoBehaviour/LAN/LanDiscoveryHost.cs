@@ -6,13 +6,15 @@ using AnimarsCatcher.Mono.Global;
 
 namespace AnimarsCatcher.Mono.Lan
 {
-    // Host 端的局域网广播：创建房间后定期广播
+    /// <summary>
+    /// 由 Host 周期广播可加入房间的名称和游戏端口
+    /// </summary>
     public class LanDiscoveryHost : MonoBehaviour
     {
         [Header("Discovery Settings")]
         [SerializeField] private int _discoveryPort = 47777;
         [SerializeField] private ushort _gamePort = NetPorts.Game;
-        [SerializeField] private float _broadcastInterval = 1.0f; // 每秒一次
+        [SerializeField] private float _broadcastInterval = 1.0f;
 
         [Header("Debug")]
         [SerializeField] private bool _autoStartOnAwake = false;
@@ -25,7 +27,7 @@ namespace AnimarsCatcher.Mono.Lan
 
         private void Awake()
         {
-            // 广播目标 255.255.255.255:discoveryPort
+            // 使用全网段广播地址让同一局域网客户端收到房间信息
             _broadcastEndPoint = new IPEndPoint(IPAddress.Broadcast, _discoveryPort);
 
             if (_autoStartOnAwake)
@@ -39,7 +41,9 @@ namespace AnimarsCatcher.Mono.Lan
             StopBroadcast();
         }
 
-        // 开始广播
+        /// <summary>
+        /// 创建 UDP 广播套接字并开始发布房间信息
+        /// </summary>
         public void StartBroadcast(string hostName, ushort gamePort)
         {
             if (_isBroadcasting || NetRuntimeRole.Current != NetworkRunRole.Host) 
@@ -64,7 +68,9 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
-        // 停止广播
+        /// <summary>
+        /// 停止发布房间并释放套接字
+        /// </summary>
         public void StopBroadcast()
         {
             if (!_isBroadcasting || NetRuntimeRole.Current != NetworkRunRole.Host) 
@@ -94,11 +100,12 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
+        // 按约定协议编码并发送单个房间广播数据报
         private void SendBroadcast()
         {
             try
             {
-                // 简单字符串格式：ACATCH|1|HostName|GamePort
+                // 广播协议格式为 ACATCH|版本|主机名|游戏端口
                 string message = $"ACATCH|1|{_hostName}|{_gamePort}";
                 byte[] data = Encoding.UTF8.GetBytes(message);
 

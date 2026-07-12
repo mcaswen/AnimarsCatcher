@@ -2,31 +2,44 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 
+/// <summary>
+/// 标记因生命值耗尽而触发过攻击目标清理的实体
+/// </summary>
 public struct AniTargetCleanedTag : IComponentData
 {
 }
 
+/// <summary>
+/// 在服务器感知前移除无效、已销毁或死亡的攻击目标
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-// 放在感知系统之前，先把脏目标清掉，再由 AniAttackSenseSystem 重新感知
 [UpdateBefore(typeof(AniAttackSenseSystem))]
 public partial struct AniAttackTargetCleanupSystem : ISystem
 {
     private ComponentLookup<Health> _healthLookup;
 
+    /// <summary>
+    /// 缓存生命值查询并仅在存在攻击目标时运行
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         _healthLookup = state.GetComponentLookup<Health>(isReadOnly: true);
 
-        // 只有有攻击目标时才更新
+        // 无攻击目标时跳过整个清理系统
         state.RequireForUpdate(
             SystemAPI.QueryBuilder()
                 .WithAll<AniAttackTarget>()
                 .Build());
     }
 
+    /// <summary>
+    /// 清除目标和待结算快照，并允许攻击者下一帧立即重新感知
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -44,19 +57,19 @@ public partial struct AniAttackTargetCleanupSystem : ISystem
 
             bool shouldClear = false;
 
-            // 1) 本身就是无效目标
+            // 空实体或无目标类别属于不完整状态
             if (targetEntity == Entity.Null || kind == AniAttackTargetKind.None)
             {
                 shouldClear = true;
             }
-            // 2) 实体已经被 Destroy 了
+            // 已销毁实体引用不能继续进入后续查询
             else if (!entityManager.Exists(targetEntity))
             {
                 shouldClear = true;
             }
             else
             {
-                // 3) 有 Health 且已经 <= 0
+                // 生命值耗尽的目标交给对应死亡流程处理
                 if (_healthLookup.HasComponent(targetEntity))
                 {
                     var health = _healthLookup[targetEntity];
@@ -73,8 +86,6 @@ public partial struct AniAttackTargetCleanupSystem : ISystem
             if (!shouldClear)
                 continue;
 
-            // —— 真正清目标 —— //
-
             entityCommandBuffer.RemoveComponent<AniAttackTarget>(attackerEntity);
 
             if (SystemAPI.HasComponent<AniPendingAttack>(attackerEntity))
@@ -86,7 +97,7 @@ public partial struct AniAttackTargetCleanupSystem : ISystem
             {
                 var stateData = SystemAPI.GetComponent<AniAttackState>(attackerEntity);
 
-                // 重置 CD：这样下帧可以立即重新感知 / 重新开火
+                // 清理目标后重置冷却，使新目标出现时可以立即攻击
                 stateData.CooldownRemaining = 0f;
 
                 entityCommandBuffer.SetComponent(attackerEntity, stateData);

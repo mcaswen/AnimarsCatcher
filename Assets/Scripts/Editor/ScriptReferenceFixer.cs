@@ -2,8 +2,15 @@
 using UnityEditor;
 using UnityEngine;
 
+/// <summary>
+/// 清理当前已加载对象上的丢失脚本引用
+/// 该工具直接修改序列化组件列表 使用前应确认场景和 Prefab 已备份
+/// </summary>
 public class ScriptReferenceFixer : MonoBehaviour
 {
+    /// <summary>
+    /// 扫描已加载对象并移除无法解析的组件引用
+    /// </summary>
     [MenuItem("Tools/强制修复脚本引用")]
     static void FixMissingScripts()
     {
@@ -12,7 +19,7 @@ public class ScriptReferenceFixer : MonoBehaviour
             var components = go.GetComponents<Component>();
             foreach (var comp in components)
             {
-                if (comp == null) // 检测到Missing脚本
+                if (comp == null) // Unity 将丢失脚本组件解析为 null
                 {
                     SerializedObject so = new SerializedObject(go);
                     var prop = so.FindProperty("m_Component");
@@ -21,8 +28,9 @@ public class ScriptReferenceFixer : MonoBehaviour
                         var element = prop.GetArrayElementAtIndex(i);
                         if (element.objectReferenceValue == null)
                         {
+                            // 对象引用数组第一次删除会先清空引用 第二次才移除槽位
                             prop.DeleteArrayElementAtIndex(i);
-                            prop.DeleteArrayElementAtIndex(i); // Unity需要删除两次
+                            prop.DeleteArrayElementAtIndex(i);
                             so.ApplyModifiedProperties();
                             Debug.Log($"已修复 {go.name} 上的丢失脚本");
                             break;

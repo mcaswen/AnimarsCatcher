@@ -3,13 +3,20 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 在服务器销毁生命值耗尽且没有专用死亡流程的 Ani 实体
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(ApplyDamageSystem))]
-[UpdateAfter(typeof(AniAttackTargetCleanupSystem))]  // 确保在扣血之后跑
+[UpdateAfter(typeof(AniAttackTargetCleanupSystem))]  // 确保目标清理和伤害结算先完成
 public partial struct AniDeathSystem : ISystem
 {
+    /// <summary>
+    /// 等待世界中存在生命值组件后再启用系统
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -19,6 +26,10 @@ public partial struct AniDeathSystem : ISystem
                 .Build());
     }
 
+    /// <summary>
+    /// 销毁普通死亡实体并把基地与资源留给各自的专用系统
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -30,20 +41,16 @@ public partial struct AniDeathSystem : ISystem
         {
             var h = health.ValueRO;
 
-            // 活着的跳过
+            // 只处理本帧伤害结算后生命值耗尽的实体
             if (h.current > 0)
                 continue;
 
-            // 基地、FragileCrystal 这些交给别的系统
+            // 基地和脆弱资源具有独立的胜负或资源生命周期
             if (SystemAPI.HasComponent<FragileCrystal>(entity) ||
                 SystemAPI.HasComponent<BigBaseTag>(entity))
             {
                 continue;
             }
-
-            // // 如果你想等攻击目标清理完，可以在这儿再加一道：
-            // if (!SystemAPI.HasComponent<AniTargetCleanedTag>(entity)) continue;
-
             ecb.DestroyEntity(entity);
         }
 

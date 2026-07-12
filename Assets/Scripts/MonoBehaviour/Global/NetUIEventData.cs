@@ -2,7 +2,9 @@ using System;
 
 namespace AnimarsCatcher.Mono.Global
 {
-    // 来源世界枚举，方便调试
+    /// <summary>
+    /// 事件产生的 NetCode 世界
+    /// </summary>
     public enum NetUIEventSource
     {
         Unknown = 0,
@@ -12,13 +14,15 @@ namespace AnimarsCatcher.Mono.Global
 
 #region Lobby 相关事件载体
 
-    // 某个玩家进入 Lobby / 房间
+    /// <summary>
+    /// 房间成员加入事件载体
+    /// </summary>
     public readonly struct LobbyClientJoinedEventData
     {
         public readonly NetUIEventSource Source;
-        public readonly int NetworkId;         // -1 表示拿不到
+        public readonly int NetworkId;         // -1 表示当前无法取得网络标识
         public readonly string PlayerName;
-        public readonly bool IsLocalPlayer;    // 是否当前这台机器上的玩家
+        public readonly bool IsLocalPlayer;    // 是否为当前进程控制的玩家
 
         public LobbyClientJoinedEventData(
             NetUIEventSource source,
@@ -33,7 +37,9 @@ namespace AnimarsCatcher.Mono.Global
         }
     }
 
-    // 某个玩家离开 Lobby / 掉线
+    /// <summary>
+    /// 房间成员离开或掉线事件载体
+    /// </summary>
     public readonly struct LobbyClientLeftEventData
     {
         public readonly NetUIEventSource Source;
@@ -52,6 +58,9 @@ namespace AnimarsCatcher.Mono.Global
 
 #region Match 相关事件载体
 
+    /// <summary>
+    /// 对局开始事件载体
+    /// </summary>
     public readonly struct MatchStartedEventData
     {
         public readonly NetUIEventSource Source;
@@ -64,10 +73,13 @@ namespace AnimarsCatcher.Mono.Global
         }
     }
 
+    /// <summary>
+    /// 对局结束事件载体
+    /// </summary>
     public readonly struct MatchEndedEventData
     {
         public readonly NetUIEventSource Source;
-        public readonly string Reason; // 比如 "HostExit" / "AllDead" / "Timeout"
+        public readonly string Reason; // 使用 HostExit AllDead Timeout 等稳定原因码
 
         public MatchEndedEventData(NetUIEventSource source, string reason)
         {
@@ -79,6 +91,9 @@ namespace AnimarsCatcher.Mono.Global
 
 #region Connection 相关事件载体
 
+    /// <summary>
+    /// 网络连接中断事件载体
+    /// </summary>
     public readonly struct ConnectionLostEventData
     {
         public readonly NetUIEventSource Source;
@@ -97,6 +112,9 @@ namespace AnimarsCatcher.Mono.Global
 
 #region Gameplay 相关事件载体
 
+    /// <summary>
+    /// 请求生成 Blaster Ani 的 UI 事件载体
+    /// </summary>
     public readonly struct SpawnBlasterAniRequestedEventData
     {
         public NetUIEventSource Source { get; }
@@ -109,12 +127,18 @@ namespace AnimarsCatcher.Mono.Global
         }
     }
 
+    /// <summary>
+    /// UI 可请求调整的资源类型
+    /// </summary>
     public enum ResourceType
     {
         Food,
         Crystal
     }
 
+    /// <summary>
+    /// 资源变化请求的 UI 事件载体
+    /// </summary>
     public readonly struct ResourceChangedRequestedEventData
     {
         public NetUIEventSource Source { get; }
@@ -132,14 +156,18 @@ namespace AnimarsCatcher.Mono.Global
         }
     }
 
-    /// +1 表示打开一个会锁输入的面板
-    /// -1 表示关闭一个会锁输入的面板
-    /// 用计数而不是 bool，避免多个面板互相抢锁的问题
+    /// <summary>
+    /// UI 输入锁计数变化
+    /// 使用计数避免多个面板同时开关时提前释放输入
+    /// </summary>
     public struct UIPanelInputToggleEvent
     {
         public int Delta;
     }
 
+    /// <summary>
+    /// Ani 选择交互模式变化事件
+    /// </summary>
     public struct AniSelectionModeChangedEvent
     {
         public AniSelectionMode Mode;

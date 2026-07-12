@@ -5,6 +5,9 @@ using Unity.Collections;
 using Unity.NetCode;
 using UnityEngine.AI;
 
+/// <summary>
+/// 在服务端响应导航请求并将 NavMesh 路径写入实体缓冲区
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerNavmeshPlannerSystem : ISystem
@@ -12,6 +15,9 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
     private BufferLookup<FsmVar> _blackboardLookup;
     private BufferTypeHandle<NavWaypoint> _waypointBufferHandle;
 
+    /// <summary>
+    /// 创建查询并缓存路径规划所需的 Lookup 和类型句柄
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(SystemAPI.QueryBuilder()
@@ -22,6 +28,9 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
         _waypointBufferHandle = state.GetBufferTypeHandle<NavWaypoint>();
     }
 
+    /// <summary>
+    /// 处理版本发生变化的导航请求并发布首个转向目标
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);
@@ -38,13 +47,13 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
             bool navStop = blackboard.GetBool(AniMovementBlackboardKeys.NavStop);
             int requestVersion = blackboard.GetInt(AniMovementBlackboardKeys.NavRequestVersion);
 
-            // 仅在版本变化时处理该实体
+            // 请求版本未变化时复用现有路径 避免每帧重复计算
             if (requestVersion == navAgent.ValueRO.LastHandledNavRequestVersion)
                 continue;
 
             navAgent.ValueRW.LastHandledNavRequestVersion = requestVersion;
 
-            // 停止导航
+            // 停止请求会清空路径并撤销转向目标
             if (navStop)
             {
                 if (state.EntityManager.HasBuffer<NavWaypoint>(entity))
@@ -56,20 +65,20 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
             float3 targetPosition = blackboard.GetFloat3(AniMovementBlackboardKeys.NavTargetPosition);
             float3 startPosition = transform.ValueRO.Position;
 
-            // 对托管组件 UnityEngine.AI NavMesh 的查询
+            // UnityEngine.AI API 只能在主线程执行 此处保持同步规划
             var path = new NavMeshPath();
             bool hasPath = CheckPathOnNavMesh(startPosition, targetPosition, ref path);
 
             if (!hasPath || path.corners == null || path.corners.Length == 0)
             {
-                // 无法到达
+                // 不可达时递增版本并回写停止状态 防止持续重试
                 blackboard.SetBool(AniMovementBlackboardKeys.NavStop, true);
                 blackboard.SetInt(AniMovementBlackboardKeys.NavRequestVersion, requestVersion + 1);
                 navSteering.ValueRW.HasPath = 0;
                 continue;
             }
 
-            // 写入路径 Buffer
+            // 覆盖路径缓冲区 保证索引与本次规划结果对应
             DynamicBuffer<NavWaypoint> waypoints;
             if (!state.EntityManager.HasBuffer<NavWaypoint>(entity))
                 waypoints = state.EntityManager.AddBuffer<NavWaypoint>(entity);
@@ -82,17 +91,18 @@ public partial struct ServerNavmeshPlannerSystem : ISystem
                 waypoints.Add(new NavWaypoint { Position = path.corners[i] });
             }
 
-            navAgent.ValueRW.CurrentWaypointIndex = math.min(1, waypoints.Length - 1); // 防止朝路径的起点移动
+            // 第零个角点通常是当前位置 优先从后续角点开始移动
+            navAgent.ValueRW.CurrentWaypointIndex = math.min(1, waypoints.Length - 1);
             float3 steeringTarget = waypoints[navAgent.ValueRO.CurrentWaypointIndex].Position;
 
-            // 产出可用于 Ghost 同步的转向目标
+            // 将当前目标和版本写入 Ghost 数据供客户端一致跟随
             navSteering.ValueRW.SteeringTarget = steeringTarget;
             navSteering.ValueRW.PathVersion = requestVersion;
             navSteering.ValueRW.HasPath = 1;
         }
     }
 
-    // 主线程对 NavMesh 的调用
+    // 将端点投影到 NavMesh 后只接受完整路径
     private static bool CheckPathOnNavMesh(float3 start, float3 end, ref NavMeshPath path)
     {
         if (!NavMesh.SamplePosition(start, out var startHit, 2.0f, NavMesh.AllAreas))

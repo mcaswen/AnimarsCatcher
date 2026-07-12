@@ -5,17 +5,20 @@ using Unity.Entities;
 using UnityEngine.SceneManagement;
 #endif
 
+/// <summary>在编辑器游戏场景中自动完成客户端 InGame 调试握手</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct ClientGoInGameSystem : ISystem
 {
+    /// <summary>连接建立后发送一次 GoInGameRequest 并标记本地连接</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
-        // 非 Editor 平台下禁用自动连接
+        // Player 构建必须由正式大厅流程控制 InGame 状态
 #if !UNITY_EDITOR
         return;
 #else
-        // Editor 下只有调试场景才自动 InGame
+        // 编辑器只在游戏调试场景跳过大厅握手
         if (SceneManager.GetActiveScene().name != "SCN_GameLevel")
         {
             return;

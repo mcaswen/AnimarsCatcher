@@ -5,6 +5,10 @@ using System.Security.Cryptography;
 using System.Text;
 using UnityEngine;
 
+/// <summary>
+/// 可序列化的本地账号记录
+/// 密码字段只保存哈希值
+/// </summary>
 [Serializable]
 public class UserAccountRecord
 {
@@ -12,6 +16,9 @@ public class UserAccountRecord
     public string PasswordHash;
 }
 
+/// <summary>
+/// JsonUtility 使用的账号集合包装类型
+/// </summary>
 [Serializable]
 public class UserAccountCollection
 {
@@ -19,7 +26,10 @@ public class UserAccountCollection
 }
 
 
-// 本地账号存储：负责载入 / 保存 / 注册 / 登录验证
+/// <summary>
+/// 管理本地账号文件的载入 保存 注册和登录校验
+/// 用户名比较忽略大小写 密码以 SHA256 哈希形式保存
+/// </summary>
 public static class UserAccountStorage
 {
     private static readonly Dictionary<string, UserAccountRecord> _accounts =
@@ -35,6 +45,9 @@ public static class UserAccountStorage
         }
     }
 
+    /// <summary>
+    /// 确保账号文件只在当前进程中加载一次
+    /// </summary>
     public static void InitializeIfNeeded()
     {
         if (_initialized)
@@ -46,6 +59,7 @@ public static class UserAccountStorage
         _initialized = true;
     }
 
+    // 从持久化目录恢复账号索引 文件损坏时保留空索引
     private static void LoadFromDisk()
     {
         _accounts.Clear();
@@ -70,6 +84,7 @@ public static class UserAccountStorage
                 return;
             }
 
+            // 重建忽略大小写的内存索引 并跳过无用户名的损坏记录
             foreach (var record in collection.Accounts)
             {
                 if (string.IsNullOrEmpty(record.UserName))
@@ -88,6 +103,7 @@ public static class UserAccountStorage
         }
     }
 
+    // 将当前内存索引完整写回账号文件
     private static void SaveToDisk()
     {
         try
@@ -109,6 +125,13 @@ public static class UserAccountStorage
         }
     }
 
+    /// <summary>
+    /// 校验输入并创建新的本地账号
+    /// </summary>
+    /// <param name="userName">待注册用户名</param>
+    /// <param name="password">待注册密码</param>
+    /// <param name="errorMessage">注册失败原因</param>
+    /// <returns>账号创建成功时返回 true</returns>
     public static bool TryRegister(string userName, string password, out string errorMessage)
     {
         InitializeIfNeeded();
@@ -152,6 +175,13 @@ public static class UserAccountStorage
         return true;
     }
 
+    /// <summary>
+    /// 使用本地账号文件验证用户名和密码
+    /// </summary>
+    /// <param name="userName">待验证用户名</param>
+    /// <param name="password">待验证密码</param>
+    /// <param name="errorMessage">登录失败原因</param>
+    /// <returns>凭据匹配时返回 true</returns>
     public static bool TryLogin(string userName, string password, out string errorMessage)
     {
         InitializeIfNeeded();
@@ -181,6 +211,7 @@ public static class UserAccountStorage
         return true;
     }
 
+    // 生成稳定的小写十六进制哈希供注册和登录共同使用
     private static string ComputePasswordHash(string password)
     {
         if (password == null)

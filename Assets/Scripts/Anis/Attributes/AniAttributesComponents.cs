@@ -1,6 +1,9 @@
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 保存 Ani 的服务器权威移动、攻击和归属参数
+/// </summary>
 [GhostComponent]
 public struct AniAttributes : IComponentData
 {
@@ -18,6 +21,9 @@ public struct AniAttributes : IComponentData
     public int OwnerPlayerId;
 }
 
+/// <summary>
+/// 指定 Ani 使用近战或远程攻击结算链路
+/// </summary>
 public enum AniAttackMode : byte
 {
     Melee  = 0,

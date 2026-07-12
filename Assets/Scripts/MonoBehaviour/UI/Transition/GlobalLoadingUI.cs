@@ -6,6 +6,10 @@ using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>
+/// 跨场景保留的加载遮罩和轮播图控制器
+/// 在最低展示时间和异步加载同时满足后激活目标场景
+/// </summary>
 public class GlobalLoadingUI : MonoBehaviour
 {
     public static GlobalLoadingUI Instance { get; private set; }
@@ -18,7 +22,7 @@ public class GlobalLoadingUI : MonoBehaviour
     [FormerlySerializedAs("slideIntervalSeconds")]
     [SerializeField] private float _slideIntervalSeconds = 2f;
     [FormerlySerializedAs("minCoverSeconds")]
-    [SerializeField] private float _minCoverSeconds = 10f; // 至少遮 10 秒
+    [SerializeField] private float _minCoverSeconds = 10f;
 
     private Coroutine _loadingRoutine;
 
@@ -37,6 +41,10 @@ public class GlobalLoadingUI : MonoBehaviour
             _loadingCanvas.gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// 启动一次不可重入的场景加载流程
+    /// </summary>
+    /// <param name="sceneName">目标场景名称</param>
     public void StartLoadingAndTransition(string sceneName)
     {
         if (_loadingRoutine != null)
@@ -45,6 +53,7 @@ public class GlobalLoadingUI : MonoBehaviour
         _loadingRoutine = StartCoroutine(LoadingSequence(sceneName));
     }
 
+    // 同时推进图片轮播和异步加载 达到最低遮罩时间后才允许激活场景
     private IEnumerator LoadingSequence(string sceneName)
     {
         if (!_loadingCanvas)
@@ -58,7 +67,7 @@ public class GlobalLoadingUI : MonoBehaviour
         _loadingCanvas.gameObject.SetActive(true);
         SetupSlidesInitialState();
 
-        // 异步加载战斗场景
+        // 延迟场景激活以保证遮罩覆盖整个加载过程
         AsyncOperation loadOp = SceneManager.LoadSceneAsync(sceneName);
         loadOp.allowSceneActivation = false;
 
@@ -67,7 +76,7 @@ public class GlobalLoadingUI : MonoBehaviour
 
         while (true)
         {
-            // 图片轮播
+            // 每个轮播周期只激活当前图片
             if (_slideImages.Count > 0)
             {
                 for (int i = 0; i < _slideImages.Count; i++)
@@ -83,36 +92,37 @@ public class GlobalLoadingUI : MonoBehaviour
             }
             else
             {
-                // 没有图片就每帧检查
+                // 没有轮播图时按帧累计展示时间
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
-            // 加载已经基本完成 & 遮罩时间 >= 10s，就可以切场景了
-            bool loadReady = loadOp.progress >= 0.9f; // Unity 的“加载完成但还未激活”
+            // Unity 异步加载在等待激活时进度停留在 0.9
+            bool loadReady = loadOp.progress >= 0.9f;
             if (loadReady && elapsed >= _minCoverSeconds)
                 break;
         }
 
-        // 准备进入战斗场景
+        // 两个条件都满足后允许 Unity 激活目标场景
         loadOp.allowSceneActivation = true;
 
-        // 等待场景真正激活
+        // 等待目标场景完成激活
         while (!loadOp.isDone)
             yield return null;
 
-        // 场景激活后下一帧再关 UI，避免闪一下上一帧的画面
+        // 延迟一帧关闭遮罩 避免显示场景切换前的残留画面
         yield return null;
 
         if (_loadingCanvas)
             _loadingCanvas.gameObject.SetActive(false);
 
-        // 告诉战斗场景：要跑开场运镜
+        // 通知新场景在初始化后播放开场运镜
         ClientCinematicState.ShouldRunIntro = true;
 
         _loadingRoutine = null;
     }
 
+    // 隐藏所有轮播图 由加载循环激活第一张
     private void SetupSlidesInitialState()
     {
         if (_slideImages == null)

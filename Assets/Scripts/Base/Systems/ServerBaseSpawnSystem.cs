@@ -5,6 +5,9 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 
+/// <summary>
+/// 仅在服务器实例化基地并创建唯一的对局结果实体
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [BurstCompile]
@@ -15,7 +18,7 @@ public partial struct ServerBaseSpawnSystem : ISystem
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // 没有 BaseSpawnPoint 就不用跑
+        // 场景没有基地刷新点时无需参与更新
         state.RequireForUpdate<BaseSpawnPoint>();
     }
 
@@ -35,7 +38,7 @@ public partial struct ServerBaseSpawnSystem : ISystem
                 continue;
             }
 
-            // 实例化基地
+            // 基地必须由服务器实例化以保持网络状态权威
             Entity baseEntity =
                 entityCommandBuffer.Instantiate(spawnPoint.ValueRO.BasePrefab);
 
@@ -51,10 +54,10 @@ public partial struct ServerBaseSpawnSystem : ISystem
                     current = spawnPoint.ValueRO.Health
                 });
 
-            // 把基地丢到刷新点的位置和朝向
+            // 使用刷新点变换覆盖预制体默认变换
             entityCommandBuffer.SetComponent(baseEntity, spawnTransform.ValueRO);
 
-            // 标记这个刷新点已经刷过
+            // 标记刷新点以保证整个生命周期只生成一次
             spawnPoint.ValueRW.HasSpawned = 1;
         }
 
@@ -62,10 +65,9 @@ public partial struct ServerBaseSpawnSystem : ISystem
         {
             _resultIsInitialized = true;
 
-            // 初始化 GameResult 实体
+            // 对局结果由服务器维护且整个世界只创建一次
             var gameResultEntity = entityCommandBuffer.CreateEntity();
             entityCommandBuffer.AddComponent(gameResultEntity, new GameResult { IsGameOver = 0, Winner = CampType.Neutral });
-            // entityCommandBuffer.AddComponent(GhostAuthoring, gameResultEntity);
         }
 
         entityCommandBuffer.Playback(state.EntityManager);

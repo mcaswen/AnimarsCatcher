@@ -6,6 +6,9 @@ using UnityEngine;
 using Unity.NetCode;
 using Unity.Mathematics;
 
+/// <summary>
+/// 将本地框选矩形内符合模式和所有权条件的 Ani 打包为 RPC
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientSendAniSelectionRpcSystem : ISystem
@@ -13,6 +16,9 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
     private ComponentLookup<PickerAniTag> _pickerLookup;
     private ComponentLookup<BlasterAniTag> _blasterLookup;
 
+    /// <summary>
+    /// 缓存 Ani 类型 Lookup 并等待客户端进入游戏
+    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         _pickerLookup = state.GetComponentLookup<PickerAniTag>(true);
@@ -23,6 +29,9 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         state.RequireForUpdate<AniSelectionModeSingleton>();
     }
 
+    /// <summary>
+    /// 消费拖拽释放事件并发送选中的 GhostId 列表
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         _pickerLookup.Update(ref state);
@@ -31,10 +40,10 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         var drag = SystemAPI.GetSingletonRW<AniSelectionDragState>();
         if (drag.ValueRO.IsReleased == 0) return;
 
-        // 消费 IsReleased
+        // 立即消费释放标记 保证一次拖拽最多发送一个 RPC
         drag.ValueRW.IsReleased = 0;
 
-        // 计算本地筛选范围
+        // 将任意拖拽方向归一化为屏幕空间包围盒
         float2 start = drag.ValueRO.StartScreen;
         float2 end = drag.ValueRO.EndScreen;
         float2 min = math.min(start, end);
@@ -50,14 +59,14 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         }
         AniSelectionMode selectionMode = modeSingleton.Mode;
 
-        // 先在栈里把数据收集好
+        // FixedList 避免为单次选择额外分配托管内存
         AniSelectionApplyRpc rpcData = default;
         rpcData.Append = 0;
         rpcData.GhostIds = default;
 
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        // 遍历命中的 Ani，把 GhostInstance 写入缓冲
+        // 将符合类型 所有权和屏幕范围的 Ani 写入 RPC
         foreach (var (localToWorld, ghostInstance, ghostOwner, aniEntity) in SystemAPI
                 .Query<RefRO<LocalToWorld>, RefRO<GhostInstance>, RefRO<GhostOwner>>()
                 .WithAll<AniAttributes>()
@@ -68,7 +77,7 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
 
             Debug.Log($"[ClientSendAniSelectionRpcSystem] Checking Ani Entity {aniEntity} - isPicker: {isPicker}, isBlaster: {isBlaster}");
 
-            // 根据当前选择模式过滤
+            // 当前模式只允许选择对应类型的 Ani
             switch (selectionMode)
             {
                 case AniSelectionMode.Picker:
@@ -94,19 +103,19 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
 
             if (!inside) continue;
 
-            if (rpcData.GhostIds.Length < 128) // 最大128元素
+            if (rpcData.GhostIds.Length < 128) // FixedList 容量限制为 128 个标识
             {
                 rpcData.GhostIds.Add(ghostInstance.ValueRO.ghostId);
             }
         }
         
-        if (rpcData.GhostIds.Length == 0) // 没有选中任何 Ani，跳过发送 RPC
+        if (rpcData.GhostIds.Length == 0)
         {
             Debug.Log("[ClientSendAniSelectionRpcSystem] No Ani in selection, skip sending RPC.");
             return;
         }
 
-        // 创建 RPC 实体并附加数据
+        // 创建无指定目标的 RPC 请求 由当前服务器连接接收
         var rpcEntity = entityCommandBuffer.CreateEntity();
         entityCommandBuffer.AddComponent(rpcEntity, rpcData);
         entityCommandBuffer.AddComponent<SendRpcCommandRequest>(rpcEntity);

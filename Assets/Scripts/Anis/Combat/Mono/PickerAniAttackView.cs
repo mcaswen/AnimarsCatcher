@@ -2,9 +2,10 @@ using UnityEngine;
 using Unity.Entities;
 using Unity.NetCode;
 
-// Picker 近战攻击的视图层驱动：
-// 只要看到 AniAttackFireRequest 的 ShotId 变化，就给 Animator 打 Attack 触发。
-// 逻辑伤害依然完全在 ECS 世界中完成，这里只管表现。
+/// <summary>
+/// 监听 ECS 攻击序号并驱动 Picker 近战动画事件
+/// 视图只确认动画命中时机，最终伤害由服务器 ECS 结算
+/// </summary>
 [DisallowMultipleComponent]
 public class PickerAniAttackView : MonoBehaviour
 {
@@ -15,7 +16,7 @@ public class PickerAniAttackView : MonoBehaviour
     [Header("Animator 参数名")]
     public string AttackTriggerName   = "Attack";
 
-    // 最近一次已经消费的 ShotId，避免一帧多次触发
+    // 记录最近消费的攻击序号，避免同一请求重复触发动画
     private uint _lastConsumedShotId;
 
     private Animator _animator;
@@ -25,7 +26,7 @@ public class PickerAniAttackView : MonoBehaviour
 
     private void Awake()
     {
-        // 尝试在自己或子节点上找 Animator
+        // 兼容 Animator 挂在根节点或模型子节点的预制体结构
         _animator = GetComponent<Animator>();
         if (_animator == null)
         {
@@ -34,8 +35,11 @@ public class PickerAniAttackView : MonoBehaviour
     }
 
     /// <summary>
-    /// 由生成系统在实例化 View 后调用，绑定对应 ECS 实体。
+    /// 绑定视图对应的 ECS 实体和世界生命周期
     /// </summary>
+    /// <param name="entity">视图跟随的网络实体</param>
+    /// <param name="entityManager">实体所属世界的管理器</param>
+    /// <param name="isServerWorld">视图是否属于服务器世界</param>
     public void Bind(Entity entity, EntityManager entityManager, bool isServerWorld = true)
     {
         TargetEntity  = entity;
@@ -53,13 +57,13 @@ public class PickerAniAttackView : MonoBehaviour
         if (!BoundEntityManager.Exists(TargetEntity))
             return;
 
-        // 没有开火请求，就什么也不做
+        // 没有服务器开火请求时不驱动表现
         if (!BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity))
             return;
 
         var fire = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
 
-        // ShotId 没变说明这一发已经消费过了
+        // ShotId 同时承担新事件检测和重复消费保护
         if (fire.ShotId == 0 || fire.ShotId == _lastConsumedShotId)
             return;
 
@@ -75,12 +79,15 @@ public class PickerAniAttackView : MonoBehaviour
 
         if (!string.IsNullOrEmpty(AttackTriggerName))
         {
-            // 防止上一次没播完又叠触发导致 Animator 内部队列堆积
+            // 重置旧触发器，避免快速攻击时 Animator 队列堆积
             _animator.ResetTrigger(AttackTriggerName);
             _animator.SetTrigger(AttackTriggerName);
         }
     }
 
+    /// <summary>
+    /// 由近战动画命中帧调用并上报当前攻击序号
+    /// </summary>
     public void OnAttackHit()
     {
 

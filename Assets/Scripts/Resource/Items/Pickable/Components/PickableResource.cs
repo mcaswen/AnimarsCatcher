@@ -2,44 +2,51 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
 
+/// <summary>
+/// 可搬运资源的价值 人数门槛和移动参数
+/// </summary>
 [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
 public struct PickableResource : IComponentData
 {   
-    // 资源物品种类
+    // 交付后计入玩家的资源类别
     [GhostField]
     public ResourceItemKind ResourceItemKind;
 
-    // 拾取成功后给玩家增加多少资源
+    // 成功交付后增加的资源总量
     [GhostField]
     public int TotalResourceAmount;
 
-    // 要求的最少 Ani 数
+    // 启动搬运所需的最少 Ani 数量
     [GhostField]
     public int MinimumCarrierAniCount;
 
-    // 允许分配的最大 Ani 数
+    // 单次任务允许分配的最大 Ani 数量
     [GhostField]
     public int MaximumCarrierAniCount;
 
-    // Ani 就位距离
+    // Ani 判定到达站位槽的距离
     [GhostField]
     public float StartCarryDistance;
 
-    // 到达玩家机器人身边的到达半径
+    // 资源判定到达玩家机器人的半径
     [GhostField]
     public float DeliveryArrivalRadius;
 
-    // 资源往玩家机器人移动的速度
+    // 资源进入搬运阶段后的移动速度
     [GhostField] 
     public float CarryMoveSpeed;
 }
 
-// 搬运时 Ani 相对物体的站位槽
+/// <summary>
+/// 搬运 Ani 相对资源实体的局部站位槽
+/// </summary>
 public struct PickableResourceCarrierSlot : IBufferElementData
 {
     public float3 LocalOffset;
 }
 
-// 用来让 Attack 系统区分出“这是能被 Picker 拾取的资源”
+/// <summary>
+/// 标识可被 Picker 交互系统选中的资源实体
+/// </summary>
 [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
 public struct PickableResourceTag : IComponentData {}

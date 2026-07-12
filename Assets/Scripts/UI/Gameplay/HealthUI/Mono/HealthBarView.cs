@@ -4,6 +4,9 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// 将目标 ECS 实体的世界位置和生命值投影到屏幕血条
+/// </summary>
 public class HealthBarView : MonoBehaviour
 {
     [Header("UI References")]
@@ -20,6 +23,9 @@ public class HealthBarView : MonoBehaviour
 
     private bool _isFriendly;
 
+    /// <summary>
+    /// 绑定目标实体和 HUD 投影环境
+    /// </summary>
     public void InitializeHealthBar(
         EntityManager entityManager,
         Entity targetEntity,
@@ -43,6 +49,7 @@ public class HealthBarView : MonoBehaviour
         Debug.Log($"Initialized HealthBarView for Entity {targetEntity.Index} (IsFriendly: {isFriendly})");
     }
 
+    // 在实体完成移动后更新屏幕位置和生命值填充
     private void LateUpdate()
     {
         if (!_entityManager.Exists(_targetEntity))
@@ -60,17 +67,6 @@ public class HealthBarView : MonoBehaviour
         Vector3 worldPosition = localTransform.Position + (float3)_worldOffset;
 
         Vector3 screenPosition = _worldCamera.WorldToScreenPoint(worldPosition);
-
-        // 背面朝向相机的时候直接隐藏
-        // if (screenPosition.z < 0f)
-        // {
-        //     if (rootRectTransform.gameObject.activeSelf)
-        //     {
-        //         rootRectTransform.gameObject.SetActive(false);
-        //     }
-
-        //     return;
-        // }
 
         if (!rootRectTransform.gameObject.activeSelf)
         {
@@ -100,7 +96,7 @@ public class HealthBarView : MonoBehaviour
 
         rootRectTransform.anchoredPosition = uiPosition;
 
-        // 更新血量
+        // 读取最新 Health 并限制填充比例到有效范围
         if (_entityManager.HasComponent<Health>(_targetEntity))
         {
             Health health = _entityManager.GetComponentData<Health>(_targetEntity);

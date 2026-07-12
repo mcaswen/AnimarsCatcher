@@ -7,17 +7,21 @@ using Unity.CharacterController;
 using System.Diagnostics;
 using AnimarsCatcher.Mono;
 
-// 处理和计算输入数据，然后转换为移动命令（FixedCamera）
+/// <summary>在客户端把固定相机坐标系下的输入打包为网络移动命令</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 public partial struct BuildTPMoveCommandWithFixedCameraSystem : ISystem
 {
+    /// <summary>仅在客户端进入 InGame 后启用命令构建</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<NetworkStreamInGame>();
     }
 
+    /// <summary>为当前预测 Tick 构建并写入固定相机移动命令</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var connection))
@@ -45,10 +49,10 @@ public partial struct BuildTPMoveCommandWithFixedCameraSystem : ISystem
         var networkTime = SystemAPI.GetSingleton<NetworkTime>();
         var inputCommandBuffer = state.EntityManager.GetBuffer<InputCommand>(target);
 
-        // 获得角色的向上方向
+        // 固定相机玩法使用世界上方向作为移动平面法线
         float3 up = math.up();
 
-        // 计算相机朝向
+        // 相机缺失时使用单位旋转，保证命令仍可安全构建
         quaternion cameraRotation = quaternion.identity;
 
         if (playerControl.ControlledCamera != Entity.Null)
@@ -56,20 +60,20 @@ public partial struct BuildTPMoveCommandWithFixedCameraSystem : ISystem
             cameraRotation = SystemAPI.GetComponent<LocalTransform>(playerControl.ControlledCamera).Rotation;
         }
 
-        // 投射到水平面
+        // 投影相机基向量，避免俯仰角向移动命令引入垂直分量
         float3 cameraForward = MathUtilities.GetForwardFromRotation(cameraRotation);
         float3 cameraRight = MathUtilities.GetRightFromRotation(cameraRotation);
 
         float3 cameraForwardOnPlane  = math.normalizesafe(MathUtilities.ProjectOnPlane(cameraForward, up));
         float3 cameraRightOnPlane = math.normalizesafe(MathUtilities.ProjectOnPlane(cameraRight, up));
 
-        // 把输入折算为世界平面向量
+        // 将二维输入转换为服务器和客户端一致的世界平面向量
         float3 worldMove = input.MoveInput.y * cameraForwardOnPlane + input.MoveInput.x * cameraRightOnPlane;
         worldMove = MathUtilities.ClampToMaxLength(worldMove, 1f);
 
         var tick = networkTime.ServerTick;
 
-        // 按位与取按键状态
+        // 离散输入合并为位标记，随同一 Tick 的移动命令发送
         var buttons = default(CommandButtons);
 
         if (input.RightMouseHeld != 0) buttons |= CommandButtons.RMBHold;
@@ -78,7 +82,7 @@ public partial struct BuildTPMoveCommandWithFixedCameraSystem : ISystem
         if (input.InteractPressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Interact;
         if (input.PausePressed.IsSet(tick.SerializedData)) buttons |= CommandButtons.Pause;
 
-        // 打包命令
+        // 固定相机不发送视角和缩放增量
         InputCommand command = default;
         command.Tick = tick;
         

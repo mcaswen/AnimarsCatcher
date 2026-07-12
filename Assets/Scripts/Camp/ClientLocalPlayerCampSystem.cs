@@ -2,12 +2,17 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
+/// <summary>
+/// 保存当前客户端本地玩家的阵营快照
+/// </summary>
 public struct LocalPlayerCamp : IComponentData
 {
     public CampType Value;
 }
 
-// 维护一个本地玩家阵营的单例
+/// <summary>
+/// 根据本地拥有的 Ghost 建立客户端阵营单例并在完成后停用
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ClientLocalPlayerCampSystem : ISystem
@@ -29,7 +34,7 @@ public partial struct ClientLocalPlayerCampSystem : ISystem
     {
         int myId = SystemAPI.GetSingleton<NetworkId>().Value;
 
-        // 找本地拥有的角色，以 GhostOwner 为准
+        // 以 GhostOwner 为准，避免把其他客户端角色误认成本地玩家
         foreach (var (camp, owner) in SystemAPI
                      .Query<RefRO<Camp>, RefRO<GhostOwner>>())
         {
@@ -44,7 +49,7 @@ public partial struct ClientLocalPlayerCampSystem : ISystem
             }
 
             _localPlayerIsSet = true;
-            break; // 角色唯一，找到后退出
+            break; // 本地拥有的主角色唯一，找到后即可停止扫描
         }
 
         if (_localPlayerIsSet)

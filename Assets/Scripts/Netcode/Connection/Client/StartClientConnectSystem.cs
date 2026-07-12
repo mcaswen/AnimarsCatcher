@@ -7,11 +7,14 @@ using Unity.Networking.Transport;
 using UnityEngine.SceneManagement;
 #endif
 
+/// <summary>在编辑器游戏场景中自动创建本机客户端连接请求</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct StartClientConnectSystem : ISystem
 {
+    /// <summary>仅执行一次编辑器自动连接并随后禁用系统</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
 #if UNITY_EDITOR
@@ -33,6 +36,7 @@ public partial struct StartClientConnectSystem : ISystem
     
     }
 
+    // 同时检查已连接、待处理请求和握手状态，防止创建重复连接实体
     private bool AlreadyConnectedOrConnecting(ref SystemState state)
     {
         if (SystemAPI.HasSingleton<NetworkId>()) return true; // 已连接

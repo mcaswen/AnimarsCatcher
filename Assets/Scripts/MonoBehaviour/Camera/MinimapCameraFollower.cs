@@ -2,6 +2,9 @@ using UnityEngine;
 
 namespace AnimarsCatcher.Mono
 {
+    /// <summary>
+    /// 将小地图相机保持在目标正上方并可选同步目标朝向
+    /// </summary>
     [DisallowMultipleComponent]
     public class MinimapCameraFollower : MonoBehaviour
     {
@@ -22,9 +25,9 @@ namespace AnimarsCatcher.Mono
         [Tooltip("是否复制目标的 Yaw，让小地图随玩家朝向旋转")]
         public bool copyTargetYaw = false;
 
+        // 保证场景内只有一个可供玩家视图注册的跟随器
         private void Awake()
         {
-            // 简单单例：场景里只留一个
             if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
@@ -34,12 +37,12 @@ namespace AnimarsCatcher.Mono
             Instance = this;
         }
 
+        // 在目标完成移动后更新相机 减少画面抖动
         private void LateUpdate()
         {
-            // 优先使用“显式绑定”的目标
+            // 显式绑定优先 Tag 查询仅作为旧场景兼容路径
             if (_followTarget == null)
             {
-                // 如果你还在用 Tag=Player，也可以保留这一段兜底
                 GameObject playerObj = GameObject.FindWithTag("Player");
                 if (playerObj != null)
                 {
@@ -53,10 +56,10 @@ namespace AnimarsCatcher.Mono
 
             Vector3 tPos = _followTarget.position;
 
-            // ✅ 关键：始终在玩家正上方，高度固定
+            // 固定世界高度并只跟随目标的水平位置
             transform.position = new Vector3(tPos.x, height, tPos.z);
 
-            // ✅ 俯视角度
+            // 按配置选择固定北向或同步目标偏航角
             if (copyTargetYaw)
             {
                 float yaw = _followTarget.eulerAngles.y;
@@ -69,8 +72,9 @@ namespace AnimarsCatcher.Mono
         }
 
         /// <summary>
-        /// 方便 ECS / 其它 Mono 手动绑定。
+        /// 绑定需要跟随的本地玩家视图
         /// </summary>
+        /// <param name="target">小地图相机跟随目标</param>
         public void BindTarget(Transform target)
         {
             _followTarget = target;

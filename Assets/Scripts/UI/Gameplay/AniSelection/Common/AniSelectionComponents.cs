@@ -5,17 +5,21 @@ using UnityEngine.UI;
 using Unity.NetCode;
 using Unity.Collections;
 
-// 框选的运行时状态
+/// <summary>
+/// 一次屏幕框选拖拽的运行时边沿状态
+/// </summary>
 public struct AniSelectionDragState : IComponentData
 {
     public float2 StartScreen;   
     public float2 EndScreen;     
     public byte IsDragging;   
-    public byte IsReleased;  // 本帧刚刚释放
-    public byte PreviousRightHeld; // 上一帧右键是否按住（用于检测抬起）
+    public byte IsReleased;  // 仅在释放发生的帧为一
+    public byte PreviousRightHeld; // 上一帧右键状态用于检测输入边沿
 }
 
-// UGUI 桥接
+/// <summary>
+/// 客户端 ECS 持有的 UGUI 托管对象引用
+/// </summary>
 public class AniSelectionUIRef : IComponentData
 {
     public Camera WorldCamera;
@@ -23,14 +27,23 @@ public class AniSelectionUIRef : IComponentData
     public RectTransform SelectionRect;
 }
 
+/// <summary>
+/// 标识框选 UI 引用已完成注入
+/// </summary>
 public struct SelectionUIAttachedTag : IComponentData {}
 
+/// <summary>
+/// 当前框选允许的 Ani 类型
+/// </summary>
 public enum AniSelectionMode : byte
 {
     Picker  = 0,
     Blaster = 1,
 }
 
+/// <summary>
+/// 客户端当前 Ani 选择模式单例
+/// </summary>
 public struct AniSelectionModeSingleton : IComponentData
 {
     public AniSelectionMode Mode;
@@ -39,17 +52,21 @@ public struct AniSelectionModeSingleton : IComponentData
 
 #region 网络同步部分
 
-// Ghost 引用缓冲区
+/// <summary>
+/// 已选 Ani 的 Ghost 标识缓冲元素
+/// </summary>
 public struct SelectedAniGhostRef : IBufferElementData
 {
     public int AniGhostId;
 }
 
-// 选择申请 RPC
+/// <summary>
+/// 客户端提交的 Ani 选择 GhostId 列表
+/// </summary>
 public struct AniSelectionApplyRpc : IRpcCommand
 {
-    public byte Append; // 0 = 替换（清空旧选择后再置位），1 = 追加（在已有选择基础上置位）
-    public FixedList512Bytes<int> GhostIds; // 存选中的 GhostId 列表
+    public byte Append; // 零表示替换现有选择 非零表示追加选择
+    public FixedList512Bytes<int> GhostIds; // 本次请求包含的 GhostId 列表
 }
 
 

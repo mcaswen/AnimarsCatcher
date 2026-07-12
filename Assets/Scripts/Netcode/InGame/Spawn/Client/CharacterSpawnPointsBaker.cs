@@ -1,8 +1,11 @@
 using Unity.Entities;
 using UnityEngine;
 
+/// <summary>负责把子节点姿态烘焙为角色出生点缓冲区</summary>
 public class CharacterSpawnPointsBaker : Baker<CharacterSpawnPointsAuthoring>
 {
+    /// <summary>创建带阵营、策略和出生点列表的配置实体</summary>
+    /// <param name="authoring">出生点 Authoring 配置</param>
     public override void Bake(CharacterSpawnPointsAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.None);

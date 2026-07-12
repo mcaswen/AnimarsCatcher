@@ -6,11 +6,16 @@ using UnityEngine.Events;
 
 namespace AnimarsCatcher.Mono.Global
 {
+    /// <summary>
+    /// 按事件数据类型隔离监听器的进程内事件总线
+    /// </summary>
     public class EventBus : MonoBehaviour
     {
         public static EventBus Instance;
-        private Dictionary<Type, Object> _eventMap = new Dictionary<Type, Object>(); // 类型擦除，T (type of IEventData)类型 作为键 与 UnityEvent<IEventData> 事件 作为值 的映射
+        // 使用 Object 完成类型擦除 实际值始终是与键匹配的 UnityEvent<T>
+        private Dictionary<Type, Object> _eventMap = new Dictionary<Type, Object>();
 
+        // 建立跨场景唯一实例
         void Awake()
         {
             if (Instance == null)
@@ -24,29 +29,42 @@ namespace AnimarsCatcher.Mono.Global
             }
         }
 
-        private UnityEvent<T> GetEvent<T>() where T : IEventData // 通过 Object 类型存储不同类型的 UnityEvent<T> 实例
+        // 按需创建强类型事件并恢复为调用方请求的泛型类型
+        private UnityEvent<T> GetEvent<T>() where T : IEventData
         {
             var key = typeof(T);
-            if (!_eventMap.TryGetValue(key, out var obj)) // 若映射不存在则创建映射
+            if (!_eventMap.TryGetValue(key, out var obj))
             {
-                obj = new UnityEvent<T>(); // 创建新的事件实例
+                obj = new UnityEvent<T>();
                 _eventMap[key] = obj;
             }
-            return (UnityEvent<T>)obj; // 强制类型转换（这里是必定成功，因为obj实例化时已是 UnityEvent<T> 类型）
+            return (UnityEvent<T>)obj;
         }
 
-        // 若调用这些方法时,订阅类型与委托处理类型不匹配，则会在编译期抛出异常，防止运行时错误
+        /// <summary>
+        /// 订阅指定事件数据类型
+        /// </summary>
         public void Subscribe<T>(UnityAction<T> handler) where T : IEventData
             => GetEvent<T>().AddListener(handler);
 
+        /// <summary>
+        /// 取消指定事件数据类型的订阅
+        /// </summary>
         public void Unsubscribe<T>(UnityAction<T> handler) where T : IEventData
             => GetEvent<T>().RemoveListener(handler);
 
+        /// <summary>
+        /// 向当前进程内的订阅者发布事件数据
+        /// </summary>
         public void Publish<T>(T data) where T : IEventData
             => GetEvent<T>().Invoke(data);
 
     }
 
+    /// <summary>
+    /// 保留的非泛型事件总线实现
+    /// 仅供现有引用兼容 新代码应使用 EventBus
+    /// </summary>
     public class EventBus2 : MonoBehaviour
     {
         public static EventBus2 Instance;
@@ -74,7 +92,8 @@ namespace AnimarsCatcher.Mono.Global
                 _eventMap[type] = new UnityEvent<IEventData>();
             }
 
-            if (handler is UnityAction<IEventData> eventHandler) // 永远为 False
+            // 泛型委托无法转换为 IEventData 委托 此实现不会注册不同签名的处理器
+            if (handler is UnityAction<IEventData> eventHandler)
                 _eventMap[type].AddListener(eventHandler);
         }
 
@@ -83,7 +102,7 @@ namespace AnimarsCatcher.Mono.Global
             var type = typeof(T);
             if (_eventMap.TryGetValue(type, out var existingEvent))
             {
-                if (handler is UnityAction<IEventData> eventHandler) // 永远为 False
+                if (handler is UnityAction<IEventData> eventHandler)
                     _eventMap[type].RemoveListener(eventHandler);
             }
         }

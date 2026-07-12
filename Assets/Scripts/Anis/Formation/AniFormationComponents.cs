@@ -1,6 +1,9 @@
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 保存 Ani 当前所属队长及其稳定阵型槽位
+/// </summary>
 [GhostComponent]
 public struct AniFormationMember : IComponentData
 {
@@ -11,6 +14,9 @@ public struct AniFormationMember : IComponentData
     public int slotIndex; 
 }
 
+/// <summary>
+/// 请求服务器把 Ani 加入或迁移到指定队长的阵型
+/// </summary>
 [GhostComponent]
 public struct AniFormationJoinRequest : IComponentData
 {
@@ -18,6 +24,9 @@ public struct AniFormationJoinRequest : IComponentData
     public Entity leader;
 }
 
+/// <summary>
+/// 请求服务器释放 Ani 在指定队长阵型中的成员关系
+/// </summary>
 [GhostComponent]
 public struct AniFormationLeaveRequest : IComponentData
 {

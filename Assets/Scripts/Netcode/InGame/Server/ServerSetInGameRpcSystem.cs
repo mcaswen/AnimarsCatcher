@@ -6,12 +6,15 @@ using Unity.Mathematics;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
+/// <summary>在 Server World 响应客户端就绪请求并权威创建角色</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(ServerStartGameSystem))] // 在发完 ClientStartGameRpc 之后
 public partial struct ServerSetInGameRpcSystem : ISystem
 {
+    /// <summary>声明开局状态、Ghost 集合、角色 Prefab 和连接依赖</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<ServerMatchStartState>();
@@ -20,6 +23,8 @@ public partial struct ServerSetInGameRpcSystem : ISystem
         state.RequireForUpdate<NetworkId>();
     }
 
+    /// <summary>消费 SetInGameRpc 并为每个连接创建唯一角色</summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state)
     {
         var matchStateRW = SystemAPI.GetSingletonRW<ServerMatchStartState>();
@@ -38,7 +43,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
             return;
         }
 
-        // （可选）再检查一下 GhostCollection 是否 ready
+        // GhostCollection 为空时不能安全实例化并复制 Ghost Prefab
         Entity ghostCollectionEntity = SystemAPI.GetSingletonEntity<GhostCollection>();
         DynamicBuffer<GhostCollectionPrefab> ghostPrefabs =
             SystemAPI.GetBuffer<GhostCollectionPrefab>(ghostCollectionEntity);
@@ -51,7 +56,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
 
         bool anySpawnedThisFrame = false;
 
-        // 处理所有 SetInGameRpc
+        // 每条 RPC 的 SourceConnection 是服务器授予所有权的唯一依据
         foreach (var (rpc, req, rpcEntity) in SystemAPI
                      .Query<RefRO<SetInGameRpc>, RefRO<ReceiveRpcCommandRequest>>()
                      .WithEntityAccess())
@@ -69,10 +74,10 @@ public partial struct ServerSetInGameRpcSystem : ISystem
                 continue;
             }
 
-            // 1. 给这个连接标记 InGame（这会加 NetworkStreamInGame）
+            // 连接进入 InGame 后才会参与 Ghost 快照和输入命令传输
             connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
 
-            // 2. 找到对应阵营的出生点组，复用你原来的逻辑
+            // 阵营和出生点均由服务器策略决定，客户端请求不携带权威结果
             bool spawned = TrySpawnCharacterForConnection(
                 ref state,
                 ref entityCommandBuffer,
@@ -97,7 +102,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
 
         if (anySpawnedThisFrame)
         {
-            // 如果你仍然想用 CharactersSpawned 标记“整局开始”，可以在这里更新
+            // 至少一个角色创建成功后记录服务器已进入角色阶段
             matchStateRW.ValueRW.CharactersSpawned = 1;
 
             NetUIEventBridge.RaiseMatchStartedEvent(NetUIEventSource.ServerWorld, localPlayerNetworkId: -1);
@@ -107,6 +112,13 @@ public partial struct ServerSetInGameRpcSystem : ISystem
         entityCommandBuffer.Dispose();
     }
 
+    /// <summary>在连接所属阵营的出生点组中创建角色并建立权威状态</summary>
+    /// <param name="state">服务器系统状态</param>
+    /// <param name="entityCommandBuffer">延迟结构变更命令缓冲区</param>
+    /// <param name="connectionAspect">请求进入游戏的连接</param>
+    /// <param name="characterPrefab">角色 Ghost Prefab</param>
+    /// <param name="camp">服务器分配阵营</param>
+    /// <returns>是否成功创建角色</returns>
     private bool TrySpawnCharacterForConnection(
         ref SystemState state,
         ref EntityCommandBuffer entityCommandBuffer,
@@ -116,6 +128,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
     {
         int id = connectionAspect.Id;
 
+        // 出生点配置按阵营分组，服务器只使用与连接阵营匹配的一组
         foreach (var (spawnState, selectMode, groupCamp, points) in
                  SystemAPI.Query<
                      RefRW<CharacterSpawnPointsState>,
@@ -123,7 +136,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
                      RefRO<Camp>,
                      DynamicBuffer<CharacterSpawnPointElement>>())
         {
-            // 若阵营不同则跳过
+            // 连接只能使用服务器分配阵营对应的出生点组
             if (groupCamp.ValueRO.Value != camp)
                 continue;
 
@@ -152,7 +165,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
                 1f
             );
 
-            // 设置 CommandTarget 和 GhostOwner
+            // CommandTarget 路由输入，GhostOwner 授予对应客户端预测权限
             connectionAspect.SetCommandTarget(character, ref state, ref entityCommandBuffer);
             entityCommandBuffer.AddComponent(character, new GhostOwner { NetworkId = id });
             entityCommandBuffer.SetComponent(character, new Camp { Value = camp });

@@ -2,6 +2,9 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
+/// <summary>
+/// 配置服务端资源刷新区域 阻挡检测和波次上限
+/// </summary>
 [DisallowMultipleComponent]
 public class ResourceSpawnAreaAuthoring : MonoBehaviour
 {
@@ -15,8 +18,8 @@ public class ResourceSpawnAreaAuthoring : MonoBehaviour
     public float SpawnHeightOffset = 0f;
 
     [Header("阻挡检测设置")]
-    public LayerMask BlockerMask;           // 刷新时不允许重叠的层（地形、资源、建筑等）
-    public float SpawnCheckRadius           = 0.5f;   // 检查球半径
+    public LayerMask BlockerMask;           // 生成点不可重叠的地形 资源和建筑层
+    public float SpawnCheckRadius = 0.5f;   // 阻挡检测球半径
     public int MaxSpawnAttemptsPerResource = 8;
 
     [Header("Food 刷新配置")]
@@ -35,13 +38,16 @@ public class ResourceSpawnAreaAuthoring : MonoBehaviour
     [Header("刷新节奏")]
     public float RespawnIntervalSeconds = 5f;
 
+    /// <summary>
+    /// 将区域范围 预制体列表和刷新参数烘焙到实体
+    /// </summary>
     class Baker : Baker<ResourceSpawnAreaAuthoring>
     {
         public override void Bake(ResourceSpawnAreaAuthoring authoring)
         {
             Entity entity = GetEntity(TransformUsageFlags.None);
 
-            // 用 world bounds 当刷新范围
+            // 优先使用 BoxCollider 世界包围盒作为刷新范围
             BoxCollider box = authoring.AreaBox != null
                 ? authoring.AreaBox
                 : authoring.GetComponent<BoxCollider>();

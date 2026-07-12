@@ -7,6 +7,9 @@ using UnityEngine.UI;
 
 namespace AnimarsCatcher.Mono.Audio
 {
+    /// <summary>
+    /// 跨场景保留的音量和 UI 音效控制器
+    /// </summary>
     public class AudioManager : MonoBehaviour
     {
         public static AudioManager Instance { get; private set; }
@@ -21,6 +24,7 @@ namespace AnimarsCatcher.Mono.Audio
         public Scrollbar BGMVolumeScrollbar;
         public Scrollbar UIVolumeScrollbar;
 
+        // 建立唯一实例并跨场景保留音频对象
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -33,6 +37,7 @@ namespace AnimarsCatcher.Mono.Audio
             DontDestroyOnLoad(this);
         }
         
+        // 绑定音量滑杆并写入默认混音参数
         private void Start()
         {
             _uIAudioSource = GetComponent<AudioSource>();
@@ -55,21 +60,33 @@ namespace AnimarsCatcher.Mono.Audio
             UIVolumeScrollbar.value = 0.5f;
         }
 
+        /// <summary>
+        /// 播放菜单按钮点击音效
+        /// </summary>
         public void PlayMenuButtonAudio()
         {
             _uIAudioSource.PlayOneShot(MenuBtnClick);
         }
 
+        /// <summary>
+        /// 播放开关控件音效
+        /// </summary>
         public void PlaySwitchBtnAudio()
         {
             _uIAudioSource.PlayOneShot(SwitchBtnClick);
         }
 
+        /// <summary>
+        /// 降低游戏声道音量以突出菜单声音
+        /// </summary>
         public void EnterMenu()
         {
             AudioMixer.SetFloat("GameVolume", -30f);
         }
 
+        /// <summary>
+        /// 恢复游戏声道音量
+        /// </summary>
         public void ExitMenu()
         {
             AudioMixer.SetFloat("GameVolume", 0f);

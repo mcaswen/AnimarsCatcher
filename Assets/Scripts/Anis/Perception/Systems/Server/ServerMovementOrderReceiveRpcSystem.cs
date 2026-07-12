@@ -5,6 +5,9 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 
+/// <summary>
+/// 在服务器验证移动 RPC 的连接拥有权并写入 Ani 行为黑板
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -12,27 +15,39 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 {
     private BufferLookup<FsmVar> _blackboardLookup;
 
-    // GhostId -> Ani Entity
+    // 每帧重建 GhostId 到服务器权威 Ani 实体的映射
     private NativeParallelHashMap<int, Entity> _aniByGhostId;
 
+    /// <summary>
+    /// 创建持久化 GhostId 映射并缓存黑板查询
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
     }
 
+    /// <summary>
+    /// 释放跨帧持有的原生映射容器
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     public void OnDestroy(ref SystemState state)
     {
         if (_aniByGhostId.IsCreated)
             _aniByGhostId.Dispose();
     }
 
+    /// <summary>
+    /// 消费移动命令、拒绝越权选择并转换为服务器行为状态
+    /// </summary>
+    /// <param name="state">系统运行状态</param>
     [BurstCompile] 
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);
 
-        // -------- 重建 GhostId -> Ani Entity 映射 --------
+        // GhostId 会随网络实体生命周期变化，因此每帧从权威世界重建映射
         _aniByGhostId.Clear();
 
         foreach (var (ghostInstance, aniAttributes, entity) in
@@ -44,7 +59,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-        // NetworkId -> 玩家主角(leader) 的映射（用于阵型朝向）
+        // 玩家主角映射用于校验连接归属并计算整队移动朝向
         var leadersByNetworkId =
             new NativeParallelHashMap<int, Entity>(16, Allocator.Temp);
 
@@ -56,7 +71,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
             leadersByNetworkId.TryAdd(owner.ValueRO.NetworkId, leaderEntity);
         }
 
-        // -------- 消费所有 MovementOrderRpc --------
+        // 每条 RPC 都以 SourceConnection 的 NetworkId 作为权限依据
         foreach (var (rpc, recv, rpcEntity) in
                  SystemAPI.Query<RefRO<MovementOrderRpc>, RefRO<ReceiveRpcCommandRequest>>()
                           .WithEntityAccess())
@@ -75,7 +90,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
             Entity             targetEntity = rpc.ValueRO.TargetEntity;
             float3             clickPos     = rpc.ValueRO.TargetWorldPosition;
 
-            // 如果是 Ani / Resource / Player，但 TargetEntity 映射失败，直接忽略本条命令
+            // 需要实体目标的命令在目标失效时整体拒绝，避免写入悬空引用
             if ((targetKind == MovementTargetKind.Ani ||
                  targetKind == MovementTargetKind.Resource ||
                  targetKind == MovementTargetKind.Player) &&
@@ -85,7 +100,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                 continue;
             }
 
-            // 找这条命令对应的玩家主角（用于阵型朝向）
+            // 主角位置和朝向为地面移动提供稳定的阵型前方向
             Entity    leaderEntity = Entity.Null;
             float3    leaderPos    = float3.zero;
             quaternion leaderRot   = quaternion.identity;
@@ -100,7 +115,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
             if (targetKind == MovementTargetKind.Resource)
             {
-                // 需要有主角（作为 PlayerRobotEntity），目标必须真的是 PickableResource
+                // 资源请求只允许绑定有效主角和尚未被分配的可拾取资源
                 if (leaderEntity != Entity.Null &&
                     SystemAPI.HasComponent<PickableResourceTag>(targetEntity) &&
                     !SystemAPI.HasComponent<ResourcePickupRequest>(targetEntity) &&
@@ -110,14 +125,10 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                     {
                         PlayerRobotEntity = leaderEntity,
                     });
-
-                    // UnityEngine.Debug.Log(
-                    //     $"[ServerMovementOrderReceiveRpcSystem] Added ResourcePickupRequest for resource={targetEntity.Index}, " +
-                    //     $"leader={leaderEntity.Index}");
                 }
             }
 
-            // -------- 关键：遍历这条命令里的 Ani 列表 --------
+            // 逐个解析客户端快照中的 GhostId，并在服务器重新验证拥有权
             var selectedAniGhostIds = rpc.ValueRO.SelectedAniGhostIds;
 
             for (int i = 0; i < selectedAniGhostIds.Length; i++)
@@ -127,7 +138,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                 if (!_aniByGhostId.TryGetValue(aniGhostId, out Entity aniEntity))
                     continue;
 
-                // 防止恶意命令：只允许控制自己 NetworkId 的 Ani
+                // SourceConnection 只能控制 GhostOwner 与自身 NetworkId 一致的 Ani
                 if (!SystemAPI.HasComponent<GhostOwner>(aniEntity))
                     continue;
 
@@ -156,7 +167,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                             AniMovementBlackboardKeys.TargetEntity,
                             Entity.Null);
 
-                        // 阵型朝向
+                        // 使用主角到点击点的方向作为整队统一前向
                         float3 forward;
 
                         if (leaderEntity != Entity.Null)
@@ -193,11 +204,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-
-                        // UnityEngine.Debug.Log(
-                        //     $"[ServerMovementOrderReceiveRpcSystem] Ground command -> Ani {aniEntity.Index}, " +
-                        //     $"click={clickPos}, target={targetEntity}");
-
                         break;
                     }
 
@@ -217,11 +223,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-
-                        // UnityEngine.Debug.Log(
-                        //     $"[ServerMovementOrderReceiveRpcSystem] Ani command -> Ani {aniEntity.Index}, " +
-                        //     $"target Ani={targetEntity.Index}");
-
                         break;
                     }
 
@@ -237,11 +238,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-
-                        // UnityEngine.Debug.Log(
-                        //     $"[ServerMovementOrderReceiveRpcSystem] Resource command -> Ani {aniEntity.Index}, " +
-                        //     $"target Resource={targetEntity.Index}");
-
                         break;
                     }
 
@@ -257,11 +253,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-
-                        // UnityEngine.Debug.Log(
-                        //     $"[ServerMovementOrderReceiveRpcSystem] Resource command -> Ani {aniEntity.Index}, " +
-                        //     $"target Resource={targetEntity.Index}");
-
                         break;
                     }
 
@@ -277,11 +268,6 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
 
                         if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                             entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
-
-                        // UnityEngine.Debug.Log(
-                        //     $"[ServerMovementOrderReceiveRpcSystem] Follow command -> Ani {aniEntity.Index}, " +
-                        //     $"player={targetEntity.Index}");
-
                         break;
                     }
 

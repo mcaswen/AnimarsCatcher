@@ -6,6 +6,10 @@ using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 
 
+/// <summary>
+/// 将客户端资源调试 RPC 转换为服务端资源事件
+/// 保留正式资源应用链路以便联调权限和同步行为
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -14,12 +18,15 @@ public partial struct ServerDebugResourceToEventSystem : ISystem
 {
     private Entity _hubEntity;
     
+    /// <summary>
+    /// 确保事件 Hub 存在并消费全部资源变化 RPC
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var entityManager = state.EntityManager;
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
         
-        // 创建事件 HUB 实体
+        // 场景未提供 Hub 时创建运行时后备实体
         if (!entityManager.Exists(_hubEntity))
         {
             _hubEntity = Entity.Null;
@@ -36,7 +43,7 @@ public partial struct ServerDebugResourceToEventSystem : ISystem
         var foodBuffer = entityManager.GetBuffer<FoodAmountChangedEvent>(_hubEntity);
         var crystalBuffer = entityManager.GetBuffer<CrystalAmountChangedEvent>(_hubEntity);
 
-        // 处理所有 ResourceChangedRpc
+        // 将连接来源解析为玩家 NetworkId 后写入对应事件缓冲区
         foreach (var (rpc, request, rpcEntity) in SystemAPI
                      .Query<RefRO<ResourceChangedRpc>, RefRO<ReceiveRpcCommandRequest>>()
                      .WithEntityAccess())

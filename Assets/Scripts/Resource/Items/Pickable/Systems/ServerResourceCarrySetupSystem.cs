@@ -5,36 +5,44 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine.AI;
 
+/// <summary>
+/// 记录 Ani 上一帧导航状态以识别首次到达站位槽
+/// </summary>
 public struct AniNavFindArrivalTracker : IComponentData
 {
-    public byte PreviousHasPath; // 0 或 1
+    public byte PreviousHasPath; // 零表示无路径 非零表示仍在寻路
 }
 
-// [BurstCompile]
+/// <summary>
+/// 为搬运 Ani 规划站位路径并在全部就位后启动资源移动
+/// </summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerResourceCarrySetupSystem : ISystem
 {
     private ComponentLookup<AniNavFindArrivalTracker> _arrivalTrackerLookup;
 
+    /// <summary>
+    /// 建立查询并缓存到达状态 Lookup
+    /// </summary>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
             SystemAPI.QueryBuilder()
                 .WithAll<PickableResource, ResourceCarryAssignment, LocalTransform>()
-                .WithAll<PickableResourceCarrierSlot>()  // 有槽位
+                .WithAll<PickableResourceCarrierSlot>()
                 .Build());
         
         _arrivalTrackerLookup = state.GetComponentLookup<AniNavFindArrivalTracker>(isReadOnly: false);
     }
 
-    // [BurstCompile]
+    /// <summary>
+    /// 分配站位 规划路径并累计已到位 Ani 数量
+    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         _arrivalTrackerLookup.Update(ref state);
-
-        // UnityEngine.Debug.Log("[ServerResourceCarrySetupSystem] OnUpdate start");
 
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
@@ -155,7 +163,7 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
                     {
                         var blackboard = SystemAPI.GetBuffer<FsmVar>(aniEntity);
 
-                        // CommandMode = Idle
+                // 切换到 Idle 命令模式
                         Blackboard.SetInt(ref blackboard,
                             AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Idle);

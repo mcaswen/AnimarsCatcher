@@ -3,6 +3,9 @@ using Unity.Mathematics;
 using UnityEngine;
 using Unity.Physics;
 
+/// <summary>
+/// 配置 Ani 的地面探测、前向障碍探测和碰撞过滤规则
+/// </summary>
 [DisallowMultipleComponent]
 public class AniPhysicsAuthoring : MonoBehaviour
 {
@@ -21,8 +24,15 @@ public class AniPhysicsAuthoring : MonoBehaviour
     [Tooltip("碰撞组索引")]
     public int GroupIndex = 0;
 
+    /// <summary>
+    /// 将探测参数和初始探测结果写入实体
+    /// </summary>
     class Baker : Baker<AniPhysicsAuthoring>
     {
+        /// <summary>
+        /// 烘焙射线长度、偏移和 Unity Physics 过滤器
+        /// </summary>
+        /// <param name="authoring">Ani 物理探测创作组件</param>
         public override void Bake(AniPhysicsAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

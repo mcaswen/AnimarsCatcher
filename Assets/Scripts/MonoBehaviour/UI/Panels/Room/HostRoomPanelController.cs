@@ -8,8 +8,9 @@ using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Lan;
 
 
-// 订阅“创建房间”事件
-// 收到事件时：开启服务器监听、本机客户端连接、显示房主昵称和房间地址
+/// <summary>
+/// 驱动 Host 创建房间 本机回连 局域网广播和成员展示流程
+/// </summary>
 public class HostRoomPanelController : MonoBehaviour
 {
     [Header("Panels")]
@@ -39,6 +40,7 @@ public class HostRoomPanelController : MonoBehaviour
     private UnityAction<GameRoomCreatedEventData> _onCreateRoomHandler;
 
 
+    // 建立房间面板初始状态并绑定按钮命令
     private void Awake()
     {
         _hostRoomPanel?.SetActive(false);
@@ -53,6 +55,7 @@ public class HostRoomPanelController : MonoBehaviour
 
     }
 
+    // 订阅创建房间 成员加入和对局开始事件
     private void Start()
     {
         _onCreateRoomHandler = data => OnCreateRoomRequested();
@@ -61,6 +64,7 @@ public class HostRoomPanelController : MonoBehaviour
         NetUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
     }
 
+    // 对称解除静态事件监听 防止场景切换后重复回调
     private void OnDestroy()
     {
        EventBus.Instance?.Unsubscribe(_onCreateRoomHandler);
@@ -68,23 +72,25 @@ public class HostRoomPanelController : MonoBehaviour
        NetUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
     }
 
+    // 启动服务端监听 本机客户端回连和局域网广播
     private void OnCreateRoomRequested()
     {
-        // 让 Server World 开始监听
+        // 先启动服务端监听再发起本机连接
         NetCodeServerController.StartListen(_gamePort);
 
-        // 让本机 Client 连接到本机服务器
+        // Host 进程中的客户端通过回环地址加入自身房间
         NetCodeClientConnector.RequestConnect(_localIpAddress, _gamePort);
 
-        // 启动局域网广播
+        // 广播玩家名称和游戏端口供局域网客户端发现
         string hostName = PlayerSession.CurrentUserName;
         _lanDiscoveryHost?.StartBroadcast(hostName, _gamePort);
 
-        // 显示房间面板，更新展示信息
+        // 网络入口全部启动后再显示房间信息
         _hostRoomPanel?.SetActive(true);
         UpdateRoomInfo();
     }
 
+    // 刷新房主名称和可供其他设备连接的局域网地址
     private void UpdateRoomInfo()
     {
         if (_hostNameText != null)
@@ -113,9 +119,9 @@ public class HostRoomPanelController : MonoBehaviour
         _lanDiscoveryHost?.StopBroadcast();
     }
 
+    // 只展示远端成员 本机 Host 客户端不占用访客槽位
     private void OnLobbyClientJoined(LobbyClientJoinedEventData eventData)
     {
-        // 对于 HostRoom 来说：关心的是“远端客户端连进来”的那次
         if (eventData.IsLocalPlayer)
             return;
 
@@ -154,7 +160,7 @@ public class HostRoomPanelController : MonoBehaviour
         }
         catch
         {
-            // 忽略异常，用默认值
+            // 地址查询失败时继续使用回环地址
         }
 
         return result;

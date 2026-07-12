@@ -5,15 +5,18 @@ using Unity.Transforms;
 using Unity.CharacterController;
 using Unity.NetCode;
 
+/// <summary>在客户端预测世界中按固定角度跟随受控角色</summary>
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
-// 确保在 KCC 变量更新之后
+// 角色姿态确定后再计算相机，避免读取上一帧的 KCC 状态
 [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
 [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
 
 [BurstCompile]
 public partial struct FixedFollowCameraSystem : ISystem
 {
+    /// <summary>声明固定相机运行所需的组件查询</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -23,6 +26,8 @@ public partial struct FixedFollowCameraSystem : ISystem
                 .Build());
     }
 
+    /// <summary>根据预测角色姿态更新固定相机的位置和朝向</summary>
+    /// <param name="state">系统状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -37,7 +42,7 @@ public partial struct FixedFollowCameraSystem : ISystem
             if (followed == Entity.Null)
                 continue;
 
-            // 直接用“预测世界”的 LocalTransform
+            // 此系统运行在预测组，必须直接读取预测角色的 LocalTransform
             if (!SystemAPI.HasComponent<LocalTransform>(followed))
                 continue;
 
@@ -45,7 +50,7 @@ public partial struct FixedFollowCameraSystem : ISystem
             float3 targetPos = targetLt.Position;
             float3 up        = math.up();
 
-            // yaw + pitch 固定角度
+            // 按固定偏航角和俯仰角构造相机朝向
             float3 planarForward =
                 math.normalizesafe(MathUtilities.ProjectOnPlane(new float3(0, 0, 1), up));
             if (math.lengthsq(planarForward) < 1e-6f)

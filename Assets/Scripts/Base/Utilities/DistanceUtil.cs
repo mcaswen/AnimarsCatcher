@@ -1,8 +1,16 @@
 using Unity.Mathematics;
 
+/// <summary>
+/// 提供不分配内存的空间距离计算方法
+/// </summary>
 public static class DistanceUtil
 {
-    // 点到 AABB 的距离平方，如果点在盒子内部，则返回 0
+    /// <summary>
+    /// 计算点到轴对齐包围盒的距离平方，点位于盒内时返回零
+    /// </summary>
+    /// <param name="point">待测世界坐标</param>
+    /// <param name="aabb">基地的世界空间包围盒</param>
+    /// <returns>点到包围盒最近位置的距离平方</returns>
     public static float DistanceSqToAABB(float3 point, in BaseWorldAABB aabb)
     {
         float3 min = aabb.Center - aabb.HalfExtents;

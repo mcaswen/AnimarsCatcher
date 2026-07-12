@@ -4,13 +4,8 @@ using Unity.Mathematics;
 using Unity.Transforms;
 
 /// <summary>
-/// Blaster 攻击视图层：
-/// 1. 监听 ECS 上的 AniAttackFireRequest（ShotId） -> 触发 Animator 的 Shoot 动画
-/// 2. 在动画事件 OnShootFire 中：
-///    - 用 IK 对准当前目标
-///    - 从枪口发射 Raycast，只与 Ground + 敌方 Ani 碰撞体相交
-///    - 生成 Beam 特效（可接对象池）
-///    - 把命中结果通过 AniHitBridge 回传 ECS
+/// 监听 ECS 攻击序号并驱动 Blaster 动画、手部 IK 和激光表现
+/// 动画事件只产生候选射线结果，最终伤害由服务器 ECS 结算
 /// </summary>
 [DisallowMultipleComponent]
 public class BlasterAniAttackView : MonoBehaviour
@@ -68,8 +63,11 @@ public class BlasterAniAttackView : MonoBehaviour
     }
 
     /// <summary>
-    /// 由生成系统在实例化 View 后调用
+    /// 绑定视图对应的 ECS 实体和世界生命周期
     /// </summary>
+    /// <param name="entity">视图跟随的网络实体</param>
+    /// <param name="entityManager">实体所属世界的管理器</param>
+    /// <param name="isServerWorld">视图是否属于服务器世界</param>
     public void Bind(Entity entity, EntityManager entityManager, bool isServerWorld = true)
     {
         TargetEntity = entity;
@@ -81,9 +79,6 @@ public class BlasterAniAttackView : MonoBehaviour
 
     private void Update()
     {
-        // Debug.Log($"[BlasterAniAttackView] {name} Update checking for AniAttackFireRequest Bound: {_bound}, BoundEntityManager: {BoundEntityManager}, TargetEntity: {TargetEntity.Index}"
-        // + "HasComponent: " + (_boundWorld != null && _boundWorld.IsCreated && BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity)).ToString());
-
         if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
             return;
 
@@ -95,11 +90,9 @@ public class BlasterAniAttackView : MonoBehaviour
 
         var fireRequest = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
 
-        // ShotId 没变说明这发已经触发过动画了
+        // ShotId 同时承担新事件检测和重复消费保护
         if (fireRequest.ShotId == 0 || fireRequest.ShotId == _lastConsumedShotId)
             return;
-
-        // Debug.Log($"[BlasterAniAttackView] {name} received ShotId {fireRequest.ShotId}, triggering shoot animation");
 
         _lastConsumedShotId = fireRequest.ShotId;
 
@@ -125,10 +118,7 @@ public class BlasterAniAttackView : MonoBehaviour
         }
     }
 
-    // ————————————————————————————
-    // Animator IK：只在 _isShooting 为 true 时做手部 IK
-    // 不再每帧查 StateName，开销更小，逻辑也更清晰
-    // ————————————————————————————
+    // 仅在攻击动画期间更新手部 IK，避免空闲帧持续写 Animator
     private void OnAnimatorIK(int layerIndex)
     {
         if (!_isShooting || !Animator)
@@ -151,10 +141,9 @@ public class BlasterAniAttackView : MonoBehaviour
         }
     }
 
-    // ————————————————————————————
-    // 动画事件：在“开火帧”上调用这个函数
-    // AttackClip 上加一个 Event：函数名 OnShootFire
-    // ————————————————————————————
+    /// <summary>
+    /// 由攻击动画开火帧调用，并保证每个 ShotId 只发射一次激光
+    /// </summary>
     public void OnShootFire()
     {
         if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
@@ -169,21 +158,19 @@ public class BlasterAniAttackView : MonoBehaviour
         var fireRequest = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
         uint shotId = fireRequest.ShotId;
 
-        // 没有有效 ShotId，直接丢
+        // 零值表示尚未收到有效服务器开火请求
         if (shotId == 0)
             return;
 
-        // 1）先确保这个动画事件对应的是“当前这发子弹”（防止过期动画事件）
+        // 过期动画事件不能结算为当前攻击
         if (shotId != _lastConsumedShotId)
         {
-            // Debug.Log($"[BlasterAniAttackView] OnShootFire ignored. shotId={shotId}, _lastConsumedShotId={_lastConsumedShotId}");
             return;
         }
 
-        // 2）再防止“同一发子弹的 OnShootFire 被调用多次”（多事件、多层动画之类）
+        // 多动画层或重复事件不能让同一攻击产生多次射线
         if (shotId == _lastFiredVisualShotId)
         {
-            // Debug.Log($"[BlasterAniAttackView] OnShootFire duplicate for shotId={shotId}, skip FireLaser.");
             return;
         }
 
@@ -191,6 +178,10 @@ public class BlasterAniAttackView : MonoBehaviour
 
         FireLaser(shotId);
     }
+
+    /// <summary>
+    /// 由攻击动画结束帧调用并关闭持续 IK 状态
+    /// </summary>
     public void OnShootAnimationEnd()
     {
         _isShooting = false;
@@ -201,7 +192,7 @@ public class BlasterAniAttackView : MonoBehaviour
         }
     }
 
-    // 真正执行 Raycast + Beam 特效 + 回传 ECS 的地方
+    // 从枪口生成射线与光束，并把候选命中加入 ECS 桥接队列
     private void FireLaser(uint shotId)
     {
         Debug.Log($"[BlasterAniAttackView] FireLaser from instance {GetInstanceID()}, name={name}, ShotId={shotId}");
@@ -214,7 +205,7 @@ public class BlasterAniAttackView : MonoBehaviour
 
         Vector3 origin    = GunMuzzle.position;
         Vector3 direction = GunMuzzle.forward;
-        float maxDist = MaxLaserDistance; // 不再依赖 AniAttributes.AttackRange
+        float maxDist = MaxLaserDistance; // 表现射线使用视图配置的最大可见距离
 
         RaycastHit hitInfo;
         bool hit = Physics.Raycast(
@@ -241,7 +232,7 @@ public class BlasterAniAttackView : MonoBehaviour
             var follower = hitInfo.collider.GetComponentInParent<AvatarViewFollower>();
             if (follower != null)
             {
-                hitTargetEntity = follower.TargetEntity;  // 客户端的 Ghost Entity
+                hitTargetEntity = follower.TargetEntity;  // 桥接到当前世界中的 Ghost 实体
             }
         }
 
@@ -255,9 +246,6 @@ public class BlasterAniAttackView : MonoBehaviour
             AttackMode  = AniAttackMode.Ranged,
             ShotId      = shotId
         };
-
-        // Debug.Log($"[BlasterAniAttackView] Event enqueued. {name} FireLaser ShotId {shotId}, Hit.Name:{hitInfo.collider.name} HitTarget: {hitTargetEntity}, HitPosition: {hitResult.HitPosition}");
-
         AniHitBridge.Enqueue(hitResult);
     }
 }

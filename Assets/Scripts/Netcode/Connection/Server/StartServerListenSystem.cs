@@ -7,15 +7,18 @@ using Unity.Networking.Transport;
 using UnityEngine.SceneManagement;
 #endif
 
+/// <summary>根据编辑器场景或运行时启动参数创建服务器监听请求</summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 public partial struct StartServerListenSystem : ISystem
 {
+    /// <summary>仅执行一次自动监听决策并避免重复监听实体</summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
 #if UNITY_EDITOR
-        // 在 Editor 里，且当前场景是 SCN_GameLevel，自动监听
+        // 编辑器游戏场景自动监听，便于 Host 与 Client 本机联调
         if (SceneManager.GetActiveScene().name != "SCN_GameLevel") return;
         
         if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamRequestListen>().Build().IsEmpty)
@@ -39,6 +42,7 @@ public partial struct StartServerListenSystem : ISystem
 #endif
 
 #if !UNITY_EDITOR
+        // Player 构建只有显式服务器角色才允许绑定监听端口
         bool shouldCreateListenRequest =
             CommandLineManager.HasArg("-server") ||
             CommandLineManager.HasArg("-serverui") ||
@@ -56,6 +60,7 @@ public partial struct StartServerListenSystem : ISystem
             return;
         }
 
+        // AnyIpv4 允许局域网和远端客户端访问服务器端口
         var endPointRuntime = NetworkEndpoint.AnyIpv4.WithPort(NetPorts.Game);
         var requestEntityRuntime = state.EntityManager.CreateEntity();
 
@@ -65,7 +70,7 @@ public partial struct StartServerListenSystem : ISystem
             Endpoint = endPointRuntime
         });
 #else
-        // 非 SCN_GameLevel 场景，完全由 UI / HostRoomPanel 决定是否监听
+        // 其他编辑器场景由 HostRoomPanel 显式决定监听时机
         state.Enabled = false;
 #endif
 

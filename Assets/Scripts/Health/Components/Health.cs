@@ -1,6 +1,9 @@
 using Unity.Entities;
 using Unity.NetCode;
 
+/// <summary>
+/// 保存服务器权威生命值并同步给客户端
+/// </summary>
 [GhostComponent]
 public struct Health : IComponentData
 {

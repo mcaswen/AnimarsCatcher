@@ -4,21 +4,30 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
+/// <summary>
+/// 在服务端处理水晶死亡并生成配置数量的可拾取资源
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerFragileCrystalDeathSystem : ISystem
 {
+    /// <summary>
+    /// 仅在场景存在可破坏水晶时启用系统
+    /// </summary>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // 仅当场景中存在 BreakableStone 时才更新
+        // 等待水晶 Transform 数据完成创建
         state.RequireForUpdate(
             SystemAPI.QueryBuilder()
                 .WithAll<FragileCrystal, LocalTransform>()
                 .Build());
     }
 
+    /// <summary>
+    /// 将生命值耗尽的水晶替换为散落资源实体
+    /// </summary>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
@@ -30,11 +39,11 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
         {
             var stone = stoneRef.ValueRO;
 
-            // 还没被打碎
+            // 未死亡水晶保留到后续帧继续观察
             if (health.ValueRO.current > 0)
                 continue;
 
-            // 没配置掉落 prefab，就直接删掉石头
+            // 缺少有效掉落预制体时仍需销毁死亡水晶
             if (stone.PickablePrefab == Entity.Null ||
                 !SystemAPI.HasComponent<PickableResource>(stone.PickablePrefab))
             {
@@ -42,7 +51,7 @@ public partial struct ServerFragileCrystalDeathSystem : ISystem
                 continue;
             }
 
-            // 从 prefab 上拿一个 PickableResource 作为模板
+            // 从预制体读取资源总量并分摊到各掉落实体
             PickableResource prefabPickable =
                 SystemAPI.GetComponent<PickableResource>(stone.PickablePrefab);
 

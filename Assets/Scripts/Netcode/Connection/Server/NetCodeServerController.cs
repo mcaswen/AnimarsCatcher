@@ -3,10 +3,11 @@ using Unity.NetCode;
 using Unity.Networking.Transport;
 using UnityEngine;
 
+/// <summary>提供 UI 向 Server World 发起监听请求的入口</summary>
 public static class NetCodeServerController
 {
-    // 在 Server World 中发起监听请求（创建 NetworkStreamRequestListen）
-    // 如果已经在监听则忽略
+    /// <summary>在 Server World 中创建唯一的端口监听请求</summary>
+    /// <param name="port">服务器监听端口</param>
     public static void StartListen(ushort port)
     {
         var serverWorld = WorldManager.FindServerWorld();
@@ -18,7 +19,7 @@ public static class NetCodeServerController
 
         var entityManager = serverWorld.EntityManager;
 
-        // 已经有监听请求了
+        // 监听请求必须唯一，重复实体会让 NetCode 重复绑定同一端口
         if (!entityManager.CreateEntityQuery(typeof(NetworkStreamRequestListen)).IsEmpty)
         {
             Debug.Log("[Server] 已经存在 NetworkStreamRequestListen，跳过。");

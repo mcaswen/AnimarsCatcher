@@ -3,12 +3,18 @@ using Unity.Mathematics;
 using Unity.VisualScripting;
 using UnityEngine;
 
+/// <summary>
+/// 区分 Ani 预制体需要附加的专属能力标签
+/// </summary>
 public enum AniType
 {
     Picker,
     Blaster,
 }
 
+/// <summary>
+/// 配置 Ani 的移动和攻击基础参数
+/// </summary>
 public class AniAttributesAuthoring : MonoBehaviour
 {
     [Tooltip("Ani类型")]
@@ -30,8 +36,15 @@ public class AniAttributesAuthoring : MonoBehaviour
     public AniAttackMode AttackMode;
 }
 
+/// <summary>
+/// 将 Ani 配置转换为运行时组件和可启用标签
+/// </summary>
 public class AniAttributesBaker : Baker<AniAttributesAuthoring>
 {
+    /// <summary>
+    /// 烘焙通用属性、类型标签和可攻击能力
+    /// </summary>
+    /// <param name="authoring">Ani 属性创作组件</param>
     public override void Bake(AniAttributesAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);
@@ -44,12 +57,14 @@ public class AniAttributesBaker : Baker<AniAttributesAuthoring>
             AttackMode = authoring.AttackMode,
         });
 
+        // 可启用标签预先烘焙后只切换状态，避免运行时增删结构组件
         AddComponent<AniSelectedTag>(entity);
         SetComponentEnabled<AniSelectedTag>(entity, false);
 
         AddComponent<AniCommandLockedTag>(entity);
         SetComponentEnabled<AniCommandLockedTag>(entity, false);
 
+        // 类型标签驱动不同攻击表现和移动站位策略
         if (authoring.AniType == AniType.Picker)
         {
             AddComponent<PickerAniTag>(entity);
