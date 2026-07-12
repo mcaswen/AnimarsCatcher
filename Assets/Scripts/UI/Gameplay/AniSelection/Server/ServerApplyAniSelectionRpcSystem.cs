@@ -8,7 +8,7 @@ using System.Diagnostics;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct ServerApplySelectionRpcSystem : ISystem
+public partial struct ServerApplyAniSelectionRpcSystem : ISystem
 {
     private NativeParallelHashMap<int, Entity> _ghostIdToEntity;
 

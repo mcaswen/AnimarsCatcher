@@ -10,7 +10,7 @@ using Unity.Transforms;
 [BurstCompile]
 public partial struct ServerBaseSpawnSystem : ISystem
 {
-    private bool resultIsInitialized;
+    private bool _resultIsInitialized;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -58,9 +58,9 @@ public partial struct ServerBaseSpawnSystem : ISystem
             spawnPoint.ValueRW.HasSpawned = 1;
         }
 
-        if (!resultIsInitialized)
+        if (!_resultIsInitialized)
         {
-            resultIsInitialized = true;
+            _resultIsInitialized = true;
 
             // 初始化 GameResult 实体
             var gameResultEntity = entityCommandBuffer.CreateEntity();

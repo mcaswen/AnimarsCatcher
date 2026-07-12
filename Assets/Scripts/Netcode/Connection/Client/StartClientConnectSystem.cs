@@ -15,7 +15,7 @@ public partial struct StartClientConnectSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
 #if UNITY_EDITOR
-        if (SceneManager.GetActiveScene().name != "GameLevel") return;
+        if (SceneManager.GetActiveScene().name != "SCN_GameLevel") return;
 
         if (AlreadyConnectedOrConnecting(ref state))
         {

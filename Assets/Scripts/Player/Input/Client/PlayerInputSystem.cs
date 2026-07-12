@@ -14,7 +14,7 @@ using Unity.NetCode;
 [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
 public partial class PlayerInputSystem : SystemBase
 {
-    private const float kRightMouseLongPressThreshold = 0.35f;
+    private const float RightMouseLongPressThreshold = 0.35f;
 
     protected override void OnCreate()
     {
@@ -46,25 +46,25 @@ public partial class PlayerInputSystem : SystemBase
             return;
         }
 
-        var keyBoard = Keyboard.current;
+        var keyboard = Keyboard.current;
         var mouse = Mouse.current;
 
         float deltaTime  = SystemAPI.Time.DeltaTime;
         uint tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick.SerializedData;
-        var context   = new InputContext(deltaTime, tick, 0.35f);
+        var context   = new InputContext(deltaTime, tick, RightMouseLongPressThreshold);
 
-        var raw = new KeyBoardMouseState
+        var raw = new KeyboardMouseState
         {
             Move = new float2(
-                (keyBoard.dKey.isPressed ? 1f : 0f) + (keyBoard.aKey.isPressed ? -1f : 0f),
-                (keyBoard.wKey.isPressed ? 1f : 0f) + (keyBoard.sKey.isPressed ? -1f : 0f)),
+                (keyboard.dKey.isPressed ? 1f : 0f) + (keyboard.aKey.isPressed ? -1f : 0f),
+                (keyboard.wKey.isPressed ? 1f : 0f) + (keyboard.sKey.isPressed ? -1f : 0f)),
 
             LookDelta = mouse != null ? mouse.delta.ReadValue() : float2.zero,
 
             Scroll = mouse != null ? -mouse.scroll.ReadValue().y : 0f,
 
-            SpaceDown = keyBoard.spaceKey.wasPressedThisFrame,
-            EDown = keyBoard.eKey.wasPressedThisFrame,
+            SpaceDown = keyboard.spaceKey.wasPressedThisFrame,
+            EDown = keyboard.eKey.wasPressedThisFrame,
 
             RightHeld = mouse != null && mouse.rightButton.isPressed,
             LeftMousePressed = mouse != null && mouse.leftButton.wasPressedThisFrame,

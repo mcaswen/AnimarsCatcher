@@ -53,14 +53,14 @@ public partial struct AniPhysicsMoveSystem : ISystem
             float3 separationDir = float3.zero;
             float  maxWeight     = 0f; // 分离权重
             {
-                const float separationRadius = 0.8f;
+                const float SeparationRadius = 0.8f;
 
                 separationHits.Clear();
 
                 var pointInput = new PointDistanceInput
                 {
                     Position    = currentPosition,
-                    MaxDistance = separationRadius,
+                    MaxDistance = SeparationRadius,
                     Filter      = filter
                 };
 
@@ -83,7 +83,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                             continue;
 
                         float distance    = hit.Distance;
-                        float penetration = separationRadius - distance;
+                        float penetration = SeparationRadius - distance;
                         if (penetration <= 0f)
                             continue;
 
@@ -94,7 +94,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                         if (math.all(n == float3.zero))
                             continue;
 
-                        float weight = math.saturate(penetration / separationRadius);
+                        float weight = math.saturate(penetration / SeparationRadius);
 
                         accumulated += n * weight;
                         totalWeight += weight;
@@ -113,7 +113,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
             float3 baseVelocity = moveIntent.ValueRO.DesiredVelocity;
             float  baseSpeedSq  = math.lengthsq(baseVelocity);
 
-            const float separationStrength = 2.0f;
+            const float SeparationStrength = 2.0f;
 
             bool isMoving            = baseSpeedSq > 1e-4f;
             bool hasStrongSeparation = maxWeight > 0.4f;  // > 0.4 表示挤得比较厉害
@@ -128,7 +128,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 if (math.lengthsq(separationDir) > 1e-6f)
                 {
                     // 用权重衰减，避免抖动
-                    finalVelocity += separationDir * (separationStrength * maxWeight);
+                    finalVelocity += separationDir * (SeparationStrength * maxWeight);
                 }
             }
             else
@@ -136,7 +136,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
                 // 不在移动时：只在重叠部分大于阈值的情况下才进行分离
                 if (hasStrongSeparation && math.lengthsq(separationDir) > 1e-6f)
                 {
-                    finalVelocity = separationDir * (separationStrength * maxWeight);
+                    finalVelocity = separationDir * (SeparationStrength * maxWeight);
                 }
                 else
                 {
@@ -146,8 +146,8 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
             float speedSq = math.lengthsq(finalVelocity);
 
-            const float minVisualSpeed = 0.05f;
-            float minVisualSpeedSq = minVisualSpeed * minVisualSpeed;
+            const float MinVisualSpeed = 0.05f;
+            float minVisualSpeedSq = MinVisualSpeed * MinVisualSpeed;
 
             if (speedSq < minVisualSpeedSq)
             {
@@ -202,8 +202,8 @@ public partial struct AniPhysicsMoveSystem : ISystem
                     quaternion targetRot = quaternion.LookRotationSafe(flatDir, math.up());
 
                     // 加入简单平滑，避免瞬间转向导致卡顿
-                    const float rotationLerpSpeed = 10f;
-                    float t = math.saturate(rotationLerpSpeed * deltaTime);
+                    const float RotationLerpSpeed = 10f;
+                    float t = math.saturate(RotationLerpSpeed * deltaTime);
 
                     newTransform.Rotation = math.slerp(newTransform.Rotation, targetRot, t);
                 }

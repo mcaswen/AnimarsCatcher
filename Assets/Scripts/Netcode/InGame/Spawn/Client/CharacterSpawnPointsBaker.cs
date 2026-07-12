@@ -1,7 +1,7 @@
 using Unity.Entities;
 using UnityEngine;
 
-public class PlayerSpawnPointsBaker : Baker<CharacterSpawnPointsAuthoring>
+public class CharacterSpawnPointsBaker : Baker<CharacterSpawnPointsAuthoring>
 {
     public override void Bake(CharacterSpawnPointsAuthoring authoring)
     {

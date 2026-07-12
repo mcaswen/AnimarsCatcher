@@ -11,14 +11,14 @@ public class HealthBarView : MonoBehaviour
     public Image foregroundImage;
     public Image backgroundImage;
 
-    private EntityManager entityManager;
-    private Entity targetEntity;
+    private EntityManager _entityManager;
+    private Entity _targetEntity;
 
-    private Camera worldCamera;
-    private Canvas canvas;
-    private Vector3 worldOffset;
+    private Camera _worldCamera;
+    private Canvas _canvas;
+    private Vector3 _worldOffset;
 
-    private bool isFriendly;
+    private bool _isFriendly;
 
     public void InitializeHealthBar(
         EntityManager entityManager,
@@ -28,12 +28,12 @@ public class HealthBarView : MonoBehaviour
         Vector3 worldOffset,
         bool isFriendly)
     {
-        this.entityManager = entityManager;
-        this.targetEntity  = targetEntity;
-        this.worldCamera   = worldCamera;
-        this.canvas        = canvas;
-        this.worldOffset   = worldOffset;
-        this.isFriendly    = isFriendly;
+        _entityManager = entityManager;
+        _targetEntity  = targetEntity;
+        _worldCamera   = worldCamera;
+        _canvas        = canvas;
+        _worldOffset   = worldOffset;
+        _isFriendly    = isFriendly;
 
         if (foregroundImage != null)
         {
@@ -45,21 +45,21 @@ public class HealthBarView : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (!entityManager.Exists(targetEntity))
+        if (!_entityManager.Exists(_targetEntity))
         {
             Destroy(gameObject);
             return;
         }
 
-        if (!entityManager.HasComponent<LocalTransform>(targetEntity))
+        if (!_entityManager.HasComponent<LocalTransform>(_targetEntity))
         {
             return;
         }
 
-        LocalTransform localTransform = entityManager.GetComponentData<LocalTransform>(targetEntity);
-        Vector3 worldPosition = localTransform.Position + (float3)worldOffset;
+        LocalTransform localTransform = _entityManager.GetComponentData<LocalTransform>(_targetEntity);
+        Vector3 worldPosition = localTransform.Position + (float3)_worldOffset;
 
-        Vector3 screenPosition = worldCamera.WorldToScreenPoint(worldPosition);
+        Vector3 screenPosition = _worldCamera.WorldToScreenPoint(worldPosition);
 
         // 背面朝向相机的时候直接隐藏
         // if (screenPosition.z < 0f)
@@ -79,10 +79,10 @@ public class HealthBarView : MonoBehaviour
 
         Vector2 uiPosition;
 
-        if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+        if (_canvas.renderMode == RenderMode.ScreenSpaceOverlay)
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                (RectTransform)canvas.transform,
+                (RectTransform)_canvas.transform,
                 screenPosition,
                 null,
                 out uiPosition
@@ -91,9 +91,9 @@ public class HealthBarView : MonoBehaviour
         else
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                (RectTransform)canvas.transform,
+                (RectTransform)_canvas.transform,
                 screenPosition,
-                canvas.worldCamera,
+                _canvas.worldCamera,
                 out uiPosition
             );
         }
@@ -101,9 +101,9 @@ public class HealthBarView : MonoBehaviour
         rootRectTransform.anchoredPosition = uiPosition;
 
         // 更新血量
-        if (entityManager.HasComponent<Health>(targetEntity))
+        if (_entityManager.HasComponent<Health>(_targetEntity))
         {
-            Health health = entityManager.GetComponentData<Health>(targetEntity);
+            Health health = _entityManager.GetComponentData<Health>(_targetEntity);
 
             float healthPercent = 0f;
 

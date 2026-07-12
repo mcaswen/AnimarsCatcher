@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 
 // Editor 调试模式专用
 // 只在 UNITY_EDITOR 下生效
-// 只在当前场景为 "GameLevel" 时工作
+// 只在当前场景为 "SCN_GameLevel" 时工作
 // 收到 GoInGameRequest 后：标记 InGame + 为该连接 Spawn 角色与相机
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -34,7 +34,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
 #if !UNITY_EDITOR
         return;
 #else
-        if (SceneManager.GetActiveScene().name != "GameLevel")
+        if (SceneManager.GetActiveScene().name != "SCN_GameLevel")
         {
             return;
         }
@@ -84,7 +84,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                 }
 
                 // 选取出生点
-                bool spawnPointSelected = CharacterSpawnUtil.TrySelectCharacterSpawnPoint(
+                bool spawnPointSelected = CharacterSpawnUtility.TrySelectCharacterSpawnPoint(
                     spawnState.ValueRW,
                     connectionAspect,
                     points,
@@ -94,7 +94,7 @@ public partial struct ServerGoInGameDebugSystem : ISystem
                 );
 
                 // 实例化角色
-                var character = CharacterSpawnUtil.InstantiateAndInit(
+                var character = CharacterSpawnUtility.InstantiateAndInit(
                     ref entityCommandBuffer,
                     characterPrefab.Value,
                     id,

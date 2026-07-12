@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using AnimarsCatcher.Mono.Global;
 
 public class GlobalLoadingUI : MonoBehaviour
@@ -10,10 +11,14 @@ public class GlobalLoadingUI : MonoBehaviour
     public static GlobalLoadingUI Instance { get; private set; }
 
     [Header("UI")]
-    [SerializeField] private Canvas loadingCanvas;
-    [SerializeField] private List<Image> slideImages = new List<Image>();
-    [SerializeField] private float slideIntervalSeconds = 2f;
-    [SerializeField] private float minCoverSeconds = 10f; // 至少遮 10 秒
+    [FormerlySerializedAs("loadingCanvas")]
+    [SerializeField] private Canvas _loadingCanvas;
+    [FormerlySerializedAs("slideImages")]
+    [SerializeField] private List<Image> _slideImages = new List<Image>();
+    [FormerlySerializedAs("slideIntervalSeconds")]
+    [SerializeField] private float _slideIntervalSeconds = 2f;
+    [FormerlySerializedAs("minCoverSeconds")]
+    [SerializeField] private float _minCoverSeconds = 10f; // 至少遮 10 秒
 
     private Coroutine _loadingRoutine;
 
@@ -28,8 +33,8 @@ public class GlobalLoadingUI : MonoBehaviour
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
-        if (loadingCanvas)
-            loadingCanvas.gameObject.SetActive(false);
+        if (_loadingCanvas)
+            _loadingCanvas.gameObject.SetActive(false);
     }
 
     public void StartLoadingAndTransition(string sceneName)
@@ -42,7 +47,7 @@ public class GlobalLoadingUI : MonoBehaviour
 
     private IEnumerator LoadingSequence(string sceneName)
     {
-        if (!loadingCanvas)
+        if (!_loadingCanvas)
         {
             Debug.LogWarning("[GlobalLoadingUI] loadingCanvas not set, fallback to direct LoadScene");
             SceneManager.LoadScene(sceneName);
@@ -50,7 +55,7 @@ public class GlobalLoadingUI : MonoBehaviour
             yield break;
         }
 
-        loadingCanvas.gameObject.SetActive(true);
+        _loadingCanvas.gameObject.SetActive(true);
         SetupSlidesInitialState();
 
         // 异步加载战斗场景
@@ -63,18 +68,18 @@ public class GlobalLoadingUI : MonoBehaviour
         while (true)
         {
             // 图片轮播
-            if (slideImages.Count > 0)
+            if (_slideImages.Count > 0)
             {
-                for (int i = 0; i < slideImages.Count; i++)
+                for (int i = 0; i < _slideImages.Count; i++)
                 {
                     bool active = (i == slideIndex);
-                    if (slideImages[i])
-                        slideImages[i].gameObject.SetActive(active);
+                    if (_slideImages[i])
+                        _slideImages[i].gameObject.SetActive(active);
                 }
 
-                yield return new WaitForSeconds(slideIntervalSeconds);
-                elapsed += slideIntervalSeconds;
-                slideIndex = (slideIndex + 1) % slideImages.Count;
+                yield return new WaitForSeconds(_slideIntervalSeconds);
+                elapsed += _slideIntervalSeconds;
+                slideIndex = (slideIndex + 1) % _slideImages.Count;
             }
             else
             {
@@ -85,7 +90,7 @@ public class GlobalLoadingUI : MonoBehaviour
 
             // 加载已经基本完成 & 遮罩时间 >= 10s，就可以切场景了
             bool loadReady = loadOp.progress >= 0.9f; // Unity 的“加载完成但还未激活”
-            if (loadReady && elapsed >= minCoverSeconds)
+            if (loadReady && elapsed >= _minCoverSeconds)
                 break;
         }
 
@@ -99,8 +104,8 @@ public class GlobalLoadingUI : MonoBehaviour
         // 场景激活后下一帧再关 UI，避免闪一下上一帧的画面
         yield return null;
 
-        if (loadingCanvas)
-            loadingCanvas.gameObject.SetActive(false);
+        if (_loadingCanvas)
+            _loadingCanvas.gameObject.SetActive(false);
 
         // 告诉战斗场景：要跑开场运镜
         ClientCinematicState.ShouldRunIntro = true;
@@ -110,10 +115,10 @@ public class GlobalLoadingUI : MonoBehaviour
 
     private void SetupSlidesInitialState()
     {
-        if (slideImages == null)
+        if (_slideImages == null)
             return;
 
-        foreach (var img in slideImages)
+        foreach (var img in _slideImages)
         {
             if (img)
                 img.gameObject.SetActive(false);

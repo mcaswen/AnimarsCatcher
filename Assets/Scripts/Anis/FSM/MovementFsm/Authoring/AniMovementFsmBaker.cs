@@ -33,7 +33,7 @@ public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
             HasPending = 1,
             TimeInState = 0f,
 
-            PendingEnter = (ActionId)AniMovementFsmIDs.A_EnterIdle,
+            PendingEnter = (ActionId)AniMovementFsmIds.EnterIdleActionId,
             PendingExit = ActionId.None,
         };
 

@@ -1,27 +1,27 @@
 using Unity.Entities;
 
-public static class BlackBoardEventKeys
+public static class BlackboardEventKeys
 {
-    public const uint K_AssignedToPlayerTick = 0xE001u;
-    public const uint K_AssignedToTargetTick = 0xE002u;
-    public const uint K_TargetLostTick = 0xE003u;
+    public const uint AssignedToPlayerTick = 0xE001u;
+    public const uint AssignedToTargetTick = 0xE002u;
+    public const uint TargetLostTick = 0xE003u;
 }
 
 public static class FsmEventBus
 {
-    public static void Raise_AssignedToPlayer(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
+    public static void RaiseAssignedToPlayer(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {
-        blackboard.SetInt(BlackBoardEventKeys.K_AssignedToPlayerTick, (int)context.Tick);
+        blackboard.SetInt(BlackboardEventKeys.AssignedToPlayerTick, (int)context.Tick);
     }
 
-    public static void Raise_AssignedToTarget(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
+    public static void RaiseAssignedToTarget(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {
-        blackboard.SetInt(BlackBoardEventKeys.K_AssignedToTargetTick, (int)context.Tick);
+        blackboard.SetInt(BlackboardEventKeys.AssignedToTargetTick, (int)context.Tick);
     }
 
-    public static void Raise_TargetLost(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
+    public static void RaiseTargetLost(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {
-        blackboard.SetInt(BlackBoardEventKeys.K_TargetLostTick, (int)context.Tick);
+        blackboard.SetInt(BlackboardEventKeys.TargetLostTick, (int)context.Tick);
     }
 
 }

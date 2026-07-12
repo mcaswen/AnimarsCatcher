@@ -1,11 +1,14 @@
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 [DisallowMultipleComponent]
 public class AvatarViewAuthoring : MonoBehaviour
 {
-    [SerializeField] private GameObject ViewPrefab;
-    [SerializeField] private AvatarViewType avatarViewType;
+    [FormerlySerializedAs("ViewPrefab")]
+    [SerializeField] private GameObject _viewPrefab;
+    [FormerlySerializedAs("avatarViewType")]
+    [SerializeField] private AvatarViewType _avatarViewType;
     
     class Baker : Baker<AvatarViewAuthoring>
     {
@@ -15,8 +18,8 @@ public class AvatarViewAuthoring : MonoBehaviour
             // 托管对象，只存一个 GameObject 引用
             AddComponentObject(entity, new AvatarViewPrefabReference 
             { 
-                ViewPrefab = authoring.ViewPrefab, 
-                ViewType = authoring.avatarViewType 
+                ViewPrefab = authoring._viewPrefab,
+                ViewType = authoring._avatarViewType
             });
         }
     }

@@ -85,9 +85,9 @@ public partial struct NavFollowIntentSystem : ISystem
                     {
                         // 已到终点：通知黑板、清路径
                         var blackboard = SystemAPI.GetBuffer<FsmVar>(entity);
-                        blackboard.SetBool(AniMovementBlackboardKeys.K_NavStop, true);
-                        int version = blackboard.GetInt(AniMovementBlackboardKeys.K_NavRequestVersion);
-                        blackboard.SetInt(AniMovementBlackboardKeys.K_NavRequestVersion, version + 1);
+                        blackboard.SetBool(AniMovementBlackboardKeys.NavStop, true);
+                        int version = blackboard.GetInt(AniMovementBlackboardKeys.NavRequestVersion);
+                        blackboard.SetInt(AniMovementBlackboardKeys.NavRequestVersion, version + 1);
 
                         navSteering.ValueRW.HasPath = 0;
                     }

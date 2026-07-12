@@ -60,7 +60,7 @@ public partial struct AniFormationJoinRequestSystem : ISystem
             var blackboard = _blackboardLookup[entity];
 
             var commandMode = (AniMovementCommandMode)
-                Blackboard.GetInt(ref blackboard, AniMovementBlackboardKeys.K_CommandMode);
+                Blackboard.GetInt(ref blackboard, AniMovementBlackboardKeys.CommandMode);
 
             // 只有这些模式才需要排队
             bool needsFormation =

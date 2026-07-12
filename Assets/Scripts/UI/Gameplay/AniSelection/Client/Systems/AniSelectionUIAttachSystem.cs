@@ -6,7 +6,7 @@ using Unity.NetCode;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
-public partial class SelectionUIAttachSystem : SystemBase
+public partial class AniSelectionUIAttachSystem : SystemBase
 {
     protected override void OnUpdate()
     {
@@ -16,8 +16,8 @@ public partial class SelectionUIAttachSystem : SystemBase
             .Build();
         if (!query.IsEmpty) return;
 
-        var bootStrap = Object.FindFirstObjectByType<AniSelectionUIBootstrap>(FindObjectsInactive.Exclude);
-        if (bootStrap == null || !bootStrap.isActiveAndEnabled) return;
+        var bootstrap = Object.FindFirstObjectByType<AniSelectionUIBootstrap>(FindObjectsInactive.Exclude);
+        if (bootstrap == null || !bootstrap.isActiveAndEnabled) return;
 
         var entityManager = EntityManager;
         
@@ -28,17 +28,17 @@ public partial class SelectionUIAttachSystem : SystemBase
 
         entityManager.AddComponentObject(dragStateEntity, new AniSelectionUIRef
         {
-            WorldCamera = bootStrap.worldCamera,
-            RootCanvas = bootStrap.rootCanvas,
-            SelectionRect = bootStrap.selectionRect
+            WorldCamera = bootstrap.worldCamera,
+            RootCanvas = bootstrap.rootCanvas,
+            SelectionRect = bootstrap.selectionRect
         });
         
         entityManager.AddComponent<SelectionUIAttachedTag>(dragStateEntity);
 
         // 不作为射线目标，避免挡住 UI
-        if (bootStrap.selectionRect)
+        if (bootstrap.selectionRect)
         {
-            var image = bootStrap.selectionRect.GetComponent<UnityEngine.UI.Image>();
+            var image = bootstrap.selectionRect.GetComponent<UnityEngine.UI.Image>();
             if (image) image.raycastTarget = false;
         }
     }

@@ -145,15 +145,15 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                     case MovementTargetKind.Ground:
                     {
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.MoveTo);
 
                         Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.K_MoveToPosition,
+                            AniMovementBlackboardKeys.MoveToPosition,
                             clickPos);
 
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_TargetEntity,
+                            AniMovementBlackboardKeys.TargetEntity,
                             Entity.Null);
 
                         // 阵型朝向
@@ -184,11 +184,11 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                         }
 
                         Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.K_MoveFormationTargetPoint,
+                            AniMovementBlackboardKeys.MoveFormationTargetPoint,
                             clickPos);
 
                         Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.K_MoveFormationForward,
+                            AniMovementBlackboardKeys.MoveFormationForward,
                             forward);
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
@@ -208,11 +208,11 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                             break;
 
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Find);
 
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_TargetEntity,
+                            AniMovementBlackboardKeys.TargetEntity,
                             targetEntity);
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
@@ -228,11 +228,11 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                     case MovementTargetKind.Resource:
                     {
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Find);
 
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_TargetEntity,
+                            AniMovementBlackboardKeys.TargetEntity,
                             targetEntity);
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
@@ -248,11 +248,11 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                     case MovementTargetKind.Base:
                     {
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Find);
 
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_TargetEntity,
+                            AniMovementBlackboardKeys.TargetEntity,
                             targetEntity);
 
                         if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
@@ -268,11 +268,11 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
                     case MovementTargetKind.Player:
                     {
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Follow);
 
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_PlayerEntity,
+                            AniMovementBlackboardKeys.PlayerEntity,
                             targetEntity);
 
                         if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))

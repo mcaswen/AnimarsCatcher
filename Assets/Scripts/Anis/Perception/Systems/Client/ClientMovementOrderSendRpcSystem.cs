@@ -6,7 +6,7 @@ using Unity.NetCode;
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct MovementOrderSendRpcSystem : ISystem
+public partial struct ClientMovementOrderSendRpcSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
@@ -69,7 +69,7 @@ public partial struct MovementOrderSendRpcSystem : ISystem
         });
 
         // UnityEngine.Debug.Log(
-        //     $"[MovementOrderSendRpcSystem] Sending MovementOrderRpc: " +
+        //     $"[ClientMovementOrderSendRpcSystem] Sending MovementOrderRpc: " +
         //     $"TargetKind={result.TargetKind}, TargetWorldPosition={result.TargetWorldPosition}, " +
         //     $"AniCount={selectedAniGhostIds.Length}");
 

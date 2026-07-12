@@ -5,7 +5,7 @@ using UnityEngine.SceneManagement;
 public static class GameSessionController
 {
     // 主菜单场景名，在 Inspector 或别的地方赋值
-    public static string MainMenuSceneName = "MainMenu";
+    public static string MainMenuSceneName = "SCN_MainMenu";
 
     public static void ReturnToMainMenu()
     {

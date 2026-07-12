@@ -279,15 +279,15 @@ public partial struct ServerResourceCarryMoveSystem : ISystem
                 if (assignment.PlayerRobotEntity != Entity.Null)
                 {
                     Blackboard.SetInt(ref blackboard,
-                        AniMovementBlackboardKeys.K_CommandMode,
+                        AniMovementBlackboardKeys.CommandMode,
                         (int)AniMovementCommandMode.Follow);
 
                     Blackboard.SetEntity(ref blackboard,
-                        AniMovementBlackboardKeys.K_PlayerEntity,
+                        AniMovementBlackboardKeys.PlayerEntity,
                         assignment.PlayerRobotEntity);
                     
                     Blackboard.SetBool(ref blackboard,
-                        AniMovementBlackboardKeys.K_NavStop,
+                        AniMovementBlackboardKeys.NavStop,
                         false);
                 }
             }

@@ -15,8 +15,8 @@ public partial struct StartServerListenSystem : ISystem
     public void OnCreate(ref SystemState state)
     {
 #if UNITY_EDITOR
-        // 在 Editor 里，且当前场景是 GameLevel，自动监听
-        if (SceneManager.GetActiveScene().name != "GameLevel") return;
+        // 在 Editor 里，且当前场景是 SCN_GameLevel，自动监听
+        if (SceneManager.GetActiveScene().name != "SCN_GameLevel") return;
         
         if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamRequestListen>().Build().IsEmpty)
         {
@@ -27,7 +27,7 @@ public partial struct StartServerListenSystem : ISystem
         var endPoint = NetworkEndpoint.AnyIpv4.WithPort(NetPorts.Game);
         var requestListenEntity = state.EntityManager.CreateEntity();
 
-        state.EntityManager.SetName(requestListenEntity, "ServerListenRequest (Editor GameLevel Auto)");
+        state.EntityManager.SetName(requestListenEntity, "ServerListenRequest (Editor SCN_GameLevel Auto)");
         state.EntityManager.AddComponentData(requestListenEntity, new NetworkStreamRequestListen
         {
             Endpoint = endPoint
@@ -65,7 +65,7 @@ public partial struct StartServerListenSystem : ISystem
             Endpoint = endPointRuntime
         });
 #else
-        // 非 GameLevel 场景，完全由 UI / HostRoomPanel 决定是否监听
+        // 非 SCN_GameLevel 场景，完全由 UI / HostRoomPanel 决定是否监听
         state.Enabled = false;
 #endif
 

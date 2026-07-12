@@ -34,7 +34,7 @@ public class HostRoomPanelController : MonoBehaviour
     [SerializeField] private LanDiscoveryHost _lanDiscoveryHost;
 
     [Header("Game Settings")]
-    [SerializeField] private string _startGameSceneName = "GameLevel";
+    [SerializeField] private string _startGameSceneName = "SCN_GameLevel";
 
     private UnityAction<GameRoomCreatedEventData> _onCreateRoomHandler;
 

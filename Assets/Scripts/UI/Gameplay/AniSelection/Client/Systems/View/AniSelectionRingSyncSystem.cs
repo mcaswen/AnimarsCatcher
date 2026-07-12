@@ -8,7 +8,7 @@ using Unity.NetCode;
 
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 [UpdateInGroup(typeof(PresentationSystemGroup))]
-public partial struct SelectionRingSyncSystem : ISystem
+public partial struct AniSelectionRingSyncSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {

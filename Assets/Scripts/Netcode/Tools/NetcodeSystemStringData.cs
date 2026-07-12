@@ -1,4 +1,4 @@
-public enum ArgsType { Dedicated, Serverui }
+public enum ArgsType { Dedicated, ServerUi }
 
 public static class NetPorts
 {
@@ -8,10 +8,10 @@ public static class NetPorts
 public static class NetArgs
 {
     public const string Dedicated = "-dedicated";
-    public const string ServerUI = "-serverui";
+    public const string ServerUi = "-serverui";
 
     public static string ToString(ArgsType t)
-        => t == ArgsType.Dedicated ? Dedicated : ServerUI;
+        => t == ArgsType.Dedicated ? Dedicated : ServerUi;
 }
 
 public static class NetWorlds

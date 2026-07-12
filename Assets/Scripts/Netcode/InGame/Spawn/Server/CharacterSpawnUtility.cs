@@ -5,7 +5,7 @@ using Unity.NetCode;
 
 
 // 角色实例化/初始化, 用 EntityCommandBuffer 操作新建实体
-public static class CharacterSpawnUtil
+public static class CharacterSpawnUtility
 {
     public static Entity InstantiateAndInit(
         ref EntityCommandBuffer entityCommandBuffer,

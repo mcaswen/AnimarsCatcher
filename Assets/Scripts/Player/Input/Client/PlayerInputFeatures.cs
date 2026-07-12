@@ -12,7 +12,7 @@ public readonly struct InputContext
     }
 }
 
-public struct KeyBoardMouseState
+public struct KeyboardMouseState
 {
     public float2 Move;
     public float2 LookDelta;
@@ -27,7 +27,7 @@ public struct KeyBoardMouseState
 
 public static class PlayerInputFeature
 {
-    public static void ApplyMouseInputs(ref PlayerInput input, in KeyBoardMouseState raw, in InputContext context)
+    public static void ApplyMouseInputs(ref PlayerInput input, in KeyboardMouseState raw, in InputContext context)
     {
         input.CameraLookInput = raw.LookDelta;
         input.CameraZoomInput = raw.Scroll;
@@ -60,7 +60,7 @@ public static class PlayerInputFeature
     }
 
     
-    public static void ApplyKeyboardInput(ref PlayerInput input, in KeyBoardMouseState raw, in InputContext context)
+    public static void ApplyKeyboardInput(ref PlayerInput input, in KeyboardMouseState raw, in InputContext context)
     {
         input.MoveInput = raw.Move;
 

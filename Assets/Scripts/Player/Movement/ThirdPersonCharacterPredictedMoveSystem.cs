@@ -15,7 +15,7 @@ public struct NetCodeMoveUpdateContext
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(PredictedFixedStepSimulationSystemGroup), OrderFirst = true)]
 [UpdateBefore(typeof(KinematicCharacterPhysicsUpdateGroup))]
-public partial struct CharacterPredictedMoveSystem : ISystem
+public partial struct ThirdPersonCharacterPredictedMoveSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
     {
@@ -26,16 +26,16 @@ public partial struct CharacterPredictedMoveSystem : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        var netWorkTime = SystemAPI.GetSingleton<NetworkTime>();
+        var networkTime = SystemAPI.GetSingleton<NetworkTime>();
 
         foreach (var (controlRW, inputCommandBuffer) in SystemAPI
                  .Query<RefRW<ThirdPersonCharacterControl>, DynamicBuffer<InputCommand>>()
                  .WithAll<CharacterTag, PredictedGhost>())
         {
-            if (!inputCommandBuffer.GetDataAtTick(netWorkTime.ServerTick, out InputCommand command)) 
+            if (!inputCommandBuffer.GetDataAtTick(networkTime.ServerTick, out InputCommand command))
             {
                 var controlRO = controlRW.ValueRO;
-                // UnityEngine.Debug.Log("[PredictedMoveSystem] {state.EntityManager.World} No Data At Tick! Control - MoveVector: {" + controlRO.MoveVector + "}, tick = " + netWorkTime.ServerTick);
+                // UnityEngine.Debug.Log("[PredictedMoveSystem] {state.EntityManager.World} No Data At Tick! Control - MoveVector: {" + controlRO.MoveVector + "}, tick = " + networkTime.ServerTick);
                 continue;
             }
 
@@ -43,7 +43,7 @@ public partial struct CharacterPredictedMoveSystem : ISystem
             control.MoveVector = command.Move;  // 在 ThirdPersonMoveCommand 的计算与绑定中已是世界平面向量
             controlRW.ValueRW = control;
         
-            // UnityEngine.Debug.Log($"[PredictedMoveSystem] [{state.EntityManager.World}] Control - MoveVector: {control.MoveVector}, tick = " + netWorkTime.ServerTick);
+            // UnityEngine.Debug.Log($"[PredictedMoveSystem] [{state.EntityManager.World}] Control - MoveVector: {control.MoveVector}, tick = " + networkTime.ServerTick);
 
             // 之后的control的相关计算由 ThirdPersonCharacterSystems 完成
 

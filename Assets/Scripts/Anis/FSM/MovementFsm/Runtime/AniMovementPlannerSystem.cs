@@ -49,7 +49,7 @@ public partial struct AniMovementPlannerSystem : ISystem
             var blackboard = _blackboardLookup[entity];
 
             var commandMode = (AniMovementCommandMode)
-                Blackboard.GetInt(ref blackboard, AniMovementBlackboardKeys.K_CommandMode);
+                Blackboard.GetInt(ref blackboard, AniMovementBlackboardKeys.CommandMode);
 
             bool hasFormationMember = SystemAPI.HasComponent<AniFormationMember>(entity);
             Entity leaderEntity = Entity.Null;
@@ -110,7 +110,7 @@ public partial struct AniMovementPlannerSystem : ISystem
                     }
 
                     var targetEntity =
-                        Blackboard.GetEntity(ref blackboard, AniMovementBlackboardKeys.K_TargetEntity);
+                        Blackboard.GetEntity(ref blackboard, AniMovementBlackboardKeys.TargetEntity);
 
                     if (targetEntity == Entity.Null ||
                         !SystemAPI.HasComponent<LocalTransform>(targetEntity))
@@ -178,8 +178,8 @@ public partial struct AniMovementPlannerSystem : ISystem
 
     private static void HandleIdle(ref DynamicBuffer<FsmVar> blackboard)
     {
-        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_NavStop,     true);
-        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_MoveArrived, true);
+        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.NavStop,     true);
+        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.MoveArrived, true);
     }
 
     /// <summary>
@@ -341,17 +341,17 @@ public partial struct AniMovementPlannerSystem : ISystem
     {
         // 从黑板里拿“第一次点击时”缓存的阵列锚点
         float3 targetPoint = Blackboard.GetFloat3(ref blackboard,
-            AniMovementBlackboardKeys.K_MoveFormationTargetPoint);
+            AniMovementBlackboardKeys.MoveFormationTargetPoint);
 
         float3 forward = Blackboard.GetFloat3(ref blackboard,
-            AniMovementBlackboardKeys.K_MoveFormationForward);
+            AniMovementBlackboardKeys.MoveFormationForward);
 
         // 如果 forward 还是默认的 0，说明没被正确初始化，兜底用当前 leader → target 的逻辑
         if (math.lengthsq(forward) < 0.0001f)
         {
             float3 leaderPos = leaderTransform.Position;
             float3 fallbackTarget = Blackboard.GetFloat3(ref blackboard,
-                AniMovementBlackboardKeys.K_MoveToPosition);
+                AniMovementBlackboardKeys.MoveToPosition);
 
             float3 dir = fallbackTarget - leaderPos;
             dir.y = 0f;
@@ -411,8 +411,8 @@ public partial struct AniMovementPlannerSystem : ISystem
         bool hasArrived = distanceSquared <= arrivalRadiusSq;
 
         // 抵达标记
-        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_MoveArrived, hasArrived);
-        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.K_NavStop,    hasArrived);
+        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.MoveArrived, hasArrived);
+        Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.NavStop,    hasArrived);
 
         // 到了就别再发寻路请求
         if (hasArrived)
@@ -423,19 +423,19 @@ public partial struct AniMovementPlannerSystem : ISystem
 
         Blackboard.SetFloat3(
             ref blackboard,
-            AniMovementBlackboardKeys.K_NavTargetPosition,
+            AniMovementBlackboardKeys.NavTargetPosition,
             desiredPosition);
 
         int currentTick = (int)fsmContext.Tick;
         Blackboard.SetInt(
             ref blackboard,
-            AniMovementBlackboardKeys.K_NavRequestVersion,
+            AniMovementBlackboardKeys.NavRequestVersion,
             currentTick);
 
         // 如果别的地方用过 K_NavNextUpdateTick，可以顺便清零避免误用
         Blackboard.SetInt(
             ref blackboard,
-            AniMovementBlackboardKeys.K_NavNextUpdateTick,
+            AniMovementBlackboardKeys.NavNextUpdateTick,
             0);
     }
 }

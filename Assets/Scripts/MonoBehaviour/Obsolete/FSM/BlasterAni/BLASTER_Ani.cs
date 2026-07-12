@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Mono
 
                 Vector3 offset = FragileItem.transform.position - transform.position;
                 Quaternion dir = Quaternion.LookRotation(offset);
-                Instantiate(Resources.Load<GameObject>("FX_Beam"), GunTrans.position, dir);
+                Instantiate(Resources.Load<GameObject>("PFB_VFX_Beam"), GunTrans.position, dir);
 
                 FragileItem.TakeDamage();
             }

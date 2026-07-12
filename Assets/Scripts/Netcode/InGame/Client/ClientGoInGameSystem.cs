@@ -16,7 +16,7 @@ public partial struct ClientGoInGameSystem : ISystem
         return;
 #else
         // Editor 下只有调试场景才自动 InGame
-        if (SceneManager.GetActiveScene().name != "GameLevel")
+        if (SceneManager.GetActiveScene().name != "SCN_GameLevel")
         {
             return;
         }
@@ -34,6 +34,6 @@ public partial struct ClientGoInGameSystem : ISystem
         });
 
         state.EntityManager.AddComponent<NetworkStreamInGame>(connection);
-        UnityEngine.Debug.Log("[Client][Editor GameLevel] Auto sent GoInGameRequest and marked InGame locally.");
+        UnityEngine.Debug.Log("[Client][Editor SCN_GameLevel] Auto sent GoInGameRequest and marked InGame locally.");
     }
 }

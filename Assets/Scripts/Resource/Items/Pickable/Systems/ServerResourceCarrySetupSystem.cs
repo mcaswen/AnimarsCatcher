@@ -15,7 +15,7 @@ public struct AniNavFindArrivalTracker : IComponentData
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct ServerResourceCarrySetupSystem : ISystem
 {
-    private ComponentLookup<AniNavFindArrivalTracker> arrivalTrackerLookup;
+    private ComponentLookup<AniNavFindArrivalTracker> _arrivalTrackerLookup;
 
     [BurstCompile]
     public void OnCreate(ref SystemState state)
@@ -26,13 +26,13 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
                 .WithAll<PickableResourceCarrierSlot>()  // 有槽位
                 .Build());
         
-        arrivalTrackerLookup = state.GetComponentLookup<AniNavFindArrivalTracker>(isReadOnly: false);
+        _arrivalTrackerLookup = state.GetComponentLookup<AniNavFindArrivalTracker>(isReadOnly: false);
     }
 
     // [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        arrivalTrackerLookup.Update(ref state);
+        _arrivalTrackerLookup.Update(ref state);
 
         // UnityEngine.Debug.Log("[ServerResourceCarrySetupSystem] OnUpdate start");
 
@@ -77,7 +77,7 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
 
                 bool currentHasPath = navSteering.ValueRO.HasPath != 0;
 
-                bool hasTracker = arrivalTrackerLookup.HasComponent(aniEntity);
+                bool hasTracker = _arrivalTrackerLookup.HasComponent(aniEntity);
                 AniNavFindArrivalTracker tracker;
 
                 if (!hasTracker)
@@ -94,7 +94,7 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
                 }
                 else
                 {
-                    tracker = arrivalTrackerLookup[aniEntity];
+                    tracker = _arrivalTrackerLookup[aniEntity];
                 }
 
                 bool previousHasPath  = hasTracker && (tracker.PreviousHasPath != 0);
@@ -120,7 +120,7 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
 
                     int commandMode = Blackboard.GetInt(
                         ref blackboard,
-                        AniMovementBlackboardKeys.K_CommandMode);
+                        AniMovementBlackboardKeys.CommandMode);
 
                     // 处于 Find 状态，并且刚刚完成了一条 Nav 路径（从有路到没路）
                     if (commandMode == (int)AniMovementCommandMode.Find &&
@@ -157,17 +157,17 @@ public partial struct ServerResourceCarrySetupSystem : ISystem
 
                         // CommandMode = Idle
                         Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.K_CommandMode,
+                            AniMovementBlackboardKeys.CommandMode,
                             (int)AniMovementCommandMode.Idle);
 
                         // 清掉目标
                         Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.K_TargetEntity,
+                            AniMovementBlackboardKeys.TargetEntity,
                             Entity.Null);
 
                         // 通知 Nav 停止
                         Blackboard.SetBool(ref blackboard,
-                            AniMovementBlackboardKeys.K_NavStop,
+                            AniMovementBlackboardKeys.NavStop,
                             true);
                     }
 

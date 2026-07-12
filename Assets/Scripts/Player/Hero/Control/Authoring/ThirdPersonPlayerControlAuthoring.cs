@@ -1,13 +1,15 @@
 using UnityEngine;
 using Unity.Entities;
 using Unity.NetCode;
+using UnityEngine.Serialization;
 
 public struct PlayerTag : IComponentData {}
 
 [DisallowMultipleComponent]
 public class ThirdPersonPlayerControlAuthoring : MonoBehaviour
 {
-    [SerializeField] private GameObject controlledCamera;
+    [FormerlySerializedAs("controlledCamera")]
+    [SerializeField] private GameObject _controlledCamera;
 
     public class Baker : Baker<ThirdPersonPlayerControlAuthoring>
     {
@@ -16,7 +18,7 @@ public class ThirdPersonPlayerControlAuthoring : MonoBehaviour
             Entity entity = GetEntity(TransformUsageFlags.None);
             AddComponent(entity, new ThirdPersonPlayerControl
             {
-                ControlledCamera = GetEntity(authoring.controlledCamera, TransformUsageFlags.Dynamic)
+                ControlledCamera = GetEntity(authoring._controlledCamera, TransformUsageFlags.Dynamic)
             });
 
             AddComponent<PlayerInput>(entity);

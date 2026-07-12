@@ -127,7 +127,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
             if (groupCamp.ValueRO.Value != camp)
                 continue;
 
-            bool spawnPointSelected = CharacterSpawnUtil.TrySelectCharacterSpawnPoint(
+            bool spawnPointSelected = CharacterSpawnUtility.TrySelectCharacterSpawnPoint(
                 spawnState.ValueRW,
                 connectionAspect,
                 points,
@@ -142,7 +142,7 @@ public partial struct ServerSetInGameRpcSystem : ISystem
                 return false;
             }
 
-            var character = CharacterSpawnUtil.InstantiateAndInit(
+            var character = CharacterSpawnUtility.InstantiateAndInit(
                 ref entityCommandBuffer,
                 characterPrefab,
                 id,

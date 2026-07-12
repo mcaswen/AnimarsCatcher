@@ -7,5 +7,5 @@ public class AniMovementFsmAuthoring : MonoBehaviour
     public int initialBlackboardCapacity = 32;
 
     [Tooltip("初始状态")]
-    public ushort initialState = AniMovementFsmIDs.S_Idle;
+    public ushort initialState = AniMovementFsmIds.IdleStateId;
 }

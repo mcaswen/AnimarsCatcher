@@ -17,15 +17,15 @@ public static class FsmRegistry
     private static NativeArray<FunctionPointer<ActionFn>> s_Actions;
     private static bool s_Alive = true;
     private static bool s_Initialized = false;
-    private const int MAX_CONDITION = 1024;
-    private const int MAX_ACTION = 1024;
+    private const int MaxConditionCount = 1024;
+    private const int MaxActionCount = 1024;
 
     public static void Init()
     {
         if (s_Initialized) return;
 
-        s_Conditions  = new NativeArray<FunctionPointer<ConditionFn>>(MAX_CONDITION, Allocator.Persistent);
-        s_Actions = new NativeArray<FunctionPointer<ActionFn>>(MAX_ACTION, Allocator.Persistent);
+        s_Conditions  = new NativeArray<FunctionPointer<ConditionFn>>(MaxConditionCount, Allocator.Persistent);
+        s_Actions = new NativeArray<FunctionPointer<ActionFn>>(MaxActionCount, Allocator.Persistent);
 
         s_Initialized = true;
     }
