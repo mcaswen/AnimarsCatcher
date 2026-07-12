@@ -20,6 +20,7 @@ public class PickerAniAttackView : MonoBehaviour
 
     private Animator _animator;
     private bool _bound;
+    private World _boundWorld;
     public bool IsServerWorld = true;
 
     private void Awake()
@@ -39,13 +40,14 @@ public class PickerAniAttackView : MonoBehaviour
     {
         TargetEntity  = entity;
         BoundEntityManager = entityManager;
+        _boundWorld = entityManager.World;
         _bound  = true;
         IsServerWorld = isServerWorld;
     }
 
     private void Update()
     {
-        if (!_bound || BoundEntityManager == null)
+        if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
             return;
 
         if (!BoundEntityManager.Exists(TargetEntity))
@@ -82,7 +84,7 @@ public class PickerAniAttackView : MonoBehaviour
     public void OnAttackHit()
     {
 
-        if (!_bound || BoundEntityManager == null)
+        if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
             return;
 
         if (!BoundEntityManager.Exists(TargetEntity))

@@ -51,6 +51,7 @@ public class BlasterAniAttackView : MonoBehaviour
     private uint _lastConsumedShotId;      // 已经驱动过动画的 ShotId
     private uint _lastFiredVisualShotId;   // 已经真正开过激光特效的 ShotId
     private bool _bound;
+    private World _boundWorld;
     private bool _isShooting;         // 控制 OnAnimatorIK 是否生效
 
     private void Awake()
@@ -73,6 +74,7 @@ public class BlasterAniAttackView : MonoBehaviour
     {
         TargetEntity = entity;
         BoundEntityManager = entityManager;
+        _boundWorld = entityManager.World;
         IsServerWorld = isServerWorld;
         _bound = true;
     }
@@ -80,9 +82,9 @@ public class BlasterAniAttackView : MonoBehaviour
     private void Update()
     {
         // Debug.Log($"[BlasterAniAttackView] {name} Update checking for AniAttackFireRequest Bound: {_bound}, BoundEntityManager: {BoundEntityManager}, TargetEntity: {TargetEntity.Index}"
-        // + "HasComponent: " + (BoundEntityManager != null && BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity)).ToString());
+        // + "HasComponent: " + (_boundWorld != null && _boundWorld.IsCreated && BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity)).ToString());
 
-        if (!_bound || BoundEntityManager == null)
+        if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
             return;
 
         if (!BoundEntityManager.Exists(TargetEntity))
@@ -155,7 +157,7 @@ public class BlasterAniAttackView : MonoBehaviour
     // ————————————————————————————
     public void OnShootFire()
     {
-        if (!_bound || BoundEntityManager == null)
+        if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
             return;
 
         if (!BoundEntityManager.Exists(TargetEntity))
