@@ -2,7 +2,7 @@ using System;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Movement.Grid
+namespace AnimarsCatcher.Animars.Navigation.Grid
 {
     /// <summary>
     /// 定义 Scene 视图中 Grid 数据的显示模式

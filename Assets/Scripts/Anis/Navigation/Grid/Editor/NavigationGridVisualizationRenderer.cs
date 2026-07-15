@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
-namespace AnimarsCatcher.Animars.Movement.Grid.Editor
+namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
     /// <summary>
     /// 将烘焙 Cell 批量生成为 Scene 视图表面覆盖层

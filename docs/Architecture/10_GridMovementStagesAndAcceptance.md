@@ -49,7 +49,7 @@
 
 ### 当前实现
 
-- 运行时代码位于 `Assets/Scripts/Anis/Movement/Grid`
+- 运行时代码位于 `Assets/Scripts/Anis/Navigation/Grid`
 - `NavigationGridAuthoring`、对齐 Bounds、中心与环形地面支撑采样、八邻接、保守 Clearance、RegionId、Bake Asset 和 Blob 已实现
 - Scene 覆盖层使用缓存批量 Mesh，支持 Walkability、Clearance、Region、Slope、TerrainCost、AgentOccupancy 和邻接显示
 - 数据检查窗口可查看 Hash、统计、单个 Cell 和不同 Agent 半径的占用结果

@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Movement.Grid
+namespace AnimarsCatcher.Animars.Navigation.Grid
 {
     /// <summary>
     /// 保存编辑器 Physics 采样生成的可检查 Grid 数据

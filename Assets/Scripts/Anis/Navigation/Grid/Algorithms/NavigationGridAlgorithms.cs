@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Movement.Grid
+namespace AnimarsCatcher.Animars.Navigation.Grid
 {
     /// <summary>
     /// 提供不依赖 Scene 和 World 的确定性 Grid 烘焙算法

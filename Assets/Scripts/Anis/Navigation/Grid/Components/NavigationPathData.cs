@@ -1,7 +1,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 
-namespace AnimarsCatcher.Animars.Movement.Grid
+namespace AnimarsCatcher.Animars.Navigation.Grid
 {
     /// <summary>
     /// 定义路径请求从等待到完成的生命周期状态

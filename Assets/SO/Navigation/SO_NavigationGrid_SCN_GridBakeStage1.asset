@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 664aa7f44d59cb44d8d5447f2412e339, type: 3}
   m_Name: SO_NavigationGrid_SCN_GridBakeStage1
-  m_EditorClassIdentifier: Assembly-CSharp::AnimarsCatcher.Animars.Movement.Grid.NavigationGridBakeAsset
+  m_EditorClassIdentifier: Assembly-CSharp::AnimarsCatcher.Animars.Navigation.Grid.NavigationGridBakeAsset
   _sourceSceneGuid: 1c3267704bd9483459c51670d665919b
   _sourceScenePath: Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity
   _geometryHash: 085633131516c7e74ea0809d699c9278

@@ -8,7 +8,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Animars.Movement.Grid.Editor
+namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
     internal sealed class NavigationGridBuildValidator : IPreprocessBuildWithReport
     {

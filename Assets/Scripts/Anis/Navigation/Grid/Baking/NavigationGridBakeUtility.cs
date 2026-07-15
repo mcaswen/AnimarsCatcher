@@ -11,7 +11,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
-namespace AnimarsCatcher.Animars.Movement.Grid.Editor
+namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
     /// <summary>
     /// 提供确定性的编辑器 Physics Grid 烘焙和新鲜度校验

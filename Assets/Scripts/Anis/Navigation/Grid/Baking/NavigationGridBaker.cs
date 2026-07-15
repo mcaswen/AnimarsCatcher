@@ -3,10 +3,10 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 #if UNITY_EDITOR
-using AnimarsCatcher.Animars.Movement.Grid.Editor;
+using AnimarsCatcher.Animars.Navigation.Grid.Editor;
 #endif
 
-namespace AnimarsCatcher.Animars.Movement.Grid
+namespace AnimarsCatcher.Animars.Navigation.Grid
 {
     /// <summary>
     /// 将可检查的 Grid 烘焙资产转换为运行时只读 Blob

@@ -8,7 +8,7 @@ using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Movement.Grid.Editor
+namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
     /// <summary>
     /// 执行阶段二端点投影、普通 A 星和路径平滑自动验收
