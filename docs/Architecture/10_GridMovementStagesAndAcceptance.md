@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：阶段一 Grid 烘焙基础已实现并通过自动验收，阶段零性能基线和阶段二仍未完成
+> 状态：阶段一 Grid 烘焙基础和阶段二普通 A* 路径服务已实现并通过自动验收，阶段零性能基线仍需独立补齐
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -88,6 +88,19 @@
 - 烘焙流程不调用 Unity NavMesh
 
 ## 4. 阶段二：端点投影与普通 Grid A*
+
+### 当前实现
+
+- `NavigationGridPathAlgorithms` 已实现坐标转换、稳定端点投影、Agent Clearance 判断、Region 预拒绝、Octile 启发、二叉 Heap A*、Bresenham 直线检查和代价保持平滑
+- A* 的固定邻接顺序和 Open Set 排序键保证相同输入得到相同路径；相同 G Cost 时使用更小 Parent Cell Index 稳定父节点
+- 对角移动同时校验烘焙邻接、目标 Cell 和两个正交侧边的当前 Agent Clearance
+- `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 已定义 Pending、Searching、Succeeded、Failed、Cancelled 生命周期以及稳定失败原因
+- `NavigationGridPathfindingJob` 在 Burst 后台任务中顺序处理一批请求，并使用 Generation 数组复用 Scratch 内存
+- `NavigationGridPathfindingSystem` 在 Server 或 Local World 每批最多调度 32 个请求，Job 未完成时不会在主线程调用 `Complete`
+- 完成结果按 Entity、请求 `Version` 和状态复核后写回；实体销毁、版本变化或取消不会写入旧路径
+- `NavigationGridStageTwoValidation.RunFromCommandLine` 已验证投影、Region 快速拒绝、穿角、开放区平滑、不同体型 Clearance、Terrain Cost、重复确定性、失败状态和异步 ECS Buffer 写回
+
+阶段二当前只提供通用路径基础设施，不消费 `AniMovementOrder`，不生成速度，也不写入 Ani Transform。Legacy 后端仍是正式场景当前使用的移动实现。
 
 ### 交付物
 

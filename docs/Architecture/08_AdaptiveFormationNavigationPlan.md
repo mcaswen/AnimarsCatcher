@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一 Grid 烘焙基础已实现，阶段二及后续能力尚未实现
+> 状态：阶段一 Grid 烘焙基础和阶段二普通 A* 路径服务已实现，阶段三及后续能力尚未实现
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -55,6 +55,7 @@ Assets/Scripts/Anis/Movement/
 │   ├── Baking/
 │   ├── Components/
 │   ├── Editor/
+│   ├── Jobs/
 │   ├── Systems/
 │   └── Utilities/
 └── Presentation/
@@ -218,6 +219,19 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 - 结果进行直线可见性平滑
 
 普通 A* 是后续 HPA* 的正确性对照。不能一开始只实现复杂分层算法，否则路径错误难以定位。
+
+当前实现位于 `NavigationGridPathAlgorithms`、`NavigationGridPathfindingJob` 和 `NavigationGridPathfindingSystem`：
+
+- 请求先按距离、Terrain Cost、Clearance 和 Cell Index 投影到稳定合法端点
+- 起终点 Region 不一致时不展开 Open Set，直接返回 `RegionMismatch`
+- Open Set 使用二叉 Heap，排序键依次为 F Cost、H Cost 和 Cell Index
+- 每个请求使用独立 Generation 标识访问过的节点，不逐请求清空整张 Grid Scratch 数组
+- 对角边除静态邻接外，还要求两个正交侧边满足当前 Agent 的 Clearance，防止大体型单位穿角
+- 路径重建后使用 Bresenham 离散直线检查；只有直线成本不超过原 A* 分段成本和允许容差时才删除中间点
+- `NavigationGridPathfindingSystem` 每批最多处理 32 个请求，搜索在 Burst Job 中执行，主线程只在 Handle 已完成后写回结果
+- `Version`、`Searching` 和 `Cancelled` 状态用于丢弃过期结果，路径点写入 `NavigationPathWaypoint` Buffer
+
+这一阶段仍不包含动态 Overlay、HPA*、Flow Field、阵型或 Ani Transform 写入。普通 A* 保留为后续分层搜索的正确性基准，不应在阶段三被删除。
 
 ### 5.3 HPA* Cluster Corridor
 

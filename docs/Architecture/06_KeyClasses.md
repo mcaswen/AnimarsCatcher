@@ -73,7 +73,7 @@ FSM 和阵型数据最终汇入移动规划：
 
 修改某个阶段时，应先确认上游写入的数据和下游读取时机，不要只在单个 System 内补临时状态。
 
-新的 Grid 后端目前只完成阶段一烘焙基础，还没有接收移动命令或写入 Ani Transform。关键类型如下：
+新的 Grid 后端目前完成阶段一烘焙基础和阶段二普通 A* 路径服务，还没有接收移动命令或写入 Ani Transform。关键类型如下：
 
 - `NavigationGridAuthoring` 配置世界 Bounds、Cell Size、地面与障碍 Layer、坡度、台阶和基准 Agent 尺寸
 - `NavigationGridBakeUtility` 在编辑器中同步 Physics 后采样中心地面、基础 Agent 环形支撑和静态占用，再生成邻接、Clearance、Region 和三个稳定 Hash
@@ -82,8 +82,13 @@ FSM 和阵型数据最终汇入移动规划：
 - `NavigationGridAuthoringEditor` 与 `NavigationGridInspectorWindow` 提供烘焙、过期校验、颜色图例和单 Cell 检查
 - `NavigationGridVisualizationRenderer` 把烘焙高度上的 Cell 合并为缓存 Mesh，支持可行走、Clearance、Region、坡度、地形成本和指定 Agent 可占用性覆盖层
 - `NavigationGridBuildValidator` 在登记了 Grid Authoring 的构建场景中拒绝缺失或过期资产
+- `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 构成路径服务的 ECS 契约。调用方通过递增 `Version` 区分新旧请求，并只消费同版本完成结果
+- `NavigationGridPathAlgorithms` 负责世界坐标转换、稳定端点投影、Region 预拒绝、Octile 启发、确定性 A*、Bresenham 直线检查和代价保持平滑，不访问 EntityManager 或主线程 API
+- `NavigationGridPathfindingJob` 在单个 Burst Job 内处理一个稳定排序后的请求批次，多个请求顺序复用 G Cost、Parent、Heap 和 Generation 数组
+- `NavigationGridPathfindingSystem` 只在 Server 或 Local World 运行。主线程负责收集请求和提交已完成结果，搜索期间不调用 `Complete`，下一 Tick 只在 Handle 已完成时写回 Buffer
+- `NavigationGridStageTwoValidation` 使用合成 Grid 验证投影、Region、穿角、Clearance、Terrain Cost、确定性、失败状态和异步 ECS 写回
 
-固定验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二开始前，应继续以这些数据为输入实现坐标投影和普通 Grid A*，不要把寻路逻辑塞回 Baker。
+固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二算法验收使用运行时相同 Blob 和 Job 构造合成地图，不依赖场景对象。当前路径服务仍是独立基础设施，接入正式命令和移动前必须先实现后端互斥，防止 Grid 与 Legacy 同时写 Transform。
 
 ## 5. 战斗和生命值
 

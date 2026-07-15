@@ -20,7 +20,7 @@
 
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
-- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及 Grid 移动重构。`Anis/Movement/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据和运行时 Blob，但尚未接管正式移动。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
+- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及 Grid 移动重构。`Anis/Movement/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
 - **`Resource`**：处理资源刷新、脆弱资源、搬运任务、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示
 - **`Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
@@ -41,7 +41,11 @@
 - **`Physics`**：提供通用胶囊体和盒体 Authoring 数据，通过 Baker 转换为 Unity Physics 数据
 - **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
 - **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
-- **`Anis/Movement/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一自动验收
+- **`Anis/Movement/Grid/Algorithms`**：保存与 Scene 和 World 解耦的烘焙算法、端点投影、确定性 A*、离散直线检查和代价保持平滑
+- **`Anis/Movement/Grid/Components`**：定义只读 Grid Blob、路径请求、生命周期状态和路径点 Buffer
+- **`Anis/Movement/Grid/Jobs`**：在 Burst Job 中顺序处理一个路径批次并复用整张 Grid 的 Scratch 内存
+- **`Anis/Movement/Grid/Systems`**：只在 Server 或 Local World 收集请求、异步调度 Job，并在后续 Tick 写回已完成结果
+- **`Anis/Movement/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
 
 原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
