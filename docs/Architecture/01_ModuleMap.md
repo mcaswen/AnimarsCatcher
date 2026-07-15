@@ -20,7 +20,7 @@
 
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
-- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及未来的 Grid 移动后端。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
+- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及 Grid 移动重构。`Anis/Movement/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据和运行时 Blob，但尚未接管正式移动。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
 - **`Resource`**：处理资源刷新、脆弱资源、搬运任务、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示
 - **`Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
@@ -41,6 +41,7 @@
 - **`Physics`**：提供通用胶囊体和盒体 Authoring 数据，通过 Baker 转换为 Unity Physics 数据
 - **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
 - **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
+- **`Anis/Movement/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一自动验收
 
 原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
@@ -87,6 +88,7 @@ flowchart TD
 - **`SCN_MainMenu`**：提供登录、本地账号、创建或加入房间、LAN 发现和全局加载遮罩。关键对象包括 `EventBus`、`LanDiscoveryHost`、`LanDiscoveryClient` 和 `GlobalLoadingUI`
 - **`SCN_GameLevel`**：作为客户端表现壳，承载相机、HUD、选择面板、结算界面和开场运镜。关键对象包括 `MovementRaycastBootstrap`、`AniSelectionUIBootstrap`、`HealthHUDBootstrap` 和 `BattleIntroCinematic`
 - **`SCN_GameLevel_SubScene`**：提供 ECS 场景数据、Prefab 注册、出生点、资源刷新区和全局状态。关键对象包括 `PlayerRegistry`、`AniRegistry`、`ResourceRegistry`、`SpawnPoints`，以及当前禁用的 `GameResultRegistry`
+- **`SCN_GridBakeStage1`**：位于 `Assets/Scenes/Benchmarks`，覆盖平地、坡道、窄路、台阶、障碍和静态孤岛，只用于 Grid 烘焙验收，不在 Build Settings 中
 
 当前 Build Settings 同时列入主场景和 SubScene。是否需要把 SubScene 作为独立 Player 入口，应结合 Unity 的实际加载行为单独验证；本文只记录仓库现状，不把它视为已经确认的设计结论。
 
@@ -106,7 +108,7 @@ Network Entity Prefab 通过 `AvatarViewAuthoring` 和 `HealthBarViewAuthoring` 
 
 - 修改连接、开局或角色出生时，先查看 `Netcode/Connection` 和 `Netcode/InGame`
 - 修改玩家手感或预测时，先查看 `Player/Input`、`Player/Movement` 和 `Player/Hero/Control`
-- 修改 Ani 指令和状态时，先查看 `Anis/Perception` 和 `Anis/FSM`；分析当前旧移动结果时查看 `Benchmarks/LegacyNavMesh`，新移动能力不得继续写入该目录
+- 修改 Ani 指令和状态时，先查看 `Anis/Perception` 和 `Anis/FSM`；分析当前旧移动结果时查看 `Benchmarks/LegacyNavMesh`；修改新 Grid 烘焙基础时查看 `Anis/Movement/Grid`，新移动能力不得继续写入 Legacy 目录
 - 修改攻击和伤害时，先查看 `Anis/Combat` 和 `Health`
 - 修改采集和资源经济时，先查看 `Resource` 和 `Anis/Spawn`
 - 修改 HUD 或 Hybrid View 时，先查看 `UI`、`MonoBehaviour/UI` 和 `Player/Hero/View`

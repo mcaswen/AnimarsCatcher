@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：设计提案，尚未实现
+> 状态：阶段一 Grid 烘焙基础已实现，阶段二及后续能力尚未实现
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -54,6 +54,7 @@ Assets/Scripts/Anis/Movement/
 │   ├── Authoring/
 │   ├── Baking/
 │   ├── Components/
+│   ├── Editor/
 │   ├── Systems/
 │   └── Utilities/
 └── Presentation/
@@ -80,6 +81,8 @@ Assets/Scripts/Anis/Movement/
 
 Cell Size 需要同时满足路径精度、阵型宽度精度和内存预算。第一版可以从接近最小 Ani 半径的尺度开始测试，不能直接追求极小 Cell。
 
+当前实现只保留能够容纳完整 Cell 的有效 Bounds，X 和 Z 尺寸按 `floor(configuredSize / cellSize)` 向下对齐。Bake Asset 与 Blob 保存的最大边界来自实际 Cell 范围，不把不足一个 Cell 的尾部空间声明为可查询区域。
+
 ### 3.2 地面采样
 
 编辑器工具使用 Physics 查询完成烘焙，不使用 NavMesh：
@@ -88,8 +91,9 @@ Cell Size 需要同时满足路径精度、阵型宽度精度和内存预算。�
 2. 记录命中高度、法线和地形类型
 3. 法线坡度超过阈值时标记为不可行走
 4. 使用 Capsule 或 Box 占用检测排除墙体、岩石和静态阻挡
-5. 比较相邻 Cell 高度差，决定能否建立边
-6. 记录 8 邻接位掩码和对应移动成本
+5. 围绕中心按基准 Agent 半径采样脚底支撑，排除悬崖边和过窄平台
+6. 比较相邻 Cell 高度差，决定能否建立边
+7. 记录 8 邻接位掩码和对应移动成本
 
 对角移动只有在两侧正交 Cell 都可通过时才能开放，避免从障碍角点斜穿过去。
 
@@ -105,11 +109,20 @@ Clearance 同时用于：
 - 验证槽位是否可放置
 - 让锚点倾向通道中部
 
-静态 Clearance 可以通过距离变换批量计算，不需要为不同 Ani 半径烘焙多套 Grid。查询时只需检查 `cell.Clearance >= agentRadius + margin`。
+当前基础可行走图已经用基准 Agent Capsule 排除静态占用，因此查询更大 Agent 时只增加半径差，避免重复膨胀：
+
+```text
+requiredClearance = max(0, agentRadius - baseAgentRadius) + margin
+cell.Clearance >= requiredClearance
+```
+
+Clearance 使用到阻挡 Cell 方形边界的保守距离，不允许因为对角中心距离而高估可用空间。后续如果改为不带半径的原始几何距离场，必须同时升级数据版本和所有查询公式。
+
+两侧 Cell 都可站立但因高度差无法建立正交连接时，该断层同样作为 Clearance 距离场边界，避免悬崖两侧被误判为宽阔连续空间。
 
 ### 3.4 Region、Cluster 与 Portal
 
-烘焙阶段继续生成：
+完整目标烘焙阶段继续生成：
 
 - `RegionId`：静态连通区域编号
 - `ClusterId`：HPA* 分块编号
@@ -118,6 +131,8 @@ Clearance 同时用于：
 - Portal 间静态路径成本
 
 RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大范围规划，避免每次都在完整 Cell 集合上执行 A*。
+
+阶段一已经生成稳定 `RegionId` 和规则分块 `ClusterId`。Portal、Portal 最小 Clearance 和 Portal 间静态成本属于阶段三，当前 Blob 不伪造占位结果。
 
 ### 3.5 烘焙资产与有效性
 
@@ -132,6 +147,8 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 - 数据版本
 
 构建前检查 Hash。场景几何或关键参数变化后，如果没有重新烘焙，构建检查应失败，而不是让过期导航数据进入正式包。
+
+`NavigationGridBaker` 在 Editor Baking 和 Live Baking 中复用相同的新鲜度校验，不只依赖构建前门禁。复制场景但保留旧 SO 引用时，烘焙工具会创建新资产，不覆盖来源场景的 Grid 数据。
 
 相同场景和参数重复烘焙必须生成相同数据 Hash，便于 Review 和性能复现。
 

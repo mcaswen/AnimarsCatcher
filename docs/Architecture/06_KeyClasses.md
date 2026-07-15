@@ -73,6 +73,18 @@ FSM 和阵型数据最终汇入移动规划：
 
 修改某个阶段时，应先确认上游写入的数据和下游读取时机，不要只在单个 System 内补临时状态。
 
+新的 Grid 后端目前只完成阶段一烘焙基础，还没有接收移动命令或写入 Ani Transform。关键类型如下：
+
+- `NavigationGridAuthoring` 配置世界 Bounds、Cell Size、地面与障碍 Layer、坡度、台阶和基准 Agent 尺寸
+- `NavigationGridBakeUtility` 在编辑器中同步 Physics 后采样中心地面、基础 Agent 环形支撑和静态占用，再生成邻接、Clearance、Region 和三个稳定 Hash
+- `NavigationGridBakeAsset` 保存可在 Inspector 中检查的 Cell 数据，并作为场景与运行时 Blob 之间的版本边界
+- `NavigationGridBaker` 先复用完整新鲜度校验，再把可用资产转换为共享的 `NavigationGridBlob` 和 `NavigationGridReference`
+- `NavigationGridAuthoringEditor` 与 `NavigationGridInspectorWindow` 提供烘焙、过期校验、颜色图例和单 Cell 检查
+- `NavigationGridVisualizationRenderer` 把烘焙高度上的 Cell 合并为缓存 Mesh，支持可行走、Clearance、Region、坡度、地形成本和指定 Agent 可占用性覆盖层
+- `NavigationGridBuildValidator` 在登记了 Grid Authoring 的构建场景中拒绝缺失或过期资产
+
+固定验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二开始前，应继续以这些数据为输入实现坐标投影和普通 Grid A*，不要把寻路逻辑塞回 Baker。
+
 ## 5. 战斗和生命值
 
 战斗链路横跨 Server ECS、Ghost 状态、Client GameObject 动画和命中 RPC，是当前耦合最深的区域之一。

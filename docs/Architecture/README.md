@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述 2026-07-12 当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 明确标记为设计与实施提案，用于指导后续重构，不表示对应能力已经实现。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度。Grid 烘焙基础已经实现，路径搜索、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,9 +17,9 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 241 个自有业务脚本。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
+仓库中目前有 252 个自有业务脚本。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
 
-当前也没有 `Assets/Tests` 和 `Assets/SO`。静态配置主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
+当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 
 ## 2. 文档阅读顺序
 
@@ -32,7 +32,7 @@
 5. [核心玩法链路](05_GameplayFlows.md)：查看玩家移动、Ani 选择与移动、战斗、资源和胜负的完整数据流
 6. [关键类与扩展点](06_KeyClasses.md)：需要定位代码或增加功能时，从入口类、桥接类、Aspect 和工具类开始查找
 7. [已知边界与演进方向](07_KnownRisks.md)：修改公共逻辑前，先确认当前的安全、生命周期、性能和结构风险
-8. [RTS 2.5D Grid 导航、自适应阵型与避碰方案](08_AdaptiveFormationNavigationPlan.md)：查看零 NavMesh 的 Grid 烘焙、路径、阵型、局部避碰和物理移动目标架构
+8. [RTS 2.5D Grid 导航、自适应阵型与避碰方案](08_AdaptiveFormationNavigationPlan.md)：查看零 NavMesh 的 Grid 烘焙实现，以及路径、阵型、局部避碰和物理移动目标架构
 9. [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)：查看 Legacy 基线、后端互斥、命令回放和对比指标
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 

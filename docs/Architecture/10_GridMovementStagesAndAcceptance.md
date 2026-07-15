@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：实施计划，尚未开始 Grid 后端开发
+> 状态：阶段一 Grid 烘焙基础已实现并通过自动验收，阶段零性能基线和阶段二仍未完成
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -47,6 +47,19 @@
 
 ## 3. 阶段一：Grid 烘焙基础
 
+### 当前实现
+
+- 运行时代码位于 `Assets/Scripts/Anis/Movement/Grid`
+- `NavigationGridAuthoring`、对齐 Bounds、中心与环形地面支撑采样、八邻接、保守 Clearance、RegionId、Bake Asset 和 Blob 已实现
+- Scene 覆盖层使用缓存批量 Mesh，支持 Walkability、Clearance、Region、Slope、TerrainCost、AgentOccupancy 和邻接显示
+- 数据检查窗口可查看 Hash、统计、单个 Cell 和不同 Agent 半径的占用结果
+- 构建校验会检查包含 Grid Authoring 的登记场景，不要求尚未切换的 Legacy 菜单和玩法场景提前配置 Grid
+- 固定验收场景为 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`
+- 固定验收资产为 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`
+- `NavigationGridStageOneValidation.RunFromCommandLine` 已验证重复 Hash、穿角、台阶与断层 Clearance、边界支撑、陡坡、Region、不同半径、覆盖层抽样上限和过期检测
+
+阶段一实现不接收移动命令，不执行 A*，也不写入 Ani Transform。阶段零的 Legacy 性能数据仍需按独立任务补齐，阶段二不得把阶段一完成误解为已经满足阶段零退出条件。
+
 ### 交付物
 
 - `NavigationGridAuthoring`
@@ -64,7 +77,7 @@
 - 超过最大坡度或台阶高度的连接不会生成
 - 不同半径 Agent 使用 Clearance 得到正确可行走结果
 - 静态孤岛具有不同 RegionId
-- Gizmo 能显示阻挡、邻接、Clearance 和 Region
+- Scene 覆盖层能显示阻挡、邻接、Clearance、Region、坡度、地形成本和指定 Agent 可占用性
 - 场景或参数变化后旧 Bake Asset 被识别为过期
 
 ### 退出条件
