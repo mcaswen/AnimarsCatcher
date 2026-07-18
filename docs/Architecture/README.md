@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录创建自有程序集前的依赖和序列化迁移方案。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，12 至 14 记录前三个迁移阶段的实施结果。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 260 个自有业务脚本。项目没有自定义 asmdef，自有代码主要编译到 `Assembly-CSharp`，所以现阶段的模块边界依赖目录、命名和开发约定，而不是编译器强制隔离。
+仓库中目前有 262 个自有业务脚本。Core 的 3 个脚本、Gameplay Contracts 的 10 个脚本和 Navigation 的 20 个脚本已进入自定义程序集，其余代码仍主要编译到 `Assembly-CSharp`。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 
@@ -36,6 +36,9 @@
 9. [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)：查看 Legacy 基线、后端互斥、命令回放和对比指标
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
+12. [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)：查看脚本归属、命名空间覆盖、候选循环依赖和 Navigation 试点结论
+13. [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)：查看 asmdef 配置、序列化迁移、审计门禁和 Editor、Player 验证结果
+14. [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)：查看通用 FSM 数据、共享玩法契约、依赖收敛和真实场景构建结果
 
 ## 3. 总体运行架构
 
@@ -79,7 +82,7 @@ flowchart LR
 - **通信方式按用途选择**：`InputCommand` 传递逐 Tick 的预测输入，RPC 处理一次性请求，Ghost 持续同步状态
 - **配置先经过烘焙**：Authoring 和 Baker 把 Scene 或 Prefab 中的配置转换为运行时 Entity 数据与 Prefab 注册表
 - **视图只消费状态**：Hybrid View 读取 ECS 状态并生成 GameObject 表现，不直接持有服务器权威业务状态
-- **模块隔离目前依赖约定**：目录、命名和 `WorldSystemFilter` 构成现有边界，asmdef 尚未提供编译期约束
+- **模块隔离正在渐进落地**：Core、Gameplay Contracts 和 Navigation 已有 asmdef 编译边界，其他模块仍主要依赖目录、命名和 `WorldSystemFilter` 约定
 
 ## 5. 当前构建入口
 

@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core.Fsm;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;

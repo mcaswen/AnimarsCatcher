@@ -1,3 +1,5 @@
+using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Gameplay.Contracts;
 using System.Diagnostics;
 using Unity.Burst;
 using Unity.Collections;

@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;

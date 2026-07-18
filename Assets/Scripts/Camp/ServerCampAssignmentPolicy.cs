@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Mono.Global;
 
 /// <summary>

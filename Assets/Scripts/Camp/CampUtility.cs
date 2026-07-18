@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using System.Runtime.CompilerServices;
 
 /// <summary>

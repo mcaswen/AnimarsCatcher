@@ -2,13 +2,18 @@
 
 [返回架构总览](README.md)
 
-本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前项目没有自定义 asmdef，因此下面描述的是逻辑边界，不是编译期依赖边界。
+本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts 和 Navigation 已使用自定义 asmdef，其余大部分模块仍只有逻辑边界。
 
 ## 1. 代码模块
 
-项目可以从职责上分为网络与玩家、核心玩法、表现与桥接、基础烘焙与编辑器工具四组。它们仍编译在同一个程序集内，但运行侧和数据所有权不同。
+项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts 和 Navigation 已形成编译边界，其他自有模块仍主要位于 `Assembly-CSharp`。
 
-### 1.1 网络与玩家
+### 1.1 底层契约
+
+- **`Core/Fsm`**：保存通用 FSM 状态、上下文、黑板和 Blob 图数据，不包含 Ani 业务 ID、事件或具体运行 System
+- **`Gameplay/Contracts`**：保存 Ani、Base、Camp、Health、Match 和 Resource 之间共享的 ECS Component、Tag、Buffer 与 RPC，不包含具体业务流程
+
+### 1.2 网络与玩家
 
 这一组负责创建运行环境、连接客户端与服务器，并把玩家输入转换为可预测的角色行为。
 
@@ -16,25 +21,25 @@
 - **`Player`**：采集设备输入，生成 `InputCommand`，驱动 KCC 预测移动，并管理相机和角色 View。输入在客户端产生，预测逻辑会在客户端和服务器共同执行，主要依赖 NetCode、Character Controller 和 Input System
 - **`Camp`**：保存阵营数据，执行服务器阵营分配，并在客户端维护本地阵营快照和敌我判断。它连接 NetCode 的连接实体、`GhostOwner` 和具体玩法模块
 
-### 1.2 核心玩法
+### 1.3 核心玩法
 
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
-- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、通用 FSM、战斗以及 Grid 移动重构。`Anis/Navigation/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform。服务器处理最终行为，客户端负责选择请求和表现，模块会调用 `Camp`、`Health` 与 `Resource`
+- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System、战斗以及 Grid 移动重构。通用 FSM 数据已移入 Core，共享玩法数据已移入 Gameplay Contracts。`Anis/Navigation/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
 - **`Resource`**：处理资源刷新、脆弱资源、搬运任务、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示
 - **`Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
 - **`Base`**：保存基地配置，负责基地出生、大小标签和 AABB 数据。它主要在服务器运行，并与 `Camp`、`Health` 和 `Global` 配合
 - **`Global`**：处理对局结果、基地败北、客户端结算和会话返回。服务器产生比赛结果，客户端接收结果并通知 Mono UI
 
-### 1.3 表现与桥接
+### 1.4 表现与桥接
 
 这一组把 ECS 状态转换为玩家能看到和操作的 GameObject 界面。它可以读取权威状态或发送请求，但不应该直接改写服务器结果。
 
 - **`UI`**：实现 ECS 框选、选择模式、选择光圈和血条 View，主要运行在 Client Presentation 阶段。它依赖玩家输入、Ani 数据和 Mono Bootstrap
 - **`MonoBehaviour`**：承载账号、LAN、菜单、HUD、音频、场景过渡，以及 ECS World 与 GameObject 之间的桥接。它运行在 GameObject 主线程，并与 `Netcode`、`Resource` 和 `UI` 交互
 
-### 1.4 烘焙与编辑器支持
+### 1.5 烘焙与编辑器支持
 
 这些模块通常不直接参与玩法决策，而是在烘焙阶段准备运行时数据，或在编辑器中提供维护工具。
 
@@ -65,6 +70,8 @@ flowchart TD
     Health[Health]
     Base[Base Global Camp]
     Physics[Physics Terrain Authoring]
+    Core[Core FSM Data]
+    Contracts[Gameplay Contracts]
 
     Mono --> Net
     Mono --> UI
@@ -81,6 +88,16 @@ flowchart TD
     Base --> Health
     Physics --> Ani
     Physics --> Player
+    Ani --> Core
+    Ani --> Contracts
+    Legacy --> Core
+    Legacy --> Contracts
+    Resource --> Core
+    Resource --> Contracts
+    Health --> Contracts
+    Base --> Contracts
+    Net --> Contracts
+    UI --> Contracts
 ```
 
 新增跨模块功能时，优先通过 Component、RPC、事件或职责明确的窄接口连接。若两个模块开始相互持有大量实现细节，通常说明数据所有权或模块职责需要重新划分。

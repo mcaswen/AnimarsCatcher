@@ -2,11 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：迁移规划阶段，项目尚未创建自有 Assembly Definition
+> 状态：阶段零、阶段一和阶段二已完成，下一步进入 Gameplay 迁移
 >
 > 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
+
+阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)。
 
 ## 1. 目标
 
@@ -28,13 +30,13 @@
 
 当前仓库具有以下特点：
 
-- 约 260 个自有业务脚本主要编译到 `Assembly-CSharp`
-- 项目自有代码尚未创建 `.asmdef` 或 `.asmref`
+- 当前有 262 个自有业务脚本，其中 Core 的 3 个脚本、Gameplay Contracts 的 10 个脚本和 Navigation 的 20 个脚本已迁入独立程序集
+- 项目自有代码当前有三个 `.asmdef`，没有自有 `.asmref`
 - 现有 `.asmdef` 来自 Unity Physics Sample，不属于项目程序集规划
-- 约 220 个脚本仍处于全局命名空间
+- 206 个脚本仍处于全局命名空间
 - Editor 代码同时依赖 `Editor` 特殊目录和 `#if UNITY_EDITOR`
 - ECS、NetCode、GameObject UI 和 Mono 桥接代码存在较多跨顶层目录引用
-- Navigation 已有统一命名空间，且基本不依赖其他项目业务模块
+- Core、Gameplay Contracts 和 Navigation 已有统一命名空间与独立编译边界
 
 自定义程序集不能依赖仍位于预定义 `Assembly-CSharp` 中的类型。因此迁移必须从依赖最少的底层模块开始，不能先把高层 UI、Networking 或 Gameplay System 单独移入 asmdef。
 
@@ -290,6 +292,8 @@ AnimarsCatcher.Navigation
 
 ### 阶段二：提取 Core 与 Contracts
 
+状态：已完成，实施范围和验证结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)。
+
 工作内容：
 
 - 从实际循环依赖中提取共享数据
@@ -440,4 +444,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-第一项实际代码任务应是完成 Navigation 的 Editor 反向依赖审计和序列化基线，然后再创建 `AnimarsCatcher.Navigation.asmdef`。
+Core 与 Gameplay Contracts 已完成迁移。下一项实际任务是阶段三 Gameplay 迁移，优先处理 Anis 与 Player、Legacy 与 Resource 之间仍存在的实现层双向依赖，不批量创建无法保持单向引用的领域 asmdef。

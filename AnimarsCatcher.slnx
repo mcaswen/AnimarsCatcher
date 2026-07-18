@@ -72,6 +72,7 @@
   <Project Path="Unity.Networking.Editor.csproj" />
   <Project Path="Unity.2D.Sprite.Editor.csproj" />
   <Project Path="Unity.AI.Navigation.Editor.csproj" />
+  <Project Path="AnimarsCatcher.Gameplay.Contracts.csproj" />
   <Project Path="Unity.Physics.Custom.csproj" />
   <Project Path="Unity.NetCode.Authoring.Hybrid.csproj" />
   <Project Path="Assembly-CSharp-firstpass.csproj" />
@@ -84,6 +85,7 @@
   <Project Path="Unity.Mathematics.Editor.csproj" />
   <Project Path="Unity.CharacterController.csproj" />
   <Project Path="Unity.VisualScripting.SettingsProvider.Editor.csproj" />
+  <Project Path="AnimarsCatcher.Navigation.csproj" />
   <Project Path="Unity.NetCode.Physics.Hybrid.csproj" />
   <Project Path="Unity.Multiplayer.PlayMode.Configurations.Editor.csproj" />
   <Project Path="Unity.Entities.UI.csproj" />
@@ -93,6 +95,7 @@
   <Project Path="Unity.ShaderGraph.Utilities.csproj" />
   <Project Path="Unity.VisualScripting.Shared.Editor.csproj" />
   <Project Path="Unity.Profiling.Core.csproj" />
+  <Project Path="AnimarsCatcher.Core.csproj" />
   <Project Path="Unity.Animation.Rigging.DocCodeExamples.csproj" />
   <Project Path="Unity.Physics.Custom.Editor.csproj" />
   <Project Path="Unity.InternalAPIEditorBridge.022.csproj" />

@@ -109,12 +109,16 @@ public PlayerResourceState GetPlayerResource()
 ## 5. Assembly Definition
 
 1. 新增规模较大的稳定模块时，建议使用 asmdef 表达依赖边界，但不为每个小目录机械创建程序集。
-2. Runtime、Editor 和 Tests 必须使用不同程序集边界。
-3. Runtime asmdef 禁止引用 Editor asmdef 或 `UnityEditor` 程序集。
+2. 稳定模块的最终结构应为 Runtime、Editor 和 Tests 不同程序集边界；迁移试点确需暂时混编时，必须登记原因、使用正确条件编译并通过 Editor 与 Player 构建验证。
+3. Runtime asmdef 禁止引用 Editor asmdef，也禁止出现未被正确条件编译隔离的 `UnityEditor` API。
 4. asmdef 依赖必须单向，禁止为了临时调用形成循环引用。
 5. Client、Server 和 Shared 程序集归属应与 World 职责一致；共享协议不得依赖 UI 或表现层。
 6. 现有 `Assembly-CSharp` 内容按模块渐进迁移，不要求一次拆分全部脚本。
 7. 调整 asmdef 后必须验证 Baker、Source Generator、Ghost CodeGen、Editor 工具和测试程序集。
+8. 创建或调整项目 asmdef 前，更新 `Tools/AssemblyMigrationRules.psd1` 并运行 `Tools/AuditAssemblyMigration.ps1`，确认脚本归属和候选双向依赖。
+9. 类型从 `Assembly-CSharp` 迁入自定义程序集时，必须检查 Scene、Prefab、ScriptableObject 和其他程序集限定类型名，并为固定资源增加可重复的序列化回归检查。
+10. Core 不保存玩法语义、具体 System、场景引用或 UI 类型；Gameplay Contracts 只保存跨模块共享数据，不保存流程控制和静态运行状态。
+11. 对标记为稳定边界的程序集必须在迁移规则中声明允许依赖，审计出现未允许的项目依赖时不得提交。
 
 ## 6. Entities 与 DOTS
 

@@ -1,14 +1,7 @@
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
-
-/// <summary>
-/// 保存当前客户端本地玩家的阵营快照
-/// </summary>
-public struct LocalPlayerCamp : IComponentData
-{
-    public CampType Value;
-}
+using AnimarsCatcher.Gameplay.Contracts;
 
 /// <summary>
 /// 根据本地拥有的 Ghost 建立客户端阵营单例并在完成后停用

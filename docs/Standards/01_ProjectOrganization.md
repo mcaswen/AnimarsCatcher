@@ -35,6 +35,9 @@ Assets/
 │   ├── SubScenes/
 │   └── Dev/
 ├── Scripts/
+│   ├── Core/
+│   ├── Gameplay/
+│   │   └── Contracts/
 │   ├── Anis/
 │   ├── Player/
 │   ├── Netcode/
@@ -43,7 +46,6 @@ Assets/
 │   ├── Health/
 │   ├── Camp/
 │   ├── UI/
-│   ├── Shared/
 │   ├── Benchmarks/
 │   ├── Editor/
 │   └── Tools/
@@ -147,16 +149,41 @@ Scripts/<Domain>/<Feature>/
 11. Unity、NetCode 和 NavMesh 等官方产品或 API 名称沿用官方大小写，不自行改写为 `Netcode`、`Net` 或 `Navmesh`。
 12. 不为了统一缩写直接破坏序列化引用、Ghost 协议或公共 API；存量协议名称按迁移规范渐进处理。当前 `FsmVar`、`FsmVarType`、`FsmGraphRef` 及 Ghost 字段中的 `Deg` 属于兼容性保留名称，不作为新代码命名示例。
 
-新业务代码使用 `AnimarsCatcher` 根命名空间，例如：
+### 5.2 命名空间
+
+1. 所有新增手写业务类型必须声明命名空间，禁止继续向全局命名空间增加类型。
+2. 项目代码统一使用 `AnimarsCatcher` 根命名空间，第三方代码、Unity Sample 和生成代码除外。
+3. 根命名空间之后优先使用稳定业务领域，不机械复制 `Assets/Scripts`、`Runtime`、`Algorithms`、`Components`、`Systems` 等物理目录。
+4. 命名空间必须与类型的长期程序集归属一致。准备迁移到独立 asmdef 的类型，不使用另一个模块的命名空间临时过渡。
+5. 同一程序集可以包含多个紧密相关的子命名空间，但一个文件只声明一个主要命名空间，不混放无关领域类型。
+6. Editor 类型使用对应业务命名空间的 `.Editor` 子命名空间，Tests 使用 `.Tests`。命名空间后缀不能替代 Editor-only 或 Test asmdef 编译边界。
+7. Client、Server 和 Shared 只有在类型职责确实不同且需要形成长期公共边界时才进入命名空间，不按当前 System Filter 机械拆分。
+8. 命名空间片段使用 PascalCase 和完整业务单词。`UI`、`RPC` 等项目统一缩写可以保留，禁止使用个人缩写或单字母片段。
+9. 跨程序集公共契约放在稳定领域或 `.Contracts` 命名空间，具体 System、Window、Controller 和调试工具不进入 Contracts。
+10. 调整命名空间前必须检查 Scene、Prefab、ScriptableObject、`SerializeReference`、反射、字符串类型名、SubScene、Ghost 和 Source Generator；需要兼容旧序列化身份时使用明确迁移方案或 `MovedFrom`。
+11. 命名空间迁移按模块独立提交，并保留脚本 `.meta` GUID。禁止同时批量改名、修改玩法行为和创建多个 asmdef。
+12. 存量全局命名空间按程序集迁移计划渐进处理，不因为一次功能修改顺手迁移无关模块。现有例外记录在 `Tools/GlobalNamespaceBaseline.txt`，该基线只允许删除条目，不允许登记新脚本。
+
+推荐示例：
 
 ```text
+AnimarsCatcher.Animars.Navigation.Grid
 AnimarsCatcher.Animars.Combat
-AnimarsCatcher.Netcode.Lobby
+AnimarsCatcher.Networking.Lobby
 AnimarsCatcher.Resource.Carrying
 AnimarsCatcher.UI.Gameplay
+AnimarsCatcher.Animars.Navigation.Grid.Editor
+AnimarsCatcher.Animars.Navigation.Grid.Tests
 ```
 
-命名空间以稳定业务领域为主，不要求逐级复制物理目录。存量全局命名空间通过专项任务渐进迁移。
+不推荐示例：
+
+```text
+Assets.Scripts.Anis.Navigation.Grid.Systems
+AnimarsCatcher.Runtime.Components
+AnimarsCatcher.Temp
+AnimarsCatcher.AC.Nav
+```
 
 ## 6. 资源命名
 

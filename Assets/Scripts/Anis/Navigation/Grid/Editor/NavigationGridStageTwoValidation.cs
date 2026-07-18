@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Unity.Collections;
 using Unity.Entities;
@@ -41,8 +42,42 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             TestClearanceChangesRoute();
             TestTerrainCostAndDeterminism();
             TestProjectionFailure();
+            TestWorldFilterRegistration();
             TestAsynchronousPathfindingSystem();
             Debug.Log("Navigation Grid 阶段二自动验收通过");
+        }
+
+        private static void TestWorldFilterRegistration()
+        {
+            IReadOnlyList<Type> serverSystems = DefaultWorldInitialization.GetAllSystems(
+                WorldSystemFilterFlags.ServerSimulation);
+            IReadOnlyList<Type> localSystems = DefaultWorldInitialization.GetAllSystems(
+                WorldSystemFilterFlags.LocalSimulation);
+            IReadOnlyList<Type> clientSystems = DefaultWorldInitialization.GetAllSystems(
+                WorldSystemFilterFlags.ClientSimulation);
+
+            Assert(
+                ContainsSystem(serverSystems, typeof(NavigationGridPathfindingSystem)),
+                "Server World 必须自动注册 NavigationGridPathfindingSystem");
+            Assert(
+                ContainsSystem(localSystems, typeof(NavigationGridPathfindingSystem)),
+                "Local World 必须自动注册 NavigationGridPathfindingSystem");
+            Assert(
+                !ContainsSystem(clientSystems, typeof(NavigationGridPathfindingSystem)),
+                "Client World 不应自动注册 NavigationGridPathfindingSystem");
+        }
+
+        private static bool ContainsSystem(IReadOnlyList<Type> systems, Type targetType)
+        {
+            for (int i = 0; i < systems.Count; i++)
+            {
+                if (systems[i] == targetType)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void TestCoordinateConversionAndProjection()
