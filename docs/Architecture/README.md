@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，12 至 17 记录阶段零至阶段五的实施结果。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，12 至 18 记录阶段零至阶段六的实施结果。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 268 个自有业务脚本。Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking 和 Presentation 已进入 8 个自定义程序集，Legacy Benchmark 和少量 Authoring、Editor 代码仍主要编译到 `Assembly-CSharp`。
+仓库中目前有 269 个自有业务脚本。Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking、Presentation 和 Legacy Benchmark 已进入 9 个自定义程序集，只剩少量 Editor、Physics 和 Terrain 代码仍编译到 `Assembly-CSharp`。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 
@@ -42,6 +42,7 @@
 15. [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)：查看六个玩法领域的合并边界、asmref 组织、反向依赖清理和 Player 验证结果
 16. [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)：查看输入预测、连接生命周期、网络表现桥接、NetCode 生成和 Client、Server 构建结果
 17. [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)：查看 Mono UI、ECS UI、音频、LAN、HUD 和桥接层的统一编译边界
+18. [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)：查看旧 NavMesh、FSM、阵型、资源搬运和物理移动基线的隔离结果
 
 ## 3. 总体运行架构
 
@@ -85,7 +86,7 @@ flowchart LR
 - **通信方式按用途选择**：`InputCommand` 传递逐 Tick 的预测输入，RPC 处理一次性请求，Ghost 持续同步状态
 - **配置先经过烘焙**：Authoring 和 Baker 把 Scene 或 Prefab 中的配置转换为运行时 Entity 数据与 Prefab 注册表
 - **视图只消费状态**：Hybrid View 读取 ECS 状态并生成 GameObject 表现，不直接持有服务器权威业务状态
-- **模块隔离正在渐进落地**：Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking 和 Presentation 已有 asmdef 编译边界，Legacy Benchmark 和剩余 Editor、Authoring 仍在后续迁移范围
+- **模块隔离正在渐进落地**：Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking、Presentation 和 Legacy Benchmark 已有 asmdef 编译边界，剩余 Editor、Physics 和 Terrain 代码仍在最终收紧范围
 
 ## 5. 当前构建入口
 

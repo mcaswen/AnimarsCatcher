@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 
-> 状态：性能对比方案，Harness 尚未实现
+> 状态：Legacy 程序集隔离已完成，Harness 尚未实现
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -31,9 +31,9 @@ Legacy 需要遵守：
 - 不继续增加正式玩法或主动优化热路径
 - 只能在 Benchmark Scene、Development Build 或专用启动参数中启用
 - 正式场景完成切换后只能启用 Grid 后端
-- 不修改 Legacy Ghost 类型的命名空间和程序集
+- 阶段六迁移完成后不再随意修改 Legacy Ghost 类型的命名空间和程序集
 
-Legacy 现阶段仍是活动实现。移动目录不会阻止 Unity 创建其中的 System，后端互斥完成前不能把目录位置误认为运行隔离。
+Legacy 现阶段仍是活动实现。独立 asmdef 只提供编译隔离，不会阻止 Unity 创建其中的 System，后端互斥完成前不能把程序集边界误认为运行隔离。
 
 ## 2. 后端互斥
 

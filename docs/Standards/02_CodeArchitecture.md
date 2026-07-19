@@ -126,6 +126,7 @@ public PlayerResourceState GetPlayerResource()
 14. `AnimarsCatcher.Player` 只依赖 Gameplay 和必要 Unity Package，不依赖 Networking、Presentation 或 Legacy；UI 输入锁和过场控制由表现层从上层桥接。
 15. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Presentation；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
 16. `AnimarsCatcher.Presentation` 统一承载 Mono UI、ECS UI、音频、LAN、HUD、场景过渡和 GameObject View，可以依赖 Gameplay Contracts、Gameplay、Player 与 Networking；运行时业务程序集不得反向引用 Presentation。
+17. `AnimarsCatcher.Benchmarks.LegacyNavigation` 可以依赖正式运行时程序集以执行历史基线，但 Core、Gameplay、Navigation、Player、Networking 和 Presentation 不得引用 Benchmark；Benchmark 修复仅限可编译性、正确性和测量噪声，不继续承载正式功能。
 
 ## 6. Entities 与 DOTS
 

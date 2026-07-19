@@ -2,13 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段五已完成，下一步进入 Legacy Benchmark 隔离
+> 状态：阶段零至阶段六已完成，下一步进入最终依赖收紧
 >
 > 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
-阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)，阶段五结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)。
+阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)，阶段五结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)，阶段六结果见 [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)。
 
 ## 1. 目标
 
@@ -30,10 +30,10 @@
 
 当前仓库具有以下特点：
 
-- 当前有 268 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking 和 Presentation 已迁入独立程序集
-- `Assets/Scripts` 当前有八个 `.asmdef` 和八个 `.asmref`，DOTween Modules 另有一个第三方兼容 asmdef
+- 当前有 269 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking、Presentation 和 Legacy Benchmark 已迁入独立程序集
+- `Assets/Scripts` 当前有九个 `.asmdef` 和八个 `.asmref`，DOTween Modules 另有一个第三方兼容 asmdef
 - 现有 `.asmdef` 来自 Unity Physics Sample，不属于项目程序集规划
-- 28 个脚本仍处于全局命名空间，全部位于后续 Benchmark、Editor、Physics 或 Terrain 范围
+- 6 个脚本仍处于全局命名空间，全部位于后续 Editor、Physics 或 Terrain 范围
 - Editor 代码同时依赖 `Editor` 特殊目录和 `#if UNITY_EDITOR`
 - ECS、NetCode、GameObject UI 和 Mono 桥接代码存在较多跨顶层目录引用
 - Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已有统一命名空间与独立编译边界
@@ -358,6 +358,8 @@ AnimarsCatcher.Navigation
 
 ### 阶段六：Legacy Benchmark 隔离
 
+状态：已完成，实施范围和验证结果见 [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)。
+
 工作内容：
 
 - 创建 Legacy Navigation Benchmark 程序集
@@ -450,4 +452,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking 和 Presentation 已完成迁移。下一项实际任务是阶段六 Legacy Benchmark 隔离，把旧 NavMesh 性能基线放入独立程序集，并确认正式运行时程序集不依赖 Benchmark。
+Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking、Presentation 和 Legacy Benchmark 已完成迁移。下一项实际任务是阶段七最终依赖收紧，处理剩余 Editor、Physics 和 Terrain 脚本，复核 Auto Referenced、asmref、Runtime/Editor 边界和未使用引用。

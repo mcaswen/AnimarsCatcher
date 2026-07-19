@@ -179,6 +179,7 @@ AnimarsCatcher.Player
 AnimarsCatcher.Networking
 AnimarsCatcher.Presentation.Selection
 AnimarsCatcher.Presentation.HealthUI
+AnimarsCatcher.Benchmarks.LegacyNavigation
 AnimarsCatcher.Player.Editor
 ```
 
