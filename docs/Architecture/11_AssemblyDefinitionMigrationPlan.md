@@ -2,13 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段六已完成，下一步进入最终依赖收紧
+> 状态：阶段零至阶段七实现完成，Unity 总验收待许可证连接恢复，实施结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)
 >
 > 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
-阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)，阶段五结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)，阶段六结果见 [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)。
+阶段零至阶段七的审计基线、边界决策、序列化处理和验收结果统一见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 ## 1. 目标
 
@@ -26,19 +26,20 @@
 
 这次迁移不以程序集数量越多越好。不会为每个 `Algorithms`、`Components` 或 `Systems` 小目录单独创建程序集，也不会为了通过编译把所有类型改成 `public`。
 
-## 2. 当前基线
+## 2. 完成状态
 
-当前仓库具有以下特点：
+当前仓库已经达到以下状态：
 
-- 当前有 269 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking、Presentation 和 Legacy Benchmark 已迁入独立程序集
-- `Assets/Scripts` 当前有九个 `.asmdef` 和八个 `.asmref`，DOTween Modules 另有一个第三方兼容 asmdef
-- 现有 `.asmdef` 来自 Unity Physics Sample，不属于项目程序集规划
-- 6 个脚本仍处于全局命名空间，全部位于后续 Editor、Physics 或 Terrain 范围
-- Editor 代码同时依赖 `Editor` 特殊目录和 `#if UNITY_EDITOR`
-- ECS、NetCode、GameObject UI 和 Mono 桥接代码存在较多跨顶层目录引用
-- Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已有统一命名空间与独立编译边界
+- `Assets/Scripts` 有 272 个手写脚本、13 个项目 `.asmdef` 和 9 个项目 `.asmref`
+- 全部脚本具有明确命名空间和程序集归属，全局命名空间脚本为 0
+- 项目业务脚本不再编译到预定义 `Assembly-CSharp`
+- Navigation、Networking 和 Player 均具有独立 Editor-only 程序集
+- Physics 与 Terrain Authoring 统一进入 `AnimarsCatcher.Physics.Authoring`
+- 全部项目 asmdef 关闭 `Auto Referenced`
+- 现有 asmref 均用于长期多目录归属，不是迁移期循环依赖补丁
+- 直接双向依赖、边界违规和迁移审计 Warning 均为 0
 
-自定义程序集不能依赖仍位于预定义 `Assembly-CSharp` 中的类型。因此迁移必须从依赖最少的底层模块开始，不能先把高层 UI、Networking 或 Gameplay System 单独移入 asmdef。
+最终程序集清单、实际依赖图和外部 Sample 边界见阶段七实施文档。
 
 ## 3. 目标依赖方向
 
@@ -292,7 +293,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段二：提取 Core 与 Contracts
 
-状态：已完成，实施范围和验证结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -309,7 +310,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段三：Gameplay 迁移
 
-状态：已完成，实施范围和验证结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -326,7 +327,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段四：Player 与 Networking 迁移
 
-状态：已完成，实施范围和验证结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -343,7 +344,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段五：Presentation 迁移
 
-状态：已完成，实施范围和验证结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -358,7 +359,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段六：Legacy Benchmark 隔离
 
-状态：已完成，实施范围和验证结果见 [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -373,6 +374,8 @@ AnimarsCatcher.Navigation
 
 ### 阶段七：收紧依赖
 
+状态：实现完成，Unity 总验收待许可证连接恢复，实施范围和当前验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+
 所有业务脚本离开 `Assembly-CSharp` 后：
 
 - 关闭不必要的 `Auto Referenced`
@@ -380,6 +383,15 @@ AnimarsCatcher.Navigation
 - 删除未使用程序集引用
 - 为 Runtime、Editor 和 Tests 建立最终边界
 - 把程序集依赖图加入架构文档
+
+实际结果：
+
+- 剩余 Editor、Physics 和 Terrain 脚本已完成迁移
+- Navigation 与 Networking 的 Runtime/Editor 混编已拆分
+- 13 个项目 asmdef 已关闭 `Auto Referenced`
+- 9 个 asmref 经复核后作为长期物理目录聚合保留
+- Presentation 未使用的 Transport 直接引用已删除
+- 最终程序集依赖图和总验收入口已经加入项目
 
 ## 7. 每阶段验收标准
 
@@ -452,4 +464,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking、Presentation 和 Legacy Benchmark 已完成迁移。下一项实际任务是阶段七最终依赖收紧，处理剩余 Editor、Physics 和 Terrain 脚本，复核 Auto Referenced、asmref、Runtime/Editor 边界和未使用引用。
+程序集迁移阶段零至阶段七已经完成实现。恢复 Unity 许可证连接后需补跑阶段七总入口、Client 和 Dedicated Server 构建；后续结构工作转向独立 Tests 程序集和持续构建门禁，不再以继续细拆业务程序集为目标。

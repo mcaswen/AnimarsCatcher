@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，12 至 18 记录阶段零至阶段六的实施结果。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，19 合并记录阶段零至最终收紧的实施与验收结果。Grid 烘焙、端点投影和普通 A* 路径服务已经实现，HPA*、阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 269 个自有业务脚本。Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking、Presentation 和 Legacy Benchmark 已进入 9 个自定义程序集，只剩少量 Editor、Physics 和 Terrain 代码仍编译到 `Assembly-CSharp`。
+仓库中目前有 272 个 `Assets/Scripts` 手写脚本，全部进入 13 个项目自定义程序集。项目业务代码不再编译到 `Assembly-CSharp`，13 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 
@@ -36,13 +36,7 @@
 9. [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)：查看 Legacy 基线、后端互斥、命令回放和对比指标
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
-12. [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)：查看脚本归属、命名空间覆盖、候选循环依赖和 Navigation 试点结论
-13. [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)：查看 asmdef 配置、序列化迁移、审计门禁和 Editor、Player 验证结果
-14. [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)：查看通用 FSM 数据、共享玩法契约、依赖收敛和真实场景构建结果
-15. [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)：查看六个玩法领域的合并边界、asmref 组织、反向依赖清理和 Player 验证结果
-16. [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)：查看输入预测、连接生命周期、网络表现桥接、NetCode 生成和 Client、Server 构建结果
-17. [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)：查看 Mono UI、ECS UI、音频、LAN、HUD 和桥接层的统一编译边界
-18. [Legacy Benchmark 程序集迁移](18_AssemblyMigrationPhaseSixLegacyBenchmark.md)：查看旧 NavMesh、FSM、阵型、资源搬运和物理移动基线的隔离结果
+12. [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
 
 ## 3. 总体运行架构
 
@@ -86,7 +80,7 @@ flowchart LR
 - **通信方式按用途选择**：`InputCommand` 传递逐 Tick 的预测输入，RPC 处理一次性请求，Ghost 持续同步状态
 - **配置先经过烘焙**：Authoring 和 Baker 把 Scene 或 Prefab 中的配置转换为运行时 Entity 数据与 Prefab 注册表
 - **视图只消费状态**：Hybrid View 读取 ECS 状态并生成 GameObject 表现，不直接持有服务器权威业务状态
-- **模块隔离正在渐进落地**：Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking、Presentation 和 Legacy Benchmark 已有 asmdef 编译边界，剩余 Editor、Physics 和 Terrain 代码仍在最终收紧范围
+- **模块隔离已经形成编译门禁**：全部项目业务脚本进入明确 asmdef，Runtime、Editor、Authoring 和 Benchmark 边界使用显式单向引用
 
 ## 5. 当前构建入口
 
