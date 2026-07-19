@@ -15,19 +15,11 @@ namespace AnimarsCatcher.Player
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MovementClickInputSystem : ISystem
     {
-        /// <summary>
-        /// 等待点击请求单例完成烘焙
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MovementClickRequest>();
         }
 
-        /// <summary>
-        /// 在左键按下的服务器 Tick 记录屏幕坐标并递增请求版本
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

@@ -21,10 +21,6 @@ namespace AnimarsCatcher.Networking
     [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerGoInGameDebugSystem : ISystem
     {
-        /// <summary>
-        /// 仅在编辑器中声明角色 Prefab 和出生点依赖
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
     #if UNITY_EDITOR
@@ -35,10 +31,6 @@ namespace AnimarsCatcher.Networking
     #endif
         }
 
-        /// <summary>
-        /// 消费调试请求并由服务器创建角色及所有权关系
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
 

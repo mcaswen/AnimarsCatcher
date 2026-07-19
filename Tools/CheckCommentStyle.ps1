@@ -549,6 +549,22 @@ function Read-CSharpFile {
                 Add-Violation $relativePath ($lineIndex + 1) "xml-summary-layout" "summary tags must be on separate lines"
             }
 
+            if ($line -match '^\s*///\s*<summary>\s*$') {
+                $declaration = Get-XmlOwnerDeclaration -Lines $lines -SummaryLineIndex $lineIndex
+                $templateCallbackPattern =
+                    '^(?:(?:public|private|protected|internal|static|virtual|override|sealed|new|async)\s+)*' +
+                    '(?:void|bool)\s+' +
+                    '(?:Bake|OnCreate|OnUpdate|OnDestroy|Awake|Start|Update|LateUpdate|FixedUpdate|' +
+                    'OnEnable|OnDisable|OnInspectorGUI|OnPreprocessBuild)\s*\('
+                if ($declaration -match $templateCallbackPattern) {
+                    Add-Violation `
+                        $relativePath `
+                        ($lineIndex + 1) `
+                        "xml-template-callback" `
+                        "framework callbacks must explain complex constraints with inline // comments"
+                }
+            }
+
             if ($implementationSummaryLines.ContainsKey($lineIndex)) {
                 Add-Violation $relativePath ($lineIndex + 1) "xml-implementation-summary" "private implementation must use // comments"
             }

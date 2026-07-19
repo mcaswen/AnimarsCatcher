@@ -14,10 +14,6 @@ namespace AnimarsCatcher.Gameplay
         /// </summary>
         public class Baker : Baker<GameResultRegistry>
         {
-            /// <summary>
-            /// 创建供服务器胜负系统查询的对局结果组件
-            /// </summary>
-            /// <param name="authoring">对局结果注册组件</param>
             public override void Bake(GameResultRegistry authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.None);

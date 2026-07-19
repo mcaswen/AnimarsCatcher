@@ -14,20 +14,12 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ServerBaseDefeatSystem : ISystem
     {
-        /// <summary>
-        /// 等待服务器存在对局结果实体后再进行胜负判断
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GameResult>();
         }
 
-        /// <summary>
-        /// 首次发现大基地生命值耗尽时锁定结果并广播 RPC
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

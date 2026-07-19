@@ -20,10 +20,6 @@ namespace AnimarsCatcher.Player
     [BurstCompile]
     public partial struct OrbitCameraLateUpdateSystem : ISystem
     {
-        /// <summary>
-        /// 声明遮挡检测所需的物理世界和相机组件
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -31,10 +27,6 @@ namespace AnimarsCatcher.Player
             state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
         }
 
-        /// <summary>
-        /// 调度相机遮挡检测和最终姿态写回任务
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

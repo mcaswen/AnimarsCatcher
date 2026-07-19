@@ -20,7 +20,6 @@ namespace AnimarsCatcher.Mono.UI
         [Header("Feedback")]
         [SerializeField] private FloatingMessageView _messageText;
 
-        // 初始化面板反馈并绑定主菜单按钮
         private void Awake()
         {
             if (_mainMenuPanel != null)

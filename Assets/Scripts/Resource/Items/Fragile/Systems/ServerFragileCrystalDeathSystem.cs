@@ -15,9 +15,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ServerFragileCrystalDeathSystem : ISystem
     {
-        /// <summary>
-        /// 仅在场景存在可破坏水晶时启用系统
-        /// </summary>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -28,9 +25,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 将生命值耗尽的水晶替换为散落资源实体
-        /// </summary>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

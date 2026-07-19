@@ -13,10 +13,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
     /// </summary>
     public sealed class NavigationGridBaker : Baker<NavigationGridAuthoring>
     {
-        /// <summary>
-        /// 创建共享 Blob 并附加到 Authoring 对应实体
-        /// </summary>
-        /// <param name="authoring">Grid 烘焙配置</param>
         public override void Bake(NavigationGridAuthoring authoring)
         {
             // Baker 只消费已经持久化并通过新鲜度校验的资产

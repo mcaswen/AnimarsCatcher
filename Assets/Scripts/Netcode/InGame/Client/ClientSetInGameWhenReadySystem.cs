@@ -20,10 +20,6 @@ namespace AnimarsCatcher.Networking
         private double _sceneReadyTime;   // 首次资源完整的时间戳
 
 
-        /// <summary>
-        /// 声明连接、Ghost 集合和开局状态依赖
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
             // 三项依赖同时存在才能进入正式游戏握手
@@ -36,10 +32,6 @@ namespace AnimarsCatcher.Networking
             _sceneReadyTime  = 0.0;
         }
 
-        /// <summary>
-        /// 确认 Ghost 集合稳定后通知服务器并启用本地输入流
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             if (_hasSent)

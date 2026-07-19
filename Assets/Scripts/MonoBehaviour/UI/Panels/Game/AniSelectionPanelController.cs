@@ -42,7 +42,6 @@ namespace AnimarsCatcher.Mono.UI
         [FormerlySerializedAs("_panelAnimDuration")]
         [SerializeField] private float _panelAnimationDuration = 0.25f;
 
-        // 绑定按钮事件并建立面板初始状态
         private void Awake()
         {
             SelectionPanel?.SetActive(false);
@@ -87,7 +86,6 @@ namespace AnimarsCatcher.Mono.UI
             });
         }
 
-        // 持续刷新按钮可用状态和选择数量显示
         private void Update()
         {
             if (Input.GetKeyDown(KeyCode.E))

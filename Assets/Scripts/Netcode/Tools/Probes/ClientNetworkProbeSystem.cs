@@ -14,10 +14,6 @@ namespace AnimarsCatcher.Networking
     {
         private double _nextLogTime;
 
-        /// <summary>
-        /// 每秒采样连接、NetworkId 和 InGame 状态
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;

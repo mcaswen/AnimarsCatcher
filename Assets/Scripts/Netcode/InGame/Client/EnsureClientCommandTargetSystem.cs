@@ -17,10 +17,6 @@ namespace AnimarsCatcher.Networking
         private bool _cameraIsBinded;
         private bool _characterIsBinded;
 
-        /// <summary>
-        /// 按 GhostOwner 匹配本地角色并建立 CommandTarget
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var connection))

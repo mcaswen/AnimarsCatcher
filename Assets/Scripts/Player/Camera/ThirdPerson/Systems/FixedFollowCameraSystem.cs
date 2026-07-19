@@ -19,10 +19,6 @@ namespace AnimarsCatcher.Player
     [BurstCompile]
     public partial struct FixedFollowCameraSystem : ISystem
     {
-        /// <summary>
-        /// 声明固定相机运行所需的组件查询
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -32,10 +28,6 @@ namespace AnimarsCatcher.Player
                     .Build());
         }
 
-        /// <summary>
-        /// 根据预测角色姿态更新固定相机的位置和朝向
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

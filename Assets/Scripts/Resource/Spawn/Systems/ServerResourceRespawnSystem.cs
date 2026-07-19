@@ -17,9 +17,6 @@ namespace AnimarsCatcher.Gameplay
         // 限制全局生成预算以避免单帧实例化峰值
         private const int MaxSpawnsPerFrame = 2;
 
-        /// <summary>
-        /// 仅在场景存在资源刷新区域时启用系统
-        /// </summary>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate(
@@ -28,9 +25,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 推进区域计时器并在预算内补足两类资源
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;

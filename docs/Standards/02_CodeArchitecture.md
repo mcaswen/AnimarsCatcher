@@ -71,6 +71,8 @@
 12. 注释应放在算法阶段、非直观公式和关键分支之前，解释“为什么成立”和“修改时不能破坏什么”，不逐行复述循环、赋值和条件判断。
 13. 算法参考论文、文章或开源实现时，应记录可长期访问的来源，并说明项目内的关键改动和适用边界；禁止复制大段原文充当注释。
 14. 修改算法模型、数据含义或边界策略时，必须同步更新相关注释、测试和架构文档，过时注释按缺陷处理。
+15. `Baker.Bake`、`ISystem.OnCreate`、`ISystem.OnUpdate`、`ISystem.OnDestroy`、MonoBehaviour 生命周期函数、Editor 回调以及简单的接口实现或重写方法属于框架模板入口；当方法职责和实现都直接明确时，不要求添加 XML 文档或普通注释，也不为重复说明模板职责而补注释。
+16. 模板入口包含复杂生命周期、System 排序、World 边界、资源所有权、异步状态、失败回滚或其他非直观副作用时，只在相关阶段和关键分支前使用中文注释解释约束；方法级说明仅在入口本身形成公共契约且无法从类型和签名直接理解时添加。
 
 正确格式：
 
@@ -97,7 +99,7 @@ public PlayerResourceState GetPlayerResource()
 7. 禁止通过重复描述代码、堆积分隔线、保留废弃代码或生成无意义注释提高比例。
 8. 注释率是最低质量门槛，不替代 Code Review。即使达到比例，无效或过时注释仍必须修改。
 9. 数据结构可能低于推荐值，协议、状态机、复杂系统和生命周期代码应高于推荐值，以整体达到目标。
-10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾、Inspector 提示、顶层公共类型 XML 文档和被注释掉的旧代码。
+10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾、Inspector 提示、顶层公共类型 XML 文档、模板回调 XML 文档和被注释掉的旧代码。
 
 ### 4.3 文件格式
 

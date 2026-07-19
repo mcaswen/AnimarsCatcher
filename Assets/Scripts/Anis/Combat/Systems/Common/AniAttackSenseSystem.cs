@@ -20,10 +20,6 @@ namespace AnimarsCatcher.Gameplay
         private EntityQuery _resourceQuery;
         private EntityQuery _baseQuery;
 
-        /// <summary>
-        /// 建立三类候选目标查询并等待至少一个可攻击 Ani
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -50,10 +46,6 @@ namespace AnimarsCatcher.Gameplay
                 .Build();
         }
 
-        /// <summary>
-        /// 为每个 Ani 计算范围内的最高优先级最近目标并更新目标组件
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

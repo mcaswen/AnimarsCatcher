@@ -23,10 +23,6 @@ namespace AnimarsCatcher.Gameplay
     {
         private ComponentLookup<Health> _healthLookup;
 
-        /// <summary>
-        /// 缓存生命值查询并仅在存在攻击目标时运行
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -39,10 +35,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 清除目标和待结算快照，并允许攻击者下一帧立即重新感知
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

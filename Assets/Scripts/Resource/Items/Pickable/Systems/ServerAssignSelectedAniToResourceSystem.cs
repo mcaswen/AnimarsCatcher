@@ -15,9 +15,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ServerAssignSelectedAniToResourceSystem : ISystem
     {
-        /// <summary>
-        /// 仅在存在待处理资源拾取请求时启用系统
-        /// </summary>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -28,9 +25,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 选择符合所有权和状态条件的 Ani 并创建搬运任务
-        /// </summary>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

@@ -13,10 +13,6 @@ using Unity.Collections;
 [BurstCompile]
 public partial struct AniPhysicsProbeSystem : ISystem
 {
-    /// <summary>
-    /// 等待物理世界和带探测配置的 Ani 实体可用
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -27,10 +23,6 @@ public partial struct AniPhysicsProbeSystem : ISystem
                 .Build());
     }
 
-    /// <summary>
-    /// 分别沿世界下方和实体前方发射射线并保存最近命中结果
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

@@ -41,7 +41,6 @@ public class HostRoomPanelController : MonoBehaviour
     private UnityAction<GameRoomCreatedEventData> _onCreateRoomHandler;
 
 
-    // 建立房间面板初始状态并绑定按钮命令
     private void Awake()
     {
         _hostRoomPanel?.SetActive(false);

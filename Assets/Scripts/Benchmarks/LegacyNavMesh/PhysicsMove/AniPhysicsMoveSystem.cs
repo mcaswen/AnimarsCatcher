@@ -19,10 +19,6 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
     private ComponentLookup<AniPhysicsConfig> _physicsConfigLookup;
 
-    /// <summary>
-    /// 缓存 Ani 物理配置查询并等待物理世界和移动实体可用
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
@@ -35,10 +31,6 @@ public partial struct AniPhysicsMoveSystem : ISystem
         _physicsConfigLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
-    /// <summary>
-    /// 计算群体分离、截断障碍穿透并平滑更新服务器权威变换
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

@@ -16,9 +16,6 @@ public partial struct ServerNavMeshPlannerSystem : ISystem
     private BufferLookup<FsmVar> _blackboardLookup;
     private BufferTypeHandle<NavWaypoint> _waypointBufferHandle;
 
-    /// <summary>
-    /// 创建查询并缓存路径规划所需的 Lookup 和类型句柄
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(SystemAPI.QueryBuilder()
@@ -29,9 +26,6 @@ public partial struct ServerNavMeshPlannerSystem : ISystem
         _waypointBufferHandle = state.GetBufferTypeHandle<NavWaypoint>();
     }
 
-    /// <summary>
-    /// 处理版本发生变化的导航请求并发布首个转向目标
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);

@@ -20,20 +20,12 @@ namespace AnimarsCatcher.Player
     [BurstCompile]
     public partial struct OrbitCameraSimulationSystem : ISystem
     {
-        /// <summary>
-        /// 声明环绕相机模拟所需的组件查询
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<OrbitCamera, OrbitCameraControl>().Build());
         }
 
-        /// <summary>
-        /// 调度相机输入和目标姿态计算任务
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

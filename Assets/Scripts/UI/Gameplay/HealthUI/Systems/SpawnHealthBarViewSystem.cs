@@ -17,9 +17,6 @@ public partial struct SpawnHealthBarViewSystem : ISystem
 {
     private static HealthHUDBootstrap s_GameHUDRoot;
 
-    /// <summary>
-    /// 仅在存在生命值和血条配置实体时启用系统
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
@@ -28,9 +25,6 @@ public partial struct SpawnHealthBarViewSystem : ISystem
                 .Build());
     }
 
-    /// <summary>
-    /// 延迟查找 HUD 根节点并创建缺失的血条视图
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         // 场景切换后延迟查找当前活动 HUD 根节点

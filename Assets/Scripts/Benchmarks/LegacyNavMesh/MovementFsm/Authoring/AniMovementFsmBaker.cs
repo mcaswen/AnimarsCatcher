@@ -9,10 +9,6 @@ using Unity.VisualScripting;
 /// </summary>
 public class AniMovementFsmBaker : Baker<AniMovementFsmAuthoring>
 {
-    /// <summary>
-    /// 创建旧移动状态图 黑板和初始移动意图
-    /// </summary>
-    /// <param name="authoring">旧移动状态机配置</param>
     public override void Bake(AniMovementFsmAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);

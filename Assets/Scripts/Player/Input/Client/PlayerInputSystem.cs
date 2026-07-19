@@ -21,18 +21,12 @@ namespace AnimarsCatcher.Player
     {
         private const float RightMouseLongPressThreshold = 0.35f;
 
-        /// <summary>
-        /// 声明固定 Tick 和玩家控制组件依赖
-        /// </summary>
         protected override void OnCreate()
         {
             RequireForUpdate<FixedTickSystem.Singleton>();
             RequireForUpdate(SystemAPI.QueryBuilder().WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
         }
 
-        /// <summary>
-        /// 采集当前设备状态并写入本地玩家输入组件
-        /// </summary>
         protected override void OnUpdate()
         {
             // UI 输入锁采用引用计数，任一面板占用时都不能向玩法层传递输入

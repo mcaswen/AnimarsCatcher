@@ -17,9 +17,6 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
 {
     private NativeParallelHashMap<int, Entity> _ghostIdToEntity;
 
-    /// <summary>
-    /// 创建持久 GhostId 索引并等待 Ani Ghost 可用
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         _ghostIdToEntity = new NativeParallelHashMap<int, Entity>(200, Allocator.Persistent);
@@ -28,17 +25,11 @@ public partial struct ServerApplyAniSelectionRpcSystem : ISystem
             .WithAll<AniAttributes, GhostInstance, GhostOwner>().Build());
     }
 
-    /// <summary>
-    /// 释放持久 GhostId 索引
-    /// </summary>
     public void OnDestroy(ref SystemState state)
     {
         if (_ghostIdToEntity.IsCreated) _ghostIdToEntity.Dispose();
     }
 
-    /// <summary>
-    /// 重建 GhostId 映射并消费全部选择 RPC
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         // 每帧重建映射以覆盖 Ghost 生成和销毁变化

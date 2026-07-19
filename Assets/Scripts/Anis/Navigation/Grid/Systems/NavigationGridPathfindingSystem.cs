@@ -42,10 +42,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         private int _scratchCellCount;
         private int _nextGeneration;
 
-        /// <summary>
-        /// 创建 Grid 和路径请求查询
-        /// </summary>
-        /// <param name="state">当前 System 状态</param>
         public void OnCreate(ref SystemState state)
         {
             _gridQuery = state.GetEntityQuery(
@@ -57,10 +53,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _nextGeneration = 1;
         }
 
-        /// <summary>
-        /// 完成已结束批次并在空闲时调度下一批请求
-        /// </summary>
-        /// <param name="state">当前 System 状态</param>
         public void OnUpdate(ref SystemState state)
         {
             if (_activeJobScheduled)
@@ -112,10 +104,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             SchedulePendingRequests(ref state, gridReference.Value);
         }
 
-        /// <summary>
-        /// 完成活动任务并释放所有持久 NativeContainer
-        /// </summary>
-        /// <param name="state">当前 System 状态</param>
         public void OnDestroy(ref SystemState state)
         {
             if (_activeJobScheduled)

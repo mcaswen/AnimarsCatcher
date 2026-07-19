@@ -17,10 +17,6 @@ public struct AniMovementRegistryInitialized : IComponentData {}
 [UpdateBefore(typeof(FsmEvaluateSystem))]
 public partial struct AniMovementFsmRegistrySystem : ISystem
 {
-    /// <summary>
-    /// 注册旧移动状态机函数并阻止重复初始化
-    /// </summary>
-    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         if (SystemAPI.HasSingleton<AniMovementRegistryInitialized>())
@@ -65,9 +61,5 @@ public partial struct AniMovementFsmRegistrySystem : ISystem
         state.Enabled = false; // 注册完毕后关闭系统
     }
 
-    /// <summary>
-    /// 注册完成后不再执行逐帧逻辑
-    /// </summary>
-    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state) {}
 }

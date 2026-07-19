@@ -16,10 +16,6 @@ namespace AnimarsCatcher.Gameplay
     {
         private ComponentLookup<LocalTransform> _transformLookup;
 
-        /// <summary>
-        /// 缓存目标变换查询并等待存在有效攻击目标的 Ani
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -32,10 +28,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 忽略高度差并按每秒最大转角平滑旋转到目标方向
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

@@ -22,10 +22,6 @@ namespace AnimarsCatcher.Gameplay
         private ComponentLookup<Camp>             _campLookup;
         private ComponentLookup<MeleeAttackableTag> _meleeAttackableLookup;
 
-        /// <summary>
-        /// 创建持久化 GhostId 映射并缓存结算所需组件查询
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -40,10 +36,6 @@ namespace AnimarsCatcher.Gameplay
             state.RequireForUpdate<GhostInstance>();
         }
 
-        /// <summary>
-        /// 释放跨帧持有的 GhostId 映射容器
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnDestroy(ref SystemState state)
         {
@@ -51,10 +43,6 @@ namespace AnimarsCatcher.Gameplay
                 _ghostIdToEntity.Dispose();
         }
 
-        /// <summary>
-        /// 消费近战 RPC，并以服务器开火快照为准完成一次性伤害结算
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

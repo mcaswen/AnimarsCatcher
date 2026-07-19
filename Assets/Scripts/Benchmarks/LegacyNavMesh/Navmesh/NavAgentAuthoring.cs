@@ -19,10 +19,6 @@ public class NavAgentAuthoring : MonoBehaviour
 /// </summary>
 public class NavAgentBaker : Baker<NavAgentAuthoring>
 {
-    /// <summary>
-    /// 创建导航状态 转向状态和路径点缓冲区
-    /// </summary>
-    /// <param name="authoring">场景中的导航代理配置</param>
     public override void Bake(NavAgentAuthoring authoring)
     {
         var entity = GetEntity(TransformUsageFlags.Dynamic);

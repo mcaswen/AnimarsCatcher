@@ -40,7 +40,6 @@ namespace AnimarsCatcher.Mono.Audio
             DontDestroyOnLoad(this);
         }
         
-        // 绑定音量滑杆并写入默认混音参数
         private void Start()
         {
             _uiAudioSource = GetComponent<AudioSource>();

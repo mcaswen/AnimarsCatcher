@@ -15,17 +15,11 @@ using Unity.NetCode;
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial struct AniSelectionRingSyncSystem : ISystem
 {
-    /// <summary>
-    /// 等待光圈预制体配置完成烘焙
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<SelectionRingPrefabConfig>();
     }
 
-    /// <summary>
-    /// 根据 AniSelectedTag 的启用状态同步光圈实体
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var config = SystemAPI.GetSingleton<SelectionRingPrefabConfig>();

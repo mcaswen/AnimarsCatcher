@@ -57,7 +57,6 @@ public class ClientRoomPanelController : MonoBehaviour
 
     private UnityAction<JoinGameRoomRequestEventData> _onJoinRoomRequestedHandler;
 
-    // 建立初始 UI 状态并绑定返回按钮
     private void Awake()
     {
         if (_clientRoomPanel != null)

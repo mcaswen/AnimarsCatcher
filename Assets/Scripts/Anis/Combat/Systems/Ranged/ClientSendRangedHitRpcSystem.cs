@@ -14,20 +14,12 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ClientSendRangedHitRpcSystem : ISystem
     {
-        /// <summary>
-        /// 等待客户端进入游戏网络流后再发送射线结果
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NetworkStreamInGame>();
         }
 
-        /// <summary>
-        /// 将本地实体映射为 GhostId 并发送候选命中给服务器
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var entityManager = state.EntityManager;

@@ -15,18 +15,12 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ServerPlayerResourceInitializationSystem : ISystem
     {
-        /// <summary>
-        /// 等待连接标识和资源 Ghost 预制体注册完成
-        /// </summary>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NetworkId>();
             state.RequireForUpdate<PlayerResourceGhostPrefab>();
         }
 
-        /// <summary>
-        /// 为缺少资源实体的连接补建并设置 GhostOwner
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

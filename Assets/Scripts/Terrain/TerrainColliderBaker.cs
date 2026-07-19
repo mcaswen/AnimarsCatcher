@@ -12,10 +12,6 @@ using TerrainCollider = Unity.Physics.TerrainCollider;
 /// </summary>
 public class TerrainColliderBaker : Baker<TerrainColliderAuthoring>
 {
-    /// <summary>
-    /// 读取高度图 物理过滤器和材质并创建 Blob 碰撞体
-    /// </summary>
-    /// <param name="authoring">地形碰撞烘焙配置</param>
     public override void Bake(TerrainColliderAuthoring authoring)
     {
         if (authoring.terrain == null)

@@ -20,9 +20,6 @@ namespace AnimarsCatcher.Gameplay
     {
         private Entity _hubEntity;
 
-        /// <summary>
-        /// 确保事件 Hub 存在并消费全部资源变化 RPC
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             var entityManager = state.EntityManager;

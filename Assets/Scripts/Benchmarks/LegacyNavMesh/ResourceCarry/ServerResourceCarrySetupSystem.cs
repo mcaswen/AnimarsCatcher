@@ -27,9 +27,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     {
         private ComponentLookup<AniNavFindArrivalTracker> _arrivalTrackerLookup;
 
-        /// <summary>
-        /// 建立查询并缓存到达状态 Lookup
-        /// </summary>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -42,9 +39,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             _arrivalTrackerLookup = state.GetComponentLookup<AniNavFindArrivalTracker>(isReadOnly: false);
         }
 
-        /// <summary>
-        /// 分配站位 规划路径并累计已到位 Ani 数量
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             _arrivalTrackerLookup.Update(ref state);

@@ -18,20 +18,12 @@ namespace AnimarsCatcher.Gameplay
     [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerSpawnAnisSystem : ISystem
     {
-        /// <summary>
-        /// 等待 Ghost 预制体注册表和场景出生点准备完成
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<AniGhostPrefabCollection>();
             state.RequireForUpdate<AniSpawnPointTag>();
         }
 
-        /// <summary>
-        /// 消费全部生成请求并为每个连接写入阵营和 GhostOwner
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

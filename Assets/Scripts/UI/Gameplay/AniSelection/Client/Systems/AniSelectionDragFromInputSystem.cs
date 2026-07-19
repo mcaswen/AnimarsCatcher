@@ -11,18 +11,12 @@ using AnimarsCatcher.Player;
 [UpdateAfter(typeof(PlayerInputSystem))]
 public partial struct AniSelectionDragFromInputSystem : ISystem
 {
-    /// <summary>
-    /// 等待输入和框选状态单例可用
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<AniSelectionDragState>();
         state.RequireForUpdate(SystemAPI.QueryBuilder().WithAll<PlayerInput>().Build());
     }
 
-    /// <summary>
-    /// 检测按下 持续和释放三个拖拽阶段
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var drag = SystemAPI.GetSingletonRW<AniSelectionDragState>();

@@ -13,9 +13,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct MatchTimeUpdateSystem : ISystem
     {
-        /// <summary>
-        /// 等待全局资源单例和网络时间可用
-        /// </summary>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GlobalGameResourceTag>();
@@ -23,9 +20,6 @@ namespace AnimarsCatcher.Gameplay
             state.RequireForUpdate<NetworkTime>();
         }
 
-        /// <summary>
-        /// 仅在秒数变化时写入 Ghost 状态
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             // 使用服务端世界时间作为所有客户端一致的计时来源

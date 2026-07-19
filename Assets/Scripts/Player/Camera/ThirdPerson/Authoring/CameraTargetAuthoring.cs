@@ -18,10 +18,6 @@ namespace AnimarsCatcher.Player
         /// </summary>
         public class Baker : Baker<CameraTargetAuthoring>
         {
-            /// <summary>
-            /// 烘焙相机目标组件
-            /// </summary>
-            /// <param name="authoring">相机目标 Authoring 配置</param>
             public override void Bake(CameraTargetAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);

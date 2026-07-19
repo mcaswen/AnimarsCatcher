@@ -36,10 +36,6 @@ namespace AnimarsCatcher.Player
         /// </summary>
         public class Baker : Baker<ThirdPersonCharacterAuthoring>
         {
-            /// <summary>
-            /// 烘焙 KCC 配置、控制组件和网络输入缓冲
-            /// </summary>
-            /// <param name="authoring">第三人称角色 Authoring 配置</param>
             public override void Bake(ThirdPersonCharacterAuthoring authoring)
             {
                 KinematicCharacterUtilities.BakeCharacter(this, authoring.gameObject, authoring.CharacterProperties);

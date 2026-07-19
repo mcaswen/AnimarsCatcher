@@ -46,10 +46,6 @@ namespace AnimarsCatcher.Player
         /// </summary>
         public class Baker : Baker<OrbitCameraAuthoring>
         {
-            /// <summary>
-            /// 创建环绕相机运行时组件和忽略实体缓冲区
-            /// </summary>
-            /// <param name="authoring">环绕相机 Authoring 配置</param>
             public override void Bake(OrbitCameraAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic | TransformUsageFlags.WorldSpace);

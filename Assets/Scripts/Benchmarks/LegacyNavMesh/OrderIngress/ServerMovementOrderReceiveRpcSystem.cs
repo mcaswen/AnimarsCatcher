@@ -22,30 +22,18 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
     // 每帧重建 GhostId 到服务器权威 Ani 实体的映射
     private NativeParallelHashMap<int, Entity> _aniByGhostId;
 
-    /// <summary>
-    /// 创建持久化 GhostId 映射并缓存黑板查询
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
         _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
     }
 
-    /// <summary>
-    /// 释放跨帧持有的原生映射容器
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     public void OnDestroy(ref SystemState state)
     {
         if (_aniByGhostId.IsCreated)
             _aniByGhostId.Dispose();
     }
 
-    /// <summary>
-    /// 消费移动命令、拒绝越权选择并转换为服务器行为状态
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

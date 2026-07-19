@@ -14,10 +14,6 @@ namespace AnimarsCatcher.Gameplay
         /// </summary>
         public class Baker : Baker<AniAttackAuthoring>
         {
-            /// <summary>
-            /// 烘焙无目标、可立即攻击的初始状态
-            /// </summary>
-            /// <param name="authoring">Ani 攻击创作组件</param>
             public override void Bake(AniAttackAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);

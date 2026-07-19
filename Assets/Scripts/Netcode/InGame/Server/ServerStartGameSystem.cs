@@ -16,10 +16,6 @@ namespace AnimarsCatcher.Networking
     [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerStartGameSystem : ISystem
     {
-        /// <summary>
-        /// 创建唯一的服务器开局状态单例
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
             // 状态单例可能由场景烘焙或热重载保留，创建前必须去重
@@ -41,10 +37,6 @@ namespace AnimarsCatcher.Networking
             state.RequireForUpdate<ServerMatchStartState>();
         }
 
-        /// <summary>
-        /// 消费 StartGameRpc 并向当前所有连接广播开局通知
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

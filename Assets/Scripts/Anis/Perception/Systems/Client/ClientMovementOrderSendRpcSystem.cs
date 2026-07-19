@@ -14,10 +14,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ClientMovementOrderSendRpcSystem : ISystem
     {
-        /// <summary>
-        /// 等待点击状态和网络连接完成初始化
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MovementClickResult>();
@@ -25,10 +21,6 @@ namespace AnimarsCatcher.Gameplay
             state.RequireForUpdate<NetworkStreamInGame>();
         }
 
-        /// <summary>
-        /// 对每个点击版本只发送一次属于本地连接的 Ani GhostId 快照
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

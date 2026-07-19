@@ -18,9 +18,6 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
     private ComponentLookup<PickerAniTag> _pickerLookup;
     private ComponentLookup<BlasterAniTag> _blasterLookup;
 
-    /// <summary>
-    /// 缓存 Ani 类型 Lookup 并等待客户端进入游戏
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         _pickerLookup = state.GetComponentLookup<PickerAniTag>(true);
@@ -31,9 +28,6 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         state.RequireForUpdate<AniSelectionModeSingleton>();
     }
 
-    /// <summary>
-    /// 消费拖拽释放事件并发送选中的 GhostId 列表
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         _pickerLookup.Update(ref state);

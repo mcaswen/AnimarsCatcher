@@ -16,7 +16,6 @@ public class DebugResourcePanelController : MonoBehaviour
     [Header("Config")]
     [SerializeField] private int _debugAddAmount = 2;
 
-    // 将两个调试按钮绑定到各自的资源请求
     private void Awake()
     {
         _addFoodButton?.onClick.AddListener(OnAddFoodClicked);

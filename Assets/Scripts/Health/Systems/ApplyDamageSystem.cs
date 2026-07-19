@@ -15,10 +15,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ApplyDamageSystem : ISystem
     {
-        /// <summary>
-        /// 仅在同时存在生命值和伤害缓冲区的实体时运行
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -28,10 +24,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 汇总每个缓冲区后立即清空事件，保证每次伤害只结算一次
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

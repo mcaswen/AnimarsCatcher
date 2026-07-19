@@ -43,10 +43,6 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class AniAttributesBaker : Baker<AniAttributesAuthoring>
     {
-        /// <summary>
-        /// 烘焙通用属性、类型标签和可攻击能力
-        /// </summary>
-        /// <param name="authoring">Ani 属性创作组件</param>
         public override void Bake(AniAttributesAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

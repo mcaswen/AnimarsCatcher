@@ -10,18 +10,12 @@ using UnityEngine;
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial struct AniSelectionVisualSystem : ISystem
 {
-    /// <summary>
-    /// 等待拖拽状态和托管 UI 引用可用
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate<AniSelectionDragState>();
         state.RequireForUpdate<AniSelectionUIReference>();
     }
 
-    /// <summary>
-    /// 将屏幕端点转换为 Canvas 局部矩形
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         var drag = SystemAPI.GetSingleton<AniSelectionDragState>();

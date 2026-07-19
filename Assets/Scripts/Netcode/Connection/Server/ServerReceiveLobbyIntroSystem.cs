@@ -13,10 +13,6 @@ namespace AnimarsCatcher.Networking
     [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerReceiveLobbyIntroSystem : ISystem
     {
-        /// <summary>
-        /// 消费大厅介绍 RPC 并销毁对应请求实体
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

@@ -24,10 +24,6 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public class CubeAuthoringBaker : Baker<CubeAuthoring>
     {
-        /// <summary>
-        /// 创建可接收网络输入命令的立方体实体
-        /// </summary>
-        /// <param name="authoring">立方体 Authoring 配置</param>
         public override void Bake(CubeAuthoring authoring)
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);

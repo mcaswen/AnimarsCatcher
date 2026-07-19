@@ -17,10 +17,6 @@ namespace AnimarsCatcher.Networking
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct StartServerListenSystem : ISystem
     {
-        /// <summary>
-        /// 仅执行一次自动监听决策并避免重复监听实体
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
     #if UNITY_EDITOR

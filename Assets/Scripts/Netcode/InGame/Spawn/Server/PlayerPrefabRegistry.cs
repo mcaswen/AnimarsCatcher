@@ -39,10 +39,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public class PlayerPrefabRegistryBaker : Baker<PlayerPrefabRegistry>
     {
-        /// <summary>
-        /// 创建供服务器生成流程读取的 Prefab 单例组件
-        /// </summary>
-        /// <param name="authoring">玩家 Prefab 注册配置</param>
         public override void Bake(PlayerPrefabRegistry authoring)
         {
             var registryEntity = GetEntity(TransformUsageFlags.None);

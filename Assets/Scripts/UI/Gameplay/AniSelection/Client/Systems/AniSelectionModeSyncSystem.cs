@@ -19,9 +19,6 @@ public static class AniSelectionModeSyncContext
 public partial struct AniSelectionModeSyncSystem : ISystem
 {
 
-    /// <summary>
-    /// 创建模式单例并订阅 Mono 层事件
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
@@ -45,9 +42,6 @@ public partial struct AniSelectionModeSyncSystem : ISystem
         entityCommandBuffer.Dispose();
     }
 
-    /// <summary>
-    /// 解除静态事件监听
-    /// </summary>
     public void OnDestroy()
     {
         NetworkUIEventBridge.AniSelectionModeChanged.RemoveListener(OnSelectionModeChanged);
@@ -62,9 +56,6 @@ public partial struct AniSelectionModeSyncSystem : ISystem
         UnityEngine.Debug.Log($"[AniSelectionModeSyncSystem] On SelectionMode Changed: {AniSelectionModeSyncContext.CurrentMode}");
     }
 
-    /// <summary>
-    /// 在 Dirty 状态下更新或补建模式单例
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         if (!AniSelectionModeSyncContext.Dirty)

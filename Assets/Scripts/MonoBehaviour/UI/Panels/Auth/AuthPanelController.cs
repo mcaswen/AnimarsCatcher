@@ -37,7 +37,6 @@ public class AuthPanelController : MonoBehaviour
     [Header("Feedback")]
     [SerializeField] private FloatingMessageView _floatingMessageView;
 
-    // 初始化账号存储并集中绑定认证界面按钮
     private void Awake()
     {
         UserAccountStorage.InitializeIfNeeded();

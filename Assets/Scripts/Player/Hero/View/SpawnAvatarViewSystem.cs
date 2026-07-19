@@ -16,9 +16,6 @@ namespace AnimarsCatcher.Player
     {
         private EntityQuery _spawnQuery;
 
-        /// <summary>
-        /// 查询尚未创建托管表现对象的实体
-        /// </summary>
         protected override void OnCreate()
         {
             _spawnQuery = SystemAPI.QueryBuilder()
@@ -29,9 +26,6 @@ namespace AnimarsCatcher.Player
             RequireForUpdate(_spawnQuery);
         }
 
-        /// <summary>
-        /// 实例化视图并按表现类型绑定对应行为
-        /// </summary>
         protected override void OnUpdate()
         {
             EntityManager entityManager = EntityManager;

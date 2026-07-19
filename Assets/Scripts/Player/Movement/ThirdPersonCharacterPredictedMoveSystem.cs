@@ -25,10 +25,6 @@ namespace AnimarsCatcher.Player
     [UpdateBefore(typeof(KinematicCharacterPhysicsUpdateGroup))]
     public partial struct ThirdPersonCharacterPredictedMoveSystem : ISystem
     {
-        /// <summary>
-        /// 等待预测角色和输入命令缓冲可用
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate(SystemAPI.QueryBuilder()
@@ -36,10 +32,6 @@ namespace AnimarsCatcher.Player
                 .Build());
         }
 
-        /// <summary>
-        /// 读取当前服务器 Tick 对应的命令并更新预测移动向量
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var networkTime = SystemAPI.GetSingleton<NetworkTime>();

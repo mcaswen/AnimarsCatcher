@@ -15,10 +15,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateAfter(typeof(ApplyDamageSystem))]
     public partial struct AniDeathSystem : ISystem
     {
-        /// <summary>
-        /// 等待世界中存在生命值组件后再启用系统
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -28,10 +24,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 销毁普通死亡实体并把基地与资源留给各自的专用系统
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

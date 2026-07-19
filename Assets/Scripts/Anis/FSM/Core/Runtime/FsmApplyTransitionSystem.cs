@@ -16,20 +16,12 @@ namespace AnimarsCatcher.Gameplay
     {
         private BufferLookup<FsmVar> _writableBlackboardLookup;
 
-        /// <summary>
-        /// 缓存可写黑板查询并等待状态机上下文
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             _writableBlackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
             state.RequireForUpdate<FsmContext>();
         }
 
-        /// <summary>
-        /// 一次性消费 Pending 迁移且不执行结构组件变更
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             _writableBlackboardLookup.Update(ref state);

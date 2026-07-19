@@ -18,10 +18,6 @@ namespace AnimarsCatcher.Networking
     [UpdateAfter(typeof(ServerStartGameSystem))] // 在发完 ClientStartGameRpc 之后
     public partial struct ServerSetInGameRpcSystem : ISystem
     {
-        /// <summary>
-        /// 声明开局状态、Ghost 集合、角色 Prefab 和连接依赖
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<ServerMatchStartState>();
@@ -30,10 +26,6 @@ namespace AnimarsCatcher.Networking
             state.RequireForUpdate<NetworkId>();
         }
 
-        /// <summary>
-        /// 消费 SetInGameRpc 并为每个连接创建唯一角色
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var matchStateRW = SystemAPI.GetSingletonRW<ServerMatchStartState>();

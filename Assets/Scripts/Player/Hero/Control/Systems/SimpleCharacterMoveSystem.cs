@@ -16,20 +16,12 @@ namespace AnimarsCatcher.Player
     [UpdateBefore(typeof(TransformSystemGroup))]
     public partial struct SimpleCharacterMoveSystem : ISystem
     {
-        /// <summary>
-        /// 等待网络时间可用后启用预测移动
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NetworkTime>();
         }
 
-        /// <summary>
-        /// 对本预测 Tick 内需要模拟的角色执行碰撞移动
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;

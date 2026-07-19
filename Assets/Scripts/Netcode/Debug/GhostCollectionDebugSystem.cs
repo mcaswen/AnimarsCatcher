@@ -14,19 +14,11 @@ namespace AnimarsCatcher.Networking
     {
         private bool _printed;
 
-        /// <summary>
-        /// 等待 NetCode 完成 Ghost 集合初始化
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GhostCollection>();
         }
 
-        /// <summary>
-        /// 仅输出一次 Ghost 预制体实体及其可用状态
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             if (_printed)

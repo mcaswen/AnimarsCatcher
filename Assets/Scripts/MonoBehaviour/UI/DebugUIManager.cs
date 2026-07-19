@@ -16,7 +16,6 @@ namespace AnimarsCatcher.Mono.UI
         public Button AddCrystalButton;
         public Button AddFoodButton;
 
-        // 在界面初始化时绑定一次按钮事件
         private void Awake()
         {
             AddCrystalButton.onClick.AddListener(() =>

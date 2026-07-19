@@ -22,10 +22,6 @@ namespace AnimarsCatcher.Player
             public uint Tick;
         }
 
-        /// <summary>
-        /// 创建唯一的固定帧计数单例
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnCreate(ref SystemState state)
         {
             if (!SystemAPI.HasSingleton<Singleton>())
@@ -35,10 +31,6 @@ namespace AnimarsCatcher.Player
             }
         }
 
-        /// <summary>
-        /// 在每次固定步长结束时推进计数
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

@@ -21,10 +21,6 @@ namespace AnimarsCatcher.Player
 
         public class Baker : Baker<ThirdPersonPlayerControlAuthoring>
         {
-            /// <summary>
-            /// 烘焙玩家控制实体及其相机引用
-            /// </summary>
-            /// <param name="authoring">玩家控制 Authoring 配置</param>
             public override void Bake(ThirdPersonPlayerControlAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.None);

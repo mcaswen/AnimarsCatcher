@@ -11,20 +11,12 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial struct MovementClickRaycastSystem : ISystem
     {
-        /// <summary>
-        /// 等待点击请求和结果单例完成初始化
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<MovementClickRequest>();
             state.RequireForUpdate<MovementClickResult>();
         }
 
-        /// <summary>
-        /// 按玩家、Ani、基地、资源、地面的顺序解析一次点击
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var context = Object.FindFirstObjectByType<MovementRaycastBootstrap>();

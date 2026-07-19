@@ -23,10 +23,6 @@ namespace AnimarsCatcher.Player
         /// </summary>
         public class Baker : Baker<MainEntityCameraAuthoring>
         {
-            /// <summary>
-            /// 将 Authoring 配置写入实体
-            /// </summary>
-            /// <param name="authoring">主相机 Authoring 配置</param>
             public override void Bake(MainEntityCameraAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);

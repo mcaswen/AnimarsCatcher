@@ -14,9 +14,6 @@ using Unity.NetCode;
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 public partial struct NavFollowIntentSystem : ISystem
 {
-    /// <summary>
-    /// 仅在存在完整导航代理数据时启用系统
-    /// </summary>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(
@@ -25,9 +22,6 @@ public partial struct NavFollowIntentSystem : ISystem
                 .Build());
     }
 
-    /// <summary>
-    /// 计算本帧期望速度并在服务端推进路径状态
-    /// </summary>
     public void OnUpdate(ref SystemState state)
     {
         bool isServer = state.WorldUnmanaged.Flags.HasFlag(WorldFlags.GameServer);

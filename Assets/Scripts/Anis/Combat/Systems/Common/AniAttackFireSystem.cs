@@ -17,10 +17,6 @@ namespace AnimarsCatcher.Gameplay
     {
         private uint _shotCounter;
 
-        /// <summary>
-        /// 等待具有攻击属性和冷却状态的 Ani 实体可用
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -31,10 +27,6 @@ namespace AnimarsCatcher.Gameplay
                     .Build());
         }
 
-        /// <summary>
-        /// 为冷却结束且目标有效的 Ani 创建一次不可重复的攻击快照
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

@@ -14,10 +14,6 @@ namespace AnimarsCatcher.Networking
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct ClientGoInGameSystem : ISystem
     {
-        /// <summary>
-        /// 连接建立后发送一次 GoInGameRequest 并标记本地连接
-        /// </summary>
-        /// <param name="state">系统状态</param>
         public void OnUpdate(ref SystemState state)
         {
             // Player 构建必须由正式大厅流程控制 InGame 状态

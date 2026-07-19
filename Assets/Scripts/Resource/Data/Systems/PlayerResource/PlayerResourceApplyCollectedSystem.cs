@@ -14,9 +14,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct PlayerResourceApplyCollectedSystem : ISystem
     {
-        /// <summary>
-        /// 消费本帧资源事件并批量回写玩家资源状态
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             var resourceQuery = SystemAPI.QueryBuilder()

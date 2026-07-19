@@ -19,9 +19,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     [UpdateAfter(typeof(AniPhysicsMoveSystem))]
     public partial struct ServerResourceCarryMoveSystem : ISystem
     {
-        /// <summary>
-        /// 仅在存在已进入搬运阶段的资源时启用系统
-        /// </summary>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -31,9 +28,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     .Build());
         }
 
-        /// <summary>
-        /// 推进资源位置并处理到达 结算和 Ani 释放
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             float deltaTime = SystemAPI.Time.DeltaTime;

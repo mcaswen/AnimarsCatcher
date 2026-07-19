@@ -19,10 +19,6 @@ public partial struct AniFormationJoinRequestSystem : ISystem
     private BufferLookup<FsmVar> _blackboardLookup;
     private ComponentLookup<GhostOwner> _ghostOwnerLookup;
 
-    /// <summary>
-    /// 缓存黑板和 GhostOwner 查询，并等待行为系统初始化
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
@@ -32,10 +28,6 @@ public partial struct AniFormationJoinRequestSystem : ISystem
         state.RequireForUpdate<FsmContext>();
     }
 
-    /// <summary>
-    /// 根据移动模式和连接拥有权生成无重复的加入阵型请求
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

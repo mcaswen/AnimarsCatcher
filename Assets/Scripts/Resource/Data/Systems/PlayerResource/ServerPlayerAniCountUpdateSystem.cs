@@ -14,9 +14,6 @@ namespace AnimarsCatcher.Gameplay
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ServerPlayerAniCountUpdateSystem : ISystem
     {
-        /// <summary>
-        /// 重建本帧玩家 Ani 总数 入队数和选中数
-        /// </summary>
         public void OnUpdate(ref SystemState state)
         {
             // 先收集玩家资源快照 统一在统计完成后回写

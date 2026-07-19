@@ -26,10 +26,6 @@ namespace AnimarsCatcher.Player
         private ThirdPersonCharacterUpdateContext _context;
         private KinematicCharacterUpdateContext _baseContext;
 
-        /// <summary>
-        /// 创建角色查询并初始化 KCC 可变更新上下文
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -47,10 +43,6 @@ namespace AnimarsCatcher.Player
             state.RequireForUpdate(_characterQuery);
         }
 
-        /// <summary>
-        /// 刷新上下文并并行调度角色姿态插值更新
-        /// </summary>
-        /// <param name="state">系统状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

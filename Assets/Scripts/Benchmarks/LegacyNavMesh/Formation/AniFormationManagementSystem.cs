@@ -11,10 +11,6 @@ using Unity.NetCode;
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 public partial struct AniFormationManagementSystem : ISystem
 {
-    /// <summary>
-    /// 仅在存在待处理的阵型结构变更时运行
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     public void OnCreate(ref SystemState state)
     {
         state.RequireForUpdate(SystemAPI.QueryBuilder()
@@ -22,10 +18,6 @@ public partial struct AniFormationManagementSystem : ISystem
             .Build());
     }
 
-    /// <summary>
-    /// 先释放旧占用再分配最小可用槽位，保证同帧换队不会冲突
-    /// </summary>
-    /// <param name="state">系统运行状态</param>
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {

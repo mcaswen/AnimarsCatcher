@@ -26,10 +26,6 @@ namespace AnimarsCatcher.Gameplay
         private ComponentLookup<RangedAttackableTag>   _rangedAttackableLookup;
         private ComponentLookup<LocalTransform>        _transformLookup;
 
-        /// <summary>
-        /// 创建持久化 GhostId 映射并缓存远程结算所需查询
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
@@ -45,10 +41,6 @@ namespace AnimarsCatcher.Gameplay
             state.RequireForUpdate<GhostInstance>();
         }
 
-        /// <summary>
-        /// 释放跨帧持有的 GhostId 映射容器
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnDestroy(ref SystemState state)
         {
@@ -56,10 +48,6 @@ namespace AnimarsCatcher.Gameplay
                 _ghostIdToEntity.Dispose();
         }
 
-        /// <summary>
-        /// 消费远程 RPC，并以服务器攻击快照和目标组件为准结算伤害
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {

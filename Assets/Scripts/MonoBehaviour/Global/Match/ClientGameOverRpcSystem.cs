@@ -14,19 +14,11 @@ namespace AnimarsCatcher.Mono.Global
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ClientGameOverRpcSystem : ISystem
     {
-        /// <summary>
-        /// 等待客户端进入游戏网络流后再接收结算消息
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NetworkStreamInGame>();
         }
 
-        /// <summary>
-        /// 比较胜利阵营与本地阵营并在消费后销毁 RPC 实体
-        /// </summary>
-        /// <param name="state">系统运行状态</param>
         public void OnUpdate(ref SystemState state)
         {
             var ecb = new EntityCommandBuffer(Allocator.Temp);
