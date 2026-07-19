@@ -1,10 +1,12 @@
-namespace AnimarsCatcher.Player
+namespace AnimarsCatcher.Presentation.PlayerView
 {
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
 
     /// <summary>
     /// 根据表现对象位移速度控制尾烟方向和发射状态
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "VelocityDrivenSmoke")]
     [DisallowMultipleComponent]
     public class VelocityDrivenSmoke : MonoBehaviour
     {

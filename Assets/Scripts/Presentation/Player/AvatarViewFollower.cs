@@ -1,13 +1,15 @@
-namespace AnimarsCatcher.Player
+namespace AnimarsCatcher.Presentation.PlayerView
 {
     using Unity.Entities;
     using Unity.Mathematics;
     using Unity.Transforms;
     using UnityEngine;
+    using UnityEngine.Scripting.APIUpdating;
 
     /// <summary>
     /// 让托管角色表现对象跟随 ECS 实体并驱动移动动画
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "AvatarViewFollower")]
     [DisallowMultipleComponent]
     public class AvatarViewFollower : MonoBehaviour
     {

@@ -3,10 +3,12 @@ using System;
 using System.Linq;
 using AnimarsCatcher.Gameplay.Editor;
 using AnimarsCatcher.Presentation.Account;
+using AnimarsCatcher.Presentation.Anis;
 using AnimarsCatcher.Presentation.Audio;
 using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.HealthUI;
 using AnimarsCatcher.Presentation.Lan;
+using AnimarsCatcher.Presentation.PlayerView;
 using AnimarsCatcher.Presentation.Selection;
 using AnimarsCatcher.Presentation.UI;
 using UnityEditor.Compilation;
@@ -41,6 +43,9 @@ namespace AnimarsCatcher.Editor
             AssertAssembly(typeof(MainMenuPanelController), PresentationAssemblyName);
             AssertAssembly(typeof(AniSelectionApplyRpc), PresentationAssemblyName);
             AssertAssembly(typeof(HealthBarView), PresentationAssemblyName);
+            AssertAssembly(typeof(BlasterAniAttackView), PresentationAssemblyName);
+            AssertAssembly(typeof(MovementClickRaycastSystem), PresentationAssemblyName);
+            AssertAssembly(typeof(AvatarViewAuthoring), PresentationAssemblyName);
 
             bool hasDotweenModulesAssembly = CompilationPipeline
                 .GetAssemblies(AssembliesType.Editor)

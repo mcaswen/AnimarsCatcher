@@ -1,10 +1,11 @@
+using AnimarsCatcher.Gameplay;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 
-namespace AnimarsCatcher.Gameplay
+namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
     /// 在客户端把新点击结果和本地选择集封装为一次移动 RPC

@@ -1,8 +1,9 @@
+using AnimarsCatcher.Gameplay;
 using Unity.Entities;
 using UnityEngine;
 using Unity.Mathematics;
 
-namespace AnimarsCatcher.Gameplay
+namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
     /// 在表现阶段把最新屏幕点击解析为具有明确优先级的世界目标

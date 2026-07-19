@@ -1,10 +1,11 @@
-namespace AnimarsCatcher.Player
+namespace AnimarsCatcher.Presentation.PlayerView
 {
+    using AnimarsCatcher.Presentation.Anis;
+    using AnimarsCatcher.Presentation.Selection;
     using Unity.Burst;
     using Unity.Collections;
     using Unity.Entities;
     using UnityEngine;
-    using AnimarsCatcher.Gameplay;
 
     /// <summary>
     /// 在客户端为带表现配置的实体创建并绑定 GameObject 视图

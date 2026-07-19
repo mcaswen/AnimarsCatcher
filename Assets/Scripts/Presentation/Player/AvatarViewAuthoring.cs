@@ -1,12 +1,14 @@
-namespace AnimarsCatcher.Player
+namespace AnimarsCatcher.Presentation.PlayerView
 {
     using Unity.Entities;
     using UnityEngine;
     using UnityEngine.Serialization;
+    using UnityEngine.Scripting.APIUpdating;
 
     /// <summary>
     /// 配置实体对应的托管角色表现 Prefab 和表现类型
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "AvatarViewAuthoring")]
     [DisallowMultipleComponent]
     public class AvatarViewAuthoring : MonoBehaviour
     {
@@ -33,6 +35,7 @@ namespace AnimarsCatcher.Player
     /// <summary>
     /// 保存实体创建托管表现对象所需的 Prefab 引用
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "AvatarViewPrefabReference")]
     public class AvatarViewPrefabReference : IComponentData
     {
         public GameObject ViewPrefab;
@@ -42,6 +45,7 @@ namespace AnimarsCatcher.Player
     /// <summary>
     /// 定义角色表现对象需要附加的行为类型
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "AvatarViewType")]
     public enum AvatarViewType
     {
         None = 0,
@@ -55,5 +59,6 @@ namespace AnimarsCatcher.Player
     /// <summary>
     /// 标记实体已经创建对应的托管表现对象
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Player", "AnimarsCatcher.Player", "AvatarViewSpawnedTag")]
     public struct AvatarViewSpawnedTag : IComponentData {}
 }

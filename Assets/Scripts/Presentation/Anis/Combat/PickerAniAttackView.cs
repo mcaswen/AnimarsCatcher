@@ -1,13 +1,16 @@
+using AnimarsCatcher.Gameplay;
 using UnityEngine;
 using Unity.Entities;
 using Unity.NetCode;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace AnimarsCatcher.Gameplay
+namespace AnimarsCatcher.Presentation.Anis
 {
     /// <summary>
     /// 监听 ECS 攻击序号并驱动 Picker 近战动画事件
     /// 视图只确认动画命中时机，最终伤害由服务器 ECS 结算
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Gameplay", "AnimarsCatcher.Gameplay", "PickerAniAttackView")]
     [DisallowMultipleComponent]
     public class PickerAniAttackView : MonoBehaviour
     {

@@ -1,14 +1,18 @@
+using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Presentation.Selection;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine.Scripting.APIUpdating;
 using Unity.Transforms;
 
-namespace AnimarsCatcher.Gameplay
+namespace AnimarsCatcher.Presentation.Anis
 {
     /// <summary>
     /// 监听 ECS 攻击序号并驱动 Blaster 动画、手部 IK 和激光表现
     /// 动画事件只产生候选射线结果，最终伤害由服务器 ECS 结算
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Gameplay", "AnimarsCatcher.Gameplay", "BlasterAniAttackView")]
     [DisallowMultipleComponent]
     public class BlasterAniAttackView : MonoBehaviour
     {
