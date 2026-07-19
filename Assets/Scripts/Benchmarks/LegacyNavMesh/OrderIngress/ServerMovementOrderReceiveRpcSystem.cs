@@ -9,270 +9,273 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using Unity.Transforms;
 
-/// <summary>
-/// 在服务器验证移动 RPC 的连接拥有权并写入 Ani 行为黑板
-/// </summary>
-[BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-[UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
+namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 {
-    private BufferLookup<FsmVar> _blackboardLookup;
-
-    // 每帧重建 GhostId 到服务器权威 Ani 实体的映射
-    private NativeParallelHashMap<int, Entity> _aniByGhostId;
-
-    public void OnCreate(ref SystemState state)
-    {
-        _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
-        _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
-    }
-
-    public void OnDestroy(ref SystemState state)
-    {
-        if (_aniByGhostId.IsCreated)
-            _aniByGhostId.Dispose();
-    }
-
+    /// <summary>
+    /// 在服务器验证移动 RPC 的连接拥有权并写入 Ani 行为黑板
+    /// </summary>
     [BurstCompile]
-    public void OnUpdate(ref SystemState state)
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
     {
-        _blackboardLookup.Update(ref state);
+        private BufferLookup<FsmVar> _blackboardLookup;
 
-        // GhostId 会随网络实体生命周期变化，因此每帧从权威世界重建映射
-        _aniByGhostId.Clear();
+        // 每帧重建 GhostId 到服务器权威 Ani 实体的映射
+        private NativeParallelHashMap<int, Entity> _aniByGhostId;
 
-        foreach (var (ghostInstance, aniAttributes, entity) in
-                 SystemAPI.Query<RefRO<GhostInstance>, RefRO<AniAttributes>>()
-                          .WithEntityAccess())
+        public void OnCreate(ref SystemState state)
         {
-            _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
+            _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
+            _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
         }
 
-        var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-        // 玩家主角映射用于校验连接归属并计算整队移动朝向
-        var leadersByNetworkId =
-            new NativeParallelHashMap<int, Entity>(16, Allocator.Temp);
-
-        foreach (var (owner, leaderEntity) in
-                 SystemAPI.Query<RefRO<GhostOwner>>()
-                          .WithAll<CharacterTag>()
-                          .WithEntityAccess())
+        public void OnDestroy(ref SystemState state)
         {
-            leadersByNetworkId.TryAdd(owner.ValueRO.NetworkId, leaderEntity);
+            if (_aniByGhostId.IsCreated)
+                _aniByGhostId.Dispose();
         }
 
-        // 每条 RPC 都以 SourceConnection 的 NetworkId 作为权限依据
-        foreach (var (rpc, recv, rpcEntity) in
-                 SystemAPI.Query<RefRO<MovementOrderRpc>, RefRO<ReceiveRpcCommandRequest>>()
-                          .WithEntityAccess())
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
         {
-            Entity connection = recv.ValueRO.SourceConnection;
+            _blackboardLookup.Update(ref state);
 
-            if (!SystemAPI.HasComponent<NetworkId>(connection))
+            // GhostId 会随网络实体生命周期变化，因此每帧从权威世界重建映射
+            _aniByGhostId.Clear();
+
+            foreach (var (ghostInstance, aniAttributes, entity) in
+                     SystemAPI.Query<RefRO<GhostInstance>, RefRO<AniAttributes>>()
+                              .WithEntityAccess())
             {
-                entityCommandBuffer.DestroyEntity(rpcEntity);
-                continue;
+                _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
             }
 
-            int networkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
+            var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-            MovementTargetKind targetKind = rpc.ValueRO.TargetKind;
-            Entity             targetEntity = rpc.ValueRO.TargetEntity;
-            float3             targetWorldPosition = rpc.ValueRO.TargetWorldPosition;
+            // 玩家主角映射用于校验连接归属并计算整队移动朝向
+            var leadersByNetworkId =
+                new NativeParallelHashMap<int, Entity>(16, Allocator.Temp);
 
-            // 需要实体目标的命令在目标失效时整体拒绝，避免写入悬空引用
-            if ((targetKind == MovementTargetKind.Ani ||
-                 targetKind == MovementTargetKind.Resource ||
-                 targetKind == MovementTargetKind.Player) &&
-                (targetEntity == Entity.Null || !state.EntityManager.Exists(targetEntity)))
+            foreach (var (owner, leaderEntity) in
+                     SystemAPI.Query<RefRO<GhostOwner>>()
+                              .WithAll<CharacterTag>()
+                              .WithEntityAccess())
             {
-                entityCommandBuffer.DestroyEntity(rpcEntity);
-                continue;
+                leadersByNetworkId.TryAdd(owner.ValueRO.NetworkId, leaderEntity);
             }
 
-            // 主角位置和朝向为地面移动提供稳定的阵型前方向
-            Entity    leaderEntity = Entity.Null;
-            float3    leaderPosition = float3.zero;
-            quaternion leaderRotation = quaternion.identity;
-
-            if (leadersByNetworkId.TryGetValue(networkId, out leaderEntity) &&
-                SystemAPI.HasComponent<LocalTransform>(leaderEntity))
+            // 每条 RPC 都以 SourceConnection 的 NetworkId 作为权限依据
+            foreach (var (rpc, recv, rpcEntity) in
+                     SystemAPI.Query<RefRO<MovementOrderRpc>, RefRO<ReceiveRpcCommandRequest>>()
+                              .WithEntityAccess())
             {
-                var lt = SystemAPI.GetComponent<LocalTransform>(leaderEntity);
-                leaderPosition = lt.Position;
-                leaderRotation = lt.Rotation;
-            }
+                Entity connection = recv.ValueRO.SourceConnection;
 
-            if (targetKind == MovementTargetKind.Resource)
-            {
-                // 资源请求只允许绑定有效主角和尚未被分配的可拾取资源
-                if (leaderEntity != Entity.Null &&
-                    SystemAPI.HasComponent<PickableResourceTag>(targetEntity) &&
-                    !SystemAPI.HasComponent<ResourcePickupRequest>(targetEntity) &&
-                    !SystemAPI.HasComponent<ResourceCarryAssignment>(targetEntity))
+                if (!SystemAPI.HasComponent<NetworkId>(connection))
                 {
-                    entityCommandBuffer.AddComponent(targetEntity, new ResourcePickupRequest
-                    {
-                        PlayerRobotEntity = leaderEntity,
-                    });
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
                 }
-            }
 
-            // 逐个解析客户端快照中的 GhostId，并在服务器重新验证拥有权
-            var selectedAniGhostIds = rpc.ValueRO.SelectedAniGhostIds;
+                int networkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
 
-            for (int i = 0; i < selectedAniGhostIds.Length; i++)
-            {
-                int aniGhostId = selectedAniGhostIds[i];
+                MovementTargetKind targetKind = rpc.ValueRO.TargetKind;
+                Entity             targetEntity = rpc.ValueRO.TargetEntity;
+                float3             targetWorldPosition = rpc.ValueRO.TargetWorldPosition;
 
-                if (!_aniByGhostId.TryGetValue(aniGhostId, out Entity aniEntity))
-                    continue;
-
-                // SourceConnection 只能控制 GhostOwner 与自身 NetworkId 一致的 Ani
-                if (!SystemAPI.HasComponent<GhostOwner>(aniEntity))
-                    continue;
-
-                var aniOwner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
-                if (aniOwner.NetworkId != networkId)
-                    continue;
-
-                if (!_blackboardLookup.HasBuffer(aniEntity))
-                    continue;
-
-                DynamicBuffer<FsmVar> blackboard = _blackboardLookup[aniEntity];
-
-                switch (targetKind)
+                // 需要实体目标的命令在目标失效时整体拒绝，避免写入悬空引用
+                if ((targetKind == MovementTargetKind.Ani ||
+                     targetKind == MovementTargetKind.Resource ||
+                     targetKind == MovementTargetKind.Player) &&
+                    (targetEntity == Entity.Null || !state.EntityManager.Exists(targetEntity)))
                 {
-                    case MovementTargetKind.Ground:
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
+
+                // 主角位置和朝向为地面移动提供稳定的阵型前方向
+                Entity    leaderEntity = Entity.Null;
+                float3    leaderPosition = float3.zero;
+                quaternion leaderRotation = quaternion.identity;
+
+                if (leadersByNetworkId.TryGetValue(networkId, out leaderEntity) &&
+                    SystemAPI.HasComponent<LocalTransform>(leaderEntity))
+                {
+                    var lt = SystemAPI.GetComponent<LocalTransform>(leaderEntity);
+                    leaderPosition = lt.Position;
+                    leaderRotation = lt.Rotation;
+                }
+
+                if (targetKind == MovementTargetKind.Resource)
+                {
+                    // 资源请求只允许绑定有效主角和尚未被分配的可拾取资源
+                    if (leaderEntity != Entity.Null &&
+                        SystemAPI.HasComponent<PickableResourceTag>(targetEntity) &&
+                        !SystemAPI.HasComponent<ResourcePickupRequest>(targetEntity) &&
+                        !SystemAPI.HasComponent<ResourceCarryAssignment>(targetEntity))
                     {
-                        Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.CommandMode,
-                            (int)AniMovementCommandMode.MoveTo);
-
-                        Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.MoveToPosition,
-                            targetWorldPosition);
-
-                        Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.TargetEntity,
-                            Entity.Null);
-
-                        // 使用主角到点击点的方向作为整队统一前向
-                        float3 forward;
-
-                        if (leaderEntity != Entity.Null)
+                        entityCommandBuffer.AddComponent(targetEntity, new ResourcePickupRequest
                         {
-                            float3 dir = targetWorldPosition - leaderPosition;
-                            dir.y = 0f;
+                            PlayerRobotEntity = leaderEntity,
+                        });
+                    }
+                }
 
-                            if (math.lengthsq(dir) < 0.0001f)
+                // 逐个解析客户端快照中的 GhostId，并在服务器重新验证拥有权
+                var selectedAniGhostIds = rpc.ValueRO.SelectedAniGhostIds;
+
+                for (int i = 0; i < selectedAniGhostIds.Length; i++)
+                {
+                    int aniGhostId = selectedAniGhostIds[i];
+
+                    if (!_aniByGhostId.TryGetValue(aniGhostId, out Entity aniEntity))
+                        continue;
+
+                    // SourceConnection 只能控制 GhostOwner 与自身 NetworkId 一致的 Ani
+                    if (!SystemAPI.HasComponent<GhostOwner>(aniEntity))
+                        continue;
+
+                    var aniOwner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
+                    if (aniOwner.NetworkId != networkId)
+                        continue;
+
+                    if (!_blackboardLookup.HasBuffer(aniEntity))
+                        continue;
+
+                    DynamicBuffer<FsmVar> blackboard = _blackboardLookup[aniEntity];
+
+                    switch (targetKind)
+                    {
+                        case MovementTargetKind.Ground:
+                        {
+                            Blackboard.SetInt(ref blackboard,
+                                AniMovementBlackboardKeys.CommandMode,
+                                (int)AniMovementCommandMode.MoveTo);
+
+                            Blackboard.SetFloat3(ref blackboard,
+                                AniMovementBlackboardKeys.MoveToPosition,
+                                targetWorldPosition);
+
+                            Blackboard.SetEntity(ref blackboard,
+                                AniMovementBlackboardKeys.TargetEntity,
+                                Entity.Null);
+
+                            // 使用主角到点击点的方向作为整队统一前向
+                            float3 forward;
+
+                            if (leaderEntity != Entity.Null)
                             {
-                                float3 fallbackForward = math.mul(leaderRotation, new float3(0, 0, 1));
-                                fallbackForward.y = 0f;
-                                if (math.lengthsq(fallbackForward) < 0.0001f)
-                                    fallbackForward = new float3(0, 0, 1);
+                                float3 dir = targetWorldPosition - leaderPosition;
+                                dir.y = 0f;
 
-                                forward = math.normalize(fallbackForward);
+                                if (math.lengthsq(dir) < 0.0001f)
+                                {
+                                    float3 fallbackForward = math.mul(leaderRotation, new float3(0, 0, 1));
+                                    fallbackForward.y = 0f;
+                                    if (math.lengthsq(fallbackForward) < 0.0001f)
+                                        fallbackForward = new float3(0, 0, 1);
+
+                                    forward = math.normalize(fallbackForward);
+                                }
+                                else
+                                {
+                                    forward = math.normalize(dir);
+                                }
                             }
                             else
                             {
-                                forward = math.normalize(dir);
+                                forward = new float3(0, 0, 1);
                             }
-                        }
-                        else
-                        {
-                            forward = new float3(0, 0, 1);
-                        }
 
-                        Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.MoveFormationTargetPoint,
-                            targetWorldPosition);
+                            Blackboard.SetFloat3(ref blackboard,
+                                AniMovementBlackboardKeys.MoveFormationTargetPoint,
+                                targetWorldPosition);
 
-                        Blackboard.SetFloat3(ref blackboard,
-                            AniMovementBlackboardKeys.MoveFormationForward,
-                            forward);
+                            Blackboard.SetFloat3(ref blackboard,
+                                AniMovementBlackboardKeys.MoveFormationForward,
+                                forward);
 
-                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
-                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-                        break;
-                    }
-
-                    case MovementTargetKind.Ani:
-                    {
-                        var targetOwner = SystemAPI.GetComponent<GhostOwner>(targetEntity);
-                        if (targetOwner.NetworkId == networkId)
+                            if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                                entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
                             break;
+                        }
 
-                        Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.CommandMode,
-                            (int)AniMovementCommandMode.Find);
+                        case MovementTargetKind.Ani:
+                        {
+                            var targetOwner = SystemAPI.GetComponent<GhostOwner>(targetEntity);
+                            if (targetOwner.NetworkId == networkId)
+                                break;
 
-                        Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.TargetEntity,
-                            targetEntity);
+                            Blackboard.SetInt(ref blackboard,
+                                AniMovementBlackboardKeys.CommandMode,
+                                (int)AniMovementCommandMode.Find);
 
-                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
-                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-                        break;
+                            Blackboard.SetEntity(ref blackboard,
+                                AniMovementBlackboardKeys.TargetEntity,
+                                targetEntity);
+
+                            if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                                entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+                            break;
+                        }
+
+                        case MovementTargetKind.Resource:
+                        {
+                            Blackboard.SetInt(ref blackboard,
+                                AniMovementBlackboardKeys.CommandMode,
+                                (int)AniMovementCommandMode.Find);
+
+                            Blackboard.SetEntity(ref blackboard,
+                                AniMovementBlackboardKeys.TargetEntity,
+                                targetEntity);
+
+                            if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                                entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+                            break;
+                        }
+
+                        case MovementTargetKind.Base:
+                        {
+                            Blackboard.SetInt(ref blackboard,
+                                AniMovementBlackboardKeys.CommandMode,
+                                (int)AniMovementCommandMode.Find);
+
+                            Blackboard.SetEntity(ref blackboard,
+                                AniMovementBlackboardKeys.TargetEntity,
+                                targetEntity);
+
+                            if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                                entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
+                            break;
+                        }
+
+                        case MovementTargetKind.Player:
+                        {
+                            Blackboard.SetInt(ref blackboard,
+                                AniMovementBlackboardKeys.CommandMode,
+                                (int)AniMovementCommandMode.Follow);
+
+                            Blackboard.SetEntity(ref blackboard,
+                                AniMovementBlackboardKeys.PlayerEntity,
+                                targetEntity);
+
+                            if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
+                                entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
+                            break;
+                        }
+
+                        case MovementTargetKind.None:
+                        default:
+                            break;
                     }
-
-                    case MovementTargetKind.Resource:
-                    {
-                        Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.CommandMode,
-                            (int)AniMovementCommandMode.Find);
-
-                        Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.TargetEntity,
-                            targetEntity);
-
-                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
-                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-                        break;
-                    }
-
-                    case MovementTargetKind.Base:
-                    {
-                        Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.CommandMode,
-                            (int)AniMovementCommandMode.Find);
-
-                        Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.TargetEntity,
-                            targetEntity);
-
-                        if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
-                            entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
-                        break;
-                    }
-
-                    case MovementTargetKind.Player:
-                    {
-                        Blackboard.SetInt(ref blackboard,
-                            AniMovementBlackboardKeys.CommandMode,
-                            (int)AniMovementCommandMode.Follow);
-
-                        Blackboard.SetEntity(ref blackboard,
-                            AniMovementBlackboardKeys.PlayerEntity,
-                            targetEntity);
-
-                        if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
-                            entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
-                        break;
-                    }
-
-                    case MovementTargetKind.None:
-                    default:
-                        break;
                 }
+
+                entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 
-            entityCommandBuffer.DestroyEntity(rpcEntity);
+            entityCommandBuffer.Playback(state.EntityManager);
+            leadersByNetworkId.Dispose();
         }
-
-        entityCommandBuffer.Playback(state.EntityManager);
-        leadersByNetworkId.Dispose();
     }
 }

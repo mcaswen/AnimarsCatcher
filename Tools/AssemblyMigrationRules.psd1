@@ -1,5 +1,5 @@
 @{
-    Version = 6
+    Version = 7
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     Rules = @(
@@ -85,10 +85,17 @@
             Path = 'Assets/Scripts/Benchmarks'
             Assembly = 'AnimarsCatcher.Benchmarks.LegacyNavigation'
             Owner = 'Navigation Benchmark'
-            Status = 'PendingRuntimeIsolation'
+            Status = 'PhaseSixPrepared'
             Lifecycle = 'Benchmark'
             NamespacePrefixes = @('AnimarsCatcher.Benchmarks')
-            RequireNamespace = $false
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Core',
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Player'
+            )
         }
         @{
             Path = 'Assets/Scripts/Camp'

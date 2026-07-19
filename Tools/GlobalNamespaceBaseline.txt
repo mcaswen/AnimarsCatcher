@@ -2,28 +2,6 @@
 # 从本文件移除条目表示对应脚本已经完成命名空间迁移
 # 禁止为新脚本增加条目
 
-Assets/Scripts/Benchmarks/LegacyNavMesh/Formation/AniFormationComponents.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Formation/AniFormationJoinRequestSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Formation/AniFormationManagementSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Formation/AniFormationUtility.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Authoring/AniMovementFsmAuthoring.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Authoring/AniMovementFsmBaker.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Basic/AniMovementFsmActions.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Basic/AniMovementFsmConditions.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Basic/AniMovementFsmDefinitions.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Basic/AniMovementFsmGraphBlobBuilder.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Runtime/AniMovementFsmRegistrySystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/MovementFsm/Runtime/AniMovementPlannerSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Navmesh/NavAgentAuthoring.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Navmesh/NavComponents.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Navmesh/NavFollowIntentSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/Navmesh/ServerNavMeshPlannerSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/OrderIngress/ServerMovementOrderReceiveRpcSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/PhysicsMove/AniPhysicsAuthoring.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/PhysicsMove/AniPhysicsMoveSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/PhysicsMove/AniPhysicsProbeSystem.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/PhysicsMove/Components/AniMoveIntent.cs
-Assets/Scripts/Benchmarks/LegacyNavMesh/PhysicsMove/Components/AniPhysicsComponents.cs
 Assets/Scripts/Editor/FixToonLitKeywordState.cs
 Assets/Scripts/Editor/RampTextureCreator.cs
 Assets/Scripts/Editor/ScriptReferenceFixer.cs
