@@ -23,6 +23,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int height,
             float maximumStepHeight)
         {
+            // NeighborMask 是静态拓扑的权威表示
+            // Region Clearance 和路径搜索只读取该结果而不重复判断场景几何
             ValidateShape(cells, width, height);
             maximumStepHeight = Mathf.Max(0f, maximumStepHeight);
 
@@ -82,6 +84,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int height,
             float cellSize)
         {
+            // Clearance 使用欧氏距离场而不是曼哈顿层数
+            // 结果表达 Cell 中心附近可用的保守半径并供多体型复用
             ValidateShape(cells, width, height);
             if (cellSize <= 0f)
             {
@@ -194,6 +198,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         /// <returns>静态连通区域数量</returns>
         public static int AssignRegions(NavigationGridCellData[] cells, int width, int height)
         {
+            // Region 只表达静态拓扑连通性 不包含运行时体型或动态障碍
+            // 标识稳定性依赖种子顺序和邻居顺序都保持固定
             ValidateShape(cells, width, height);
             int[] queue = new int[cells.Length];
             int regionCount = 0;
@@ -267,6 +273,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int height,
             int clusterSizeInCells)
         {
+            // Cluster 是与可行走状态无关的规则空间分块
+            // 分层寻路可以在不重新编号的情况下构建门户数据
             ValidateShape(cells, width, height);
             clusterSizeInCells = Math.Max(1, clusterSizeInCells);
             int clusterWidth = (width + clusterSizeInCells - 1) / clusterSizeInCells;
@@ -315,6 +323,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         /// <param name="deltaZ">输出 Z 轴偏移</param>
         public static void GetDirection(int directionIndex, out int deltaX, out int deltaZ)
         {
+            // 方向编号从北开始顺时针排列并与 NeighborMask 位位置一致
+            // 修改映射会破坏已烘焙资产和运行时搜索之间的协议
             switch (directionIndex)
             {
                 case 0:
@@ -364,6 +374,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int deltaZ,
             float maximumStepHeight)
         {
+            // 邻接成立必须同时满足边界 可行走 高度和穿角约束
+            // 此方法是 NeighborMask 的唯一生成入口 修改条件会同步改变连通域和寻路结果
             int targetX = sourceX + deltaX;
             int targetZ = sourceZ + deltaZ;
             if (!IsInside(targetX, targetZ, width, height))
@@ -400,6 +412,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int targetIndex,
             float maximumStepHeight)
         {
+            // 高度差使用绝对值使双向连接保持对称
+            // 对称邻接是连通域标记和 A 星反向可达性的共同前提
             return
                 cells[sourceIndex].Walkable &&
                 cells[targetIndex].Walkable &&
@@ -408,6 +422,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
 
         private static bool IsInside(int x, int z, int width, int height)
         {
+            // 所有 Cell 索引转换都在行主序计算前经过同一边界判定
             return x >= 0 && x < width && z >= 0 && z < height;
         }
 
@@ -418,6 +433,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int width,
             int height)
         {
+            // 不可行走 Cell 和外围补边界都是距离场的零距离源
+            // 可行走断层也作为源点避免 Clearance 跨越实际上不可通过的边缘
             int index = x + z * width;
             NavigationGridCellData cell = cells[index];
             if (!cell.Walkable)
@@ -475,6 +492,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int height,
             NavigationNeighborMask directionMask)
         {
+            // 只检查仍可站立但没有对应连接的相邻 Cell
+            // 普通阻挡已经由源点标记覆盖 此处专门捕获台阶和断崖边界
             int neighborX = x + deltaX;
             int neighborZ = z + deltaZ;
             if (!IsInside(neighborX, neighborZ, width, height))
@@ -494,6 +513,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int index,
             int regionId)
         {
+            // RegionId 在加入洪泛队列时立即写入
+            // 该约束防止同一 Cell 被多个邻居重复排队
             NavigationGridCellData cell = cells[index];
             cell.RegionId = regionId;
             cells[index] = cell;
@@ -506,6 +527,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int[] envelopeIndices,
             double[] envelopeLimits)
         {
+            // 使用一维平方距离变换构造抛物线下包络
+            // 每个有限源点最多入栈和出栈一次 因此单轴计算保持线性复杂度
+            // source 的有限值表示距离源 无穷值表示等待其他源点传播
             int envelopeCount = -1;
 
             // 每个有限源点 q 都定义一条 source[q] + (x - q)^2 抛物线
@@ -572,6 +596,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int width,
             int height)
         {
+            // 所有二维算法都依赖 Cells 与 Width Height 完全匹配
+            // 在入口集中失败可避免越界错误被误判为采样或寻路问题
             if (cells == null)
             {
                 throw new ArgumentNullException(nameof(cells));

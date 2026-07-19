@@ -19,6 +19,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         /// <param name="authoring">Grid 烘焙配置</param>
         public override void Bake(NavigationGridAuthoring authoring)
         {
+            // Baker 只消费已经持久化并通过新鲜度校验的资产
+            // 场景物理采样属于编辑器显式流程 不能在 SubScene Baking 中隐式执行
+            // 资产无效时拒绝生成部分 Blob 防止运行时得到语义过期数据
             NavigationGridBakeAsset bakeAsset = authoring.BakeAsset;
             if (bakeAsset == null)
             {
@@ -43,6 +46,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
 #endif
 
+            // Blob 字段顺序镜像 Bake Asset 的运行时只读契约
+            // Cell 按行主序复制使运行时索引和编辑器检查保持一致
             var builder = new BlobBuilder(Allocator.Temp);
             ref NavigationGridBlob root = ref builder.ConstructRoot<NavigationGridBlob>();
             Bounds bounds = bakeAsset.WorldBounds;

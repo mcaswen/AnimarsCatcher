@@ -8,6 +8,9 @@ using UnityEngine.SceneManagement;
 
 namespace AnimarsCatcher.Mono.Global
 {
+    /// <summary>
+    /// 将网络程序集发布的短生命周期数据通知转交给客户端表现层
+    /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
     public partial class NetworkPresentationBridgeSystem : SystemBase

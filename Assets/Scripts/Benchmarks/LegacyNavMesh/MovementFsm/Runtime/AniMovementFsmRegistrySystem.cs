@@ -3,14 +3,24 @@ using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Entities;
 
+/// <summary>
+/// 标记旧移动状态机函数指针已经完成注册
+/// </summary>
 public struct AniMovementRegistryInitialized : IComponentData {}
 
+/// <summary>
+/// 为旧 NavMesh 移动状态机注册条件和动作函数指针
+/// </summary>
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 [UpdateBefore(typeof(FsmEvaluateSystem))]
 public partial struct AniMovementFsmRegistrySystem : ISystem
 {
+    /// <summary>
+    /// 注册旧移动状态机函数并阻止重复初始化
+    /// </summary>
+    /// <param name="state">系统状态</param>
     public void OnCreate(ref SystemState state)
     {
         if (SystemAPI.HasSingleton<AniMovementRegistryInitialized>())
@@ -55,5 +65,9 @@ public partial struct AniMovementFsmRegistrySystem : ISystem
         state.Enabled = false; // 注册完毕后关闭系统
     }
 
+    /// <summary>
+    /// 注册完成后不再执行逐帧逻辑
+    /// </summary>
+    /// <param name="state">系统状态</param>
     public void OnUpdate(ref SystemState state) {}
 }

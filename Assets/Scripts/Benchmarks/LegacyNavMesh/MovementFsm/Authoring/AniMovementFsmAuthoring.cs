@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// 配置旧 NavMesh 移动状态机性能基线的初始状态
+/// </summary>
 [DisallowMultipleComponent]
 public class AniMovementFsmAuthoring : MonoBehaviour
 {

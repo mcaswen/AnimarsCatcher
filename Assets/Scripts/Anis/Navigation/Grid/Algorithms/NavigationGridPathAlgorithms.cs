@@ -24,6 +24,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
+            // 单次请求依次执行参数校验 端点投影 区域预拒绝 A 星搜索和平滑写回
+            // 所有失败路径返回完整状态且不向共享 PathCells 追加部分结果
+            // Scratch 数组通过 generation 隔离请求 避免按 Grid 大小逐次清零
             NavigationPathRequest request = jobRequest.Request;
             // 先构造完整失败结果 后续每个提前返回只覆盖确定的失败原因
             NavigationPathJobResult result = CreateFailureResult(
@@ -43,6 +46,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                 return result;
             }
 
+            // 端点投影把任意世界坐标收敛到搜索图中的合法节点
+            // 起点和终点分别记录失败原因便于上层决定重试策略
             // 起点投影失败时终点尚未参与计算 保持结果字段的阶段性含义
             if (!TryProjectToNearestCell(
                     ref grid,
@@ -70,6 +75,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
 
             result.ProjectedEndCellIndex = endCellIndex;
+            // 静态 Region 不同必然无路 可以在分配 Open Set 前立即拒绝
             // RegionId 只表达静态 Blob 连通性 动态 Overlay 将在后续阶段增加二次判定
             if (grid.Cells[startCellIndex].RegionId <= 0 ||
                 grid.Cells[startCellIndex].RegionId != grid.Cells[endCellIndex].RegionId)
@@ -78,6 +84,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                 return result;
             }
 
+            // 记录共享输出数组的起始偏移后才能安全服务批量请求
             int pathOffset = pathCells.Length;
             if (startCellIndex == endCellIndex)
             {
@@ -124,6 +131,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             // ExpandedNodeCount 只统计真正从 Open Set 展开的节点
             // Region 预拒绝和投影失败不会增加展开数
             // 找到终点后立即结束 不继续扫描其余等价节点
+            // 每轮展开当前 F Cost 最小节点并对固定顺序邻居执行松弛
+            // 一致启发函数保证节点进入 Closed 后不需要重新打开
             while (heapCount > 0)
             {
                 int currentIndex = PopHeap(
@@ -190,6 +199,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                         continue;
                     }
 
+                    // 松弛候选成本使用当前最优 G Cost 加单边真实成本
                     float tentativeCost = gCosts[currentIndex] + CalculateStepCost(
                         ref grid,
                         currentIndex,
@@ -201,6 +211,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                     bool stableParent =
                         math.abs(tentativeCost - gCosts[neighborIndex]) <= CostEpsilon &&
                         (parents[neighborIndex] < 0 || currentIndex < parents[neighborIndex]);
+                    // 成本没有改善且稳定 Parent 也不更优时保持原路径树
                     if (!lowerCost && !stableParent)
                     {
                         continue;
@@ -255,6 +266,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                 return result;
             }
 
+            // 成功结果只在平滑路径完整写入后一次性发布
             result.Status = NavigationPathStatus.Succeeded;
             result.FailureReason = NavigationPathFailureReason.None;
             result.PathOffset = pathOffset;
@@ -268,6 +280,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             uint requestVersion,
             NavigationPathFailureReason failureReason)
         {
+            // 失败结果统一初始化所有可观测字段
+            // 调用方可以直接写回而不依赖默认值残留或前一请求状态
             return new NavigationPathJobResult
             {
                 Entity = entity,
@@ -294,10 +308,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             NativeArray<int> reconstruction,
             out int pathLength)
         {
+            // Parent 链先恢复为从起点到终点的稳定顺序
+            // 平滑只删除能够安全直连且成本不超预算的中间节点
+            // 任一重建异常都会让调用方丢弃本请求的路径切片
             pathLength = 0;
             int rawPathLength = 0;
             int currentIndex = endCellIndex;
             // Parent 链从终点逆向写入 reconstruction 不额外分配临时 NativeList
+            // Parent 链长度不能超过 Cell 数 超出说明链损坏或形成循环
             while (currentIndex >= 0 && rawPathLength < reconstruction.Length)
             {
                 reconstruction[rawPathLength++] = currentIndex;
@@ -332,6 +350,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
                     rawPathLength,
                     anchorOrderedIndex);
                 int selectedOrderedIndex = anchorOrderedIndex + 1;
+                // 从最远候选向回扫描使每个锚点选择确定性的最大跨越
                 for (int candidateOrderedIndex = rawPathLength - 1;
                      candidateOrderedIndex > anchorOrderedIndex;
                      candidateOrderedIndex--)
@@ -376,6 +395,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             float agentRadius,
             float clearanceMargin)
         {
+            // 烘焙阶段已经按基础体型收缩可行走区域
+            // 运行时只增加更大体型和安全边距 避免基础半径被重复扣减
             // 烘焙占用已经包含 BaseAgentRadius 这里只计算运行时增量
             return math.max(0f, agentRadius - grid.BaseAgentRadius) +
                    math.max(0f, clearanceMargin);
@@ -388,6 +409,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             float requiredClearance,
             float clearancePenaltyWeight)
         {
+            // 边成本由几何距离 地形权重和低 Clearance 惩罚组成
+            // 所有项保持非负是启发函数可采纳和 G Cost 单调增长的前提
             int fromX = fromCellIndex % grid.Width;
             int fromZ = fromCellIndex / grid.Width;
             int toX = toCellIndex % grid.Width;
@@ -414,6 +437,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             float agentRadius,
             float clearanceMargin)
         {
+            // 烘焙 NeighborMask 决定静态几何是否允许通过
+            // 当前 Agent Clearance 再对端点和对角侧边做体型约束
+            // 两层判定分离后同一 Grid 可以服务多种运行时半径
             // NeighborMask 负责静态可行走和高度规则 CanAgentOccupy 负责当前体型
             if (!TryGetDirectionIndex(deltaX, deltaZ, out int directionIndex) ||
                 (grid.Cells[fromCellIndex].NeighborMask & (1 << directionIndex)) == 0 ||
@@ -454,6 +480,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             float bestClearance,
             int bestCellIndex)
         {
+            // 投影候选按距离 地形成本 Clearance 和 Cell Index 形成稳定字典序
+            // 新增比较键时必须同步更新投影契约和确定性验收
             // 比较顺序必须与投影契约一致 距离优先于地形和 Clearance
             if (bestCellIndex < 0 || distanceSquared < bestDistanceSquared - CostEpsilon)
             {
@@ -486,6 +514,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
 
         private static bool IsRequestValid(NavigationPathRequest request)
         {
+            // 连续值必须有限且处于不会破坏成本模型的范围
+            // 投影半径限制同时保护扫描成本和整数坐标运算
             return math.all(math.isfinite(request.StartPosition)) &&
                    math.all(math.isfinite(request.EndPosition)) &&
                    math.isfinite(request.AgentRadius) &&
@@ -501,6 +531,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
 
         private static bool IsGridShapeValid(ref NavigationGridBlob grid)
         {
+            // Blob 尺寸和 Cell 数必须完全一致
+            // 非正 CellSize 会破坏距离成本和坐标转换
             return grid.Width > 0 &&
                    grid.Height > 0 &&
                    grid.CellSize > 0f &&
@@ -515,6 +547,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
+            // generation 先写入使其余 Scratch 槽位从此刻起属于当前请求
+            // 未发现节点使用无穷成本和无 Parent 表达初始状态
             // 初始化顺序先写 generation 后续读取方才能把其余槽位视为当前请求数据
             nodeGenerations[cellIndex] = generation;
             gCosts[cellIndex] = float.PositiveInfinity;
@@ -527,6 +561,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int rawPathLength,
             int orderedIndex)
         {
+            // reconstruction 保存顺序与最终路径相反
+            // 统一在此翻转下标避免平滑循环重复实现逆序逻辑
             // reconstruction 逆序保存 Parent 链 此方法暴露起点到终点的正序视图
             return reconstruction[rawPathLength - 1 - orderedIndex];
         }
@@ -536,6 +572,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             int deltaZ,
             out int directionIndex)
         {
+            // 方向索引必须与烘焙 NeighborMask 的八方向编码完全一致
+            // 非相邻 Cell 返回失败防止平滑和步进成本误用远距离边
             directionIndex = -1;
             if (deltaX == 0 && deltaZ == 1) directionIndex = 0;
             else if (deltaX == 1 && deltaZ == 1) directionIndex = 1;
@@ -550,6 +588,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
 
         private static void GetDirection(int directionIndex, out int deltaX, out int deltaZ)
         {
+            // Burst 路径内使用固定分支表避免托管数组和静态初始化
             switch (directionIndex)
             {
                 case 0: deltaX = 0; deltaZ = 1; return;
@@ -565,6 +604,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
 
         private static bool IsInside(int x, int z, int width, int height)
         {
+            // 坐标边界在转换为行主序索引前统一验证
             return x >= 0 && x < width && z >= 0 && z < height;
         }
     }

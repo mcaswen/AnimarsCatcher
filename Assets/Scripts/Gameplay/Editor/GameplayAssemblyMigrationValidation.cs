@@ -8,6 +8,9 @@ using UnityEngine.SceneManagement;
 
 namespace AnimarsCatcher.Gameplay.Editor
 {
+    /// <summary>
+    /// 验证 Gameplay 程序集归属和 Unity 序列化引用完整性
+    /// </summary>
     public static class GameplayAssemblyMigrationValidation
     {
         private const string GameplayAssemblyName = "AnimarsCatcher.Gameplay";

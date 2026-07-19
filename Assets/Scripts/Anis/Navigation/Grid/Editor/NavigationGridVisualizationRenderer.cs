@@ -14,9 +14,12 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
     [InitializeOnLoad]
     internal static class NavigationGridVisualizationRenderer
     {
+        // 连续数据使用有限颜色桶防止每个 Cell 生成独立材质状态
+        // Region 色板循环使用并通过边界线和 Cell 信息辅助区分远端重复色
         private const int ContinuousBucketCount = 16;
         private const int RegionBucketCount = 16;
 
+        // Shader 属性 Id 预缓存避免 Scene 重绘期间重复执行字符串查找
         private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
 
         // 阻挡与可行走使用跨模式稳定语义色 降低切换视图时的认知成本
@@ -50,6 +53,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 
         static NavigationGridVisualizationRenderer()
         {
+            // 缓存拥有临时 Mesh 和材质 必须覆盖程序集重载 编辑器退出和 Hierarchy 变化
+            // Hierarchy 变化可能改变 Authoring 实例和几何身份 因而选择保守整体失效
             AssemblyReloadEvents.beforeAssemblyReload += ClearCache;
             EditorApplication.quitting += ClearCache;
             EditorApplication.hierarchyChanged += ClearCache;
@@ -64,6 +69,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset)
         {
+            // 绘制入口不在每次 Scene 重绘时重新生成顶点
+            // 缓存失效判断集中在 GetOrBuildCache
             CacheEntry cacheEntry = GetOrBuildCache(authoring, bakeAsset);
             if (cacheEntry?.Mesh == null)
             {
@@ -77,6 +84,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
 
             // 显式材质颜色不依赖 Gizmos 全局状态 避免不同 SRP Scene 视图把子网格显示成同一颜色
+            // 空桶不提交材质 Pass 避免模式切换后产生无效 Draw Call
             for (int bucketIndex = 0; bucketIndex < cacheEntry.HasGeometry.Length; bucketIndex++)
             {
                 if (!cacheEntry.HasGeometry[bucketIndex])
@@ -108,6 +116,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         /// <param name="mode">当前覆盖层显示模式</param>
         public static void DrawLegend(NavigationGridGizmoMode mode)
         {
+            // 图例使用与 Mesh 完全相同的颜色解析函数
+            // 这样调整调色板时不会出现说明与场景显示不一致
             if (mode == NavigationGridGizmoMode.Disabled)
             {
                 return;
@@ -119,6 +129,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 EditorGUILayout.LabelField("图例", GUILayout.Width(30f));
                 DrawLegendItem("阻挡", ResolveBucketColor(mode, 0, 1f));
 
+                // 每种模式只展示最能解释数值方向的代表端点
                 switch (mode)
                 {
                     case NavigationGridGizmoMode.Clearance:
@@ -168,11 +179,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         /// <returns>大于等于一的二维抽样步长</returns>
         public static int GetSampleStride(int width, int height, int maximumCells)
         {
+            // 宽高和预算先钳制到正数避免除零和无限循环
+            // 同一 stride 同时应用于 XZ 两轴保持采样格形状接近原 Grid
             width = Mathf.Max(1, width);
             height = Mathf.Max(1, height);
             maximumCells = Mathf.Max(1, maximumCells);
 
             int stride = 1;
+            // long 乘法避免超大 Grid 的样本数判断发生整数溢出
             while ((long)CeilDivide(width, stride) * CeilDivide(height, stride) > maximumCells)
             {
                 stride++;
@@ -181,6 +195,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return stride;
         }
 
+        // 缓存键由 Authoring 实例和烘焙资产内容共同决定
+        // 仅修改显示模式时可以复用几何并重新选择颜色分桶
         private static CacheEntry GetOrBuildCache(
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset)
@@ -198,10 +214,15 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return replacement;
         }
 
+        // 将采样后的 Cell 合并为按颜色分桶的网格
+        // 每个桶单独绘制可以控制 Draw Call 数且保留语义颜色
+        // 缓存同时记录哪些 Cell 有几何供邻接线绘制过滤
         private static CacheEntry BuildCache(
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset)
         {
+            // 顶点列表跨颜色桶共享 子网格只保存各自三角形索引
+            // 共享顶点可以降低托管列表和 Mesh 上传的总体内存
             int bucketCount = GetBucketCount(authoring.GizmoMode);
             var vertices = new List<Vector3>();
             var vertexColors = new List<Color32>();
@@ -225,6 +246,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 out float minimumTerrainCost,
                 out float maximumTerrainCost);
 
+            // 方块略小于 Cell 在相邻格之间保留可辨识缝隙
+            // 垂直偏移限制在稳定范围减少 Z Fighting 和高空悬浮感
             float halfCellSize = bakeAsset.CellSize * 0.47f;
             float verticalOffset = Mathf.Clamp(bakeAsset.CellSize * 0.03f, 0.015f, 0.1f);
             Bounds bounds = bakeAsset.WorldBounds;
@@ -272,6 +295,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 }
             }
 
+            // 顶点数量超过十六位索引范围时自动切换到 UInt32
+            // Mesh 标记为 HideAndDontSave 防止临时可视化进入场景序列化
             var mesh = new Mesh
             {
                 name = $"Navigation Grid Overlay {authoring.GetInstanceID()}",
@@ -292,11 +317,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 mesh.SetTriangles(triangles, bucketIndex, false);
             }
 
+            // 完成所有子网格后一次性计算 Bounds 并上传为只读 Mesh
             mesh.RecalculateBounds();
             mesh.UploadMeshData(true);
             return new CacheEntry(authoring, bakeAsset, mesh, hasGeometry);
         }
 
+        // 可视化材质按编辑器会话延迟创建并复用
+        // Shader 缺失时返回空值让调用方跳过绘制而不是产生异常
         private static Material GetOrCreateOverlayMaterial()
         {
             if (_overlayMaterial != null)
@@ -321,6 +349,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return _overlayMaterial;
         }
 
+        // 离散模式直接使用状态编号 连续模式先归一化再量化
+        // 分桶结果必须稳定才能复用缓存并保持图例颜色一致
         private static int ResolveBucketIndex(
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset,
@@ -373,6 +403,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 只统计本次实际显示且可行走的 Cell
+        // 所有成本相同时扩展最小范围避免归一化除零
         private static void ResolveTerrainCostRange(
             NavigationGridBakeAsset bakeAsset,
             int stride,
@@ -406,6 +438,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 每种 Gizmo 模式集中映射到统一调色板
+        // 状态色和连续渐变分离避免同一颜色表达多种语义
         private static Color ResolveBucketColor(
             NavigationGridGizmoMode mode,
             int bucketIndex,
@@ -463,6 +497,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return WithOpacity(color, opacity);
         }
 
+        // 风险值从安全绿过渡到警告黄再到阻挡红
+        // 中点分段让临界 Clearance 比线性双色渐变更醒目
         private static Color ResolveRiskGradient(float ratio)
         {
             Color safe = new Color32(61, 174, 117, 255);
@@ -471,6 +507,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return ResolveThreeColorGradient(ratio, safe, warning, danger);
         }
 
+        // 三色渐变在中点两侧分别插值
+        // 输入先 Clamp 让异常数值不会产生超范围颜色
         private static Color ResolveThreeColorGradient(
             float ratio,
             Color low,
@@ -483,12 +521,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 : Color.Lerp(middle, high, (ratio - 0.5f) * 2f);
         }
 
+        // 透明度只影响覆盖层 Alpha 不改变语义颜色的 RGB
         private static Color WithOpacity(Color color, float opacity)
         {
             color.a = Mathf.Clamp(opacity, 0.05f, 1f);
             return color;
         }
 
+        // 图例色块与文本使用固定宽度避免窗口尺寸变化时跳动
         private static void DrawLegendItem(string label, Color color)
         {
             Rect swatch = GUILayoutUtility.GetRect(
@@ -500,6 +540,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             GUILayout.Label(label, EditorStyles.miniLabel, GUILayout.ExpandWidth(false));
         }
 
+        // 状态模式使用固定桶数 连续模式使用统一量化精度
+        // 桶数上界直接控制缓存 Mesh 和材质绘制次数
         private static int GetBucketCount(NavigationGridGizmoMode mode)
         {
             switch (mode)
@@ -517,6 +559,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 连续值量化到闭区间桶索引并保留两端极值
         private static int QuantizeContinuous(float value)
         {
             return Mathf.Clamp(
@@ -525,11 +568,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 ContinuousBucketCount - 1);
         }
 
+        // 整数向上取整用于根据最大采样预算推导步长
         private static int CeilDivide(int value, int divisor)
         {
             return (value + divisor - 1) / divisor;
         }
 
+        // Domain Reload 和程序集重载前释放编辑器生成的 Mesh
+        // 缓存清空后不会保留失效的 UnityEngine.Object 引用
         private static void ClearCache()
         {
             foreach (CacheEntry cacheEntry in CacheByAuthoringId.Values)
@@ -548,6 +594,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 
         private sealed class CacheEntry : IDisposable
         {
+            // 缓存身份覆盖资产实例 内容 Hash 和全部影响几何分桶的显示参数
+            // 不影响 Mesh 的透明度不进入身份 因为绘制时通过材质动态应用
             private readonly int _bakeAssetId;
             private readonly string _dataHash;
             private readonly NavigationGridGizmoMode _mode;
@@ -563,6 +611,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 Mesh mesh,
                 bool[] hasGeometry)
             {
+                // 构造时冻结缓存身份 后续 Authoring 修改通过 Matches 检测
                 _bakeAssetId = bakeAsset.GetInstanceID();
                 _dataHash = bakeAsset.DataHash;
                 _mode = authoring.GizmoMode;
@@ -575,6 +624,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 HasGeometry = hasGeometry;
             }
 
+            // Mesh 和桶占用位图由 CacheEntry 共同拥有并同时失效
             public Mesh Mesh { get; }
 
             public bool[] HasGeometry { get; }
@@ -583,6 +633,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 NavigationGridAuthoring authoring,
                 NavigationGridBakeAsset bakeAsset)
             {
+                // Asset 实例不同即使 Hash 相同也重新构建避免引用生命周期交叉
+                // Mathf.Approximately 过滤 Inspector 浮点序列化的无意义尾差
                 // DataHash 已覆盖 Bounds 尺寸和全部 Cell 内容 显示参数只补充缓存特有条件
                 return _bakeAssetId == bakeAsset.GetInstanceID() &&
                        string.Equals(_dataHash, bakeAsset.DataHash, StringComparison.Ordinal) &&
@@ -596,6 +648,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 
             public void Dispose()
             {
+                // Mesh 没有写入 AssetDatabase 可以在编辑器内立即销毁
                 if (Mesh != null)
                 {
                     Object.DestroyImmediate(Mesh);

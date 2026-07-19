@@ -7,24 +7,34 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
     internal sealed class NavigationGridInspectorWindow : EditorWindow
     {
+        // 选择状态允许从 Authoring 跳转到资产也允许直接检查独立资产
         private NavigationGridAuthoring _authoring;
         private NavigationGridBakeAsset _bakeAsset;
+
+        // 滚动和 Cell 坐标属于窗口交互状态 不写回任何项目资产
         private Vector2 _scrollPosition;
         private Vector2Int _cellCoordinate;
         private float _agentRadius = 0.35f;
         private float _agentMargin;
+
+        // 统计缓存使用资产实例与 Data Hash 双键识别内容变化
         private int _statisticsAssetId;
         private string _statisticsDataHash = string.Empty;
         private NavigationGridStatistics _statistics;
+
+        // 状态消息只反映最近一次显式烘焙或校验命令
         private MessageType _statusType = MessageType.None;
         private string _statusMessage = string.Empty;
 
         [MenuItem("Tools/Animars Catcher/Navigation Grid Inspector")]
+        // 菜单入口在没有显式上下文时尝试使用当前选择对象
         private static void OpenFromMenu()
         {
             Open(null, null);
         }
 
+        // Inspector 可传入明确 Authoring 和资产避免依赖全局 Selection
+        // 窗口只保存引用而不复制体积较大的烘焙数据
         internal static void Open(
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset)
@@ -39,6 +49,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             window.Focus();
         }
 
+        // 窗口按选择 命令 摘要 统计和 Cell 检查顺序组织
+        // 数据无效时只显示诊断入口不访问 Cell 数组
         private void OnGUI()
         {
             DrawSelection();
@@ -62,6 +74,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             EditorGUILayout.EndScrollView();
         }
 
+        // 选择区允许独立指定 Authoring 或 Bake Asset
+        // Authoring 变化时同步其当前资产并使统计缓存失效
         private void DrawSelection()
         {
             EditorGUI.BeginChangeCheck();
@@ -94,6 +108,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 命令按钮只负责触发烘焙和校验入口
+        // 具体异常处理和资产写入留在专用方法中
         private void DrawCommands()
         {
             using (new EditorGUILayout.HorizontalScope())
@@ -129,8 +145,11 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 摘要显示来源 版本 Hash 和尺寸等不可变资产身份
+        // 长 Hash 保持可复制以便比较构建与本地结果
         private void DrawAssetSummary()
         {
+            // 摘要只读取持久化元数据 不触发重新 Hash 或物理查询
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("资产信息", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("来源场景", EmptyAsDash(_bakeAsset.SourceScenePath));
@@ -154,8 +173,11 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             DrawHash("Data Hash", _bakeAsset.DataHash);
         }
 
+        // 统计值按 Data Hash 缓存避免每次 OnGUI 重扫全部 Cell
+        // 只展示能够帮助判断烘焙质量的聚合指标
         private void DrawStatistics()
         {
+            // 聚合统计只针对可行走 Cell 计算 Clearance 和坡度范围
             EnsureStatistics();
 
             EditorGUILayout.Space();
@@ -183,8 +205,11 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // Cell 索引同时显示二维坐标 世界位置和全部派生字段
+        // 输入范围受资产 CellCount 限制防止检查窗口越界
         private void DrawCellInspector()
         {
+            // Agent 半径与边距只用于即时占用检查 不修改 Authoring 配置
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Cell 检查", EditorStyles.boldLabel);
 
@@ -208,6 +233,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 0f,
                 EditorGUILayout.FloatField("安全边距", _agentMargin));
 
+            // 坐标在滑块阶段已经钳制 因而行主序索引必定位于资产范围
             int cellIndex = _cellCoordinate.x + _cellCoordinate.y * _bakeAsset.Width;
             NavigationGridCellData cell = _bakeAsset.GetCell(cellIndex);
             Vector3 center = NavigationGridBakeUtility.GetCellCenter(_bakeAsset, cellIndex);
@@ -239,6 +265,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 烘焙成功后重新绑定输出资产并清除旧统计
+        // 异常写入 Console 且保留当前选择供修复后重试
         private void BakeSelectedAuthoring()
         {
             try
@@ -257,6 +285,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 校验只读当前资产 不会自动修补或触发隐式烘焙
+        // 结果通过通知显示并保留详细 Console 异常
         private void ValidateSelectedAuthoring()
         {
             try
@@ -281,8 +311,11 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // Data Hash 和资产实例共同作为统计缓存身份
+        // 遍历时同时计算可行走数 Clearance 和地形成本范围
         private void EnsureStatistics()
         {
+            // 无数据时清空旧统计避免切换到空资产后继续显示历史值
             if (!HasInspectableData(_bakeAsset))
             {
                 _statistics = default;
@@ -299,12 +332,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 return;
             }
 
+            // 最小值以正无穷初始化并在没有可行走 Cell 时统一回退到零
             var statistics = new NavigationGridStatistics
             {
                 MinimumClearance = float.PositiveInfinity,
                 MinimumSlope = float.PositiveInfinity,
             };
 
+            // 累加使用 double 降低大型 Grid 求平均时的精度损失
             double clearanceTotal = 0d;
             double slopeTotal = 0d;
             for (int index = 0; index < _bakeAsset.CellCount; index++)
@@ -341,11 +376,13 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 statistics.MinimumSlope = 0f;
             }
 
+            // 完整遍历结束后一次性发布缓存 防止 OnGUI 读取半成品
             _statistics = statistics;
             _statisticsAssetId = assetId;
             _statisticsDataHash = _bakeAsset.DataHash;
         }
 
+        // 所有可能改变资产引用或内容的操作都必须清除统计缓存
         private void InvalidateStatistics()
         {
             _statisticsAssetId = 0;
@@ -353,6 +390,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             _statistics = default;
         }
 
+        // 检查入口只接受结构完整且至少包含一个 Cell 的资产
         private static bool HasInspectableData(NavigationGridBakeAsset bakeAsset)
         {
             return bakeAsset != null &&
@@ -361,6 +399,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                    bakeAsset.CellCount == bakeAsset.Width * bakeAsset.Height;
         }
 
+        // Hash 使用可选择文本字段便于开发者复制比较
         private static void DrawHash(string label, string value)
         {
             EditorGUILayout.LabelField(label);
@@ -370,11 +409,13 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 GUILayout.Height(EditorGUIUtility.singleLineHeight));
         }
 
+        // 空元数据统一显示短横线避免与未绘制字段混淆
         private static string EmptyAsDash(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? "-" : value;
         }
 
+        // 固定小数精度让相邻 Cell 坐标更容易人工比较
         private static string FormatVector(Vector3 value)
         {
             return $"({value.x:0.###}, {value.y:0.###}, {value.z:0.###})";

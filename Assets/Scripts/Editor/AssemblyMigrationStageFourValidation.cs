@@ -9,6 +9,9 @@ using UnityEngine;
 
 namespace AnimarsCatcher.Editor
 {
+    /// <summary>
+    /// 验证阶段四程序集归属和 Unity 序列化引用完整性
+    /// </summary>
     public static class AssemblyMigrationStageFourValidation
     {
         private const string PlayerAssemblyName = "AnimarsCatcher.Player";

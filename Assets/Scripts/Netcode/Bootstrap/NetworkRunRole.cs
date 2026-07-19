@@ -19,10 +19,24 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public static class NetworkRuntimeRole
     {
+        /// <summary>
+        /// 获取当前进程承担的网络运行角色
+        /// </summary>
         public static NetworkRunRole Current { get; private set; } = NetworkRunRole.Host;
 
+        /// <summary>
+        /// 获取当前进程是否同时运行客户端和服务端
+        /// </summary>
         public static bool IsHost => Current == NetworkRunRole.Host;
+
+        /// <summary>
+        /// 获取当前进程是否只运行客户端
+        /// </summary>
         public static bool IsClient => Current == NetworkRunRole.Client;
+
+        /// <summary>
+        /// 获取当前进程是否只运行专用服务端
+        /// </summary>
         public static bool IsDedicatedServer => Current == NetworkRunRole.DedicatedServer;
 
         /// <summary>

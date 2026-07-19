@@ -7,6 +7,9 @@ using UnityEngine.SceneManagement;
 
 namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 {
+    /// <summary>
+    /// 验证 Navigation 程序集迁移后的类型和烘焙资产引用
+    /// </summary>
     public static class NavigationAssemblyMigrationValidation
     {
         private const string ScenePath = "Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity";
@@ -40,6 +43,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             }
         }
 
+        // 固定资产必须反序列化为新程序集中的目标类型
+        // 数据版本与内容可用性同时验证迁移没有只保留空壳引用
         private static void ValidateBakeAsset()
         {
             NavigationGridBakeAsset bakeAsset =
@@ -53,6 +58,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 "烘焙资产脚本没有迁移到 Navigation 程序集");
         }
 
+        // 场景中的 MonoBehaviour 引用必须解析到 Navigation 程序集
+        // 加载后同时检查 Missing Script 和 Bake Asset 绑定
         private static void ValidateScene()
         {
             Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -84,6 +91,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 "场景 Authoring 脚本没有迁移到 Navigation 程序集");
         }
 
+        // 统一抛出异常让命令行验证通过退出码报告失败
         private static void Assert(bool condition, string message)
         {
             if (!condition)

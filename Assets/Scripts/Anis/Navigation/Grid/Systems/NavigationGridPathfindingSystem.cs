@@ -127,6 +127,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             DisposeScratch();
         }
 
+        // 主线程只收集请求 冻结输入并调度一个批次
+        // 请求按 Entity 稳定排序使预算不足时仍有可重复的服务顺序
+        // Persistent 容器保持到 Job 完成后的结果写回阶段
         private void SchedulePendingRequests(
             ref SystemState state,
             BlobAssetReference<NavigationGridBlob> grid)
@@ -222,6 +225,9 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _activeJobScheduled = true;
         }
 
+        // Job 完成后再次核对 Entity 存活 状态和版本
+        // 过期结果直接丢弃不能覆盖搜索期间提交的新请求
+        // 路径 Cell 在主线程转换为世界坐标并写入 DynamicBuffer
         private void ApplyActiveResults(ref SystemState state)
         {
             for (int resultIndex = 0; resultIndex < _activeResults.Length; resultIndex++)
@@ -292,6 +298,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
         }
 
+        // Grid 缺失或数量异常时只终结仍处于 Pending 的请求
+        // Searching 请求属于已有活动批次 不能由当前帧状态覆盖
         private void FailPendingRequests(
             ref SystemState state,
             NavigationPathFailureReason failureReason)
@@ -320,6 +328,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
         }
 
+        // Scratch 容量严格跟随活动 Grid 的 Cell 数
+        // 尺寸变化时整体重建以保持单一所有权和清晰生命周期
         private void EnsureScratchCapacity(int cellCount)
         {
             if (_scratchCellCount == cellCount && _gCosts.IsCreated)
@@ -353,6 +363,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _nextGeneration = 1;
         }
 
+        // generation 为每个请求保留唯一正整数区间
+        // 溢出前统一清零避免旧槽位与新请求获得相同标识
         private void EnsureGenerationCapacity(int batchCount)
         {
             if (_nextGeneration > 0 && _nextGeneration <= int.MaxValue - batchCount)
@@ -372,6 +384,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _nextGeneration = 1;
         }
 
+        // 批次上限很小 使用原地插入排序避免额外容器和比较器分配
+        // 排序键包含 Version 防止 Entity Index 复用时出现不稳定次序
         private static void SortEntities(NativeList<Entity> entities)
         {
             // EntityQuery 顺序不是公共契约 显式按 Index 和 Version 排序保证批次选择稳定
@@ -389,12 +403,15 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
         }
 
+        // Index 是主键 Version 是同 Index 下的稳定次键
         private static bool IsEntityAfter(Entity left, Entity right)
         {
             return left.Index > right.Index ||
                    (left.Index == right.Index && left.Version > right.Version);
         }
 
+        // 活动批次容器只能在 Handle 完成后释放
+        // 字段恢复默认值使重复销毁和下一批调度都能安全判断所有权
         private void DisposeActiveBatch()
         {
             // 只能在 Handle 完成后调用 活动容器可能仍被 Burst Job 持有
@@ -409,6 +426,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _activeJobScheduled = false;
         }
 
+        // Scratch 生命周期属于当前 System 和 World
+        // 释放后清空容量标记防止 World 重建访问旧 NativeContainer
         private void DisposeScratch()
         {
             // Scratch 不属于活动结果 但同样必须保证当前没有 Job 正在使用

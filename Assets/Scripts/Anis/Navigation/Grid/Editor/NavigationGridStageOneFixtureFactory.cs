@@ -24,6 +24,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             "Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset";
 
         [MenuItem("Tools/Animars Catcher/Navigation/Create Stage One Fixture")]
+        // 菜单入口创建固定夹具并将结果场景设为当前编辑对象
         private static void CreateFromMenu()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -48,6 +49,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         /// <returns>场景中的 NavigationGridAuthoring</returns>
         public static NavigationGridAuthoring CreateOrUpdateFixture()
         {
+            // 每次都从空场景重建以避免人工编辑逐渐改变固定输入
+            // 已存在 Bake Asset 会原地更新并保持提交中的 GUID
             EnsureFolder("Assets/Scenes/Benchmarks");
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -60,6 +63,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 throw new InvalidOperationException("阶段一夹具需要 Ground 和 Default Layer");
             }
 
+            // 环境和 Navigation 分根节点便于人工检查 Hierarchy 与采样来源
             var environmentRoot = new GameObject("Environment");
             CreateGroundGeometry(environmentRoot.transform, groundLayer);
             CreateObstacleGeometry(environmentRoot.transform, obstacleLayer);
@@ -70,6 +74,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 navigationRoot.AddComponent<NavigationGridAuthoring>();
             ConfigureAuthoring(authoring, groundLayer, obstacleLayer);
 
+            // 预先绑定历史资产让 Bake Utility 选择原地更新路径
             NavigationGridBakeAsset existingAsset =
                 AssetDatabase.LoadAssetAtPath<NavigationGridBakeAsset>(BakeAssetPath);
             if (existingAsset != null)
@@ -82,6 +87,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 throw new InvalidOperationException("无法保存阶段一 Grid 验收场景");
             }
 
+            // 场景先保存再同步 Physics 保证几何 Hash 和采样读取稳定身份
             Physics.SyncTransforms();
             NavigationGridBakeAsset bakeAsset = NavigationGridBakeUtility.Bake(authoring);
             if (AssetDatabase.GetAssetPath(bakeAsset) != BakeAssetPath && existingAsset == null)
@@ -97,6 +103,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return authoring;
         }
 
+        // 地面夹具覆盖平地 斜坡 台阶和窄平台等基础采样情况
+        // 所有几何使用固定尺寸和 Transform 保证 Hash 可重复
         private static void CreateGroundGeometry(Transform parent, int layer)
         {
             CreateBox(
@@ -140,6 +148,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 parent);
         }
 
+        // 障碍夹具覆盖独立阻挡 角点和通道 Clearance
+        // Layer 与地面分离以验证配置筛选和体积查询
         private static void CreateObstacleGeometry(Transform parent, int layer)
         {
             CreateBox(
@@ -175,6 +185,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 parent);
         }
 
+        // 固定光照只服务人工查看 不参与 Navigation 采样和 Hash
         private static void CreateLighting(Transform parent)
         {
             var lightObject = new GameObject("Directional Light");
@@ -185,6 +196,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             light.intensity = 1f;
         }
 
+        // 统一创建带 BoxCollider 的场景几何并立即写入稳定名称
+        // Transform 参数在创建时一次设置避免中间状态触发无关脏标记
         private static GameObject CreateBox(
             string name,
             Vector3 position,
@@ -193,6 +206,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             int layer,
             Transform parent)
         {
+            // Cube Primitive 自带 BoxCollider 可直接参与正式采样链路
+            // 删除 MeshRenderer 会改变人工可见性 因而保留默认可视网格
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             gameObject.name = name;
             gameObject.layer = layer;
@@ -207,11 +222,15 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             return gameObject;
         }
 
+        // Authoring 参数与阶段一验收断言保持同一份固定契约
+        // SerializedObject 写入保证私有序列化字段沿用正式 Inspector 路径
         private static void ConfigureAuthoring(
             NavigationGridAuthoring authoring,
             int groundLayer,
             int obstacleLayer)
         {
+            // 通过 SerializedProperty 写入可覆盖字段改名和 Inspector 序列化路径问题
+            // 每项值都对应阶段一文档中的固定验收参数
             var serializedObject = new SerializedObject(authoring);
             serializedObject.FindProperty("_worldBounds").boundsValue = new Bounds(
                 new Vector3(0f, 3f, 0f),
@@ -232,6 +251,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // 测试场景目录逐级创建并允许重复执行
         private static void EnsureFolder(string folderPath)
         {
             string[] segments = folderPath.Split('/');
