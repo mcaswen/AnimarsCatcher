@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 将场景目标投影到小地图覆盖层并维护对应图标

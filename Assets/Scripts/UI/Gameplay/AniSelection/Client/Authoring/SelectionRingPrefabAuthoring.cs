@@ -1,43 +1,46 @@
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 配置客户端选中光圈预制体和垂直偏移
-/// </summary>
-[DisallowMultipleComponent]
-public class SelectionRingPrefabAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Presentation.Selection
 {
-    public GameObject RingPrefab;
-    public float YOffset = 0.02f;
-
-    class Baker : Baker<SelectionRingPrefabAuthoring>
+    /// <summary>
+    /// 配置客户端选中光圈预制体和垂直偏移
+    /// </summary>
+    [DisallowMultipleComponent]
+    public class SelectionRingPrefabAuthoring : MonoBehaviour
     {
-        public override void Bake(SelectionRingPrefabAuthoring authoring)
+        public GameObject RingPrefab;
+        public float YOffset = 0.02f;
+
+        class Baker : Baker<SelectionRingPrefabAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.None);
-            var ringPrefabEntity = GetEntity(authoring.RingPrefab, TransformUsageFlags.Renderable);
-            AddComponent(entity, new SelectionRingPrefabConfig
+            public override void Bake(SelectionRingPrefabAuthoring authoring)
             {
-                Prefab = ringPrefabEntity,
-                YOffset = authoring.YOffset
-            });
+                var entity = GetEntity(TransformUsageFlags.None);
+                var ringPrefabEntity = GetEntity(authoring.RingPrefab, TransformUsageFlags.Renderable);
+                AddComponent(entity, new SelectionRingPrefabConfig
+                {
+                    Prefab = ringPrefabEntity,
+                    YOffset = authoring.YOffset
+                });
+            }
         }
     }
-}
 
-/// <summary>
-/// 客户端选中光圈实体预制体配置
-/// </summary>
-public struct SelectionRingPrefabConfig : IComponentData
-{
-    public Entity Prefab;
-    public float YOffset;
-}
+    /// <summary>
+    /// 客户端选中光圈实体预制体配置
+    /// </summary>
+    public struct SelectionRingPrefabConfig : IComponentData
+    {
+        public Entity Prefab;
+        public float YOffset;
+    }
 
-/// <summary>
-/// Ani 实体当前关联的选中光圈引用
-/// </summary>
-public struct SelectionRingReference : IComponentData
-{
-    public Entity RingEntity;
+    /// <summary>
+    /// Ani 实体当前关联的选中光圈引用
+    /// </summary>
+    public struct SelectionRingReference : IComponentData
+    {
+        public Entity RingEntity;
+    }
 }

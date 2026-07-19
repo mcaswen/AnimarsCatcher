@@ -2,11 +2,11 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using AnimarsCatcher.Mono.Audio;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Audio;
+using AnimarsCatcher.Presentation.Global;
 using DG.Tweening;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 管理游戏内暂停菜单和音量面板之间的切换
@@ -42,14 +42,14 @@ namespace AnimarsCatcher.Mono.UI
                 SmoothPanelView.HidePanel(MenuPanel, _panelAnimationDuration);
                 SmoothPanelView.ShowPanel(VolumeAdjustPanel, _panelAnimationDuration);
             });
-            
+
             Button_VolumeConfirm.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 SmoothPanelView.HidePanel(VolumeAdjustPanel, _panelAnimationDuration);
                 SmoothPanelView.ShowPanel(MenuPanel, _panelAnimationDuration);
             });
-            
+
             Button_QuitGame.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();

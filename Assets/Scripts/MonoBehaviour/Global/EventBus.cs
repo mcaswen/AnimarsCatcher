@@ -4,7 +4,7 @@ using System;
 using Object = System.Object;
 using UnityEngine.Events;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 按事件数据类型隔离监听器的进程内事件总线

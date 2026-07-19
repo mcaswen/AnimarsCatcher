@@ -4,7 +4,7 @@ using Unity.Entities;
 using Unity.NetCode;
 using Unity.Collections;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 在客户端消费服务器胜负 RPC 并转换为本地界面结果

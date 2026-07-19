@@ -1,9 +1,9 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 将主菜单创建房间和加入房间命令发布到对应流程

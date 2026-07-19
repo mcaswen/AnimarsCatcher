@@ -4,12 +4,12 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using AnimarsCatcher.Mono.Global;
-using AnimarsCatcher.Mono.Audio;
+using AnimarsCatcher.Presentation.Global;
+using AnimarsCatcher.Presentation.Audio;
 using AnimarsCatcher.Gameplay.Contracts;
-using AnimarsCatcher.Mono.Gameplay;
+using AnimarsCatcher.Presentation.Gameplay;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 管理本地玩家准备生成的 Picker 和 Blaster 数量

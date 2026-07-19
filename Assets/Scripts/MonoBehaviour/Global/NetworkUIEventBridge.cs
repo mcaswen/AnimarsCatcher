@@ -1,8 +1,9 @@
 using System;
 using UnityEngine.Events;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Presentation.Selection;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 将不同 NetCode 世界产生的状态变化转发给主线程 UI

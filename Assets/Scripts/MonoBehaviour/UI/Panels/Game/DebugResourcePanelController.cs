@@ -1,44 +1,47 @@
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Gameplay.Contracts;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// 通过正式资源请求链路注入调试资源变化
-/// </summary>
-public class DebugResourcePanelController : MonoBehaviour
+namespace AnimarsCatcher.Presentation.UI
 {
-    [Header("Buttons")]
-    [SerializeField] private Button _addFoodButton;
-    [SerializeField] private Button _addCrystalButton;
-
-    [Header("Config")]
-    [SerializeField] private int _debugAddAmount = 2;
-
-    private void Awake()
+    /// <summary>
+    /// 通过正式资源请求链路注入调试资源变化
+    /// </summary>
+    public class DebugResourcePanelController : MonoBehaviour
     {
-        _addFoodButton?.onClick.AddListener(OnAddFoodClicked);
-        _addCrystalButton?.onClick.AddListener(OnAddCrystalClicked);
-    }
+        [Header("Buttons")]
+        [SerializeField] private Button _addFoodButton;
+        [SerializeField] private Button _addCrystalButton;
 
-    // 请求服务端增加配置数量的食物
-    private void OnAddFoodClicked()
-    {
-        NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-            NetworkUIEventSource.ClientWorld,
-            ResourceItemKind.Food,
-            _debugAddAmount
-        );
-    }
+        [Header("Config")]
+        [SerializeField] private int _debugAddAmount = 2;
 
-    // 请求服务端增加配置数量的水晶
-    private void OnAddCrystalClicked()
-    {
-        NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-            NetworkUIEventSource.ClientWorld,
-            ResourceItemKind.Crystal,
-            _debugAddAmount
-        );
+        private void Awake()
+        {
+            _addFoodButton?.onClick.AddListener(OnAddFoodClicked);
+            _addCrystalButton?.onClick.AddListener(OnAddCrystalClicked);
+        }
+
+        // 请求服务端增加配置数量的食物
+        private void OnAddFoodClicked()
+        {
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                NetworkUIEventSource.ClientWorld,
+                ResourceItemKind.Food,
+                _debugAddAmount
+            );
+        }
+
+        // 请求服务端增加配置数量的水晶
+        private void OnAddCrystalClicked()
+        {
+            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
+                NetworkUIEventSource.ClientWorld,
+                ResourceItemKind.Crystal,
+                _debugAddAmount
+            );
+        }
     }
 }

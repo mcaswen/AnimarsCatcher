@@ -1,8 +1,8 @@
 using Unity.Entities;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Player;
 
-namespace AnimarsCatcher.Mono.Bridges
+namespace AnimarsCatcher.Presentation.Bridges
 {
 /// <summary>
 /// 在客户端根据 UI 面板占用情况维护玩法输入锁

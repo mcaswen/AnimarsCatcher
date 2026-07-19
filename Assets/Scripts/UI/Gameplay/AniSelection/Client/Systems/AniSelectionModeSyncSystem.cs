@@ -1,86 +1,89 @@
 using Unity.Entities;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using Unity.Collections;
 
-/// <summary>
-/// Mono 事件回调与 ECS 系统之间的临时模式同步上下文
-/// </summary>
-public static class AniSelectionModeSyncContext
+namespace AnimarsCatcher.Presentation.Selection
 {
-    public static AniSelectionMode CurrentMode = AniSelectionMode.Picker;
-    public static bool Dirty = false;
-}
-
-/// <summary>
-/// 将 UI 发布的 Ani 选择模式写入客户端 ECS 单例
-/// </summary>
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-[UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct AniSelectionModeSyncSystem : ISystem
-{
-
-    public void OnCreate(ref SystemState state)
+    /// <summary>
+    /// Mono 事件回调与 ECS 系统之间的临时模式同步上下文
+    /// </summary>
+    public static class AniSelectionModeSyncContext
     {
-        var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+        public static AniSelectionMode CurrentMode = AniSelectionMode.Picker;
+        public static bool Dirty = false;
+    }
 
-        if (!SystemAPI.TryGetSingleton<AniSelectionModeSingleton>(out var modeSingleton))
+    /// <summary>
+    /// 将 UI 发布的 Ani 选择模式写入客户端 ECS 单例
+    /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct AniSelectionModeSyncSystem : ISystem
+    {
+
+        public void OnCreate(ref SystemState state)
         {
-            var singletonEntity = entityCommandBuffer.CreateEntity();
-            entityCommandBuffer.SetName(singletonEntity, "AniSelectionModeSingleton");
-            entityCommandBuffer.AddComponent(singletonEntity, new AniSelectionModeSingleton
+            var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            if (!SystemAPI.TryGetSingleton<AniSelectionModeSingleton>(out var modeSingleton))
             {
-                Mode = AniSelectionMode.Picker
-            });
+                var singletonEntity = entityCommandBuffer.CreateEntity();
+                entityCommandBuffer.SetName(singletonEntity, "AniSelectionModeSingleton");
+                entityCommandBuffer.AddComponent(singletonEntity, new AniSelectionModeSingleton
+                {
+                    Mode = AniSelectionMode.Picker
+                });
+            }
+
+            AniSelectionModeSyncContext.CurrentMode = AniSelectionMode.Picker;
+            AniSelectionModeSyncContext.Dirty = false;
+
+            NetworkUIEventBridge.AniSelectionModeChanged.AddListener(OnSelectionModeChanged);
+
+            entityCommandBuffer.Playback(state.EntityManager);
+            entityCommandBuffer.Dispose();
         }
 
-        AniSelectionModeSyncContext.CurrentMode = AniSelectionMode.Picker;
-        AniSelectionModeSyncContext.Dirty = false;
-
-        NetworkUIEventBridge.AniSelectionModeChanged.AddListener(OnSelectionModeChanged);
-
-        entityCommandBuffer.Playback(state.EntityManager);
-        entityCommandBuffer.Dispose();
-    }
-
-    public void OnDestroy()
-    {
-        NetworkUIEventBridge.AniSelectionModeChanged.RemoveListener(OnSelectionModeChanged);
-    }
-
-    // 事件回调仅写入托管上下文 由 ECS 更新阶段正式提交
-    private void OnSelectionModeChanged(AniSelectionModeChangedEvent eventData)
-    {
-        AniSelectionModeSyncContext.CurrentMode = eventData.Mode;
-        AniSelectionModeSyncContext.Dirty = true;
-
-        UnityEngine.Debug.Log($"[AniSelectionModeSyncSystem] On SelectionMode Changed: {AniSelectionModeSyncContext.CurrentMode}");
-    }
-
-    public void OnUpdate(ref SystemState state)
-    {
-        if (!AniSelectionModeSyncContext.Dirty)
-            return;
-
-        UnityEngine.Debug.Log($"[AniSelectionModeSyncSystem] Syncing AniSelectionMode: {AniSelectionModeSyncContext.CurrentMode}");
-        AniSelectionModeSyncContext.Dirty = false;
-
-        var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-
-        if (!SystemAPI.TryGetSingletonRW<AniSelectionModeSingleton>(out var modeSingleton))
+        public void OnDestroy()
         {
-            var singletonEntity = entityCommandBuffer.CreateEntity();
-            entityCommandBuffer.SetName(singletonEntity, "AniSelectionModeSingleton");
-            entityCommandBuffer.AddComponent(singletonEntity, new AniSelectionModeSingleton
+            NetworkUIEventBridge.AniSelectionModeChanged.RemoveListener(OnSelectionModeChanged);
+        }
+
+        // 事件回调仅写入托管上下文 由 ECS 更新阶段正式提交
+        private void OnSelectionModeChanged(AniSelectionModeChangedEvent eventData)
+        {
+            AniSelectionModeSyncContext.CurrentMode = eventData.Mode;
+            AniSelectionModeSyncContext.Dirty = true;
+
+            UnityEngine.Debug.Log($"[AniSelectionModeSyncSystem] On SelectionMode Changed: {AniSelectionModeSyncContext.CurrentMode}");
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            if (!AniSelectionModeSyncContext.Dirty)
+                return;
+
+            UnityEngine.Debug.Log($"[AniSelectionModeSyncSystem] Syncing AniSelectionMode: {AniSelectionModeSyncContext.CurrentMode}");
+            AniSelectionModeSyncContext.Dirty = false;
+
+            var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            if (!SystemAPI.TryGetSingletonRW<AniSelectionModeSingleton>(out var modeSingleton))
             {
-                Mode = AniSelectionModeSyncContext.CurrentMode
-            });
-        }
-        else
-        {
-            modeSingleton.ValueRW.Mode = AniSelectionModeSyncContext.CurrentMode;
-        }
+                var singletonEntity = entityCommandBuffer.CreateEntity();
+                entityCommandBuffer.SetName(singletonEntity, "AniSelectionModeSingleton");
+                entityCommandBuffer.AddComponent(singletonEntity, new AniSelectionModeSingleton
+                {
+                    Mode = AniSelectionModeSyncContext.CurrentMode
+                });
+            }
+            else
+            {
+                modeSingleton.ValueRW.Mode = AniSelectionModeSyncContext.CurrentMode;
+            }
 
-        entityCommandBuffer.Playback(state.EntityManager);
-        entityCommandBuffer.Dispose();
+            entityCommandBuffer.Playback(state.EntityManager);
+            entityCommandBuffer.Dispose();
+        }
     }
 }

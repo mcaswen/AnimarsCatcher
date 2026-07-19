@@ -1,7 +1,8 @@
 using System;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Presentation.Selection;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 事件产生的 NetCode 世界

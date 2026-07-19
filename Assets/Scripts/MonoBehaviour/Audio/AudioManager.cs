@@ -6,7 +6,7 @@ using UnityEngine.Audio;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 
-namespace AnimarsCatcher.Mono.Audio
+namespace AnimarsCatcher.Presentation.Audio
 {
     /// <summary>
     /// 跨场景保留的音量和 UI 音效控制器
@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Mono.Audio
 
         public AudioMixer AudioMixer;
         private AudioSource _uiAudioSource;
-        
+
         [FormerlySerializedAs("MenuBtnClick")]
         public AudioClip MenuButtonClickClip;
         [FormerlySerializedAs("SwitchBtnClick")]
@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Mono.Audio
             Instance = this;
             DontDestroyOnLoad(this);
         }
-        
+
         private void Start()
         {
             _uiAudioSource = GetComponent<AudioSource>();

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace AnimarsCatcher.Mono
+namespace AnimarsCatcher.Presentation
 {
     /// <summary>
     /// 将小地图相机保持在目标正上方并可选同步目标朝向

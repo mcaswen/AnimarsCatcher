@@ -1,6 +1,6 @@
 using System;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 标记可通过 EventBus 发布的数据类型

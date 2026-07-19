@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 隔离 ECS 客户端系统与场景结算界面的直接依赖

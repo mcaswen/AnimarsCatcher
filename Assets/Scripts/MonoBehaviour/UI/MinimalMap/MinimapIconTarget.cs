@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 声明可显示在小地图上的场景目标及其图标样式

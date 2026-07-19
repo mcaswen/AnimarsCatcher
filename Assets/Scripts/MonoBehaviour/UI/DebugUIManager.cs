@@ -3,9 +3,9 @@ using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 将调试按钮转换为本地资源事件

@@ -1,12 +1,13 @@
 using AnimarsCatcher.Networking;
 using AnimarsCatcher.Player;
+using AnimarsCatcher.Presentation.UI;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 将网络程序集发布的短生命周期数据通知转交给客户端表现层

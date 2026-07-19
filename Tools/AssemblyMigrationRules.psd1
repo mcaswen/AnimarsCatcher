@@ -1,5 +1,5 @@
 @{
-    Version = 5
+    Version = 6
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     Rules = @(
@@ -131,12 +131,12 @@
         }
         @{
             Path = 'Assets/Scripts/MonoBehaviour'
-            Assembly = 'AnimarsCatcher.Mono'
+            Assembly = 'AnimarsCatcher.Presentation'
             Owner = 'GameObject Presentation'
-            Status = 'PendingRuntimeDependencies'
+            Status = 'PhaseFivePrepared'
             Lifecycle = 'Presentation'
-            NamespacePrefixes = @('AnimarsCatcher.Mono')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Presentation')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Netcode'
@@ -211,12 +211,12 @@
         }
         @{
             Path = 'Assets/Scripts/UI'
-            Assembly = 'AnimarsCatcher.UI'
+            Assembly = 'AnimarsCatcher.Presentation'
             Owner = 'ECS Presentation'
-            Status = 'PendingRuntimeDependencies'
+            Status = 'PhaseFivePrepared'
             Lifecycle = 'Presentation'
-            NamespacePrefixes = @('AnimarsCatcher.UI')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Presentation')
+            RequireNamespace = $true
         }
     )
 }

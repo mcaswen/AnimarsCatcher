@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Networking;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-namespace AnimarsCatcher.Mono.Lan
+namespace AnimarsCatcher.Presentation.Lan
 {
     /// <summary>
     /// 最近一次通过局域网广播发现的房间信息

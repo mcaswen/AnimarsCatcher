@@ -4,7 +4,7 @@ using UnityEngine;
 using AnimarsCatcher.Gameplay;
 using AnimarsCatcher.Networking;
 
-namespace AnimarsCatcher.Mono.Gameplay
+namespace AnimarsCatcher.Presentation.Gameplay
 {
     /// <summary>
     /// 从客户端世界创建 Ani 生成请求并发送给服务器

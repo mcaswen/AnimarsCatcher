@@ -1,11 +1,11 @@
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Networking;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Presentation.Global
 {
     /// <summary>
     /// 在客户端世界创建资源变更 RPC 实体

@@ -1,7 +1,7 @@
 using UnityEngine;
 
 
-namespace AnimarsCatcher.Mono.Audio
+namespace AnimarsCatcher.Presentation.Audio
 {
     /// <summary>
     /// 输出当前正在播放的 AudioSource 路径和混音信息

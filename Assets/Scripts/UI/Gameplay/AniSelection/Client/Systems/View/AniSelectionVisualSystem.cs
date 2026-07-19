@@ -3,50 +3,53 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-/// <summary>
-/// 将 ECS 拖拽状态显示为 UGUI 框选矩形
-/// </summary>
-[BurstCompile]
-[UpdateInGroup(typeof(PresentationSystemGroup))]
-public partial struct AniSelectionVisualSystem : ISystem
+namespace AnimarsCatcher.Presentation.Selection
 {
-    public void OnCreate(ref SystemState state)
+    /// <summary>
+    /// 将 ECS 拖拽状态显示为 UGUI 框选矩形
+    /// </summary>
+    [BurstCompile]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]
+    public partial struct AniSelectionVisualSystem : ISystem
     {
-        state.RequireForUpdate<AniSelectionDragState>();
-        state.RequireForUpdate<AniSelectionUIReference>();
-    }
-
-    public void OnUpdate(ref SystemState state)
-    {
-        var drag = SystemAPI.GetSingleton<AniSelectionDragState>();
-
-        foreach (var ui in SystemAPI.Query<AniSelectionUIReference>())
+        public void OnCreate(ref SystemState state)
         {
-            var rect = ui.SelectionRect;
-            if (!rect) continue;
+            state.RequireForUpdate<AniSelectionDragState>();
+            state.RequireForUpdate<AniSelectionUIReference>();
+        }
 
-            if (drag.IsDragging == 0)
+        public void OnUpdate(ref SystemState state)
+        {
+            var drag = SystemAPI.GetSingleton<AniSelectionDragState>();
+
+            foreach (var ui in SystemAPI.Query<AniSelectionUIReference>())
             {
-                if (rect.gameObject.activeSelf) rect.gameObject.SetActive(false);
-                continue;
+                var rect = ui.SelectionRect;
+                if (!rect) continue;
+
+                if (drag.IsDragging == 0)
+                {
+                    if (rect.gameObject.activeSelf) rect.gameObject.SetActive(false);
+                    continue;
+                }
+
+                if (!rect.gameObject.activeSelf) rect.gameObject.SetActive(true);
+
+                var canvasRect = ui.RootCanvas.transform as RectTransform;
+
+                Vector2 canvasScreenStartPosition, canvasScreenEndPosition;
+
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, drag.StartScreen, null, out canvasScreenStartPosition);
+
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, drag.EndScreen, null, out canvasScreenEndPosition);
+
+                // 归一化拖拽方向后更新左下角位置和尺寸
+                var min = Vector2.Min(canvasScreenStartPosition, canvasScreenEndPosition);
+                var size = Vector2.Max(canvasScreenStartPosition, canvasScreenEndPosition) - min;
+
+                rect.anchoredPosition = min;
+                rect.sizeDelta = size;
             }
-
-            if (!rect.gameObject.activeSelf) rect.gameObject.SetActive(true);
-
-            var canvasRect = ui.RootCanvas.transform as RectTransform;
-
-            Vector2 canvasScreenStartPosition, canvasScreenEndPosition;
-
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, drag.StartScreen, null, out canvasScreenStartPosition);
-
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, drag.EndScreen, null, out canvasScreenEndPosition);
-
-            // 归一化拖拽方向后更新左下角位置和尺寸
-            var min = Vector2.Min(canvasScreenStartPosition, canvasScreenEndPosition);
-            var size = Vector2.Max(canvasScreenStartPosition, canvasScreenEndPosition) - min;
-
-            rect.anchoredPosition = min;
-            rect.sizeDelta = size;
         }
     }
 }

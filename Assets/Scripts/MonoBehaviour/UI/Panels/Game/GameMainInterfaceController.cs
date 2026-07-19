@@ -2,11 +2,13 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using AnimarsCatcher.Mono.Audio;
+using AnimarsCatcher.Presentation.Audio;
 using DG.Tweening;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
+using AnimarsCatcher.Presentation.Account;
+using AnimarsCatcher.Presentation.Selection;
 
-namespace AnimarsCatcher.Mono.UI
+namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
     /// 主界面当前展示的 Ani 信息类别
@@ -105,7 +107,7 @@ namespace AnimarsCatcher.Mono.UI
                 Debug.LogWarning("[GameMenuInterfaceController] Failed to get global game resource state.");
                 return;
             }
-            
+
             int matchTimeSeconds = globalGameResourceState.MatchTimeSeconds;
             int minutes = matchTimeSeconds / 60;
             int seconds = matchTimeSeconds % 60;
@@ -114,14 +116,14 @@ namespace AnimarsCatcher.Mono.UI
             if (Input.GetKeyDown(KeyCode.LeftShift))
             {
                 if (_aniInfoType == AniInfoType.Picker)
-                {    
+                {
                     HandleAniIconButtonClick(PickerAniIcon, BlasterAniIcon);
                 }
                 else if (_aniInfoType == AniInfoType.Blaster)
                 {
                     HandleAniIconButtonClick(BlasterAniIcon, PickerAniIcon);
                 }
-                
+
             }
 
         }
@@ -131,7 +133,7 @@ namespace AnimarsCatcher.Mono.UI
         {
             AudioManager.Instance.PlaySwitchButtonAudio();
             bool success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
-            
+
             if (!success)
             {
                 Debug.LogError("[GameMenuInterfaceController] Failed to get local player resource state.");

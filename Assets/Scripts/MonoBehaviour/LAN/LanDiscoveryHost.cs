@@ -2,10 +2,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
-using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Networking;
 
-namespace AnimarsCatcher.Mono.Lan
+namespace AnimarsCatcher.Presentation.Lan
 {
     /// <summary>
     /// 由 Host 周期广播可加入房间的名称和游戏端口
@@ -119,6 +119,6 @@ namespace AnimarsCatcher.Mono.Lan
             }
         }
 
-        
+
     }
 }

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace AnimarsCatcher.Mono
+namespace AnimarsCatcher.Presentation
 {
     /// <summary>
     /// 在本地玩家视图就绪后注册小地图跟随目标
