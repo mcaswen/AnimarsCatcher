@@ -37,6 +37,7 @@
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
 12. [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
+13. [文件夹迁移计划](20_FolderMigrationPlan.md)：查看当前目录审计、目标结构、迁移映射、实施阶段和验收门禁
 
 ## 3. 总体运行架构
 
