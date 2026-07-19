@@ -1,5 +1,5 @@
 @{
-    Version = 7
+    Version = 8
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     Rules = @(
@@ -112,11 +112,21 @@
         @{
             Path = 'Assets/Scripts/Editor'
             Assembly = 'AnimarsCatcher.Editor'
+            AsmdefPath = 'Assets/Scripts/Editor/AnimarsCatcher.Editor.asmdef'
+            RootNamespace = 'AnimarsCatcher.Editor'
             Owner = 'Project Editor Tools'
-            Status = 'PendingRuntimeDependencies'
+            Status = 'PhaseSevenImplemented'
             Lifecycle = 'Editor'
             NamespacePrefixes = @('AnimarsCatcher.Editor')
-            RequireNamespace = $false
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Benchmarks.LegacyNavigation',
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Networking',
+                'AnimarsCatcher.Player',
+                'AnimarsCatcher.Presentation'
+            )
         }
         @{
             Path = 'Assets/Scripts/Global'
@@ -174,12 +184,16 @@
         }
         @{
             Path = 'Assets/Scripts/Physics'
-            Assembly = 'AnimarsCatcher.Physics'
+            Assembly = 'AnimarsCatcher.Physics.Authoring'
+            AsmdefPath = 'Assets/Scripts/Physics/AnimarsCatcher.Physics.Authoring.asmdef'
+            RootNamespace = 'AnimarsCatcher.Physics.Authoring'
             Owner = 'Physics Authoring'
-            Status = 'PendingDependencyAudit'
+            Status = 'PhaseSevenImplemented'
             Lifecycle = 'Authoring'
-            NamespacePrefixes = @('AnimarsCatcher.Physics')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Physics.Authoring')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @()
         }
         @{
             Path = 'Assets/Scripts/Player/Input/Editor'
@@ -237,12 +251,15 @@
         }
         @{
             Path = 'Assets/Scripts/Terrain'
-            Assembly = 'AnimarsCatcher.Terrain'
+            Assembly = 'AnimarsCatcher.Physics.Authoring'
+            AsmrefPath = 'Assets/Scripts/Terrain/AnimarsCatcher.Physics.Authoring.asmref'
             Owner = 'Terrain Authoring'
-            Status = 'PendingDependencyAudit'
+            Status = 'PhaseSevenImplemented'
             Lifecycle = 'Authoring'
-            NamespacePrefixes = @('AnimarsCatcher.Terrain')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Physics.Authoring')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @()
         }
         @{
             Path = 'Assets/Scripts/UI'

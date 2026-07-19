@@ -1,0 +1,22 @@
+{
+  "name": "AnimarsCatcher.Editor",
+  "rootNamespace": "AnimarsCatcher.Editor",
+  "references": [
+    "GUID:fa16307da46fd914dbbf094824885beb",
+    "GUID:95e6f2eeefa140e4a565f2a3fdadcf00",
+    "GUID:396db97842e549ccb67d7029e581210d",
+    "GUID:a68a14716dcc4aa1aeb785b6b79c029f",
+    "GUID:1ca8039001e647d98370fdbdb4a47574"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
