@@ -127,6 +127,9 @@ public PlayerResourceState GetPlayerResource()
 15. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Presentation；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
 16. `AnimarsCatcher.Presentation` 统一承载 Mono UI、ECS UI、音频、LAN、HUD、场景过渡和 GameObject View，可以依赖 Gameplay Contracts、Gameplay、Player 与 Networking；运行时业务程序集不得反向引用 Presentation。
 17. `AnimarsCatcher.Benchmarks.LegacyNavigation` 可以依赖正式运行时程序集以执行历史基线，但 Core、Gameplay、Navigation、Player、Networking 和 Presentation 不得引用 Benchmark；Benchmark 修复仅限可编译性、正确性和测量噪声，不继续承载正式功能。
+18. 项目自有 asmdef 默认关闭 `Auto Referenced`，跨模块访问必须声明显式 GUID 引用；确需开启时必须在迁移规则和架构文档中登记原因并通过审计。
+19. Editor 播放模式配置应由 Editor-only 程序集读取，再通过纯数据或窄接口传给 Runtime；禁止为了读取编辑器配置把 `UNITY_EDITOR` 分支长期保留在运行时 System 和 Bootstrap 中。
+20. 第三方插件、Unity Sample 和生成程序集不纳入项目 asmdef 的批量格式或 `Auto Referenced` 修改，除非项目明确接管其维护责任。
 
 ## 6. Entities 与 DOTS
 

@@ -1,17 +1,17 @@
-using System;
-using UnityEngine;
-using Unity.NetCode;
-
 namespace AnimarsCatcher.Networking
 {
+    using System;
+    using Unity.NetCode;
+    using UnityEngine;
+
     /// <summary>
     /// 当前进程承担的网络运行角色
     /// </summary>
     public enum NetworkRunRole
     {
-        Host,   // Server 与 Client 在同一进程
-        Client, // 纯客户端
-        DedicatedServer // 专用服务端
+        Host,
+        Client,
+        DedicatedServer
     }
 
     /// <summary>
@@ -42,6 +42,8 @@ namespace AnimarsCatcher.Networking
         /// <summary>
         /// 显式设置当前运行角色并记录来源
         /// </summary>
+        /// <param name="role">目标网络角色</param>
+        /// <param name="reason">设置角色的来源</param>
         public static void SetRole(NetworkRunRole role, string reason = null)
         {
             Current = role;
@@ -49,14 +51,21 @@ namespace AnimarsCatcher.Networking
                       (string.IsNullOrEmpty(reason) ? "" : $" (from {reason})"));
         }
 
-        // 编辑器依据 NetCode PlayMode 工具判断 构建版本依据命令行参数判断
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void DetectRole()
         {
+            if (NetworkPlayModeConfiguration.HasEditorOverride)
+            {
+                DetectEditorRole();
+                return;
+            }
 
-#if UNITY_EDITOR
-            // Editor 中从 PlayMode Tools 的 PlayType 推断角色
-            switch (ClientServerBootstrap.RequestedPlayType)
+            DetectCommandLineRole();
+        }
+
+        private static void DetectEditorRole()
+        {
+            switch (NetworkPlayModeConfiguration.PlayType)
             {
                 case ClientServerBootstrap.PlayType.ClientAndServer:
                     SetRole(NetworkRunRole.Host, "Editor PlayMode ClientAndServer");
@@ -68,37 +77,55 @@ namespace AnimarsCatcher.Networking
                     SetRole(NetworkRunRole.DedicatedServer, "Editor PlayMode Server");
                     break;
                 default:
-                    SetRole(NetworkRunRole.Host, "Editor PlayMode Unknown -> default Host");
+                    SetRole(NetworkRunRole.Host, "Editor PlayMode Unknown");
                     break;
             }
-#else
-            // 非 Editor 环境从命令行参数推断角色
-            var arguments = Environment.GetCommandLineArgs();
+        }
 
-            bool HasArgument(string flag)
-                => Array.Exists(arguments, argument =>
-                    string.Equals(argument, flag, StringComparison.OrdinalIgnoreCase));
+        private static void DetectCommandLineRole()
+        {
+            string[] arguments = Environment.GetCommandLineArgs();
 
-            if (HasArgument("-dedicated"))
+            if (HasArgument(arguments, "-dedicated") ||
+                HasArgument(arguments, "-server") ||
+                HasArgument(arguments, "-serverui"))
             {
                 Current = NetworkRunRole.DedicatedServer;
             }
-            else if (HasArgument("-client"))
+            else if (HasArgument(arguments, "-client"))
             {
                 Current = NetworkRunRole.Client;
             }
-            else if (HasArgument("-host"))
+            else if (HasArgument(arguments, "-host"))
             {
                 Current = NetworkRunRole.Host;
             }
             else
             {
-                // 无显式参数时按普通客户端启动
-                Current = NetworkRunRole.Client;
+                Current = GetDefaultBuildRole();
             }
 
             Debug.Log($"[NetworkRuntimeRole] Launch as {Current}");
-#endif
+        }
+
+        private static bool HasArgument(string[] arguments, string flag)
+        {
+            return Array.Exists(
+                arguments,
+                argument => string.Equals(
+                    argument,
+                    flag,
+                    StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static NetworkRunRole GetDefaultBuildRole()
+        {
+            return ClientServerBootstrap.RequestedPlayType switch
+            {
+                ClientServerBootstrap.PlayType.Server => NetworkRunRole.DedicatedServer,
+                ClientServerBootstrap.PlayType.Client => NetworkRunRole.Client,
+                _ => NetworkRunRole.Client
+            };
         }
     }
 }

@@ -6,7 +6,9 @@
     "GUID:95e6f2eeefa140e4a565f2a3fdadcf00",
     "GUID:396db97842e549ccb67d7029e581210d",
     "GUID:a68a14716dcc4aa1aeb785b6b79c029f",
-    "GUID:1ca8039001e647d98370fdbdb4a47574"
+    "GUID:1ca8039001e647d98370fdbdb4a47574",
+    "GUID:ff624f15e5084b8c90869d254a388c65",
+    "GUID:e5c482aa1ffe4361b512405ed775c28f"
   ],
   "includePlatforms": [
     "Editor"
@@ -15,7 +17,7 @@
   "allowUnsafeCode": false,
   "overrideReferences": false,
   "precompiledReferences": [],
-  "autoReferenced": true,
+  "autoReferenced": false,
   "defineConstraints": [],
   "versionDefines": [],
   "noEngineReferences": false

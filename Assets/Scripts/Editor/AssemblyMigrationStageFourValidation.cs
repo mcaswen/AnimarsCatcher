@@ -1,14 +1,14 @@
 #if UNITY_EDITOR
-using System;
-using System.Linq;
-using AnimarsCatcher.Gameplay.Editor;
-using AnimarsCatcher.Networking;
-using AnimarsCatcher.Player;
-using UnityEditor.Compilation;
-using UnityEngine;
-
 namespace AnimarsCatcher.Editor
 {
+    using System;
+    using System.Linq;
+    using AnimarsCatcher.Gameplay.Editor;
+    using AnimarsCatcher.Networking;
+    using AnimarsCatcher.Player;
+    using UnityEditor.Compilation;
+    using UnityEngine;
+
     /// <summary>
     /// 验证阶段四程序集归属和 Unity 序列化引用完整性
     /// </summary>
@@ -17,9 +17,10 @@ namespace AnimarsCatcher.Editor
         private const string PlayerAssemblyName = "AnimarsCatcher.Player";
         private const string PlayerEditorAssemblyName = "AnimarsCatcher.Player.Editor";
         private const string NetworkingAssemblyName = "AnimarsCatcher.Networking";
+        private const string NetworkingEditorAssemblyName = "AnimarsCatcher.Networking.Editor";
 
         /// <summary>
-        /// 验证阶段四程序集归属以及项目场景和 Prefab 引用
+        /// 验证阶段四类型归属以及项目场景和 Prefab 引用
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -40,12 +41,16 @@ namespace AnimarsCatcher.Editor
             AssertAssembly(typeof(StartClientConnectSystem), NetworkingAssemblyName);
             AssertAssembly(typeof(CharacterSpawnUtility), NetworkingAssemblyName);
 
-            bool hasPlayerEditorAssembly = CompilationPipeline
+            AssertEditorAssemblyExists(PlayerEditorAssemblyName);
+            AssertEditorAssemblyExists(NetworkingEditorAssemblyName);
+        }
+
+        private static void AssertEditorAssemblyExists(string assemblyName)
+        {
+            bool exists = CompilationPipeline
                 .GetAssemblies(AssembliesType.Editor)
-                .Any(assembly => assembly.name == PlayerEditorAssemblyName);
-            Assert(
-                hasPlayerEditorAssembly,
-                $"未找到编辑器程序集 {PlayerEditorAssemblyName}");
+                .Any(assembly => assembly.name == assemblyName);
+            Assert(exists, $"未找到编辑器程序集 {assemblyName}");
         }
 
         private static void AssertAssembly(Type type, string expectedAssemblyName)

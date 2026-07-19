@@ -2,11 +2,11 @@
 
 [返回架构总览](README.md)
 
-本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已使用自定义 asmdef，Presentation 和 Legacy Benchmark 仍主要依赖逻辑边界。
+本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前全部项目业务脚本都已进入自定义 asmdef，目录职责同时受到编译器依赖边界约束。
 
 ## 1. 代码模块
 
-项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已形成编译边界，Presentation 仍主要位于 `Assembly-CSharp`。
+项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。13 个项目程序集分别承载 Runtime、Editor、Authoring 和 Benchmark 生命周期，项目业务脚本不再位于 `Assembly-CSharp`。
 
 ### 1.1 底层契约
 
@@ -36,24 +36,24 @@
 
 这一组把 ECS 状态转换为玩家能看到和操作的 GameObject 界面。它可以读取权威状态或发送请求，但不应该直接改写服务器结果。
 
-- **`UI`**：实现 ECS 框选、选择模式、选择光圈和血条 View，主要运行在 Client Presentation 阶段。它依赖玩家输入、Ani 数据和 Mono Bootstrap
-- **`MonoBehaviour`**：承载账号、LAN、菜单、HUD、音频、场景过渡，以及 ECS World 与 GameObject 之间的桥接。它运行在 GameObject 主线程，并与 `Netcode`、`Resource` 和 `UI` 交互
+- **`UI`**：编译进 `AnimarsCatcher.Presentation`，实现 ECS 框选、选择模式、选择光圈和血条 View，主要运行在 Client Presentation 阶段
+- **`MonoBehaviour`**：编译进 `AnimarsCatcher.Presentation`，承载账号、LAN、菜单、HUD、音频、场景过渡，以及 ECS World 与 GameObject 之间的桥接
 
 ### 1.5 烘焙与编辑器支持
 
 这些模块通常不直接参与玩法决策，而是在烘焙阶段准备运行时数据，或在编辑器中提供维护工具。
 
-- **`Physics`**：当前只保留通用胶囊体 Authoring 数据。角色盒体 Authoring 已归入 Player 角色控制模块
-- **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
-- **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
+- **`Physics` 与 `Terrain`**：共同编译进 `AnimarsCatcher.Physics.Authoring`，提供通用胶囊体数据和 Terrain Collider 烘焙
+- **`Editor`**：编译进 `AnimarsCatcher.Editor`，提供资源修复工具和程序集迁移总验收入口，只在 Unity Editor 中运行
 - **`Anis/Navigation/Grid/Algorithms`**：保存与 Scene 和 World 解耦的烘焙算法、端点投影、确定性 A*、离散直线检查和代价保持平滑
 - **`Anis/Navigation/Grid/Components`**：定义只读 Grid Blob、路径请求、生命周期状态和路径点 Buffer
 - **`Anis/Navigation/Grid/Jobs`**：在 Burst Job 中顺序处理一个路径批次并复用整张 Grid 的 Scratch 内存
 - **`Anis/Navigation/Grid/Systems`**：只在 Server 或 Local World 收集请求、异步调度 Job，并在后续 Tick 写回已完成结果
-- **`Anis/Navigation/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
+- **`Anis/Navigation/Grid/Editor`**：编译进 `AnimarsCatcher.Navigation.Editor`，提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
 - **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
 - **`Player/Input/Editor`**：使用独立 Editor-only asmdef 检查 Input System 配置
-- **`Editor/AssemblyMigrationStageFourValidation`**：验证 Player、Player Editor 和 Networking 程序集归属，并复用场景与 Prefab 扫描
+- **`Netcode/Editor`**：使用 `AnimarsCatcher.Networking.Editor` 读取 Multiplayer PlayMode 配置，并通过纯数据桥传给 Networking Runtime
+- **`Editor/AssemblyMigrationStageSevenValidation`**：验证全部项目程序集、显式引用策略、Physics Authoring 类型归属和此前阶段回归入口
 
 原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
@@ -63,32 +63,35 @@
 
 ```mermaid
 flowchart TD
-    Mono[MonoBehaviour UI LAN Audio]
-    UI[UI ECS Presentation]
-    Net[Netcode Bootstrap Protocol Spawn]
-    Player[Player Input KCC Camera]
-    Gameplay[Gameplay Anis Base Camp Health Resource Match]
-    Navigation[Navigation Grid]
-    Legacy[Benchmarks LegacyNavMesh]
-    Physics[Physics Terrain Authoring]
-    Core[Core FSM Data]
+    Presentation[Presentation]
+    Networking[Networking]
+    Player[Player]
+    Gameplay[Gameplay]
+    Navigation[Navigation]
+    Legacy[Benchmarks LegacyNavigation]
+    Core[Core]
     Contracts[Gameplay Contracts]
+    NavEditor[Navigation Editor]
+    NetEditor[Networking Editor]
+    PlayerEditor[Player Editor]
 
-    Mono --> Net
-    Mono --> Player
-    Mono --> UI
-    Mono --> Gameplay
-    UI --> Player
-    UI --> Gameplay
-    Net --> Player
-    Net --> Gameplay
+    Presentation --> Networking
+    Presentation --> Player
+    Presentation --> Gameplay
+    Presentation --> Contracts
+    Networking --> Player
+    Networking --> Gameplay
+    Networking --> Contracts
     Player --> Gameplay
     Gameplay --> Core
     Gameplay --> Contracts
+    Legacy --> Player
     Legacy --> Gameplay
     Legacy --> Core
     Legacy --> Contracts
-    Physics --> Gameplay
+    NavEditor --> Navigation
+    NetEditor --> Networking
+    PlayerEditor --> Player
 ```
 
 新增跨模块功能时，优先通过 Component、RPC、事件或职责明确的窄接口连接。若两个模块开始相互持有大量实现细节，通常说明数据所有权或模块职责需要重新划分。

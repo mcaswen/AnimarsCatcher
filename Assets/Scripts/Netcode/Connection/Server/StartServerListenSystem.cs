@@ -4,13 +4,10 @@ namespace AnimarsCatcher.Networking
     using Unity.Entities;
     using Unity.NetCode;
     using Unity.Networking.Transport;
-
-    #if UNITY_EDITOR
     using UnityEngine.SceneManagement;
-    #endif
 
     /// <summary>
-    /// 根据编辑器场景或运行时启动参数创建服务器监听请求
+    /// 根据编辑器场景或运行时启动参数创建服务端监听请求
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -19,65 +16,68 @@ namespace AnimarsCatcher.Networking
     {
         public void OnCreate(ref SystemState state)
         {
-    #if UNITY_EDITOR
-            // 编辑器游戏场景自动监听，便于 Host 与 Client 本机联调
-            if (SceneManager.GetActiveScene().name != "SCN_GameLevel") return;
-
-            if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamRequestListen>().Build().IsEmpty)
+            if (NetworkPlayModeConfiguration.HasEditorOverride)
             {
+                CreateEditorListenRequest(ref state);
                 state.Enabled = false;
                 return;
             }
 
-            var endPoint = NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game);
-            var requestListenEntity = state.EntityManager.CreateEntity();
-
-            state.EntityManager.SetName(requestListenEntity, "ServerListenRequest (Editor SCN_GameLevel Auto)");
-            state.EntityManager.AddComponentData(requestListenEntity, new NetworkStreamRequestListen
-            {
-                Endpoint = endPoint
-            });
-
-
+            CreateRuntimeListenRequest(ref state);
             state.Enabled = false;
-            return;
-    #endif
+        }
 
-    #if !UNITY_EDITOR
-            // Player 构建只有显式服务器角色才允许绑定监听端口
-            bool shouldCreateListenRequest =
+        private void CreateEditorListenRequest(ref SystemState state)
+        {
+            if (SceneManager.GetActiveScene().name != "SCN_GameLevel" ||
+                HasListenRequest(ref state))
+            {
+                return;
+            }
+
+            CreateListenRequest(
+                ref state,
+                NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game),
+                "ServerListenRequest (Editor SCN_GameLevel Auto)");
+        }
+
+        private void CreateRuntimeListenRequest(ref SystemState state)
+        {
+            bool shouldListen =
                 CommandLineManager.HasArgument("-server") ||
                 CommandLineManager.HasArgument("-serverui") ||
                 CommandLineManager.HasArgument("-dedicated");
 
-            if (!shouldCreateListenRequest)
+            if (!shouldListen || HasListenRequest(ref state))
             {
-                state.Enabled = false;
                 return;
             }
 
-            if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamRequestListen>().Build().IsEmpty)
-            {
-                state.Enabled = false;
-                return;
-            }
-
-            // AnyIpv4 允许局域网和远端客户端访问服务器端口
-            var endPointRuntime = NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game);
-            var requestEntityRuntime = state.EntityManager.CreateEntity();
-
-            state.EntityManager.SetName(requestEntityRuntime, "ServerListenRequest (Runtime)");
-            state.EntityManager.AddComponentData(requestEntityRuntime, new NetworkStreamRequestListen
-            {
-                Endpoint = endPointRuntime
-            });
-    #else
-            // 其他编辑器场景由 HostRoomPanel 显式决定监听时机
-            state.Enabled = false;
-    #endif
-
-
+            // AnyIpv4 允许局域网和远端客户端访问服务端端口
+            CreateListenRequest(
+                ref state,
+                NetworkEndpoint.AnyIpv4.WithPort(NetworkPorts.Game),
+                "ServerListenRequest (Runtime)");
         }
 
+        private bool HasListenRequest(ref SystemState state)
+        {
+            return !SystemAPI.QueryBuilder()
+                .WithAll<NetworkStreamRequestListen>()
+                .Build()
+                .IsEmpty;
+        }
+
+        private static void CreateListenRequest(
+            ref SystemState state,
+            NetworkEndpoint endPoint,
+            string entityName)
+        {
+            Entity requestEntity = state.EntityManager.CreateEntity();
+            state.EntityManager.SetName(requestEntity, entityName);
+            state.EntityManager.AddComponentData(
+                requestEntity,
+                new NetworkStreamRequestListen { Endpoint = endPoint });
+        }
     }
 }

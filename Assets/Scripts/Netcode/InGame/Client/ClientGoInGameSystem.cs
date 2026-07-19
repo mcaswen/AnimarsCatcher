@@ -1,11 +1,8 @@
 namespace AnimarsCatcher.Networking
 {
-    using Unity.NetCode;
     using Unity.Entities;
-
-    #if UNITY_EDITOR
+    using Unity.NetCode;
     using UnityEngine.SceneManagement;
-    #endif
 
     /// <summary>
     /// 在编辑器游戏场景中自动完成客户端 InGame 调试握手
@@ -14,32 +11,33 @@ namespace AnimarsCatcher.Networking
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct ClientGoInGameSystem : ISystem
     {
+        public void OnCreate(ref SystemState state)
+        {
+            if (!NetworkPlayModeConfiguration.HasEditorOverride)
+            {
+                state.Enabled = false;
+            }
+        }
+
         public void OnUpdate(ref SystemState state)
         {
-            // Player 构建必须由正式大厅流程控制 InGame 状态
-    #if !UNITY_EDITOR
-            return;
-    #else
-            // 编辑器只在游戏调试场景跳过大厅握手
-            if (SceneManager.GetActiveScene().name != "SCN_GameLevel")
+            // 场景限制防止调试握手介入正式大厅和菜单流程
+            if (SceneManager.GetActiveScene().name != "SCN_GameLevel" ||
+                !SystemAPI.TryGetSingletonEntity<NetworkId>(out Entity connection) ||
+                SystemAPI.HasComponent<NetworkStreamInGame>(connection))
             {
                 return;
             }
-    #endif
 
-            if (!SystemAPI.TryGetSingletonEntity<NetworkId>(out var connection)) return; // 还没连上服务器
-
-            if (SystemAPI.HasComponent<NetworkStreamInGame>(connection)) return; // 已 InGame
-
-            var rpcEntity = state.EntityManager.CreateEntity();
+            Entity rpcEntity = state.EntityManager.CreateEntity();
             state.EntityManager.AddComponentData(rpcEntity, new GoInGameRequest());
-            state.EntityManager.AddComponentData(rpcEntity, new SendRpcCommandRequest
-            {
-                TargetConnection = connection
-            });
+            state.EntityManager.AddComponentData(
+                rpcEntity,
+                new SendRpcCommandRequest { TargetConnection = connection });
 
             state.EntityManager.AddComponent<NetworkStreamInGame>(connection);
-            UnityEngine.Debug.Log("[Client][Editor SCN_GameLevel] Auto sent GoInGameRequest and marked InGame locally.");
+            UnityEngine.Debug.Log(
+                "[Client][Editor SCN_GameLevel] Auto sent GoInGameRequest and marked InGame locally");
         }
     }
 }

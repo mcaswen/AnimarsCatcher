@@ -242,6 +242,46 @@ $warnings = New-Object 'System.Collections.Generic.List[string]'
 $assemblyDefinitions = @()
 $assemblyReferences = @()
 
+$configuredAsmdefPaths = New-Object 'System.Collections.Generic.HashSet[string]'
+$configuredAsmrefPaths = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($rule in $rules)
+{
+    if (-not [string]::IsNullOrWhiteSpace($rule.AsmdefPath))
+    {
+        [void]$configuredAsmdefPaths.Add($rule.AsmdefPath.Replace('\', '/'))
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($rule.AsmrefPath))
+    {
+        [void]$configuredAsmrefPaths.Add($rule.AsmrefPath.Replace('\', '/'))
+    }
+}
+
+$discoveredAsmdefPaths = @(
+    Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.asmdef' |
+        ForEach-Object { ConvertTo-RepoPath $_.FullName $repositoryRoot }
+)
+$discoveredAsmrefPaths = @(
+    Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.asmref' |
+        ForEach-Object { ConvertTo-RepoPath $_.FullName $repositoryRoot }
+)
+
+foreach ($asmdefPath in $discoveredAsmdefPaths)
+{
+    if (-not $configuredAsmdefPaths.Contains($asmdefPath))
+    {
+        $criticalIssues.Add("Unregistered assembly definition: $asmdefPath")
+    }
+}
+
+foreach ($asmrefPath in $discoveredAsmrefPaths)
+{
+    if (-not $configuredAsmrefPaths.Contains($asmrefPath))
+    {
+        $criticalIssues.Add("Unregistered assembly reference: $asmrefPath")
+    }
+}
+
 foreach ($rule in $rules | Where-Object { -not [string]::IsNullOrWhiteSpace($_.AsmdefPath) })
 {
     $resolvedAsmdefPath = Resolve-RepositoryPath $rule.AsmdefPath $repositoryRoot
@@ -274,24 +314,26 @@ foreach ($rule in $rules | Where-Object { -not [string]::IsNullOrWhiteSpace($_.A
             "Root namespace mismatch: $($rule.AsmdefPath) -> $($definition.rootNamespace)")
     }
 
-    if (-not $definition.autoReferenced)
+    $expectedAutoReferenced = [bool]$configuration.ProjectAssembliesAutoReferenced
+    if ([bool]$definition.autoReferenced -ne $expectedAutoReferenced)
     {
-        $criticalIssues.Add("Pilot assembly must be auto referenced: $($rule.AsmdefPath)")
+        $criticalIssues.Add(
+            "Assembly Auto Referenced mismatch: $($rule.AsmdefPath) -> $($definition.autoReferenced)")
     }
 
     if ($definition.allowUnsafeCode)
     {
-        $criticalIssues.Add("Pilot assembly must not allow unsafe code: $($rule.AsmdefPath)")
+        $criticalIssues.Add("Assembly must not allow unsafe code: $($rule.AsmdefPath)")
     }
 
     if ($definition.overrideReferences)
     {
-        $criticalIssues.Add("Pilot assembly must not override references: $($rule.AsmdefPath)")
+        $criticalIssues.Add("Assembly must not override references: $($rule.AsmdefPath)")
     }
 
     if ($definition.noEngineReferences)
     {
-        $criticalIssues.Add("Pilot assembly requires Unity engine references: $($rule.AsmdefPath)")
+        $criticalIssues.Add("Assembly requires Unity engine references: $($rule.AsmdefPath)")
     }
 
     $nonGuidReferences = @(

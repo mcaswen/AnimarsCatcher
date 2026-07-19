@@ -99,11 +99,11 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 
 ## 8. 工程结构
 
-- 自有业务代码没有 asmdef，Runtime、Editor 和各领域边界只能靠目录与命名维持
+- 自有业务代码已全部进入项目 asmdef，当前风险转为新增依赖是否持续遵守单向边界，以及 `Auto Referenced` 是否被无理由重新开启
 - 当前没有 `Assets/Tests`，权限校验、FSM、资源事务和开局链路都缺少自动回归保护
 - 旧 Scene 仍在 Unity 项目内，应确认用途和引用后归档或删除
 - Build Settings 同时列入主场景和 SubScene，需要确认 SubScene 是否真的需要作为独立 Player 入口
-- `Assets/SO` 当前不存在，这本身不是缺陷；以后新增静态策划配置时再按规范建立
+- `Assets/SO` 已用于 Navigation Grid 烘焙资产；其他静态配置仍需继续区分资源配置与运行时状态
 
 ## 9. 推荐演进顺序
 
@@ -112,4 +112,4 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 3. 稳定 Ghost Archetype、Damage Buffer、GameResult 和出生组件写入
 4. 明确 System 更新顺序，并降低 Nav、Sense 和 GhostId 映射成本
 5. 收敛相机模式和物理实现，删除无效或未接线配置
-6. 建立 asmdef，以及关键 EditMode、PlayMode 和 NetCode 测试
+6. 建立独立 Tests asmdef，以及关键 EditMode、PlayMode 和 NetCode 自动测试

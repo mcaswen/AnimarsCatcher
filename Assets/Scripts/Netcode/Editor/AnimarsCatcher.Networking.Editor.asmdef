@@ -1,9 +1,9 @@
 {
-  "name": "AnimarsCatcher.Player.Editor",
-  "rootNamespace": "AnimarsCatcher.Player.Editor",
+  "name": "AnimarsCatcher.Networking.Editor",
+  "rootNamespace": "AnimarsCatcher.Networking.Editor",
   "references": [
-    "GUID:396db97842e549ccb67d7029e581210d",
-    "GUID:75469ad4d38634e559750d17036d5f7c"
+    "GUID:95e6f2eeefa140e4a565f2a3fdadcf00",
+    "GUID:953adc2a6b8b4e3c8df5b728bcd546e9"
   ],
   "includePlatforms": [
     "Editor"

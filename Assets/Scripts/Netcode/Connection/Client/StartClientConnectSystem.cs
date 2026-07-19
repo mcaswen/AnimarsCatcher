@@ -4,10 +4,7 @@ namespace AnimarsCatcher.Networking
     using Unity.Entities;
     using Unity.NetCode;
     using Unity.Networking.Transport;
-
-    #if UNITY_EDITOR
     using UnityEngine.SceneManagement;
-    #endif
 
     /// <summary>
     /// 在编辑器游戏场景中自动创建本机客户端连接请求
@@ -19,32 +16,46 @@ namespace AnimarsCatcher.Networking
     {
         public void OnCreate(ref SystemState state)
         {
-    #if UNITY_EDITOR
-            if (SceneManager.GetActiveScene().name != "SCN_GameLevel") return;
-
-            if (AlreadyConnectedOrConnecting(ref state))
+            if (!NetworkPlayModeConfiguration.HasEditorOverride ||
+                SceneManager.GetActiveScene().name != "SCN_GameLevel")
             {
+                state.Enabled = false;
                 return;
             }
-            var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(NetworkPorts.Game);
 
-            var entity = state.EntityManager.CreateEntity();
-            state.EntityManager.AddComponentData(entity, new NetworkStreamRequestConnect { Endpoint = endPoint });
+            if (!AlreadyConnectedOrConnecting(ref state))
+            {
+                var endPoint = NetworkEndpoint.LoopbackIpv4.WithPort(NetworkPorts.Game);
+                Entity entity = state.EntityManager.CreateEntity();
+                state.EntityManager.AddComponentData(
+                    entity,
+                    new NetworkStreamRequestConnect { Endpoint = endPoint });
+                UnityEngine.Debug.Log("[Client] Connect Request Sent");
+            }
 
-            UnityEngine.Debug.Log("[Client] Connect Request Sent!");
-    #endif
-
-        state.Enabled = false;
-
+            state.Enabled = false;
         }
 
-        // 同时检查已连接、待处理请求和握手状态，防止创建重复连接实体
+        // 同时检查连接、连接请求和握手状态，防止创建重复连接实体
         private bool AlreadyConnectedOrConnecting(ref SystemState state)
         {
-            if (SystemAPI.HasSingleton<NetworkId>()) return true; // 已连接
-            if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamRequestConnect>().Build().IsEmpty) return true; // 已有请求
-            if (!SystemAPI.QueryBuilder().WithAll<NetworkStreamConnection>().Build().IsEmpty) return true;     // 连接中
-            return false;
+            if (SystemAPI.HasSingleton<NetworkId>())
+            {
+                return true;
+            }
+
+            if (!SystemAPI.QueryBuilder()
+                    .WithAll<NetworkStreamRequestConnect>()
+                    .Build()
+                    .IsEmpty)
+            {
+                return true;
+            }
+
+            return !SystemAPI.QueryBuilder()
+                .WithAll<NetworkStreamConnection>()
+                .Build()
+                .IsEmpty;
         }
     }
 }

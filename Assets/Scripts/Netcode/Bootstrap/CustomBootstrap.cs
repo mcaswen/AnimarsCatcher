@@ -9,44 +9,57 @@ namespace AnimarsCatcher.Networking
     public class CustomBootstrap : ClientServerBootstrap
     {
         /// <summary>
-        /// 创建当前进程需要的客户端、服务器和 Thin Client World
+        /// 创建当前进程需要的客户端、服务端和 Thin Client World
         /// </summary>
         /// <param name="defaultWorldName">Unity 提供的默认 World 名称</param>
         /// <returns>是否已完成自定义 World 初始化</returns>
         public override bool Initialize(string defaultWorldName)
         {
-    #if UNITY_EDITOR
-            // 编辑器使用 Multiplayer PlayMode 请求决定 World 组合
             DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
             AutoConnectPort = 0;
 
-            switch (RequestedPlayType)
+            if (NetworkPlayModeConfiguration.HasEditorOverride)
+            {
+                return CreateEditorWorlds();
+            }
+
+            return CreateRuntimeWorlds();
+        }
+
+        private static bool CreateEditorWorlds()
+        {
+            switch (NetworkPlayModeConfiguration.PlayType)
             {
                 case PlayType.ClientAndServer:
                     CreateServerWorld("Server World");
                     CreateClientWorld("Client World");
-
-                    for (int i = 0; i < RequestedNumThinClients; i++)
-                        CreateThinClientWorld();
+                    CreateThinClientWorlds();
                     return true;
 
                 case PlayType.Client:
                     CreateClientWorld("Client World");
-
-                    for (int i = 0; i < RequestedNumThinClients; i++)
-                        CreateThinClientWorld();
+                    CreateThinClientWorlds();
                     return true;
 
                 case PlayType.Server:
                     CreateServerWorld("Server World");
                     return true;
-            }
-            return true;
-    #else
-            // Player 构建由启动流程写入的 NetworkRuntimeRole 决定进程职责
-            DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
-            AutoConnectPort = 0;
 
+                default:
+                    return false;
+            }
+        }
+
+        private static void CreateThinClientWorlds()
+        {
+            for (int i = 0; i < NetworkPlayModeConfiguration.ThinClientCount; i++)
+            {
+                CreateThinClientWorld();
+            }
+        }
+
+        private static bool CreateRuntimeWorlds()
+        {
             switch (NetworkRuntimeRole.Current)
             {
                 case NetworkRunRole.Host:
@@ -61,10 +74,10 @@ namespace AnimarsCatcher.Networking
                 case NetworkRunRole.DedicatedServer:
                     CreateServerWorld("Server World");
                     return true;
-            }
 
-            return false;
-    #endif
+                default:
+                    return false;
+            }
         }
     }
 }

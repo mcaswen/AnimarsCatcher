@@ -1,7 +1,8 @@
 @{
-    Version = 8
+    Version = 9
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
+    ProjectAssembliesAutoReferenced = $false
     Rules = @(
         @{
             Path = 'Assets/Scripts/Core'
@@ -136,7 +137,9 @@
             AllowedProjectDependencies = @(
                 'AnimarsCatcher.Benchmarks.LegacyNavigation',
                 'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Navigation.Editor',
                 'AnimarsCatcher.Networking',
+                'AnimarsCatcher.Physics.Authoring',
                 'AnimarsCatcher.Player',
                 'AnimarsCatcher.Presentation'
             )
@@ -179,12 +182,25 @@
             )
         }
         @{
+            Path = 'Assets/Scripts/Netcode/Editor'
+            Assembly = 'AnimarsCatcher.Networking.Editor'
+            AsmdefPath = 'Assets/Scripts/Netcode/Editor/AnimarsCatcher.Networking.Editor.asmdef'
+            RootNamespace = 'AnimarsCatcher.Networking.Editor'
+            Owner = 'Networking Editor'
+            Status = 'PhaseSevenImplemented'
+            Lifecycle = 'Editor'
+            NamespacePrefixes = @('AnimarsCatcher.Networking.Editor')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @('AnimarsCatcher.Networking')
+        }
+        @{
             Path = 'Assets/Scripts/Netcode'
             Assembly = 'AnimarsCatcher.Networking'
             AsmdefPath = 'Assets/Scripts/Netcode/AnimarsCatcher.Networking.asmdef'
             RootNamespace = 'AnimarsCatcher.Networking'
             Owner = 'Networking'
-            Status = 'PhaseFourImplemented'
+            Status = 'PhaseSevenTightened'
             Lifecycle = 'Runtime'
             NamespacePrefixes = @('AnimarsCatcher.Networking')
             RequireNamespace = $true
