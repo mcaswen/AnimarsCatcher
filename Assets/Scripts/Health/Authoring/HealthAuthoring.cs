@@ -2,27 +2,30 @@ using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 配置实体的初始生命值并限制最小值为一
-/// </summary>
-[DisallowMultipleComponent]
-public class HealthAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Gameplay
 {
-    public int maxHealth = 100;
-
-    class Baker : Baker<HealthAuthoring>
+    /// <summary>
+    /// 配置实体的初始生命值并限制最小值为一
+    /// </summary>
+    [DisallowMultipleComponent]
+    public class HealthAuthoring : MonoBehaviour
     {
-        public override void Bake(HealthAuthoring authoring)
+        public int maxHealth = 100;
+
+        class Baker : Baker<HealthAuthoring>
         {
-            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-
-            int maxHealth = Mathf.Max(1, authoring.maxHealth);
-
-            AddComponent(entity, new Health
+            public override void Bake(HealthAuthoring authoring)
             {
-                current = maxHealth,
-                max     = maxHealth,
-            });
+                Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+
+                int maxHealth = Mathf.Max(1, authoring.maxHealth);
+
+                AddComponent(entity, new Health
+                {
+                    current = maxHealth,
+                    max     = maxHealth,
+                });
+            }
         }
     }
 }

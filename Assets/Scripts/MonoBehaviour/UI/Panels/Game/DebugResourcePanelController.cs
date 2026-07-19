@@ -1,4 +1,5 @@
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Gameplay.Contracts;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,7 +28,7 @@ public class DebugResourcePanelController : MonoBehaviour
     {
         NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
             NetworkUIEventSource.ClientWorld,
-            ResourceType.Food,
+            ResourceItemKind.Food,
             _debugAddAmount
         );
     }
@@ -37,7 +38,7 @@ public class DebugResourcePanelController : MonoBehaviour
     {
         NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
             NetworkUIEventSource.ClientWorld,
-            ResourceType.Crystal,
+            ResourceItemKind.Crystal,
             _debugAddAmount
         );
     }

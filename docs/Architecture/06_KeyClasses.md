@@ -116,8 +116,8 @@ FSM 和阵型数据最终汇入移动规划：
 - `ServerResourceRespawnSystem` 根据刷新区域、波次和预算生成资源
 - `ServerFragileCrystalDeathSystem` 把被破坏的脆弱水晶转换为可搬运掉落物
 - `ServerAssignSelectedAniToResourceSystem` 从当前玩家已选中的 Picker 中分配搬运者
-- `ServerResourceCarrySetupSystem` 管理站位、到达状态和开始搬运的条件
-- `ServerResourceCarryMoveSystem` 移动资源，完成交付并释放 Picker
+- Legacy `ServerResourceCarrySetupSystem` 管理旧 NavMesh 后端的站位、到达状态和开始搬运条件
+- Legacy `ServerResourceCarryMoveSystem` 移动资源，完成交付并释放 Picker
 - `PlayerResourceApplyCollectedSystem` 消费资源事件 Hub 中的增量
 - `ServerPlayerAniCountUpdateSystem` 按 `GhostOwner` 重建每个玩家的 Ani 数量统计
 
@@ -142,7 +142,7 @@ UI 通过 `GameResourceGetter` 读取状态。本地玩家资源来自 Client Wo
 - `EventBus` 负责主菜单内部的 MonoBehaviour 事件流
 - `GlobalLoadingUI` 管理持久加载遮罩和异步切换场景
 - `BattleIntroCinematic` 管理 Cinemachine 开场、HUD 显隐和输入占用
-- `GameOverUIBridge` 把 Client ECS 收到的胜负结果交给结算面板
+- Mono Global 中的 `GameOverUIBridge` 把 Client ECS 收到的胜负结果交给结算面板
 
 新增 View 时，应沿用“Authoring 提供引用、Client System 实例化、Bind 显式注入 World、Spawned Tag 去重、View 自行检测生命周期”的流程。
 

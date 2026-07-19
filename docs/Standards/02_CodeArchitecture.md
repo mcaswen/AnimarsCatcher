@@ -119,6 +119,8 @@ public PlayerResourceState GetPlayerResource()
 9. 类型从 `Assembly-CSharp` 迁入自定义程序集时，必须检查 Scene、Prefab、ScriptableObject 和其他程序集限定类型名，并为固定资源增加可重复的序列化回归检查。
 10. Core 不保存玩法语义、具体 System、场景引用或 UI 类型；Gameplay Contracts 只保存跨模块共享数据，不保存流程控制和静态运行状态。
 11. 对标记为稳定边界的程序集必须在迁移规则中声明允许依赖，审计出现未允许的项目依赖时不得提交。
+12. 多个物理目录确实属于同一生命周期和同一依赖边界时，可以通过 asmref 编译到同一程序集；禁止用 asmref 隐藏循环依赖、跨越 Runtime 与 Editor 职责或绕过模块所有权。
+13. `AnimarsCatcher.Gameplay` 只依赖 Core、Gameplay Contracts 和必要 Unity Package；Player、Networking、Mono、UI 与 Legacy 只能从上层消费 Gameplay，不得被 Gameplay 反向引用。
 
 ## 6. Entities 与 DOTS
 

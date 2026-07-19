@@ -3,51 +3,54 @@ using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Gameplay.Contracts;
 
-/// <summary>
-/// 根据本地拥有的 Ghost 建立客户端阵营单例并在完成后停用
-/// </summary>
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-[UpdateInGroup(typeof(SimulationSystemGroup))]
-public partial struct ClientLocalPlayerCampSystem : ISystem
+namespace AnimarsCatcher.Gameplay
 {
-    bool _localPlayerIsSet;
-
-    public void OnCreate(ref SystemState state)
+    /// <summary>
+    /// 根据本地拥有的 Ghost 建立客户端阵营单例并在完成后停用
+    /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    public partial struct ClientLocalPlayerCampSystem : ISystem
     {
-        var entity = state.EntityManager.CreateEntity(typeof(LocalPlayerCamp));
-        state.EntityManager.SetComponentData(entity, new LocalPlayerCamp
+        bool _localPlayerIsSet;
+
+        public void OnCreate(ref SystemState state)
         {
-            Value = CampType.Alpha
-        });
-
-        state.RequireForUpdate<NetworkId>();
-    }
-
-    public void OnUpdate(ref SystemState state)
-    {
-        int localNetworkId = SystemAPI.GetSingleton<NetworkId>().Value;
-
-        // 以 GhostOwner 为准，避免把其他客户端角色误认成本地玩家
-        foreach (var (camp, owner) in SystemAPI
-                     .Query<RefRO<Camp>, RefRO<GhostOwner>>())
-        {
-            if (owner.ValueRO.NetworkId != localNetworkId)
-                continue;
-
-            var localCamp = SystemAPI.GetSingletonRW<LocalPlayerCamp>();
-            if (localCamp.ValueRO.Value != camp.ValueRO.Value)
+            var entity = state.EntityManager.CreateEntity(typeof(LocalPlayerCamp));
+            state.EntityManager.SetComponentData(entity, new LocalPlayerCamp
             {
-                localCamp.ValueRW = new LocalPlayerCamp { Value = camp.ValueRO.Value };
-                Debug.Log($"[Client] Local player camp set to {camp.ValueRO.Value}");
-            }
+                Value = CampType.Alpha
+            });
 
-            _localPlayerIsSet = true;
-            break; // 本地拥有的主角色唯一，找到后即可停止扫描
+            state.RequireForUpdate<NetworkId>();
         }
 
-        if (_localPlayerIsSet)
+        public void OnUpdate(ref SystemState state)
         {
-            state.Enabled = false;
+            int localNetworkId = SystemAPI.GetSingleton<NetworkId>().Value;
+
+            // 以 GhostOwner 为准，避免把其他客户端角色误认成本地玩家
+            foreach (var (camp, owner) in SystemAPI
+                         .Query<RefRO<Camp>, RefRO<GhostOwner>>())
+            {
+                if (owner.ValueRO.NetworkId != localNetworkId)
+                    continue;
+
+                var localCamp = SystemAPI.GetSingletonRW<LocalPlayerCamp>();
+                if (localCamp.ValueRO.Value != camp.ValueRO.Value)
+                {
+                    localCamp.ValueRW = new LocalPlayerCamp { Value = camp.ValueRO.Value };
+                    Debug.Log($"[Client] Local player camp set to {camp.ValueRO.Value}");
+                }
+
+                _localPlayerIsSet = true;
+                break; // 本地拥有的主角色唯一，找到后即可停止扫描
+            }
+
+            if (_localPlayerIsSet)
+            {
+                state.Enabled = false;
+            }
         }
     }
 }

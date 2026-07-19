@@ -218,6 +218,7 @@ $rules = @($configuration.Rules | ForEach-Object {
         Path = $_.Path.Replace('\', '/').TrimEnd('/')
         Assembly = $_.Assembly
         AsmdefPath = [string]$_.AsmdefPath
+        AsmrefPath = [string]$_.AsmrefPath
         RootNamespace = [string]$_.RootNamespace
         Owner = $_.Owner
         Status = $_.Status
@@ -239,6 +240,7 @@ $records = @()
 $criticalIssues = New-Object 'System.Collections.Generic.List[string]'
 $warnings = New-Object 'System.Collections.Generic.List[string]'
 $assemblyDefinitions = @()
+$assemblyReferences = @()
 
 foreach ($rule in $rules | Where-Object { -not [string]::IsNullOrWhiteSpace($_.AsmdefPath) })
 {
@@ -301,13 +303,79 @@ foreach ($rule in $rules | Where-Object { -not [string]::IsNullOrWhiteSpace($_.A
         $criticalIssues.Add("Assembly references must use GUID form: $($rule.AsmdefPath)")
     }
 
+    $resolvedAsmdefMetaPath = "$resolvedAsmdefPath.meta"
+    $assemblyGuid = ''
+    if (-not (Test-Path -LiteralPath $resolvedAsmdefMetaPath))
+    {
+        $criticalIssues.Add("Assembly definition meta missing: $($rule.AsmdefPath).meta")
+    }
+    else
+    {
+        $metaText = Get-Content -LiteralPath $resolvedAsmdefMetaPath -Raw -Encoding UTF8
+        $guidMatch = [regex]::Match($metaText, '(?m)^guid:\s*([0-9a-f]+)\s*$')
+        if (-not $guidMatch.Success)
+        {
+            $criticalIssues.Add("Assembly definition GUID missing: $($rule.AsmdefPath).meta")
+        }
+        else
+        {
+            $assemblyGuid = $guidMatch.Groups[1].Value
+        }
+    }
+
     $assemblyDefinitions += [PSCustomObject]@{
         Path = $rule.AsmdefPath
         Assembly = $definition.name
+        Guid = $assemblyGuid
         RootNamespace = $definition.rootNamespace
         ReferenceCount = @($definition.references).Count
         UsesGuidReferences = $nonGuidReferences.Count -eq 0
         AutoReferenced = [bool]$definition.autoReferenced
+    }
+}
+
+foreach ($rule in $rules | Where-Object { -not [string]::IsNullOrWhiteSpace($_.AsmrefPath) })
+{
+    $resolvedAsmrefPath = Resolve-RepositoryPath $rule.AsmrefPath $repositoryRoot
+    if (-not (Test-Path -LiteralPath $resolvedAsmrefPath))
+    {
+        $criticalIssues.Add("Assembly reference missing: $($rule.AsmrefPath)")
+        continue
+    }
+
+    try
+    {
+        $referenceDefinition = Get-Content -LiteralPath $resolvedAsmrefPath -Raw -Encoding UTF8 |
+            ConvertFrom-Json
+    }
+    catch
+    {
+        $criticalIssues.Add("Assembly reference is invalid JSON: $($rule.AsmrefPath)")
+        continue
+    }
+
+    $targetDefinition = @(
+        $assemblyDefinitions |
+            Where-Object Assembly -eq $rule.Assembly
+    ) | Select-Object -First 1
+    if ($null -eq $targetDefinition -or [string]::IsNullOrWhiteSpace($targetDefinition.Guid))
+    {
+        $criticalIssues.Add("Assembly reference target is unavailable: $($rule.AsmrefPath) -> $($rule.Assembly)")
+        continue
+    }
+
+    $expectedReference = "GUID:$($targetDefinition.Guid)"
+    if ($referenceDefinition.reference -ne $expectedReference)
+    {
+        $criticalIssues.Add(
+            "Assembly reference target mismatch: $($rule.AsmrefPath) -> $($referenceDefinition.reference)")
+    }
+
+    $assemblyReferences += [PSCustomObject]@{
+        Path = $rule.AsmrefPath
+        Assembly = $rule.Assembly
+        Reference = $referenceDefinition.reference
+        ExpectedReference = $expectedReference
     }
 }
 
@@ -532,7 +600,7 @@ $lifecycleSummaries = @(
 )
 
 $report = [PSCustomObject]@{
-    SchemaVersion = 3
+    SchemaVersion = 4
     GeneratedAt = (Get-Date).ToString('s')
     RepositoryRoot = $repositoryRoot
     RulesPath = ConvertTo-RepoPath $resolvedRulesPath $repositoryRoot
@@ -550,11 +618,13 @@ $report = [PSCustomObject]@{
         DependencyBoundaryViolationCount = $dependencyBoundaryViolations.Count
         StaleGlobalNamespaceBaselineCount = $staleGlobalNamespaceBaselinePaths.Count
         AssemblyDefinitionCount = $assemblyDefinitions.Count
+        AssemblyReferenceCount = $assemblyReferences.Count
         WarningCount = $warnings.Count
         CriticalIssueCount = $criticalIssues.Count
     }
     Assemblies = $assemblySummaries
     AssemblyDefinitions = $assemblyDefinitions
+    AssemblyReferences = $assemblyReferences
     Lifecycles = $lifecycleSummaries
     Dependencies = $dependencies
     MutualDependencies = $mutualDependencies
@@ -587,6 +657,7 @@ Write-Output "Navigation external dependencies: $($report.Summary.NavigationExte
 Write-Output "Dependency boundary violations: $($report.Summary.DependencyBoundaryViolationCount)"
 Write-Output "Stale global namespace baseline: $($report.Summary.StaleGlobalNamespaceBaselineCount)"
 Write-Output "Assembly definitions: $($report.Summary.AssemblyDefinitionCount)"
+Write-Output "Assembly references: $($report.Summary.AssemblyReferenceCount)"
 Write-Output "Warnings: $($report.Summary.WarningCount)"
 Write-Output "Critical issues: $($report.Summary.CriticalIssueCount)"
 

@@ -1,5 +1,5 @@
 @{
-    Version = 3
+    Version = 4
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     Rules = @(
@@ -30,6 +30,22 @@
             AllowedProjectDependencies = @('AnimarsCatcher.Core')
         }
         @{
+            Path = 'Assets/Scripts/Gameplay'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmdefPath = 'Assets/Scripts/Gameplay/AnimarsCatcher.Gameplay.asmdef'
+            RootNamespace = 'AnimarsCatcher.Gameplay'
+            Owner = 'Gameplay Runtime'
+            Status = 'PhaseThreeImplemented'
+            Lifecycle = 'Runtime'
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Core',
+                'AnimarsCatcher.Gameplay.Contracts'
+            )
+        }
+        @{
             Path = 'Assets/Scripts/Anis/Navigation/Grid'
             Assembly = 'AnimarsCatcher.Navigation'
             AsmdefPath = 'Assets/Scripts/Anis/Navigation/Grid/AnimarsCatcher.Navigation.asmdef'
@@ -47,21 +63,23 @@
         }
         @{
             Path = 'Assets/Scripts/Anis'
-            Assembly = 'AnimarsCatcher.Animars'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Anis/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Ani Gameplay'
-            Status = 'PendingContracts'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Animars')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Base'
-            Assembly = 'AnimarsCatcher.Base'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Base/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Base Gameplay'
-            Status = 'PendingDependencyAudit'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Base')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Benchmarks'
@@ -74,12 +92,13 @@
         }
         @{
             Path = 'Assets/Scripts/Camp'
-            Assembly = 'AnimarsCatcher.Camp'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Camp/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Camp Gameplay'
-            Status = 'PendingContracts'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Camp')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Editor'
@@ -92,21 +111,23 @@
         }
         @{
             Path = 'Assets/Scripts/Global'
-            Assembly = 'AnimarsCatcher.Global'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Global/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Match Lifecycle'
-            Status = 'PendingContracts'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Global')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Health'
-            Assembly = 'AnimarsCatcher.Health'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Health/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Health Gameplay'
-            Status = 'PendingContracts'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Health')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/MonoBehaviour'
@@ -149,12 +170,13 @@
         }
         @{
             Path = 'Assets/Scripts/Resource'
-            Assembly = 'AnimarsCatcher.Resource'
+            Assembly = 'AnimarsCatcher.Gameplay'
+            AsmrefPath = 'Assets/Scripts/Resource/AnimarsCatcher.Gameplay.asmref'
             Owner = 'Resource Gameplay'
-            Status = 'PendingContracts'
+            Status = 'PhaseThreeImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @('AnimarsCatcher.Resource')
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Gameplay')
+            RequireNamespace = $true
         }
         @{
             Path = 'Assets/Scripts/Terrain'

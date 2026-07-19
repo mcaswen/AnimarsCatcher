@@ -1,4 +1,5 @@
 using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Entities;
 

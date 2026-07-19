@@ -1,5 +1,6 @@
 using System;
 using UnityEngine.Events;
+using AnimarsCatcher.Gameplay.Contracts;
 
 namespace AnimarsCatcher.Mono.Global
 {
@@ -96,7 +97,7 @@ namespace AnimarsCatcher.Mono.Global
         /// </summary>
         public static void RaiseResourceChangedRequestedEvent(
             NetworkUIEventSource source,
-            ResourceType resourceType,
+            ResourceItemKind resourceType,
             int amount)
         {
             ResourceChangedRequestedEvent?.Invoke(

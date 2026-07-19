@@ -1,19 +1,22 @@
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 声明每个玩家对应的资源 Ghost 预制体
-/// </summary>
-public class PlayerResourceGhostAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Gameplay
 {
-    class Baker : Baker<PlayerResourceGhostAuthoring>
+    /// <summary>
+    /// 声明每个玩家对应的资源 Ghost 预制体
+    /// </summary>
+    public class PlayerResourceGhostAuthoring : MonoBehaviour
     {
-        public override void Bake(PlayerResourceGhostAuthoring authoring)
+        class Baker : Baker<PlayerResourceGhostAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.None);
+            public override void Bake(PlayerResourceGhostAuthoring authoring)
+            {
+                var entity = GetEntity(TransformUsageFlags.None);
 
-            AddComponent<PlayerResourceTag>(entity);
-            AddComponent<PlayerResourceState>(entity);
+                AddComponent<PlayerResourceTag>(entity);
+                AddComponent<PlayerResourceState>(entity);
+            }
         }
     }
 }

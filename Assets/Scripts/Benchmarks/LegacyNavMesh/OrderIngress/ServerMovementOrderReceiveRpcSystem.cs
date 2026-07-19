@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -44,7 +45,7 @@ public partial struct ServerMovementOrderReceiveRpcSystem : ISystem
     /// 消费移动命令、拒绝越权选择并转换为服务器行为状态
     /// </summary>
     /// <param name="state">系统运行状态</param>
-    [BurstCompile] 
+    [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
         _blackboardLookup.Update(ref state);

@@ -1,7 +1,7 @@
 using Unity.Entities;
 using AnimarsCatcher.Core.Fsm;
 
-namespace AnimarsCatcher.Animars.Fsm
+namespace AnimarsCatcher.Gameplay
 {
 /// <summary>
 /// 定义通过 Tick 版本传播的状态机事件键

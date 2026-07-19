@@ -1,21 +1,24 @@
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 在客户端场景中注册点击输入与射线结果的单例组件
-/// </summary>
-[DisallowMultipleComponent]
-public class MovementRaycastContextRegistry : MonoBehaviour
+namespace AnimarsCatcher.Gameplay
 {
-    class Baker : Baker<MovementRaycastContextRegistry>
+    /// <summary>
+    /// 在客户端场景中注册点击输入与射线结果的单例组件
+    /// </summary>
+    [DisallowMultipleComponent]
+    public class MovementRaycastContextRegistry : MonoBehaviour
     {
-        public override void Bake(MovementRaycastContextRegistry authoring)
+        class Baker : Baker<MovementRaycastContextRegistry>
         {
-            Entity entity = GetEntity(TransformUsageFlags.None);
+            public override void Bake(MovementRaycastContextRegistry authoring)
+            {
+                Entity entity = GetEntity(TransformUsageFlags.None);
 
-            AddComponent<MovementClickRequest>(entity);
-            AddComponent<MovementClickResult>(entity);
-            AddComponent<MovementClickProcessedVersion>(entity);
+                AddComponent<MovementClickRequest>(entity);
+                AddComponent<MovementClickResult>(entity);
+                AddComponent<MovementClickProcessedVersion>(entity);
+            }
         }
     }
 }

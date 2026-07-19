@@ -1,4 +1,5 @@
 using System;
+using AnimarsCatcher.Gameplay.Contracts;
 
 namespace AnimarsCatcher.Mono.Global
 {
@@ -118,7 +119,7 @@ namespace AnimarsCatcher.Mono.Global
     public readonly struct SpawnBlasterAniRequestedEventData
     {
         public NetworkUIEventSource Source { get; }
-        public int RequestedCount { get; }  
+        public int RequestedCount { get; }
 
         public SpawnBlasterAniRequestedEventData(NetworkUIEventSource source, int requestedCount = 1)
         {
@@ -128,26 +129,17 @@ namespace AnimarsCatcher.Mono.Global
     }
 
     /// <summary>
-    /// UI 可请求调整的资源类型
-    /// </summary>
-    public enum ResourceType
-    {
-        Food,
-        Crystal
-    }
-
-    /// <summary>
     /// 资源变化请求的 UI 事件载体
     /// </summary>
     public readonly struct ResourceChangedRequestedEventData
     {
         public NetworkUIEventSource Source { get; }
-        public ResourceType ResourceType { get; }
+        public ResourceItemKind ResourceType { get; }
         public int Amount { get; }
 
         public ResourceChangedRequestedEventData(
             NetworkUIEventSource source,
-            ResourceType resourceType,
+            ResourceItemKind resourceType,
             int amount)
         {
             Source       = source;

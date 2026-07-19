@@ -2,11 +2,11 @@
 
 [返回架构总览](README.md)
 
-本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts 和 Navigation 已使用自定义 asmdef，其余大部分模块仍只有逻辑边界。
+本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts、Navigation 和 Gameplay 已使用自定义 asmdef，其余大部分模块仍只有逻辑边界。
 
 ## 1. 代码模块
 
-项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts 和 Navigation 已形成编译边界，其他自有模块仍主要位于 `Assembly-CSharp`。
+项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts、Navigation 和 Gameplay 已形成编译边界，Player、Networking 和 Presentation 仍主要位于 `Assembly-CSharp`。
 
 ### 1.1 底层契约
 
@@ -25,12 +25,12 @@
 
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
-- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System、战斗以及 Grid 移动重构。通用 FSM 数据已移入 Core，共享玩法数据已移入 Gameplay Contracts。`Anis/Navigation/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform
+- **`Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System、战斗以及 Grid 移动重构。除 Navigation 子程序集外，Anis 已通过 asmref 编译进 `AnimarsCatcher.Gameplay`。`Anis/Navigation/Grid` 已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
-- **`Resource`**：处理资源刷新、脆弱资源、搬运任务、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示
+- **`Resource`**：处理资源刷新、脆弱资源、搬运分配、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示；依赖旧 NavMesh 的搬运 Setup 和 Move 实现位于 Legacy Benchmark
 - **`Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
 - **`Base`**：保存基地配置，负责基地出生、大小标签和 AABB 数据。它主要在服务器运行，并与 `Camp`、`Health` 和 `Global` 配合
-- **`Global`**：处理对局结果、基地败北、客户端结算和会话返回。服务器产生比赛结果，客户端接收结果并通知 Mono UI
+- **`Global`**：在 Gameplay 内处理服务器对局结果和基地败北。客户端结算 RPC、结果面板和会话返回已归入 Mono Global
 
 ### 1.4 表现与桥接
 
@@ -51,6 +51,7 @@
 - **`Anis/Navigation/Grid/Jobs`**：在 Burst Job 中顺序处理一个路径批次并复用整张 Grid 的 Scratch 内存
 - **`Anis/Navigation/Grid/Systems`**：只在 Server 或 Local World 收集请求、异步调度 Job，并在后续 Tick 写回已完成结果
 - **`Anis/Navigation/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
+- **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
 
 原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
@@ -64,40 +65,29 @@ flowchart TD
     UI[UI ECS Presentation]
     Net[Netcode Bootstrap Protocol Spawn]
     Player[Player Input KCC Camera]
-    Ani[Anis Input Common FSM Combat]
+    Gameplay[Gameplay Anis Base Camp Health Resource Match]
+    Navigation[Navigation Grid]
     Legacy[Benchmarks LegacyNavMesh]
-    Resource[Resource]
-    Health[Health]
-    Base[Base Global Camp]
     Physics[Physics Terrain Authoring]
     Core[Core FSM Data]
     Contracts[Gameplay Contracts]
 
     Mono --> Net
     Mono --> UI
+    Mono --> Gameplay
     UI --> Player
-    UI --> Ani
+    UI --> Gameplay
     Net --> Player
-    Net --> Base
+    Net --> Gameplay
     Player --> Net
-    Ani --> Legacy
-    Ani --> Health
-    Ani --> Resource
-    Resource --> Legacy
-    Resource --> Player
-    Base --> Health
-    Physics --> Ani
-    Physics --> Player
-    Ani --> Core
-    Ani --> Contracts
+    Player --> Gameplay
+    Gameplay --> Core
+    Gameplay --> Contracts
+    Legacy --> Gameplay
     Legacy --> Core
     Legacy --> Contracts
-    Resource --> Core
-    Resource --> Contracts
-    Health --> Contracts
-    Base --> Contracts
-    Net --> Contracts
-    UI --> Contracts
+    Physics --> Gameplay
+    Physics --> Player
 ```
 
 新增跨模块功能时，优先通过 Component、RPC、事件或职责明确的窄接口连接。若两个模块开始相互持有大量实现细节，通常说明数据所有权或模块职责需要重新划分。

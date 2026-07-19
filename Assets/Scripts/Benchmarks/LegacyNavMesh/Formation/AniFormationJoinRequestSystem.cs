@@ -1,4 +1,5 @@
 using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -48,7 +49,7 @@ public partial struct AniFormationJoinRequestSystem : ISystem
 
         foreach (var (owner, entity) in
                  SystemAPI.Query<RefRO<GhostOwner>>()
-                          .WithAll<CharacterTag>()   
+                          .WithAll<CharacterTag>()
                           .WithEntityAccess())
         {
             int networkId = owner.ValueRO.NetworkId;
@@ -64,7 +65,7 @@ public partial struct AniFormationJoinRequestSystem : ISystem
                 continue;
 
             if (!_blackboardLookup.HasBuffer(entity))
-                continue;   
+                continue;
 
             if (!_ghostOwnerLookup.HasComponent(entity))
                 continue;

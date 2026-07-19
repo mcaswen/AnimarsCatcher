@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Gameplay.Contracts;
 
 namespace AnimarsCatcher.Mono.Global
 {
@@ -15,7 +16,7 @@ namespace AnimarsCatcher.Mono.Global
         /// </summary>
         /// <param name="type">资源类型</param>
         /// <param name="amount">资源变化量</param>
-        public static void RequestAddResource(ResourceType type, int amount)
+        public static void RequestAddResource(ResourceItemKind type, int amount)
         {
             var clientWorld = WorldManager.FindClientWorld();
             if (clientWorld == null)

@@ -1,4 +1,4 @@
-namespace AnimarsCatcher.Animars.Fsm
+namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
     /// 为 Ani 业务状态机划分互不重叠的标识符区间

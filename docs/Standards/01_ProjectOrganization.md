@@ -37,7 +37,8 @@ Assets/
 ├── Scripts/
 │   ├── Core/
 │   ├── Gameplay/
-│   │   └── Contracts/
+│   │   ├── Contracts/
+│   │   └── Editor/
 │   ├── Anis/
 │   ├── Player/
 │   ├── Netcode/
@@ -76,6 +77,8 @@ Scripts/<Domain>/<Feature>/
 ```
 
 不得为了形式完整创建空目录。
+
+当前 Anis、Base、Camp、Global、Health 和 Resource 通过各自目录下的 asmref 共同组成 `AnimarsCatcher.Gameplay`。asmref 只表达编译归属，不改变领域目录所有权；新增领域不得默认接入该程序集，必须先通过依赖审计确认生命周期和允许依赖一致。
 
 ## 3. 存放要求
 

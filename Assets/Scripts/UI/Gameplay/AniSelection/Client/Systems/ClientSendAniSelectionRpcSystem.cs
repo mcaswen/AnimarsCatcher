@@ -1,4 +1,5 @@
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -26,7 +27,7 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
         _blasterLookup = state.GetComponentLookup<BlasterAniTag>(true);
 
         state.RequireForUpdate<AniSelectionDragState>();
-        state.RequireForUpdate<NetworkStreamInGame>(); 
+        state.RequireForUpdate<NetworkStreamInGame>();
         state.RequireForUpdate<AniSelectionModeSingleton>();
     }
 
@@ -52,7 +53,7 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
 
         var camera = Camera.main;
         var localId = SystemAPI.GetSingleton<NetworkId>();
-        
+
         if (!SystemAPI.TryGetSingleton<AniSelectionModeSingleton>(out var modeSingleton))
         {
             Debug.LogError("[ClientSendAniSelectionRpcSystem] AniSelectionModeSingleton not found!");
@@ -109,7 +110,7 @@ public partial struct ClientSendAniSelectionRpcSystem : ISystem
                 rpcData.GhostIds.Add(ghostInstance.ValueRO.ghostId);
             }
         }
-        
+
         if (rpcData.GhostIds.Length == 0)
         {
             Debug.Log("[ClientSendAniSelectionRpcSystem] No Ani in selection, skip sending RPC.");

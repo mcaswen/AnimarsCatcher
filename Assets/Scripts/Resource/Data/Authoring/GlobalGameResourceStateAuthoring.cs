@@ -1,25 +1,28 @@
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 配置服务端全局比赛资源状态的初始值
-/// </summary>
-public class GlobalGameResourceStateAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Gameplay
 {
-    public int initialTimeSeconds;
-
-    class Baker : Baker<GlobalGameResourceStateAuthoring>
+    /// <summary>
+    /// 配置服务端全局比赛资源状态的初始值
+    /// </summary>
+    public class GlobalGameResourceStateAuthoring : MonoBehaviour
     {
-        public override void Bake(GlobalGameResourceStateAuthoring authoring)
+        public int initialTimeSeconds;
+
+        class Baker : Baker<GlobalGameResourceStateAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.None);
-
-            AddComponent(entity, new GlobalGameResourceState
+            public override void Bake(GlobalGameResourceStateAuthoring authoring)
             {
-                MatchTimeSeconds = authoring.initialTimeSeconds
-            });
+                var entity = GetEntity(TransformUsageFlags.None);
 
-            AddComponent<GlobalGameResourceTag>(entity);
+                AddComponent(entity, new GlobalGameResourceState
+                {
+                    MatchTimeSeconds = authoring.initialTimeSeconds
+                });
+
+                AddComponent<GlobalGameResourceTag>(entity);
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;

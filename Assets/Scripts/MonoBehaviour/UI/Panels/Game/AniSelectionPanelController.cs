@@ -6,6 +6,8 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Audio;
+using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Mono.Gameplay;
 
 namespace AnimarsCatcher.Mono.UI
 {
@@ -115,14 +117,14 @@ namespace AnimarsCatcher.Mono.UI
 
                 NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                     NetworkUIEventSource.ClientWorld,
-                    ResourceType.Food,
+                    ResourceItemKind.Food,
                     -_pickerAniFoodCostCount);
-            
+
                 NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                         NetworkUIEventSource.ClientWorld,
-                        ResourceType.Crystal,
+                        ResourceItemKind.Crystal,
                         -_pickerAniCrystalCostCount);
-            
+
             Debug.Log("[AniSelectionPanelController] Added Picker Ani, resource deducted: " +
                            $"Food -{_pickerAniFoodCostCount}, Crystal -{_pickerAniCrystalCostCount}");
             }
@@ -139,12 +141,12 @@ namespace AnimarsCatcher.Mono.UI
 
             NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                 NetworkUIEventSource.ClientWorld,
-                ResourceType.Food,
+                ResourceItemKind.Food,
                 _pickerAniFoodCostCount);
-            
+
             NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                     NetworkUIEventSource.ClientWorld,
-                    ResourceType.Crystal,
+                    ResourceItemKind.Crystal,
                     _pickerAniCrystalCostCount);
 
             Debug.Log("[AniSelectionPanelController] Deducted Picker Ani, resource refunded: " +
@@ -172,12 +174,12 @@ namespace AnimarsCatcher.Mono.UI
 
                 NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                     NetworkUIEventSource.ClientWorld,
-                    ResourceType.Food,
+                    ResourceItemKind.Food,
                     -_blasterAniFoodCostCount);
-            
+
                 NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                         NetworkUIEventSource.ClientWorld,
-                        ResourceType.Crystal,
+                        ResourceItemKind.Crystal,
                         -_blasterAniCrystalCostCount);
 
                 Debug.Log("[AniSelectionPanelController] Added Blaster Ani, resource deducted: " +
@@ -196,12 +198,12 @@ namespace AnimarsCatcher.Mono.UI
 
             NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                 NetworkUIEventSource.ClientWorld,
-                ResourceType.Food,
+                ResourceItemKind.Food,
                 _blasterAniFoodCostCount);
-            
+
             NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
                     NetworkUIEventSource.ClientWorld,
-                    ResourceType.Crystal,
+                    ResourceItemKind.Crystal,
                     _blasterAniCrystalCostCount);
 
             Debug.Log("[AniSelectionPanelController] Deducted Blaster Ani, resource refunded: " +
@@ -222,5 +224,5 @@ namespace AnimarsCatcher.Mono.UI
             Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
             Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
         }
-    }   
+    }
 }

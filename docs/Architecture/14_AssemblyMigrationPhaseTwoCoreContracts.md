@@ -134,9 +134,9 @@ Base、Camp、Global、Health 和 Resource 之间由共享 Component 造成的�
 
 ## 8. 后续工作
 
-下一阶段是 Gameplay 迁移，但不能直接把所有领域目录各自加上 asmdef。
+Gameplay 迁移已完成，具体结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)。阶段三没有直接把所有领域目录各自加上 asmdef，而是先清理实现级反向依赖，再合并到同一 Gameplay 编译边界。
 
-优先顺序：
+阶段三实际处理顺序：
 
 1. 解除 Health 对 `AniAttackTargetCleanupSystem` 的具体更新顺序引用
 2. 解除 Anis 对 `ServerCampAssignmentPolicy` 的静态策略引用

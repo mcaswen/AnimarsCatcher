@@ -1,9 +1,10 @@
-using Unity.Burst; 
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Physics;
+using AnimarsCatcher.Gameplay;
 
 /// <summary>
 /// 在服务器将导航速度、邻居分离力和物理射线结果合成为最终移动
@@ -11,6 +12,7 @@ using Unity.Physics;
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 [UpdateInGroup(typeof(SimulationSystemGroup))]
 [UpdateAfter(typeof(NavFollowIntentSystem))]
+[UpdateBefore(typeof(GameplayPostMovementSystemGroup))]
 [BurstCompile]
 public partial struct AniPhysicsMoveSystem : ISystem
 {
@@ -29,7 +31,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
             SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, AniMoveIntent, AniPhysicsConfig>()
                 .Build());
-        
+
         _physicsConfigLookup = state.GetComponentLookup<AniPhysicsConfig>(true);
     }
 
@@ -86,7 +88,7 @@ public partial struct AniPhysicsMoveSystem : ISystem
 
                         if (hitEntity == entity)
                             continue;
-                        
+
                         if (!_physicsConfigLookup.HasComponent(hitEntity))
                             continue;
 

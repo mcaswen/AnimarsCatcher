@@ -1,4 +1,4 @@
-using AnimarsCatcher.Animars.Fsm;
+using AnimarsCatcher.Gameplay;
 using Unity.Entities;
 using Unity.Mathematics;
 

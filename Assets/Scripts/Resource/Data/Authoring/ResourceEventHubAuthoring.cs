@@ -1,25 +1,28 @@
 using Unity.Entities;
 using UnityEngine;
 
-/// <summary>
-/// 创建资源数量变化事件的共享缓冲区宿主
-/// </summary>
-public class ResourceEventHubAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Gameplay
 {
-    class Baker : Baker<ResourceEventHubAuthoring>
+    /// <summary>
+    /// 创建资源数量变化事件的共享缓冲区宿主
+    /// </summary>
+    public class ResourceEventHubAuthoring : MonoBehaviour
     {
-        public override void Bake(ResourceEventHubAuthoring authoring)
+        class Baker : Baker<ResourceEventHubAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.None);
+            public override void Bake(ResourceEventHubAuthoring authoring)
+            {
+                var entity = GetEntity(TransformUsageFlags.None);
 
-            AddBuffer<FoodAmountChangedEvent>(entity);
-            AddBuffer<CrystalAmountChangedEvent>(entity);
-            AddComponent<ResourceEventHubTag>(entity);
+                AddBuffer<FoodAmountChangedEvent>(entity);
+                AddBuffer<CrystalAmountChangedEvent>(entity);
+                AddComponent<ResourceEventHubTag>(entity);
+            }
         }
     }
-}
 
-/// <summary>
-/// 标识资源事件缓冲区宿主实体
-/// </summary>
-public struct ResourceEventHubTag : IComponentData { }
+    /// <summary>
+    /// 标识资源事件缓冲区宿主实体
+    /// </summary>
+    public struct ResourceEventHubTag : IComponentData { }
+}

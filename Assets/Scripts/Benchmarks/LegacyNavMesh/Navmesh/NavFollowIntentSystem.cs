@@ -1,4 +1,5 @@
 using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Gameplay;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -9,6 +10,7 @@ using Unity.NetCode;
 /// 客户端负责平滑跟随 服务端额外负责推进路径点
 /// </summary>
 [UpdateInGroup(typeof(SimulationSystemGroup))]
+[UpdateBefore(typeof(GameplayPostMovementSystemGroup))]
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
 public partial struct NavFollowIntentSystem : ISystem
 {

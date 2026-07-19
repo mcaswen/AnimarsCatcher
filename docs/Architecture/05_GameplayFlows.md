@@ -145,9 +145,9 @@ sequenceDiagram
     participant Order as MovementOrderRpc
     participant Request as ResourcePickupRequest
     participant Assign as ServerAssignSelectedAniToResourceSystem
-    participant Setup as ServerResourceCarrySetupSystem
+    participant Setup as Legacy ServerResourceCarrySetupSystem
     participant Picker as Picker Ani
-    participant Move as ServerResourceCarryMoveSystem
+    participant Move as Legacy ServerResourceCarryMoveSystem
     participant Hub as Resource Event Hub
     participant State as PlayerResourceState
 
@@ -191,7 +191,7 @@ flowchart LR
 
 ## 7. 生成 Ani 与维护玩家资源
 
-客户端通过 `AniSpawnRequestSender` 创建 `SpawnAniRpc`。服务器收到请求后按以下顺序处理：
+Mono 桥接层通过 `AniSpawnRequestSender` 创建 `SpawnAniRpc`。服务器收到请求后按以下顺序处理：
 
 1. 从 `SourceConnection.NetworkId` 确定请求属于哪个玩家
 2. 通过 `ServerCampAssignmentPolicy` 确定该玩家阵营
@@ -224,6 +224,6 @@ sequenceDiagram
 
 `ServerBaseDefeatSystem` 只检查带 `BigBaseTag` 的基地。第一次发现大基地生命值降到零时，它根据被摧毁基地的阵营确定胜方，并把结果写进服务器的 `GameResult`。
 
-`GameResult` 本身不是同步给客户端的 Ghost 状态。服务器会为每个带 `NetworkStreamInGame` 的连接创建并发送 `GameOverRpc`。客户端收到 RPC 后，由 `GameOverUIBridge` 比较本地阵营和胜方，再显示胜利或失败界面。
+`GameResult` 本身不是同步给客户端的 Ghost 状态。服务器会为每个带 `NetworkStreamInGame` 的连接创建并发送 `GameOverRpc`。Mono Global 中的客户端系统收到 RPC 后，由 `GameOverUIBridge` 比较本地阵营和胜方，再显示胜利或失败界面。
 
 `GameResult.IsGameOver` 一旦写入就会阻止后续帧再次覆盖结果，`BaseDestroyedTag` 则防止同一基地被重复处理。

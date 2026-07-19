@@ -2,6 +2,7 @@ using System.Xml.Schema;
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
+using AnimarsCatcher.Gameplay;
 
 /// <summary>
 /// 从 NetCode 世界读取玩家资源和全局资源快照
@@ -72,7 +73,7 @@ public static class GameResourceGetter
         var serverWorld = WorldManager.FindServerWorld();
         if (serverWorld == null)
             return false;
-            
+
         var entityManager = serverWorld.EntityManager;
 
         var query = entityManager.CreateEntityQuery(

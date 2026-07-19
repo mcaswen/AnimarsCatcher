@@ -1,4 +1,5 @@
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Gameplay;
 using Unity.Entities;
 using Unity.NetCode;
 using Unity.Transforms;

@@ -1,4 +1,5 @@
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Gameplay;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -58,7 +59,7 @@ public partial struct AniSelectionRingSyncSystem : ISystem
             // 加入 LinkedEntityGroup 让父实体销毁时级联清理
             if (!state.EntityManager.HasBuffer<LinkedEntityGroup>(aniEntity))
                 entityCommandBuffer.AddBuffer<LinkedEntityGroup>(aniEntity);
-            
+
             entityCommandBuffer.AppendToBuffer(aniEntity, new LinkedEntityGroup { Value = ring });
         }
 
