@@ -281,7 +281,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             return _terrainCostRules[index];
         }
 
-#if UNITY_EDITOR
         /// <summary>
         /// 绑定编辑器烘焙创建或更新的输出资产
         /// </summary>
@@ -290,7 +289,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         {
             _bakeAsset = bakeAsset;
         }
-#endif
 
         private void OnValidate()
         {

@@ -46,12 +46,25 @@
             )
         }
         @{
+            Path = 'Assets/Scripts/Anis/Navigation/Grid/Editor'
+            Assembly = 'AnimarsCatcher.Navigation.Editor'
+            AsmdefPath = 'Assets/Scripts/Anis/Navigation/Grid/Editor/AnimarsCatcher.Navigation.Editor.asmdef'
+            RootNamespace = 'AnimarsCatcher.Animars.Navigation.Grid.Editor'
+            Owner = 'Navigation Editor'
+            Status = 'PhaseSevenImplemented'
+            Lifecycle = 'Editor'
+            NamespacePrefixes = @('AnimarsCatcher.Animars.Navigation.Grid.Editor')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @('AnimarsCatcher.Navigation')
+        }
+        @{
             Path = 'Assets/Scripts/Anis/Navigation/Grid'
             Assembly = 'AnimarsCatcher.Navigation'
             AsmdefPath = 'Assets/Scripts/Anis/Navigation/Grid/AnimarsCatcher.Navigation.asmdef'
             RootNamespace = 'AnimarsCatcher.Animars.Navigation'
             Owner = 'Navigation'
-            Status = 'PhaseOneImplemented'
+            Status = 'PhaseSevenTightened'
             Lifecycle = 'Mixed'
             NamespacePrefixes = @('AnimarsCatcher.Animars.Navigation')
             RequireNamespace = $true

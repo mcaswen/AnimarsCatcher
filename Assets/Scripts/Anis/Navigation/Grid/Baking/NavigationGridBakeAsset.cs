@@ -169,7 +169,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             return cell.Walkable && cell.Clearance >= requiredClearance;
         }
 
-#if UNITY_EDITOR
         /// <summary>
         /// 用一次完整烘焙结果替换资产内容
         /// </summary>
@@ -198,7 +197,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             _regionCount = result.RegionCount;
             _cells = result.Cells ?? Array.Empty<NavigationGridCellData>();
         }
-#endif
 
         private static bool IsValidHash(string value)
         {
@@ -223,7 +221,6 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         }
     }
 
-#if UNITY_EDITOR
     /// <summary>
     /// 在编辑器烘焙流程与可检查资产之间传递完整结果
     /// </summary>
@@ -246,5 +243,4 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
         public int RegionCount;
         public NavigationGridCellData[] Cells = Array.Empty<NavigationGridCellData>();
     }
-#endif
 }

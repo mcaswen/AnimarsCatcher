@@ -16,12 +16,17 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         private const string BakeAssetPath =
             "Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset";
         private const string AssemblyName = "AnimarsCatcher.Navigation";
+        private const string EditorAssemblyName = "AnimarsCatcher.Navigation.Editor";
 
         /// <summary>
         /// 验证程序集迁移后的场景脚本与烘焙资产序列化引用
         /// </summary>
         public static void RunFromCommandLine()
         {
+            Assert(
+                typeof(NavigationAssemblyMigrationValidation).Assembly.GetName().Name ==
+                EditorAssemblyName,
+                "Navigation 验收入口没有迁移到 Editor 程序集");
             SceneSetup[] sceneSetup = EditorSceneManager.GetSceneManagerSetup();
             try
             {

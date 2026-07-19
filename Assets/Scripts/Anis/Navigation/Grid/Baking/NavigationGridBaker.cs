@@ -2,9 +2,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-#if UNITY_EDITOR
-using AnimarsCatcher.Animars.Navigation.Grid.Editor;
-#endif
 
 namespace AnimarsCatcher.Animars.Navigation.Grid
 {
@@ -15,9 +12,8 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
     {
         public override void Bake(NavigationGridAuthoring authoring)
         {
-            // Baker 只消费已经持久化并通过新鲜度校验的资产
-            // 场景物理采样属于编辑器显式流程 不能在 SubScene Baking 中隐式执行
-            // 资产无效时拒绝生成部分 Blob 防止运行时得到语义过期数据
+            // Baker 只消费已经持久化且结构有效的资产
+            // 场景新鲜度由编辑器构建门禁验证 Runtime 不反向调用 Editor
             NavigationGridBakeAsset bakeAsset = authoring.BakeAsset;
             if (bakeAsset == null)
             {
@@ -26,21 +22,11 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
             }
 
             DependsOn(bakeAsset);
-#if UNITY_EDITOR
-            if (!NavigationGridBakeUtility.TryValidateCurrentAsset(
-                    authoring,
-                    out string validationMessage))
-            {
-                Debug.LogError($"Navigation Grid 数据无效: {validationMessage}", authoring);
-                return;
-            }
-#else
             if (!bakeAsset.IsUsable)
             {
                 Debug.LogError("Navigation Grid bake asset is missing or uses an unsupported version", bakeAsset);
                 return;
             }
-#endif
 
             // Blob 字段顺序镜像 Bake Asset 的运行时只读契约
             // Cell 按行主序复制使运行时索引和编辑器检查保持一致
