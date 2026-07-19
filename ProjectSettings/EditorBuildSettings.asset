@@ -6,13 +6,13 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SCN_MainMenu.unity
+    path: Assets/Scenes/Bootstrap/SCN_MainMenu.unity
     guid: 0f6c376b61e5ab741af206f66ee4bd98
   - enabled: 1
-    path: Assets/Scenes/LevelScene/SCN_GameLevel_SubScene.unity
+    path: Assets/Scenes/SubScenes/SCN_GameLevel_SubScene.unity
     guid: 93d6c6b36036f784aa400b0c5508cd0e
   - enabled: 1
-    path: Assets/Scenes/LevelScene/SCN_GameLevel.unity
+    path: Assets/Scenes/Gameplay/SCN_GameLevel.unity
     guid: a61581aea80e82645b8a4d2b691ce33c
   m_configObjects: {}
   m_UseUCBPForAssetBundles: 0
