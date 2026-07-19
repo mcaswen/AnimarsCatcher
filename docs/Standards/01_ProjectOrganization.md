@@ -58,10 +58,18 @@ Assets/
 │   │   ├── Health/
 │   │   └── Resource/
 │   ├── Navigation/
+│   │   └── Grid/
 │   ├── Player/
 │   ├── Netcode/
 │   ├── Presentation/
-│   │   ├── MonoBehaviour/
+│   │   ├── Account/
+│   │   ├── Anis/
+│   │   ├── Audio/
+│   │   ├── Camera/
+│   │   ├── Health/
+│   │   ├── Match/
+│   │   ├── Player/
+│   │   ├── Selection/
 │   │   └── UI/
 │   ├── Physics/
 │   │   └── Terrain/
@@ -82,21 +90,31 @@ docs/
 └── Architecture/
 ```
 
-脚本继续采用当前项目的领域优先结构，不把全部系统集中到顶层 `Systems`。领域内部可按下列职责划分：
+脚本目录采用“程序集边界优先、业务功能优先、技术职责按需补充”的结构，不把全部 System、Component 或 MonoBehaviour 集中到全局技术目录。
 
 ```text
-Scripts/<Domain>/<Feature>/
-├── Components/
-├── Authoring/
-├── Systems/
-│   ├── Client/
-│   ├── Server/
-│   └── Common/
-├── Presentation/
-└── Utilities/
+Scripts/<AssemblyRoot>/<Feature>/
+├── <FeatureType>.cs
+├── Components/          持续扩展的纯数据类型组
+├── Systems/             持续扩展的运行系统组
+│   ├── Client/          明确的客户端生命周期
+│   └── Server/          明确的服务端生命周期
+├── Editor/              Editor-only 程序集或生命周期
+└── Utilities/           多个同类工具组成的稳定集合
 ```
 
-不得为了形式完整创建空目录。
+具体规则如下：
+
+1. `Assets/Scripts` 下第一层优先对应 asmdef 程序集边界，例如 `Gameplay`、`Player`、`Presentation` 和 `Navigation`。
+2. 程序集内部先按业务功能划分，例如 `Gameplay/Resource/Player`、`Gameplay/Resource/Collection` 和 `Presentation/Selection`。
+3. `Authoring`、`Components`、`Systems`、`Client`、`Server`、`Editor`、`Tests`、`Utilities` 只在确实形成稳定职责组时创建，不作为每个功能的固定模板。
+4. 只有一个脚本且没有独立生命周期或扩展计划时，脚本直接放在所属功能目录，不额外套一层 `Authoring`、`Systems`、`Common` 或 `Utilities`。
+5. `Client`、`Server`、`Editor`、`Tests` 等会改变运行位置、编译范围或验收方式的目录，即使文件较少也可以保留。
+6. `Melee`、`Ranged`、`Algorithms`、`Runtime`、`Registry` 等能表达稳定业务分型或算法边界的目录可以保留。
+7. 禁止使用 `Mono`、`MonoBehaviour` 作为跨业务分类目录。表现脚本应进入 `Presentation/<Feature>`，由功能归属表达职责。
+8. 普通源码从 `Assets/Scripts` 到文件所在目录原则上不超过 5 层。超过时必须证明每一层都对应稳定业务、生命周期、编译或算法边界。
+9. 不得为了形式完整创建空目录，也不得长期保留仅含空文件夹 `.meta` 的目录。
+10. 物理目录用于帮助定位和控制程序集覆盖，不要求与命名空间逐段一致。命名空间仍按长期业务归属设计，不因压平技术目录而机械改名。
 
 当前 Gameplay、Presentation、Physics 和 Navigation 的物理目录已经与 asmdef 覆盖范围对齐，项目 asmref 数量为 0。新增领域不得默认接入现有程序集，必须先通过依赖审计确认生命周期和允许依赖一致。
 

@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一至阶段七已完成
+> 状态：资源迁移阶段一至阶段七与脚本层级收敛已完成
 >
 > 实施日期：2026-07-20
 >
@@ -10,9 +10,9 @@
 
 ## 1. 实施结果
 
-本次迁移完成了脚本、动画、Timeline、旧资源、场景、音频、Terrain 和生成缓存的集中整理。
+本次迁移完成了脚本程序集归属、脚本多级目录、动画、Timeline、旧资源、场景、音频、Terrain 和生成缓存的集中整理。
 
-迁移过程没有修改命名空间、Ghost 协议、序列化字段或核心玩法逻辑。除旧场景切换到权威 Ani Prefab 外，资源内容只发生路径变化。
+资源迁移没有修改命名空间、Ghost 协议、序列化字段或核心玩法逻辑。脚本归属收敛将表现类型迁入 Presentation 命名空间，并通过 `MovedFrom` 保留序列化兼容；后续目录压平只移动脚本与 `.meta`，没有修改 C# 内容。
 
 最终结果：
 
@@ -22,6 +22,8 @@
 - Assets/Resource 已删除
 - 正式场景、SubScene、Benchmark 和 Legacy 场景已分区
 - SceneDependencyCache 已删除并加入忽略规则
+- Presentation 不再使用统一的 MonoBehaviour 技术目录，角色 View、选择、血条和攻击表现均由对应功能目录持有
+- Gameplay/Resource 已按 Global、Player、Collection 和 Spawn 重组，Gameplay 与 Player 的无意义单文件职责目录已压平
 - Unity 自动生成的解决方案文件不纳入迁移提交
 
 ## 2. 当前目录
@@ -33,6 +35,10 @@ Assets/Scripts/
 ├── Core/
 ├── Gameplay/
 │   ├── Anis/
+│   │   ├── Combat/
+│   │   ├── FSM/
+│   │   ├── Perception/
+│   │   └── Spawn/
 │   ├── Base/
 │   ├── Camp/
 │   ├── Contracts/
@@ -40,12 +46,23 @@ Assets/Scripts/
 │   ├── Global/
 │   ├── Health/
 │   └── Resource/
+│       ├── Collection/
+│       ├── Global/
+│       ├── Player/
+│       └── Spawn/
 ├── Navigation/
 │   └── Grid/
 ├── Player/
 ├── Netcode/
 ├── Presentation/
-│   ├── MonoBehaviour/
+│   ├── Account/
+│   ├── Anis/
+│   ├── Audio/
+│   ├── Camera/
+│   ├── Health/
+│   ├── Match/
+│   ├── Player/
+│   ├── Selection/
 │   └── UI/
 ├── Physics/
 │   └── Terrain/
@@ -170,6 +187,27 @@ Assets/SceneDependencyCache 中的 sceneWithBuildSettings 文件已删除。
 .gitignore 已加入 Assets/SceneDependencyCache，避免 Unity 再次生成缓存时污染工作区。
 
 项目组织规范、模块地图、构建入口、Navigation 路径和存量整改记录已经同步到新目录。
+
+### 3.8 脚本归属与多级目录收敛
+
+攻击表现、选择射线桥接和角色 GameObject View 从 Gameplay 或 Player 迁入 Presentation。相关序列化类型保留原脚本 `.meta` GUID，并使用 `MovedFrom` 兼容旧命名空间。
+
+Presentation 按 Account、Anis、Health、Match、Player、Selection、UI 等业务功能组织，移除了统一的 MonoBehaviour 目录和只承载单个脚本的 Authoring、Common、View 等层级。
+
+Gameplay/Anis 保留 Combat、FSM、Perception 和 Spawn 等稳定边界；Gameplay/Resource 改为 Global、Player、Collection 和 Spawn。Player 保留输入、相机、角色控制和客户端生命周期目录，单文件职责层级直接压平到所属功能。
+
+当前物理统计为 Gameplay 76 个脚本、33 个子目录，Player 42 个脚本、19 个子目录，Presentation 63 个脚本、24 个子目录。最深源码路径从 `Assets/Scripts` 起包含文件名共 6 段，对应战斗分型等明确边界。
+
+脚本目录压平阶段的 C# 内容改动为零，Git 将脚本与脚本 `.meta` 全部识别为 100% rename。删除内容仅为空目录对应的文件夹 `.meta`。
+
+Unity Asset Pipeline 对主迁移批次记录为 120 项移动、44 项删除和 24 项变化，重新编译耗时约 5.9 秒；Selection 客户端补充批次记录为 8 项移动和 1 项删除，重新编译耗时约 2.7 秒。Editor.log 没有新增编译、导入、Missing Script 或重复 GUID 错误。
+
+提交：
+
+- b84a302 update: 修正表现脚本程序集归属
+- d0d0429 update: 按业务功能收敛Presentation目录
+- 2426791 update: 收敛Gameplay与Player目录层级
+- cf1aa64 update: 压平Selection客户端目录
 
 ## 4. 迁移中的约束
 

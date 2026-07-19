@@ -18,7 +18,7 @@
 这一组负责创建运行环境、连接客户端与服务器，并把玩家输入转换为可预测的角色行为。
 
 - **`Netcode`**：编译为 `AnimarsCatcher.Networking`，创建 Client、Server 和 Thin Client World，处理连接、监听、大厅、开局、进入 InGame、网络角色出生和常用网络工具。它单向依赖 Player、Gameplay 和 Contracts，并通过生命周期通知 Entity 向表现层发布通知
-- **`Player`**：编译为 `AnimarsCatcher.Player`，采集设备输入，生成 `InputCommand`，驱动 KCC 预测移动，并管理相机和角色 View。输入在客户端产生，预测逻辑会在客户端和服务器共同执行，不反向依赖 Networking 或 Presentation
+- **`Player`**：编译为 `AnimarsCatcher.Player`，采集设备输入，生成 `InputCommand`，驱动 KCC 预测移动，并管理相机和角色控制数据。输入在客户端产生，预测逻辑会在客户端和服务器共同执行，不反向依赖 Networking 或 Presentation；角色 GameObject View 已由 Presentation 接管
 - **`Gameplay/Camp`**：保存阵营数据，执行服务器阵营分配，并在客户端维护本地阵营快照和敌我判断。它连接 NetCode 的连接实体、`GhostOwner` 和具体玩法模块
 
 ### 1.3 核心玩法
@@ -28,17 +28,18 @@
 - **`Gameplay/Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System 及战斗。它直接位于 `AnimarsCatcher.Gameplay` asmdef 覆盖目录内，不再依赖 asmref
 - **`Navigation/Grid`**：编译为独立的 `AnimarsCatcher.Navigation`，已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
-- **`Gameplay/Resource`**：处理资源刷新、脆弱资源、搬运分配、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示；依赖旧 NavMesh 的搬运 Setup 和 Move 实现位于 Legacy Benchmark
+- **`Gameplay/Resource`**：按 `Global`、`Player`、`Collection` 和 `Spawn` 划分，处理资源刷新、脆弱资源、搬运分配、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示；依赖旧 NavMesh 的搬运 Setup 和 Move 实现位于 Legacy Benchmark
 - **`Gameplay/Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
 - **`Gameplay/Base`**：保存基地配置，负责基地出生、大小标签和 AABB 数据。它主要在服务器运行，并与 Camp、Health 和 Global 配合
-- **`Gameplay/Global`**：处理服务器对局结果和基地败北。客户端结算 RPC、结果面板和会话返回位于 Presentation MonoBehaviour
+- **`Gameplay/Global`**：处理服务器对局结果和基地败北。客户端结算 RPC、结果面板和会话返回位于 `Presentation/Match`
 
 ### 1.4 表现与桥接
 
 这一组把 ECS 状态转换为玩家能看到和操作的 GameObject 界面。它可以读取权威状态或发送请求，但不应该直接改写服务器结果。
 
-- **`Presentation/UI`**：实现 ECS 框选、选择模式、选择光圈和血条 View，主要运行在 Client Presentation 阶段
-- **`Presentation/MonoBehaviour`**：承载账号、LAN、菜单、HUD、音频、场景过渡，以及 ECS World 与 GameObject 之间的桥接
+- **`Presentation/Selection` 与 `Presentation/Health`**：实现 ECS 框选、选择模式、选择光圈和血条 View，主要运行在 Client Presentation 阶段
+- **`Presentation/Player` 与 `Presentation/Anis`**：负责角色 View 的生成、跟随、动画和攻击表现，把 ECS 状态转换为本地 GameObject 表现
+- **`Presentation/UI`、`Account`、`Lan`、`Match` 等功能目录**：承载菜单、HUD、账号、局域网房间、结算、音频和场景过渡。表现层按业务功能组织，不再使用统一的 `MonoBehaviour` 技术目录
 
 ### 1.5 烘焙与编辑器支持
 
@@ -128,7 +129,7 @@ Network Entity Prefab 通过 `AvatarViewAuthoring` 和 `HealthBarViewAuthoring` 
 - 修改 Ani 指令和状态时，先查看 `Gameplay/Anis/Perception` 和 `Gameplay/Anis/FSM`；分析当前旧移动结果时查看 `Benchmarks/LegacyNavMesh`；修改新 Grid 烘焙基础时查看 `Navigation/Grid`，新移动能力不得继续写入 Legacy 目录
 - 修改攻击和伤害时，先查看 `Gameplay/Anis/Combat` 和 `Gameplay/Health`
 - 修改采集和资源经济时，先查看 `Gameplay/Resource` 和 `Gameplay/Anis/Spawn`
-- 修改 HUD 或 Hybrid View 时，先查看 `Presentation/UI`、`Presentation/MonoBehaviour/UI` 和 `Player/Hero/View`
+- 修改 HUD、选择表现或 Hybrid View 时，先查看 `Presentation/UI`、`Presentation/Selection`、`Presentation/Health`、`Presentation/Player` 和 `Presentation/Anis`
 - 修改场景配置实体时，先查看 `SCN_GameLevel_SubScene` 和对应的 Authoring/Baker
 
 如果一次修改同时跨越上述多个入口，应先明确哪个模块拥有最终数据，再决定其他模块是提交请求、同步状态还是只负责显示。
