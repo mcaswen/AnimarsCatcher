@@ -312,6 +312,101 @@ function Get-ImplementationXmlSummaryLines {
     return $implementationSummaryLines
 }
 
+function Test-HasXmlSummaryBeforeLine {
+    param(
+        [string[]]$Lines,
+        [int]$DeclarationLineIndex
+    )
+
+    $minimumLineIndex = [math]::Max(0, $DeclarationLineIndex - 40)
+    for ($lineIndex = $DeclarationLineIndex - 1; $lineIndex -ge $minimumLineIndex; $lineIndex--) {
+        $trimmedLine = $Lines[$lineIndex].Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmedLine)) {
+            continue
+        }
+
+        if ($trimmedLine -match '^///\s*</summary>\s*$') {
+            return $true
+        }
+
+        if ($trimmedLine.StartsWith('///') -or
+            $trimmedLine.StartsWith('[') -or
+            $trimmedLine.StartsWith('#')) {
+            continue
+        }
+
+        if ($trimmedLine -eq '}' -or
+            $trimmedLine.StartsWith('namespace ') -or
+            $trimmedLine.EndsWith(';')) {
+            return $false
+        }
+    }
+
+    return $false
+}
+
+function Get-TopLevelPublicTypeDeclarations {
+    param([string[]]$Lines)
+
+    $declarations = [System.Collections.Generic.List[object]]::new()
+    $typeStack = [System.Collections.Generic.List[object]]::new()
+    $braceDepth = 0
+    $pendingType = $null
+    $inBlockComment = $false
+    $inVerbatimString = $false
+    $modifierPattern = '(?:(?:public|private|protected|internal|file|static|abstract|sealed|partial|readonly|ref|unsafe|new)\s+)*'
+    $typePattern = '^(?<modifiers>' + $modifierPattern + ')(?<kind>record\s+(?:class|struct)|record|class|struct|interface|enum)\s+(?<name>[A-Za-z_]\w*)\b'
+
+    for ($lineIndex = 0; $lineIndex -lt $Lines.Count; $lineIndex++) {
+        while ($typeStack.Count -gt 0 -and $braceDepth -lt $typeStack[$typeStack.Count - 1].BodyDepth) {
+            $typeStack.RemoveAt($typeStack.Count - 1)
+        }
+
+        $structureLine = Get-CSharpStructureLine `
+            -Line $Lines[$lineIndex] `
+            -InBlockComment ([ref]$inBlockComment) `
+            -InVerbatimString ([ref]$inVerbatimString)
+        $trimmedStructureLine = $structureLine.Trim()
+
+        if ($null -ne $pendingType -and $trimmedStructureLine.Contains('{')) {
+            $pendingType.BodyDepth = $braceDepth + 1
+            $null = $typeStack.Add($pendingType)
+            $pendingType = $null
+        }
+
+        if ($trimmedStructureLine -match $typePattern) {
+            $modifiers = $Matches['modifiers']
+            $typeName = $Matches['name']
+            $isTopLevel = $typeStack.Count -eq 0
+            $isPublic = $modifiers -match '\bpublic\b'
+            if ($isTopLevel -and $isPublic) {
+                $declarations.Add([pscustomobject]@{
+                    Line = $lineIndex + 1
+                    Name = $typeName
+                    IsPartial = $modifiers -match '\bpartial\b'
+                    HasSummary = Test-HasXmlSummaryBeforeLine `
+                        -Lines $Lines `
+                        -DeclarationLineIndex $lineIndex
+                })
+            }
+
+            $typeInfo = [pscustomobject]@{ BodyDepth = -1 }
+            if ($trimmedStructureLine.Contains('{')) {
+                $typeInfo.BodyDepth = $braceDepth + 1
+                $null = $typeStack.Add($typeInfo)
+            }
+            elseif (-not $trimmedStructureLine.EndsWith(';')) {
+                $pendingType = $typeInfo
+            }
+        }
+
+        $braceDepth += ([regex]::Matches($structureLine, '\{')).Count
+        $braceDepth -= ([regex]::Matches($structureLine, '\}')).Count
+    }
+
+    return $declarations
+}
+
 function Read-CSharpFile {
     param([System.IO.FileInfo]$File)
 
@@ -333,6 +428,19 @@ function Read-CSharpFile {
     $inVerbatimString = $false
     $lines = $content -split "`r?`n"
     $implementationSummaryLines = Get-ImplementationXmlSummaryLines -Lines $lines
+    $publicTypeDeclarations = Get-TopLevelPublicTypeDeclarations -Lines $lines
+    foreach ($declaration in $publicTypeDeclarations) {
+        $documentedByAnotherPartial =
+            $declaration.IsPartial -and
+            $script:documentedPublicPartialTypeNames.ContainsKey($declaration.Name)
+        if (-not $declaration.HasSummary -and -not $documentedByAnotherPartial) {
+            Add-Violation `
+                $relativePath `
+                $declaration.Line `
+                "public-type-documentation" `
+                "top-level public type must have an XML summary"
+        }
+    }
 
     for ($lineIndex = 0; $lineIndex -lt $lines.Count; $lineIndex++) {
         $line = $lines[$lineIndex]
@@ -485,6 +593,22 @@ function Read-CSharpFile {
 $files = Get-ChildItem -LiteralPath $sourceRoot -Recurse -File -Filter '*.cs' |
     Where-Object { -not (Test-ExcludedPath $_) } |
     Sort-Object FullName
+
+$documentedPublicPartialTypeNames = @{}
+foreach ($file in $files) {
+    $content = Get-Content -LiteralPath $file.FullName -Raw -Encoding UTF8
+    $header = (($content -split "`r?`n") | Select-Object -First 10) -join "`n"
+    if ($header -match '(?i)<auto-generated|auto generated code|generated by') {
+        continue
+    }
+
+    $lines = $content -split "`r?`n"
+    foreach ($declaration in (Get-TopLevelPublicTypeDeclarations -Lines $lines)) {
+        if ($declaration.IsPartial -and $declaration.HasSummary) {
+            $documentedPublicPartialTypeNames[$declaration.Name] = $true
+        }
+    }
+}
 
 foreach ($file in $files) {
     Read-CSharpFile $file

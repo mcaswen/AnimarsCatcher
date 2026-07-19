@@ -97,7 +97,7 @@ public PlayerResourceState GetPlayerResource()
 7. 禁止通过重复描述代码、堆积分隔线、保留废弃代码或生成无意义注释提高比例。
 8. 注释率是最低质量门槛，不替代 Code Review。即使达到比例，无效或过时注释仍必须修改。
 9. 数据结构可能低于推荐值，协议、状态机、复杂系统和生命周期代码应高于推荐值，以整体达到目标。
-10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾、Inspector 提示和被注释掉的旧代码。
+10. 提交前运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，检查注释率、中文注释、句号结尾、Inspector 提示、顶层公共类型 XML 文档和被注释掉的旧代码。
 
 ### 4.3 文件格式
 
