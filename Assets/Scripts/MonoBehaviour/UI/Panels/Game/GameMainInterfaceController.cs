@@ -7,6 +7,7 @@ using DG.Tweening;
 using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.Account;
 using AnimarsCatcher.Presentation.Selection;
+using AnimarsCatcher.Presentation.Resource;
 
 namespace AnimarsCatcher.Presentation.UI
 {

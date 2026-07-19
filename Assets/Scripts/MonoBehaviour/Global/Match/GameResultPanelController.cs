@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using AnimarsCatcher.Presentation.UI;
 
 namespace AnimarsCatcher.Presentation.Global
 {

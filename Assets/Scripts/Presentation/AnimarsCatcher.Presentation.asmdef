@@ -1,0 +1,31 @@
+{
+  "name": "AnimarsCatcher.Presentation",
+  "rootNamespace": "AnimarsCatcher.Presentation",
+  "references": [
+    "GUID:e48f3384d761f244ab49193ce9b063de",
+    "GUID:fa16307da46fd914dbbf094824885beb",
+    "GUID:396db97842e549ccb67d7029e581210d",
+    "GUID:95e6f2eeefa140e4a565f2a3fdadcf00",
+    "GUID:2665a8d13d1b3f18800f46e256720795",
+    "GUID:e0cd26848372d4e5c891c569017e11f1",
+    "GUID:734d92eba21c94caba915361bd5ac177",
+    "GUID:8819f35a0fc84499b990e90a4ca1911f",
+    "GUID:d8b63aba1907145bea998dd612889d6b",
+    "GUID:953adc2a6b8b4e3c8df5b728bcd546e9",
+    "GUID:a5baed0c9693541a5bd947d336ec7659",
+    "GUID:f2d49d9fa7e7eb3418e39723a7d3b92f",
+    "GUID:4307f53044263cf4b835bd812fc161a4",
+    "GUID:6055be8ebefd69e48b49212b09b47b2f",
+    "GUID:2bafac87e7f4b9b418d9448d219b01ab",
+    "GUID:169ae7c86c6746b696670a295f1c7be5"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

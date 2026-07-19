@@ -7,7 +7,7 @@ using UnityEngine;
 using AnimarsCatcher.Presentation.Global;
 using Unity.Collections;
 
-namespace AnimarsCatcher.Presentation.Health
+namespace AnimarsCatcher.Presentation.HealthUI
 {
     /// <summary>
     /// 在客户端为带血条配置且尚未生成视图的实体创建 HUD
@@ -20,10 +20,11 @@ namespace AnimarsCatcher.Presentation.Health
 
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate(
-                SystemAPI.QueryBuilder()
-                    .WithAll<Health, HealthBarViewPrefab, LocalTransform>()
-                    .Build());
+            EntityQuery healthBarQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<Health>(),
+                ComponentType.ReadOnly<HealthBarViewPrefab>(),
+                ComponentType.ReadOnly<LocalTransform>());
+            state.RequireForUpdate(healthBarQuery);
         }
 
         public void OnUpdate(ref SystemState state)

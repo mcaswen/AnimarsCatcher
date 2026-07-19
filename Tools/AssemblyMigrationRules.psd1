@@ -132,11 +132,19 @@
         @{
             Path = 'Assets/Scripts/MonoBehaviour'
             Assembly = 'AnimarsCatcher.Presentation'
+            AsmrefPath = 'Assets/Scripts/MonoBehaviour/AnimarsCatcher.Presentation.asmref'
             Owner = 'GameObject Presentation'
-            Status = 'PhaseFivePrepared'
+            Status = 'PhaseFiveImplemented'
             Lifecycle = 'Presentation'
             NamespacePrefixes = @('AnimarsCatcher.Presentation')
             RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Networking',
+                'AnimarsCatcher.Player'
+            )
         }
         @{
             Path = 'Assets/Scripts/Netcode'
@@ -191,6 +199,24 @@
             AllowedProjectDependencies = @('AnimarsCatcher.Gameplay')
         }
         @{
+            Path = 'Assets/Scripts/Presentation'
+            Assembly = 'AnimarsCatcher.Presentation'
+            AsmdefPath = 'Assets/Scripts/Presentation/AnimarsCatcher.Presentation.asmdef'
+            RootNamespace = 'AnimarsCatcher.Presentation'
+            Owner = 'Presentation'
+            Status = 'PhaseFiveImplemented'
+            Lifecycle = 'Presentation'
+            NamespacePrefixes = @('AnimarsCatcher.Presentation')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Networking',
+                'AnimarsCatcher.Player'
+            )
+        }
+        @{
             Path = 'Assets/Scripts/Resource'
             Assembly = 'AnimarsCatcher.Gameplay'
             AsmrefPath = 'Assets/Scripts/Resource/AnimarsCatcher.Gameplay.asmref'
@@ -212,11 +238,19 @@
         @{
             Path = 'Assets/Scripts/UI'
             Assembly = 'AnimarsCatcher.Presentation'
+            AsmrefPath = 'Assets/Scripts/UI/AnimarsCatcher.Presentation.asmref'
             Owner = 'ECS Presentation'
-            Status = 'PhaseFivePrepared'
+            Status = 'PhaseFiveImplemented'
             Lifecycle = 'Presentation'
             NamespacePrefixes = @('AnimarsCatcher.Presentation')
             RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Networking',
+                'AnimarsCatcher.Player'
+            )
         }
     )
 }

@@ -2,7 +2,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace AnimarsCatcher.Presentation.Health
+namespace AnimarsCatcher.Presentation.HealthUI
 {
     /// <summary>
     /// 配置实体对应的血条 GameObject 预制体和世界偏移
@@ -14,7 +14,7 @@ namespace AnimarsCatcher.Presentation.Health
 
         public Vector3 worldOffset = new Vector3(0f, 2f, 0f);
 
-        class Baker : Baker<HealthBarViewAuthoring>
+        class Baker : Unity.Entities.Baker<HealthBarViewAuthoring>
         {
             public override void Bake(HealthBarViewAuthoring authoring)
             {

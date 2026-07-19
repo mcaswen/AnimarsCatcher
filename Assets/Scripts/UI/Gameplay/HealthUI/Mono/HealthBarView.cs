@@ -5,7 +5,7 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace AnimarsCatcher.Presentation.Health
+namespace AnimarsCatcher.Presentation.HealthUI
 {
     /// <summary>
     /// 将目标 ECS 实体的世界位置和生命值投影到屏幕血条

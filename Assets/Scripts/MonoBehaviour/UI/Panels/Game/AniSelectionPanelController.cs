@@ -8,6 +8,7 @@ using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.Audio;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Presentation.Gameplay;
+using AnimarsCatcher.Presentation.Resource;
 
 namespace AnimarsCatcher.Presentation.UI
 {

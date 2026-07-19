@@ -12,7 +12,7 @@ namespace AnimarsCatcher.Presentation.Selection
         public GameObject RingPrefab;
         public float YOffset = 0.02f;
 
-        class Baker : Baker<SelectionRingPrefabAuthoring>
+        class Baker : Unity.Entities.Baker<SelectionRingPrefabAuthoring>
         {
             public override void Bake(SelectionRingPrefabAuthoring authoring)
             {
