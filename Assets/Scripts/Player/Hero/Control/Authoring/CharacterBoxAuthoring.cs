@@ -2,6 +2,8 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
+namespace AnimarsCatcher.Player
+{
 /// <summary>
 /// 运行时角色盒体的本地中心和半尺寸
 /// </summary>
@@ -45,4 +47,6 @@ public class CharacterBoxAuthoring : MonoBehaviour
             });
         }
     }
+}
+
 }

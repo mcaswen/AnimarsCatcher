@@ -4,6 +4,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Networking;
 using UnityEngine;
 using UnityEngine.Serialization;
 

@@ -1,32 +1,35 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using Unity.Entities;
-
-/// <summary>
-/// 配置相机需要跟随的目标对象
-/// </summary>
-[DisallowMultipleComponent]
-public class CameraTargetAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Player
 {
-    public GameObject Target;
+    using System.Collections;
+    using System.Collections.Generic;
+    using UnityEngine;
+    using Unity.Entities;
 
     /// <summary>
-    /// 负责将相机目标引用转换为实体引用
+    /// 配置相机需要跟随的目标对象
     /// </summary>
-    public class Baker : Baker<CameraTargetAuthoring>
+    [DisallowMultipleComponent]
+    public class CameraTargetAuthoring : MonoBehaviour
     {
+        public GameObject Target;
+
         /// <summary>
-        /// 烘焙相机目标组件
+        /// 负责将相机目标引用转换为实体引用
         /// </summary>
-        /// <param name="authoring">相机目标 Authoring 配置</param>
-        public override void Bake(CameraTargetAuthoring authoring)
+        public class Baker : Baker<CameraTargetAuthoring>
         {
-            Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent(entity, new CameraTarget
+            /// <summary>
+            /// 烘焙相机目标组件
+            /// </summary>
+            /// <param name="authoring">相机目标 Authoring 配置</param>
+            public override void Bake(CameraTargetAuthoring authoring)
             {
-                TargetEntity = GetEntity(authoring.Target, TransformUsageFlags.Dynamic),
-            });
+                Entity entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(entity, new CameraTarget
+                {
+                    TargetEntity = GetEntity(authoring.Target, TransformUsageFlags.Dynamic),
+                });
+            }
         }
     }
 }

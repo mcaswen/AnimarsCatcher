@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Networking;
 
 namespace AnimarsCatcher.Mono.Gameplay
 {

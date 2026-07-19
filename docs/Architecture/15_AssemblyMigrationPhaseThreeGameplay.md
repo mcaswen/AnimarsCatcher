@@ -135,12 +135,12 @@ Ghost Collection 调试系统移到 Netcode Debug，不再作为 Match 领域代
 
 ## 7. 后续工作
 
-下一阶段是 Player 与 Networking 迁移。
+Player 与 Networking 迁移已经完成，具体结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)。
 
-优先处理：
+阶段四实际处理内容：
 
-1. 提取 Player 与 Networking 共享的输入、连接和 Spawn 协议
-2. 消除 Player 与 Networking 对具体 System 和 Mono Bridge 的引用
-3. 把 Client、Server 和 Shared World 职责映射到明确程序集
+1. Player 保留输入、预测、KCC 和相机职责，Networking 保留连接、InGame 和 Spawn 协议
+2. 消除 Player 与 Networking 对 Mono Bridge 的反向引用
+3. 建立 Networking 到 Player 的单向数据依赖，不互相引用具体 System
 4. 保持 Gameplay 只被上层消费，不重新引入反向依赖
-5. 完成 Host、Client 和 Dedicated Server 的连接及重进流程验证
+5. 完成 Editor、Windows Client 和 Dedicated Server 编译构建验证

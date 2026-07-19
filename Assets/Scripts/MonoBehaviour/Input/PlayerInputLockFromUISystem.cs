@@ -1,7 +1,9 @@
 using Unity.Entities;
-using Unity.Burst;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Player;
 
+namespace AnimarsCatcher.Mono.Bridges
+{
 /// <summary>
 /// 在客户端根据 UI 面板占用情况维护玩法输入锁
 /// </summary>
@@ -53,4 +55,6 @@ public partial class PlayerInputLockFromUISystem : SystemBase
     {
         // 状态完全由 UI 事件驱动，无需逐帧轮询
     }
+}
+
 }

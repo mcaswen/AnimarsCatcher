@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using Cinemachine;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Player;
 
 /// <summary>
 /// 播放战斗场景开场运镜并在演出期间锁定输入和 HUD

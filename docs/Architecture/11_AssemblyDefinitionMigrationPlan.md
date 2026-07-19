@@ -2,13 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段三已完成，下一步进入 Player 与 Networking 迁移
+> 状态：阶段零至阶段四已完成，下一步进入 Presentation 迁移
 >
 > 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
-阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)。
+阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)。
 
 ## 1. 目标
 
@@ -30,13 +30,13 @@
 
 当前仓库具有以下特点：
 
-- 当前有 264 个自有业务脚本，其中 Core 的 3 个脚本、Gameplay Contracts 的 11 个脚本、Navigation 的 20 个脚本和 Gameplay 的 71 个脚本已迁入独立程序集
-- 项目自有代码当前有四个 `.asmdef` 和六个 `.asmref`
+- 当前有 267 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor 和 Networking 已迁入独立程序集
+- 项目自有代码当前有七个 `.asmdef` 和六个 `.asmref`
 - 现有 `.asmdef` 来自 Unity Physics Sample，不属于项目程序集规划
-- 129 个脚本仍处于全局命名空间
+- 56 个脚本仍处于全局命名空间
 - Editor 代码同时依赖 `Editor` 特殊目录和 `#if UNITY_EDITOR`
 - ECS、NetCode、GameObject UI 和 Mono 桥接代码存在较多跨顶层目录引用
-- Core、Gameplay Contracts 和 Navigation 已有统一命名空间与独立编译边界
+- Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已有统一命名空间与独立编译边界
 
 自定义程序集不能依赖仍位于预定义 `Assembly-CSharp` 中的类型。因此迁移必须从依赖最少的底层模块开始，不能先把高层 UI、Networking 或 Gameplay System 单独移入 asmdef。
 
@@ -326,6 +326,8 @@ AnimarsCatcher.Navigation
 
 ### 阶段四：Player 与 Networking 迁移
 
+状态：已完成，实施范围和验证结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)。
+
 工作内容：
 
 - 先迁移双方共享协议
@@ -446,4 +448,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-Core、Gameplay Contracts、Navigation 和 Gameplay 已完成迁移。下一项实际任务是阶段四 Player 与 Networking 迁移，优先提取双方共享协议并处理它们与 Mono Bridge 的边界。
+Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已完成迁移。下一项实际任务是阶段五 Presentation 迁移，优先消除 Mono 与 UI 的最后一组双向依赖，并把网络生命周期桥接、菜单、HUD、音频和 GameObject View 放入明确的上层程序集。

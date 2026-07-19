@@ -1,5 +1,5 @@
 @{
-    Version = 4
+    Version = 5
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     Rules = @(
@@ -141,11 +141,19 @@
         @{
             Path = 'Assets/Scripts/Netcode'
             Assembly = 'AnimarsCatcher.Networking'
+            AsmdefPath = 'Assets/Scripts/Netcode/AnimarsCatcher.Networking.asmdef'
+            RootNamespace = 'AnimarsCatcher.Networking'
             Owner = 'Networking'
-            Status = 'PendingContracts'
+            Status = 'PhaseFourImplemented'
             Lifecycle = 'Runtime'
             NamespacePrefixes = @('AnimarsCatcher.Networking')
-            RequireNamespace = $false
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Player'
+            )
         }
         @{
             Path = 'Assets/Scripts/Physics'
@@ -157,16 +165,30 @@
             RequireNamespace = $false
         }
         @{
+            Path = 'Assets/Scripts/Player/Input/Editor'
+            Assembly = 'AnimarsCatcher.Player.Editor'
+            AsmdefPath = 'Assets/Scripts/Player/Input/Editor/AnimarsCatcher.Player.Editor.asmdef'
+            RootNamespace = 'AnimarsCatcher.Player.Editor'
+            Owner = 'Player Editor'
+            Status = 'PhaseFourImplemented'
+            Lifecycle = 'Editor'
+            NamespacePrefixes = @('AnimarsCatcher.Player.Editor')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @('AnimarsCatcher.Player')
+        }
+        @{
             Path = 'Assets/Scripts/Player'
             Assembly = 'AnimarsCatcher.Player'
+            AsmdefPath = 'Assets/Scripts/Player/AnimarsCatcher.Player.asmdef'
+            RootNamespace = 'AnimarsCatcher.Player'
             Owner = 'Player'
-            Status = 'PendingContracts'
+            Status = 'PhaseFourImplemented'
             Lifecycle = 'Runtime'
-            NamespacePrefixes = @(
-                'AnimarsCatcher.Player',
-                'Unity.CharacterController.Editor'
-            )
-            RequireNamespace = $false
+            NamespacePrefixes = @('AnimarsCatcher.Player')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @('AnimarsCatcher.Gameplay')
         }
         @{
             Path = 'Assets/Scripts/Resource'

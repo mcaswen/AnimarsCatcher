@@ -6,6 +6,7 @@ using Unity.NetCode;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Mono.Lan;
 using UnityEngine.Events;
+using AnimarsCatcher.Networking;
 
 
 /// <summary>

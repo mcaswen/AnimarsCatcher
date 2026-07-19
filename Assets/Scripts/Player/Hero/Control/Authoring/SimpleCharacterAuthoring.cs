@@ -1,43 +1,46 @@
-using Unity.Entities;
-using Unity.Mathematics;
-using UnityEngine;
-using Unity.NetCode;
-
-/// <summary>
-/// 配置简化角色的移动和碰撞参数
-/// </summary>
-[DisallowMultipleComponent]
-public class SimpleCharacterAuthoring : MonoBehaviour
+namespace AnimarsCatcher.Player
 {
-    public float MoveSpeed = 6f;
-    public float RotationSharpness = 15f;
-    public float ColliderHeight = 1.8f;
-    public float ColliderRadius = 0.4f;
+    using Unity.Entities;
+    using Unity.Mathematics;
+    using UnityEngine;
+    using Unity.NetCode;
 
-    class Baker : Baker<SimpleCharacterAuthoring>
+    /// <summary>
+    /// 配置简化角色的移动和碰撞参数
+    /// </summary>
+    [DisallowMultipleComponent]
+    public class SimpleCharacterAuthoring : MonoBehaviour
     {
-        public override void Bake(SimpleCharacterAuthoring authoring)
+        public float MoveSpeed = 6f;
+        public float RotationSharpness = 15f;
+        public float ColliderHeight = 1.8f;
+        public float ColliderRadius = 0.4f;
+
+        class Baker : Baker<SimpleCharacterAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.Dynamic);
-
-            AddComponent(entity, new SimpleCharacter
+            public override void Bake(SimpleCharacterAuthoring authoring)
             {
-                MoveSpeed        = authoring.MoveSpeed,
-                RotationSharpness = authoring.RotationSharpness,
-                ColliderHeight   = authoring.ColliderHeight,
-                ColliderRadius   = authoring.ColliderRadius,
-            });
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-            AddComponent(entity, new SimpleCharacterControl
-            {
-                MoveVector = float3.zero
-            });
+                AddComponent(entity, new SimpleCharacter
+                {
+                    MoveSpeed        = authoring.MoveSpeed,
+                    RotationSharpness = authoring.RotationSharpness,
+                    ColliderHeight   = authoring.ColliderHeight,
+                    ColliderRadius   = authoring.ColliderRadius,
+                });
 
-            AddComponent<PredictedGhost>(entity);
-            AddComponent<CharacterTag>(entity);
-            AddComponent<Simulate>(entity);
+                AddComponent(entity, new SimpleCharacterControl
+                {
+                    MoveVector = float3.zero
+                });
 
-            AddBuffer<InputCommand>(entity);
+                AddComponent<PredictedGhost>(entity);
+                AddComponent<CharacterTag>(entity);
+                AddComponent<Simulate>(entity);
+
+                AddBuffer<InputCommand>(entity);
+            }
         }
     }
 }

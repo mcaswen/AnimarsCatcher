@@ -1,14 +1,17 @@
-using UnityEngine;
-
-/// <summary>
-/// 提供客户端主相机组件的运行时入口
-/// </summary>
-public class MainGameObjectCamera : MonoBehaviour
+namespace AnimarsCatcher.Player
 {
-    public static Camera Instance;
+    using UnityEngine;
 
-    void Awake()
+    /// <summary>
+    /// 提供客户端主相机组件的运行时入口
+    /// </summary>
+    public class MainGameObjectCamera : MonoBehaviour
     {
-        Instance = GetComponent<Camera>();
+        public static Camera Instance;
+
+        void Awake()
+        {
+            Instance = GetComponent<Camera>();
+        }
     }
 }

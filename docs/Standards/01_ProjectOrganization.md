@@ -80,6 +80,8 @@ Scripts/<Domain>/<Feature>/
 
 当前 Anis、Base、Camp、Global、Health 和 Resource 通过各自目录下的 asmref 共同组成 `AnimarsCatcher.Gameplay`。asmref 只表达编译归属，不改变领域目录所有权；新增领域不得默认接入该程序集，必须先通过依赖审计确认生命周期和允许依赖一致。
 
+Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使用独立的 `AnimarsCatcher.Player.Editor`。Netcode 使用 `AnimarsCatcher.Networking`。表现桥接脚本不得放回 Player 或 Netcode 来绕过程序集依赖，必须由 Mono 或后续 Presentation 程序集从上层引用运行时模块。
+
 ## 3. 存放要求
 
 1. 正式场景统一放在 `Assets/Scenes`。

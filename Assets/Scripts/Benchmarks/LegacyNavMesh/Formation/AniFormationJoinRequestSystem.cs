@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Player;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;

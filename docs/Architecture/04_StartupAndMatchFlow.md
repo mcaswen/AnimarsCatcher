@@ -59,7 +59,7 @@ sequenceDiagram
     RemoteUI->>Remote: RequestConnect(hostIp, port)
     Remote-->>RemoteUI: NetworkId 出现，握手完成
     Remote->>Server: ClientLobbyIntroRpc(playerName)
-    Server->>HostUI: NetworkUIEventBridge.LobbyClientJoinedEvent
+    Server->>HostUI: 生命周期通知 Entity -> NetworkPresentationBridgeSystem
 ```
 
 房主创建房间后会同时做三件事：让 Server World 监听端口、让本机 Client World 连接回环地址，以及通过 UDP 广播房间信息。远端客户端发现房间后，使用广播中的地址和端口发起连接。
@@ -84,7 +84,7 @@ sequenceDiagram
     Server->>Server: 写 ServerMatchStartState
     Server-->>Client: ClientStartGameRpc(sceneName)
     Client->>Client: 创建 ClientMatchStartState
-    Client->>Loader: 异步加载 SCN_GameLevel
+    Client->>Loader: ClientSceneLoadRequest -> NetworkPresentationBridgeSystem
     Loader->>SubScene: 主场景激活并 AutoLoad SubScene
     Client->>Client: 检查 GhostCollection 和 Robot Prefab
     Client->>Client: 稳定后额外等待 3 秒
@@ -96,7 +96,7 @@ sequenceDiagram
 
 1. 房主客户端发送 `StartGameRpc`
 2. 服务器写入 `ServerMatchStartState`，并向所有客户端广播 `ClientStartGameRpc`
-3. 客户端收到通知后创建 `ClientMatchStartState`，再由 `GlobalLoadingUI` 异步加载游戏场景
+3. 客户端收到通知后创建 `ClientMatchStartState` 和 `ClientSceneLoadRequest`，再由 `NetworkPresentationBridgeSystem` 调用 `GlobalLoadingUI` 异步加载游戏场景
 4. 主场景激活后，Unity 加载 SubScene 中已经烘焙好的实体数据和 Ghost 注册信息
 5. `ClientSetInGameWhenReadySystem` 等待 `GhostCollection` 和 Robot Prefab 可用，并在当前实现中额外等待 3 秒
 6. 客户端发送 `SetInGameRpc`，双方连接进入正式的 InGame 阶段

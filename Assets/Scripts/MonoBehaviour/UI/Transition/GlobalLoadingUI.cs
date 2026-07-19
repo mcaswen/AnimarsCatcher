@@ -5,6 +5,7 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Player;
 
 /// <summary>
 /// 跨场景保留的加载遮罩和轮播图控制器

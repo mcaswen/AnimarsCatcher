@@ -2,7 +2,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace Unity.CharacterController.Editor
+namespace AnimarsCatcher.Player.Editor
 {
 #if !ENABLE_INPUT_SYSTEM
     /// <summary>

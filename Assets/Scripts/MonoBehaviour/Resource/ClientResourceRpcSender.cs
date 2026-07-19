@@ -3,6 +3,7 @@ using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Networking;
 
 namespace AnimarsCatcher.Mono.Global
 {

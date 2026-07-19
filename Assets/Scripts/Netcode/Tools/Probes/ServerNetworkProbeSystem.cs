@@ -1,32 +1,35 @@
-using Unity.Burst;
-using Unity.Entities;
-using Unity.NetCode;
-using UnityEngine;
-
-/// <summary>
-/// 按固定间隔输出 Server World 的连接阶段计数
-/// </summary>
-[BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-public partial struct ServerNetworkProbeSystem : ISystem
+namespace AnimarsCatcher.Networking
 {
-    private double _nextLogTime;
+    using Unity.Burst;
+    using Unity.Entities;
+    using Unity.NetCode;
+    using UnityEngine;
 
     /// <summary>
-    /// 每秒统计连接、NetworkId 和 InGame 实体数量
+    /// 按固定间隔输出 Server World 的连接阶段计数
     /// </summary>
-    /// <param name="state">系统状态</param>
-    public void OnUpdate(ref SystemState state)
+    [BurstCompile]
+    [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
+    public partial struct ServerNetworkProbeSystem : ISystem
     {
-        if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;
-        _nextLogTime = SystemAPI.Time.ElapsedTime + 1;
+        private double _nextLogTime;
 
-        int connectionCount = 0, connectionWithIdCount = 0, inGameConnectionCount = 0;
-        
-        foreach (var _ in SystemAPI.Query<RefRO<NetworkStreamConnection>>()) connectionCount++;
-        foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>()) connectionWithIdCount++;
-        foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>().WithAll<NetworkStreamInGame>()) inGameConnectionCount++;
+        /// <summary>
+        /// 每秒统计连接、NetworkId 和 InGame 实体数量
+        /// </summary>
+        /// <param name="state">系统状态</param>
+        public void OnUpdate(ref SystemState state)
+        {
+            if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;
+            _nextLogTime = SystemAPI.Time.ElapsedTime + 1;
 
-        Debug.Log($"[Server NetworkProbe] connectionCount = {connectionCount} connectionWithIdCount = {connectionWithIdCount} inGameConnectionCount = {inGameConnectionCount}");
+            int connectionCount = 0, connectionWithIdCount = 0, inGameConnectionCount = 0;
+
+            foreach (var _ in SystemAPI.Query<RefRO<NetworkStreamConnection>>()) connectionCount++;
+            foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>()) connectionWithIdCount++;
+            foreach (var _ in SystemAPI.Query<RefRO<NetworkId>>().WithAll<NetworkStreamInGame>()) inGameConnectionCount++;
+
+            Debug.Log($"[Server NetworkProbe] connectionCount = {connectionCount} connectionWithIdCount = {connectionWithIdCount} inGameConnectionCount = {inGameConnectionCount}");
+        }
     }
 }

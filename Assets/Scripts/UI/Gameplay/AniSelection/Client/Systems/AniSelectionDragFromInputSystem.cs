@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
+using AnimarsCatcher.Player;
 
 /// <summary>
 /// 将右键按压边沿转换为框选拖拽状态

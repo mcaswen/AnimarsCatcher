@@ -3,6 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
 using AnimarsCatcher.Mono.Global;
+using AnimarsCatcher.Networking;
 
 namespace AnimarsCatcher.Mono.Lan
 {

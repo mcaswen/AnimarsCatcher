@@ -1,4 +1,4 @@
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Player
 {
     /// <summary>
     /// 共享客户端开场演出的运行状态

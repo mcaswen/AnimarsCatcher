@@ -2,11 +2,11 @@
 
 [返回架构总览](README.md)
 
-本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts、Navigation 和 Gameplay 已使用自定义 asmdef，其余大部分模块仍只有逻辑边界。
+本文档帮助开发者回答两个问题：某项功能现在由哪个模块负责，以及修改这项功能时应该先从哪里查起。当前 Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已使用自定义 asmdef，Presentation 和 Legacy Benchmark 仍主要依赖逻辑边界。
 
 ## 1. 代码模块
 
-项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts、Navigation 和 Gameplay 已形成编译边界，Player、Networking 和 Presentation 仍主要位于 `Assembly-CSharp`。
+项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已形成编译边界，Presentation 仍主要位于 `Assembly-CSharp`。
 
 ### 1.1 底层契约
 
@@ -17,8 +17,8 @@
 
 这一组负责创建运行环境、连接客户端与服务器，并把玩家输入转换为可预测的角色行为。
 
-- **`Netcode`**：创建 Client、Server 和 Thin Client World，处理连接、监听、大厅、开局、进入 InGame、网络角色出生和常用网络工具。它同时运行在客户端和服务器，并会使用 `Camp`、`Player` 以及 Mono 全局桥接提供的数据
-- **`Player`**：采集设备输入，生成 `InputCommand`，驱动 KCC 预测移动，并管理相机和角色 View。输入在客户端产生，预测逻辑会在客户端和服务器共同执行，主要依赖 NetCode、Character Controller 和 Input System
+- **`Netcode`**：编译为 `AnimarsCatcher.Networking`，创建 Client、Server 和 Thin Client World，处理连接、监听、大厅、开局、进入 InGame、网络角色出生和常用网络工具。它单向依赖 Player、Gameplay 和 Contracts，并通过生命周期通知 Entity 向表现层发布通知
+- **`Player`**：编译为 `AnimarsCatcher.Player`，采集设备输入，生成 `InputCommand`，驱动 KCC 预测移动，并管理相机和角色 View。输入在客户端产生，预测逻辑会在客户端和服务器共同执行，不反向依赖 Networking 或 Presentation
 - **`Camp`**：保存阵营数据，执行服务器阵营分配，并在客户端维护本地阵营快照和敌我判断。它连接 NetCode 的连接实体、`GhostOwner` 和具体玩法模块
 
 ### 1.3 核心玩法
@@ -43,7 +43,7 @@
 
 这些模块通常不直接参与玩法决策，而是在烘焙阶段准备运行时数据，或在编辑器中提供维护工具。
 
-- **`Physics`**：提供通用胶囊体和盒体 Authoring 数据，通过 Baker 转换为 Unity Physics 数据
+- **`Physics`**：当前只保留通用胶囊体 Authoring 数据。角色盒体 Authoring 已归入 Player 角色控制模块
 - **`Terrain`**：把 Terrain Collider 烘焙为 ECS 可用的碰撞数据
 - **`Editor`**：提供资源和脚本修复工具，只在 Unity Editor 中运行，并依赖 `UnityEditor`
 - **`Anis/Navigation/Grid/Algorithms`**：保存与 Scene 和 World 解耦的烘焙算法、端点投影、确定性 A*、离散直线检查和代价保持平滑
@@ -52,6 +52,8 @@
 - **`Anis/Navigation/Grid/Systems`**：只在 Server 或 Local World 收集请求、异步调度 Job，并在后续 Tick 写回已完成结果
 - **`Anis/Navigation/Grid/Editor`**：提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
 - **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
+- **`Player/Input/Editor`**：使用独立 Editor-only asmdef 检查 Input System 配置
+- **`Editor/AssemblyMigrationStageFourValidation`**：验证 Player、Player Editor 和 Networking 程序集归属，并复用场景与 Prefab 扫描
 
 原 `Obsolete` 目录已从 Unity 项目移除。需要追溯普通旧实现时使用 Git 历史，不在 `Assets` 中长期保留废弃源码。`Benchmarks/LegacyNavMesh` 是经确认的可执行性能基线例外，不得被当作正式扩展入口。
 
@@ -73,13 +75,13 @@ flowchart TD
     Contracts[Gameplay Contracts]
 
     Mono --> Net
+    Mono --> Player
     Mono --> UI
     Mono --> Gameplay
     UI --> Player
     UI --> Gameplay
     Net --> Player
     Net --> Gameplay
-    Player --> Net
     Player --> Gameplay
     Gameplay --> Core
     Gameplay --> Contracts
@@ -87,7 +89,6 @@ flowchart TD
     Legacy --> Core
     Legacy --> Contracts
     Physics --> Gameplay
-    Physics --> Player
 ```
 
 新增跨模块功能时，优先通过 Component、RPC、事件或职责明确的窄接口连接。若两个模块开始相互持有大量实现细节，通常说明数据所有权或模块职责需要重新划分。

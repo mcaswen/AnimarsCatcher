@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using Unity.NetCode;
 using AnimarsCatcher.Gameplay;
 
-namespace AnimarsCatcher.Player.Input
+namespace AnimarsCatcher.Player
 {
     /// <summary>
     /// 在客户端把网络输入中的鼠标点击转换为带版本号的射线请求

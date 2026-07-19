@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Networking;
 
 /// <summary>
 /// 从 NetCode 世界读取玩家资源和全局资源快照

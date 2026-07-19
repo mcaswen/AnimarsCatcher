@@ -2,7 +2,7 @@ using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
 
-namespace AnimarsCatcher.Networking.Debugging
+namespace AnimarsCatcher.Networking
 {
     /// <summary>
     /// 在客户端首次就绪时输出 Ghost 预制体集合以辅助网络配置排查

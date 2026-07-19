@@ -600,7 +600,7 @@ $lifecycleSummaries = @(
 )
 
 $report = [PSCustomObject]@{
-    SchemaVersion = 4
+    SchemaVersion = 5
     GeneratedAt = (Get-Date).ToString('s')
     RepositoryRoot = $repositoryRoot
     RulesPath = ConvertTo-RepoPath $resolvedRulesPath $repositoryRoot

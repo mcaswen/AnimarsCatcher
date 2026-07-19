@@ -1,94 +1,96 @@
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Entities;
-using Unity.Jobs;
-using Unity.Mathematics;
-using Unity.Transforms;
-using UnityEngine;
-using UnityEngine.InputSystem;
-using Unity.CharacterController;
-using Unity.NetCode;
-
-/// <summary>
-/// 在客户端输入组中采集键鼠状态并写入玩家输入组件
-/// </summary>
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-[UpdateInGroup(typeof(GhostInputSystemGroup))]
-[UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
-public partial class PlayerInputSystem : SystemBase
+namespace AnimarsCatcher.Player
 {
-    private const float RightMouseLongPressThreshold = 0.35f;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Entities;
+    using Unity.Jobs;
+    using Unity.Mathematics;
+    using Unity.Transforms;
+    using UnityEngine;
+    using UnityEngine.InputSystem;
+    using Unity.CharacterController;
+    using Unity.NetCode;
 
     /// <summary>
-    /// 声明固定 Tick 和玩家控制组件依赖
+    /// 在客户端输入组中采集键鼠状态并写入玩家输入组件
     /// </summary>
-    protected override void OnCreate()
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(GhostInputSystemGroup))]
+    [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
+    public partial class PlayerInputSystem : SystemBase
     {
-        RequireForUpdate<FixedTickSystem.Singleton>();
-        RequireForUpdate(SystemAPI.QueryBuilder().WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
-    }
+        private const float RightMouseLongPressThreshold = 0.35f;
 
-    /// <summary>
-    /// 采集当前设备状态并写入本地玩家输入组件
-    /// </summary>
-    protected override void OnUpdate()
-    {
-        // UI 输入锁采用引用计数，任一面板占用时都不能向玩法层传递输入
-        int lockCount = 0;
-        if (SystemAPI.HasSingleton<PlayerInputLockState>())
+        /// <summary>
+        /// 声明固定 Tick 和玩家控制组件依赖
+        /// </summary>
+        protected override void OnCreate()
         {
-            lockCount = SystemAPI.GetSingleton<PlayerInputLockState>().LockCount;
+            RequireForUpdate<FixedTickSystem.Singleton>();
+            RequireForUpdate(SystemAPI.QueryBuilder().WithAll<ThirdPersonPlayerControl, PlayerInput>().Build());
         }
 
-        if (lockCount > 0)
+        /// <summary>
+        /// 采集当前设备状态并写入本地玩家输入组件
+        /// </summary>
+        protected override void OnUpdate()
         {
-            foreach (var input in SystemAPI.Query<RefRW<PlayerInput>>())
+            // UI 输入锁采用引用计数，任一面板占用时都不能向玩法层传递输入
+            int lockCount = 0;
+            if (SystemAPI.HasSingleton<PlayerInputLockState>())
             {
-                input.ValueRW.MoveInput        = float2.zero;
-                input.ValueRW.CameraZoomInput  = 0f;
-
-                // 锁定期间清除脉冲，避免解锁后补触发旧操作
-                input.ValueRW.InteractPressed  = default;
-                input.ValueRW.PausePressed     = default;
-
+                lockCount = SystemAPI.GetSingleton<PlayerInputLockState>().LockCount;
             }
 
-            return;
-        }
+            if (lockCount > 0)
+            {
+                foreach (var input in SystemAPI.Query<RefRW<PlayerInput>>())
+                {
+                    input.ValueRW.MoveInput        = float2.zero;
+                    input.ValueRW.CameraZoomInput  = 0f;
 
-        // 原始设备状态只采集一次，所有本地输入实体共享同一帧快照
-        var keyboard = Keyboard.current;
-        var mouse = Mouse.current;
+                    // 锁定期间清除脉冲，避免解锁后补触发旧操作
+                    input.ValueRW.InteractPressed  = default;
+                    input.ValueRW.PausePressed     = default;
 
-        float deltaTime  = SystemAPI.Time.DeltaTime;
-        // 离散脉冲必须绑定服务器 Tick 才能参与 NetCode 预测和回滚
-        uint tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick.SerializedData;
-        var context   = new InputContext(deltaTime, tick, RightMouseLongPressThreshold);
+                }
 
-        var rawInputState = new KeyboardMouseState
-        {
-            Move = new float2(
-                (keyboard.dKey.isPressed ? 1f : 0f) + (keyboard.aKey.isPressed ? -1f : 0f),
-                (keyboard.wKey.isPressed ? 1f : 0f) + (keyboard.sKey.isPressed ? -1f : 0f)),
+                return;
+            }
 
-            LookDelta = mouse != null ? mouse.delta.ReadValue() : float2.zero,
+            // 原始设备状态只采集一次，所有本地输入实体共享同一帧快照
+            var keyboard = Keyboard.current;
+            var mouse = Mouse.current;
 
-            Scroll = mouse != null ? -mouse.scroll.ReadValue().y : 0f,
+            float deltaTime  = SystemAPI.Time.DeltaTime;
+            // 离散脉冲必须绑定服务器 Tick 才能参与 NetCode 预测和回滚
+            uint tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick.SerializedData;
+            var context   = new InputContext(deltaTime, tick, RightMouseLongPressThreshold);
 
-            SpaceDown = keyboard.spaceKey.wasPressedThisFrame,
-            EKeyDown = keyboard.eKey.wasPressedThisFrame,
+            var rawInputState = new KeyboardMouseState
+            {
+                Move = new float2(
+                    (keyboard.dKey.isPressed ? 1f : 0f) + (keyboard.aKey.isPressed ? -1f : 0f),
+                    (keyboard.wKey.isPressed ? 1f : 0f) + (keyboard.sKey.isPressed ? -1f : 0f)),
 
-            RightHeld = mouse != null && mouse.rightButton.isPressed,
-            LeftMousePressed = mouse != null && mouse.leftButton.wasPressedThisFrame,
+                LookDelta = mouse != null ? mouse.delta.ReadValue() : float2.zero,
 
-            MousePosition = mouse != null ? mouse.position.ReadValue() : default
-        };
+                Scroll = mouse != null ? -mouse.scroll.ReadValue().y : 0f,
 
-        foreach (var inputRW in SystemAPI.Query<RefRW<PlayerInput>>())
-        {
-            PlayerInputFeature.ApplyKeyboardInput(ref inputRW.ValueRW, in rawInputState, in context);
-            PlayerInputFeature.ApplyMouseInputs(ref inputRW.ValueRW, in rawInputState, in context);
+                SpaceDown = keyboard.spaceKey.wasPressedThisFrame,
+                EKeyDown = keyboard.eKey.wasPressedThisFrame,
+
+                RightHeld = mouse != null && mouse.rightButton.isPressed,
+                LeftMousePressed = mouse != null && mouse.leftButton.wasPressedThisFrame,
+
+                MousePosition = mouse != null ? mouse.position.ReadValue() : default
+            };
+
+            foreach (var inputRW in SystemAPI.Query<RefRW<PlayerInput>>())
+            {
+                PlayerInputFeature.ApplyKeyboardInput(ref inputRW.ValueRW, in rawInputState, in context);
+                PlayerInputFeature.ApplyMouseInputs(ref inputRW.ValueRW, in rawInputState, in context);
+            }
         }
     }
 }
-

@@ -8,7 +8,7 @@
 
 项目启动后，第一件事不是进入具体玩法，而是决定当前进程要承担什么网络角色。
 
-- `NetworkRuntimeRole` 位于 `MonoBehaviour/Global/NetworkRunRole.cs`，负责在 Bootstrap 运行前判断当前是 Host、Client 还是 Dedicated Server
+- `NetworkRuntimeRole` 位于 `Netcode/Bootstrap/NetworkRunRole.cs`，负责在 Bootstrap 运行前判断当前是 Host、Client 还是 Dedicated Server
 - `CustomBootstrap` 位于 `Netcode/Bootstrap/CustomBootstrap.cs`，根据进程角色创建 Client World、Server World 和可选 Thin Client World
 - `WorldManager` 位于 `Netcode/Tools/WorldManager.cs`，为 MonoBehaviour 和 UI 提供查找 Client World 或 Server World 的统一入口
 - `NetCodeServerController` 把主线程发出的“开始监听”命令转换为 Server World 中的请求 Entity
@@ -26,7 +26,7 @@ Host 侧的主入口是 `HostRoomPanelController`。它依次启动服务器监�
 
 1. `HostStartGameHelper` 从 Host 的 Client World 创建 `StartGameRpc`
 2. `ServerStartGameSystem` 接收请求，并用 `ServerMatchStartState` 记录当前开局阶段
-3. Server 向每个连接发送目标场景，`ClientStartGameSystem` 收到后启动场景切换
+3. Server 向每个连接发送目标场景，`ClientStartGameSystem` 收到后创建 `ClientSceneLoadRequest`
 4. `ClientSetInGameWhenReadySystem` 等待 Ghost 资源满足当前 Ready 条件，再发送 `SetInGameRpc`
 5. `ServerGetConnectionAspect` 封装连接的 InGame 标记、出生去重和 `CommandTarget` 写入
 6. `CharacterSpawnUtility` 负责实例化玩家角色并选择出生位置
@@ -138,7 +138,9 @@ UI 通过 `GameResourceGetter` 读取状态。本地玩家资源来自 Client Wo
 
 - `SpawnHealthBarViewSystem` 根据 ECS `Health` 创建 `HealthBarView`
 - `AniSelectionUIAttachSystem` 把场景中的 Camera、Canvas 和 RectTransform 注入 Client ECS
-- `NetworkUIEventBridge` 用 static UnityEvent 连接 ECS 状态与 Mono UI
+- `LobbyClientJoinedNotification`、`MatchStartedNotification` 和 `ClientSceneLoadRequest` 从 Networking 发布生命周期通知
+- `NetworkPresentationBridgeSystem` 把通知 Entity 转换为 Mono 加载流程和 `NetworkUIEventBridge` 事件
+- `NetworkUIEventBridge` 用 static UnityEvent 连接表现层内部状态与 Mono UI
 - `EventBus` 负责主菜单内部的 MonoBehaviour 事件流
 - `GlobalLoadingUI` 管理持久加载遮罩和异步切换场景
 - `BattleIntroCinematic` 管理 Cinemachine 开场、HUD 显隐和输入占用

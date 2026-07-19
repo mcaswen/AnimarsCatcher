@@ -1,29 +1,32 @@
-using Unity.Entities;
-using Unity.Mathematics;
-using Unity.NetCode;
-using UnityEngine;
-
-/// <summary>
-/// 保存简化角色的静态移动和碰撞配置
-/// </summary>
-[GhostComponent]
-public struct SimpleCharacter : IComponentData
+namespace AnimarsCatcher.Player
 {
-    public float MoveSpeed;
+    using Unity.Entities;
+    using Unity.Mathematics;
+    using Unity.NetCode;
+    using UnityEngine;
 
-    public float RotationSharpness;
+    /// <summary>
+    /// 保存简化角色的静态移动和碰撞配置
+    /// </summary>
+    [GhostComponent]
+    public struct SimpleCharacter : IComponentData
+    {
+        public float MoveSpeed;
 
-    public float ColliderHeight;
+        public float RotationSharpness;
 
-    public float ColliderRadius;
-}
+        public float ColliderHeight;
 
-/// <summary>
-/// 保存简化角色本帧需要执行的移动指令
-/// </summary>
-[GhostComponent]
-public struct SimpleCharacterControl : IComponentData
-{
+        public float ColliderRadius;
+    }
 
-    public float3 MoveVector; 
+    /// <summary>
+    /// 保存简化角色本帧需要执行的移动指令
+    /// </summary>
+    [GhostComponent]
+    public struct SimpleCharacterControl : IComponentData
+    {
+
+        public float3 MoveVector;
+    }
 }

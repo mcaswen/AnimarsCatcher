@@ -2,16 +2,16 @@ using System;
 using UnityEngine;
 using Unity.NetCode;
 
-namespace AnimarsCatcher.Mono.Global
+namespace AnimarsCatcher.Networking
 {
     /// <summary>
     /// 当前进程承担的网络运行角色
     /// </summary>
     public enum NetworkRunRole
     {
-        Host,   // Server + Client 同进程
+        Host,   // Server 与 Client 在同一进程
         Client, // 纯客户端
-        DedicatedServer // 服务端，暂未启用
+        DedicatedServer // 专用服务端
     }
 
     /// <summary>
@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Mono.Global
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void DetectRole()
         {
-            
+
 #if UNITY_EDITOR
             // Editor 中从 PlayMode Tools 的 PlayType 推断角色
             switch (ClientServerBootstrap.RequestedPlayType)
@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Mono.Global
                 Current = NetworkRunRole.Client;
             }
 
-            Debug.Log($"[NetworkRuntimeRole] Launch as {Current}.");
+            Debug.Log($"[NetworkRuntimeRole] Launch as {Current}");
 #endif
         }
     }

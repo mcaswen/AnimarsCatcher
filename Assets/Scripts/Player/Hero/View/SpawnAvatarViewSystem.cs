@@ -1,78 +1,81 @@
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Entities;
-using UnityEngine;
-using AnimarsCatcher.Gameplay;
-
-/// <summary>
-/// 在客户端为带表现配置的实体创建并绑定 GameObject 视图
-/// </summary>
-[BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-[UpdateInGroup(typeof(InitializationSystemGroup))]
-public partial class SpawnAvatarViewSystem : SystemBase
+namespace AnimarsCatcher.Player
 {
-    private EntityQuery _spawnQuery;
+    using Unity.Burst;
+    using Unity.Collections;
+    using Unity.Entities;
+    using UnityEngine;
+    using AnimarsCatcher.Gameplay;
 
     /// <summary>
-    /// 查询尚未创建托管表现对象的实体
+    /// 在客户端为带表现配置的实体创建并绑定 GameObject 视图
     /// </summary>
-    protected override void OnCreate()
+    [BurstCompile]
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public partial class SpawnAvatarViewSystem : SystemBase
     {
-        _spawnQuery = SystemAPI.QueryBuilder()
-            .WithAll<AvatarViewPrefabReference>()
-            .WithNone<AvatarViewSpawnedTag>()
-            .Build();
+        private EntityQuery _spawnQuery;
 
-        RequireForUpdate(_spawnQuery);
-    }
-
-    /// <summary>
-    /// 实例化视图并按表现类型绑定对应行为
-    /// </summary>
-    protected override void OnUpdate()
-    {
-        EntityManager entityManager = EntityManager;
-
-        using NativeArray<Entity> entities = _spawnQuery.ToEntityArray(Allocator.Temp);
-        if (entities.Length == 0) return;
-
-        foreach (Entity targetEntity in entities)
+        /// <summary>
+        /// 查询尚未创建托管表现对象的实体
+        /// </summary>
+        protected override void OnCreate()
         {
-            var prefabReference =
-                entityManager.GetComponentObject<AvatarViewPrefabReference>(targetEntity);
+            _spawnQuery = SystemAPI.QueryBuilder()
+                .WithAll<AvatarViewPrefabReference>()
+                .WithNone<AvatarViewSpawnedTag>()
+                .Build();
 
-            if (prefabReference == null || prefabReference.ViewPrefab == null) continue;
+            RequireForUpdate(_spawnQuery);
+        }
 
-            // 表现对象只在 Client World 创建，服务器保持纯实体状态
-            GameObject spawnedGameObject = Object.Instantiate(prefabReference.ViewPrefab);
+        /// <summary>
+        /// 实例化视图并按表现类型绑定对应行为
+        /// </summary>
+        protected override void OnUpdate()
+        {
+            EntityManager entityManager = EntityManager;
 
-            // Prefab 缺少跟随组件时动态补齐，保证实体和表现对象生命周期一致
-            AvatarViewFollower follower = spawnedGameObject.GetComponent<AvatarViewFollower>()?? spawnedGameObject.AddComponent<AvatarViewFollower>();
+            using NativeArray<Entity> entities = _spawnQuery.ToEntityArray(Allocator.Temp);
+            if (entities.Length == 0) return;
 
-            var proxy = spawnedGameObject.GetComponent<MovementSelectableProxy>();
-            if (proxy != null)
+            foreach (Entity targetEntity in entities)
             {
-                proxy.Entity = targetEntity;
+                var prefabReference =
+                    entityManager.GetComponentObject<AvatarViewPrefabReference>(targetEntity);
+
+                if (prefabReference == null || prefabReference.ViewPrefab == null) continue;
+
+                // 表现对象只在 Client World 创建，服务器保持纯实体状态
+                GameObject spawnedGameObject = Object.Instantiate(prefabReference.ViewPrefab);
+
+                // Prefab 缺少跟随组件时动态补齐，保证实体和表现对象生命周期一致
+                AvatarViewFollower follower = spawnedGameObject.GetComponent<AvatarViewFollower>()?? spawnedGameObject.AddComponent<AvatarViewFollower>();
+
+                var proxy = spawnedGameObject.GetComponent<MovementSelectableProxy>();
+                if (proxy != null)
+                {
+                    proxy.Entity = targetEntity;
+                }
+
+                // 显式注入所属世界，避免表现对象通过默认世界访问错误实体
+                follower.Bind(targetEntity, entityManager);
+
+                switch (prefabReference.ViewType)
+                {
+                    case AvatarViewType.BlasterAni:
+                        BlasterAniAttackView blasterView = spawnedGameObject.GetComponent<BlasterAniAttackView>()?? spawnedGameObject.AddComponent<BlasterAniAttackView>();
+                        blasterView.Bind(targetEntity, entityManager, false);
+                        break;
+                    case AvatarViewType.PickerAni:
+                        PickerAniAttackView pickerView = spawnedGameObject.GetComponent<PickerAniAttackView>()?? spawnedGameObject.AddComponent<PickerAniAttackView>();
+                        pickerView.Bind(targetEntity, entityManager, false);
+                        break;
+                }
+
+                // 所有绑定完成后再标记，防止异常中断留下半初始化视图
+                entityManager.AddComponent<AvatarViewSpawnedTag>(targetEntity);
             }
-
-            // 显式注入所属世界，避免表现对象通过默认世界访问错误实体
-            follower.Bind(targetEntity, entityManager);
-
-            switch (prefabReference.ViewType)
-            {
-                case AvatarViewType.BlasterAni:
-                    BlasterAniAttackView blasterView = spawnedGameObject.GetComponent<BlasterAniAttackView>()?? spawnedGameObject.AddComponent<BlasterAniAttackView>();
-                    blasterView.Bind(targetEntity, entityManager, false);
-                    break;
-                case AvatarViewType.PickerAni:
-                    PickerAniAttackView pickerView = spawnedGameObject.GetComponent<PickerAniAttackView>()?? spawnedGameObject.AddComponent<PickerAniAttackView>();
-                    pickerView.Bind(targetEntity, entityManager, false);
-                    break;
-            }
-
-            // 所有绑定完成后再标记，防止异常中断留下半初始化视图
-            entityManager.AddComponent<AvatarViewSpawnedTag>(targetEntity);
         }
     }
 }

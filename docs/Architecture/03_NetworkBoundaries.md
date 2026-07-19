@@ -39,7 +39,7 @@ Ghost Snapshot 用于持续复制服务器权威状态，例如 `Health`、`Camp
 
 ### 2.4 进程内桥接
 
-`NetworkUIEventBridge`、攻击事件队列以及 managed `IComponentData` 用于同一进程内 ECS World 与 GameObject UI/View 之间的交互。这类桥接不经过网络，也不能替代客户端和服务器之间的正式同步。
+生命周期通知 Entity、`NetworkPresentationBridgeSystem`、`NetworkUIEventBridge`、攻击事件队列以及 managed `IComponentData` 用于同一进程内 ECS World 与 GameObject UI/View 之间的交互。Networking 只发布短生命周期通知，Mono 桥接负责加载界面和 UnityEvent 适配。这类桥接不经过网络，也不能替代客户端和服务器之间的正式同步。
 
 ## 3. 客户端和服务器分别负责什么
 
@@ -150,7 +150,9 @@ RPC Entity 在消费后必须销毁，避免同一请求被重复处理。
 
 客户端表现层通过以下桥接访问 ECS：
 
-- `NetworkUIEventBridge` 把大厅成员、开局、输入锁和选择模式等 ECS 事件传给 UI，同时也承载少量 UI 发出的命令
+- `LobbyClientJoinedNotification`、`MatchStartedNotification` 和 `ClientSceneLoadRequest` 从 Networking 发布生命周期通知，不引用具体 UI
+- `NetworkPresentationBridgeSystem` 消费通知 Entity，把网络状态适配为加载界面和现有 `NetworkUIEventBridge` 事件
+- `NetworkUIEventBridge` 继续处理输入锁、选择模式和少量 UI 发出的命令
 - `EventBus` 负责主菜单和房间流程中的 MonoBehaviour 之间通信
 - `WorldManager` 让 MonoBehaviour 查找当前进程中的 Client World 或 Server World
 - `GameResourceGetter` 直接查询 World。本地玩家资源从 Client World 读取，但比赛时间目前直接读取 Server World
