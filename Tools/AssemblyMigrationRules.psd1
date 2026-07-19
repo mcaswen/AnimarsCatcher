@@ -84,8 +84,10 @@
         @{
             Path = 'Assets/Scripts/Benchmarks'
             Assembly = 'AnimarsCatcher.Benchmarks.LegacyNavigation'
+            AsmdefPath = 'Assets/Scripts/Benchmarks/LegacyNavMesh/AnimarsCatcher.Benchmarks.LegacyNavigation.asmdef'
+            RootNamespace = 'AnimarsCatcher.Benchmarks.LegacyNavigation'
             Owner = 'Navigation Benchmark'
-            Status = 'PhaseSixPrepared'
+            Status = 'PhaseSixImplemented'
             Lifecycle = 'Benchmark'
             NamespacePrefixes = @('AnimarsCatcher.Benchmarks')
             RequireNamespace = $true
