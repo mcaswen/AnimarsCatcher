@@ -4,7 +4,7 @@
 
 > 状态：阶段零至阶段七实现完成，Unity 总验收待许可证连接恢复，实施结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)
 >
-> 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
+> 第一批试点模块当前位于：`Assets/Scripts/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
@@ -97,7 +97,7 @@ Runtime
 
 ### 4.3 AnimarsCatcher.Navigation
 
-第一批先让整个 `Assets/Scripts/Anis/Navigation/Grid` 使用一个程序集，覆盖：
+第一批先让整个 `Assets/Scripts/Navigation/Grid` 使用一个程序集，覆盖：
 
 - Grid Runtime 数据
 - 烘焙数据与 Authoring

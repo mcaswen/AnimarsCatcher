@@ -4,7 +4,7 @@
 
 ## 1. 整改范围
 
-本次整改日期为 2026-07-12，范围为项目自有的活跃代码、Scene、Prefab、动画、材质、纹理、Shader、音频和地形资源。`Assets/Plugins`、`Assets/Samples`、`Assets/TextMesh Pro`、`Assets/Timeline`、明显第三方 Shader 及 Unity 生成内容不纳入批量改名。
+本次整改日期为 2026-07-12，范围为项目自有的活跃代码、Scene、Prefab、动画、材质、纹理、Shader、音频和地形资源。`Assets/Plugins`、`Assets/Samples`、`Assets/TextMesh Pro`、明显第三方 Shader 及 Unity 生成内容不纳入批量改名。Timeline 后续只进行了目录迁移，没有改名或改写资源内容。
 
 本次通过 Unity `AssetDatabase` 分批完成 198 项移动或改名：171 项主体资源迁移、12 项目录与配套资源迁移，以及 15 项 BGM 和历史 Prefab 收口迁移。另有 3 个 Terrain Layer 和 1 个动画 FBX 采用资产与 `.meta` 成对移动，共执行 202 项显式路径迁移。最终范围包括：
 
@@ -48,7 +48,7 @@ Assets/Prefabs/Network/Anis_Mono  -> Assets/Prefabs/Network/Anis/Mono
 
 以下内容不是遗漏，不得继续无差别批量改名：
 
-1. `Assets/Resource` 下 10 个旧 Prefab 已统一文件名，但该目录不是 Unity 特殊目录 `Resources`；旧加载流程仍应迁移到 Registry 或 Inspector 引用。
+1. 原 `Assets/Resource` 已完成清理。活动 Beam Prefab 已迁入 `Assets/Prefabs/Local/VFX`，旧 Crystal 与 Fruit Prefab 已归档到 `Assets/Prefabs/Legacy/Resources`，重复 Ani Prefab 已删除并由旧场景改用权威 Network Prefab。
 2. 5 个 BGM 已使用项目命名，但仍需补齐来源、许可证和署名记录；改名不改变原授权义务：
 
 ```text
@@ -67,9 +67,8 @@ Scroll of the wind walker      -> BGM_ScrollOfTheWindWalker
 
 1. 按模块迁移缺少命名空间的存量代码；MonoBehaviour 使用 `MovedFrom`，NetCode 类型同步升级 Client/Server 协议。
 2. 分批把仍为 public 的 MonoBehaviour/Authoring Inspector 字段迁移为 `[SerializeField] private`，使用 `FormerlySerializedAs` 保留数据。
-3. 清理 `Assets/Resource` 旧流程，并确认 10 个已规范命名的旧 Prefab 是删除、归档还是接入正式 Registry。
-4. 核对重复的 Plant FBX/Texture，确认引用后保留唯一权威资源。
-5. 由场景负责人检查正式场景中历史实例名覆盖；不要为清理层级名称制造一次超大 Scene YAML 提交。
-6. 修复 Windows Build Profile 覆盖全局场景列表但列表为空的问题，并执行目标平台构建。
+3. 核对重复的 Plant FBX/Texture，确认引用后保留唯一权威资源。
+4. 由场景负责人检查正式场景中历史实例名覆盖；不要为清理层级名称制造一次超大 Scene YAML 提交。
+5. 验证 Windows Build Profile、Client 和 Dedicated Server 构建，并确认三条正式场景路径与全局 Build Settings 一致。
 
 本次整改应作为独立迁移提交 Review。需要回滚时整体回滚迁移提交，不手工重新生成 `.meta` 或 GUID。

@@ -47,7 +47,7 @@ MoveTo、Follow、Find、资源搬运等高层业务语义可以保留，但低�
 目标代码建议放在：
 
 ```text
-Assets/Scripts/Anis/Navigation/
+Assets/Scripts/Navigation/
 ├── Common/
 ├── Grid/
 │   ├── Algorithms/

@@ -84,7 +84,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 ### 3.1 第一轮边界
 
-第一轮把 `Assets/Scripts/Anis/Navigation/Grid` 整体迁入同一程序集，覆盖：
+第一轮把当前位于 `Assets/Scripts/Navigation/Grid` 的代码整体迁入同一程序集，覆盖：
 
 - Grid 运行时数据和算法
 - Job 与路径 System

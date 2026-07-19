@@ -37,7 +37,7 @@
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
 12. [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
-13. [文件夹迁移计划](20_FolderMigrationPlan.md)：查看当前目录审计、目标结构、迁移映射、实施阶段和验收门禁
+13. [文件夹迁移实施记录](20_FolderMigrationPlan.md)：查看最终目录、阶段提交、关键决策、验收结果和回滚顺序
 
 ## 3. 总体运行架构
 
@@ -87,13 +87,13 @@ flowchart LR
 
 `ProjectSettings/EditorBuildSettings.asset` 当前启用了三个场景，正式流程从主菜单进入游戏场景：
 
-1. `Assets/Scenes/SCN_MainMenu.unity`
-2. `Assets/Scenes/LevelScene/SCN_GameLevel_SubScene.unity`
-3. `Assets/Scenes/LevelScene/SCN_GameLevel.unity`
+1. `Assets/Scenes/Bootstrap/SCN_MainMenu.unity`
+2. `Assets/Scenes/SubScenes/SCN_GameLevel_SubScene.unity`
+3. `Assets/Scenes/Gameplay/SCN_GameLevel.unity`
 
 其中，`SCN_MainMenu` 是用户进入项目后的主要入口，`SCN_GameLevel` 是正式玩法场景，`SCN_GameLevel_SubScene` 提供 ECS 场景数据。
 
-`SCN_Main`、`SCN_Start`、`SCN_MainTest` 和 `SCN_Level` 不在当前 Build Settings 中，主要保留旧场景或测试内容。正式玩法入口以 `SCN_MainMenu -> SCN_GameLevel` 为准。
+`SCN_Main`、`SCN_Start`、`SCN_MainTest` 和 `SCN_Level` 已归档到 `Assets/Scenes/Legacy`，不在当前 Build Settings 中。正式玩法入口以 `SCN_MainMenu -> SCN_GameLevel` 为准。
 
 ## 6. 什么时候更新这些文档
 
