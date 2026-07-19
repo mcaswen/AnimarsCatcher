@@ -14,7 +14,7 @@
 
 最终结果如下：
 
-- 272 个 `Assets/Scripts` 手写脚本全部进入明确的项目程序集
+- 269 个 `Assets/Scripts` 手写脚本全部进入明确的项目程序集
 - 13 个项目 asmdef 全部使用稳定 GUID 和根命名空间
 - 全项目不存在全局命名空间业务脚本
 - Runtime、Editor、Authoring 和 Benchmark 不再混合编译
@@ -569,9 +569,9 @@ Navigation 和 Physics Authoring 当前不依赖其他项目程序集。Navigati
 
 阶段七当前已完成：
 
-- 程序集迁移审计通过，272 个脚本全部归属
+- 程序集迁移审计通过，269 个脚本全部归属
 - 全局命名空间、Warning、严重问题、循环依赖和边界违规均为 0
-- 注释规范检查通过，总注释率为 17.15%
+- 注释规范检查通过，总注释率为 17.21%
 - Networking Runtime 通过 Unity 同款 Roslyn、Entities 和 NetCode Source Generator 编译
 - Networking Editor、Presentation 去依赖版本和最终 Editor 验收入口通过 Unity 同款 Roslyn 编译
 

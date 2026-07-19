@@ -5,13 +5,14 @@ namespace AnimarsCatcher.Editor
     using System.IO;
     using System.Linq;
     using AnimarsCatcher.Animars.Navigation.Grid.Editor;
+    using AnimarsCatcher.Gameplay.Editor;
     using AnimarsCatcher.Physics.Authoring;
     using UnityEditor;
     using UnityEditor.Compilation;
     using UnityEngine;
 
     /// <summary>
-    /// 验证最终程序集边界、显式引用策略和各阶段序列化完整性
+    /// 验证最终程序集边界、显式引用策略和当前序列化完整性
     /// </summary>
     public static class AssemblyMigrationStageSevenValidation
     {
@@ -44,9 +45,7 @@ namespace AnimarsCatcher.Editor
             ValidatePhysicsAuthoringOwnership();
             ValidateAutoReferencedPolicy();
 
-            AssemblyMigrationStageFourValidation.RunFromCommandLine();
-            AssemblyMigrationStageSixValidation.RunFromCommandLine();
-
+            GameplayAssemblyMigrationValidation.RunFromCommandLine();
             NavigationGridStageOneFixtureFactory.CreateFromCommandLine();
             NavigationAssemblyMigrationValidation.RunFromCommandLine();
             NavigationGridStageOneValidation.RunFromCommandLine();

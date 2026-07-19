@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 272 个 `Assets/Scripts` 手写脚本，全部进入 13 个项目自定义程序集。项目业务代码不再编译到 `Assembly-CSharp`，13 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
+仓库中目前有 269 个 `Assets/Scripts` 手写脚本，全部进入 13 个项目自定义程序集。项目业务代码不再编译到 `Assembly-CSharp`，13 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 

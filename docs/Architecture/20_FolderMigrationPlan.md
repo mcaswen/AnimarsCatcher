@@ -16,7 +16,7 @@
 
 最终结果：
 
-- 272 个 C# 脚本全部处于明确 asmdef 覆盖范围
+- 269 个 C# 脚本全部处于明确 asmdef 覆盖范围
 - 项目 asmdef 保持 13 个，asmref 从 9 个降为 0
 - 动画、Timeline、音频和 Terrain 资源均保留原 .meta GUID
 - Assets/Resource 已删除
@@ -202,6 +202,8 @@ Gameplay/Anis 保留 Combat、FSM、Perception 和 Spawn 等稳定边界；Gamep
 
 Unity Asset Pipeline 对主迁移批次记录为 120 项移动、44 项删除和 24 项变化，重新编译耗时约 5.9 秒；Selection 客户端补充批次记录为 8 项移动和 1 项删除，重新编译耗时约 2.7 秒。Editor.log 没有新增编译、导入、Missing Script 或重复 GUID 错误。
 
+目录迁移结束后，阶段四至阶段六的临时总验收类已经删除。最终 Stage 7 入口直接调用当前 Gameplay 和 Navigation 模块验收，不再级联执行已经完成使命的阶段验证器。
+
 提交：
 
 - b84a302 update: 修正表现脚本程序集归属
@@ -227,8 +229,8 @@ Unity Asset Pipeline 对主迁移批次记录为 120 项移动、44 项删除和
 
 已完成：
 
-- 程序集审计通过，272 个脚本全部覆盖，13 个 asmdef，0 个 asmref
-- 注释规范检查通过，注释率 17.15%
+- 程序集审计通过，269 个脚本全部覆盖，13 个 asmdef，0 个 asmref
+- 注释规范检查通过，注释率 17.21%
 - Unity Asset Pipeline 已识别 395 项移动并完成脚本编译，Editor.log 没有新增编译或导入错误
 - 全项目 .meta GUID 无重复
 - Build Settings 中三个场景路径与 GUID 一致
