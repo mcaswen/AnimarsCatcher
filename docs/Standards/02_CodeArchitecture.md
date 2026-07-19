@@ -122,9 +122,10 @@ public PlayerResourceState GetPlayerResource()
 10. Core 不保存玩法语义、具体 System、场景引用或 UI 类型；Gameplay Contracts 只保存跨模块共享数据，不保存流程控制和静态运行状态。
 11. 对标记为稳定边界的程序集必须在迁移规则中声明允许依赖，审计出现未允许的项目依赖时不得提交。
 12. 多个物理目录确实属于同一生命周期和同一依赖边界时，可以通过 asmref 编译到同一程序集；禁止用 asmref 隐藏循环依赖、跨越 Runtime 与 Editor 职责或绕过模块所有权。
-13. `AnimarsCatcher.Gameplay` 只依赖 Core、Gameplay Contracts 和必要 Unity Package；Player、Networking、Mono、UI 与 Legacy 只能从上层消费 Gameplay，不得被 Gameplay 反向引用。
-14. `AnimarsCatcher.Player` 只依赖 Gameplay 和必要 Unity Package，不依赖 Networking、Mono、UI 或 Legacy；UI 输入锁和过场控制由表现层从上层桥接。
-15. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Mono 或 UI；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
+13. `AnimarsCatcher.Gameplay` 只依赖 Core、Gameplay Contracts 和必要 Unity Package；Player、Networking、Presentation 与 Legacy 只能从上层消费 Gameplay，不得被 Gameplay 反向引用。
+14. `AnimarsCatcher.Player` 只依赖 Gameplay 和必要 Unity Package，不依赖 Networking、Presentation 或 Legacy；UI 输入锁和过场控制由表现层从上层桥接。
+15. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Presentation；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
+16. `AnimarsCatcher.Presentation` 统一承载 Mono UI、ECS UI、音频、LAN、HUD、场景过渡和 GameObject View，可以依赖 Gameplay Contracts、Gameplay、Player 与 Networking；运行时业务程序集不得反向引用 Presentation。
 
 ## 6. Entities 与 DOTS
 

@@ -2,13 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段四已完成，下一步进入 Presentation 迁移
+> 状态：阶段零至阶段五已完成，下一步进入 Legacy Benchmark 隔离
 >
 > 第一批试点模块：`Assets/Scripts/Anis/Navigation/Grid`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
-阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)。
+阶段零实际审计结果见 [程序集迁移阶段零审计](12_AssemblyMigrationPhaseZeroAudit.md)，阶段一实施与验证结果见 [Navigation 程序集试点](13_AssemblyMigrationPhaseOneNavigation.md)，阶段二结果见 [Core 与 Gameplay Contracts 迁移](14_AssemblyMigrationPhaseTwoCoreContracts.md)，阶段三结果见 [Gameplay 程序集迁移](15_AssemblyMigrationPhaseThreeGameplay.md)，阶段四结果见 [Player 与 Networking 程序集迁移](16_AssemblyMigrationPhaseFourPlayerNetworking.md)，阶段五结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)。
 
 ## 1. 目标
 
@@ -30,10 +30,10 @@
 
 当前仓库具有以下特点：
 
-- 当前有 267 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor 和 Networking 已迁入独立程序集
-- 项目自有代码当前有七个 `.asmdef` 和六个 `.asmref`
+- 当前有 268 个自有业务脚本，其中 Core、Gameplay Contracts、Navigation、Gameplay、Player、Player Editor、Networking 和 Presentation 已迁入独立程序集
+- `Assets/Scripts` 当前有八个 `.asmdef` 和八个 `.asmref`，DOTween Modules 另有一个第三方兼容 asmdef
 - 现有 `.asmdef` 来自 Unity Physics Sample，不属于项目程序集规划
-- 56 个脚本仍处于全局命名空间
+- 28 个脚本仍处于全局命名空间，全部位于后续 Benchmark、Editor、Physics 或 Terrain 范围
 - Editor 代码同时依赖 `Editor` 特殊目录和 `#if UNITY_EDITOR`
 - ECS、NetCode、GameObject UI 和 Mono 桥接代码存在较多跨顶层目录引用
 - Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已有统一命名空间与独立编译边界
@@ -343,6 +343,8 @@ AnimarsCatcher.Navigation
 
 ### 阶段五：Presentation 迁移
 
+状态：已完成，实施范围和验证结果见 [Presentation 程序集迁移](17_AssemblyMigrationPhaseFivePresentation.md)。
+
 工作内容：
 
 - 迁移 ECS UI、Mono UI、音频、菜单和 GameObject View
@@ -448,4 +450,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-Core、Gameplay Contracts、Navigation、Gameplay、Player 和 Networking 已完成迁移。下一项实际任务是阶段五 Presentation 迁移，优先消除 Mono 与 UI 的最后一组双向依赖，并把网络生命周期桥接、菜单、HUD、音频和 GameObject View 放入明确的上层程序集。
+Core、Gameplay Contracts、Navigation、Gameplay、Player、Networking 和 Presentation 已完成迁移。下一项实际任务是阶段六 Legacy Benchmark 隔离，把旧 NavMesh 性能基线放入独立程序集，并确认正式运行时程序集不依赖 Benchmark。

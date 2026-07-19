@@ -173,12 +173,13 @@ Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使�
 
 ```text
 AnimarsCatcher.Animars.Navigation.Grid
-AnimarsCatcher.Animars.Combat
-AnimarsCatcher.Networking.Lobby
-AnimarsCatcher.Resource.Carrying
-AnimarsCatcher.UI.Gameplay
-AnimarsCatcher.Animars.Navigation.Grid.Editor
-AnimarsCatcher.Animars.Navigation.Grid.Tests
+AnimarsCatcher.Gameplay
+AnimarsCatcher.Gameplay.Contracts
+AnimarsCatcher.Player
+AnimarsCatcher.Networking
+AnimarsCatcher.Presentation.Selection
+AnimarsCatcher.Presentation.HealthUI
+AnimarsCatcher.Player.Editor
 ```
 
 不推荐示例：
