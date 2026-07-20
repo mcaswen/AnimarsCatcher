@@ -1,7 +1,7 @@
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using AnimarsCatcher.Presentation.Global;
+using AnimarsCatcher.Presentation.Room;
 
 namespace AnimarsCatcher.Presentation.UI
 {
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Presentation.UI
         // 发布创建房间事件并隐藏主菜单
         private void OnCreateRoomClicked()
         {
-            EventBus.Instance.Publish(new GameRoomCreatedEventData());
+            PresentationEventBus.Instance.Publish(new CreateRoomRequestedEvent());
             _messageText.ShowMessage("Room created successfully");
 
             if (_mainMenuPanel != null)
@@ -58,7 +58,7 @@ namespace AnimarsCatcher.Presentation.UI
         // 发布加入房间事件并隐藏主菜单
         private void OnJoinRoomClicked()
         {
-            EventBus.Instance.Publish(new JoinGameRoomRequestEventData());
+            PresentationEventBus.Instance.Publish(new JoinRoomRequestedEvent());
         }
     }
 }

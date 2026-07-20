@@ -4,10 +4,11 @@ using UnityEngine.UI;
 using System.Net;
 using System.Net.Sockets;
 using UnityEngine.Events;
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.Lan;
 using AnimarsCatcher.Networking;
 using AnimarsCatcher.Presentation.Account;
+using AnimarsCatcher.Presentation.Network;
+using AnimarsCatcher.Presentation.Room;
 
 namespace AnimarsCatcher.Presentation.UI
 {
@@ -40,7 +41,7 @@ namespace AnimarsCatcher.Presentation.UI
         [Header("Game Settings")]
         [SerializeField] private string _startGameSceneName = "SCN_GameLevel";
 
-        private UnityAction<GameRoomCreatedEventData> _onCreateRoomHandler;
+        private UnityAction<CreateRoomRequestedEvent> _onCreateRoomHandler;
 
 
         private void Awake()
@@ -61,27 +62,27 @@ namespace AnimarsCatcher.Presentation.UI
         private void Start()
         {
             _onCreateRoomHandler = data => OnCreateRoomRequested();
-            EventBus.Instance?.Subscribe(_onCreateRoomHandler);
-            NetworkUIEventBridge.LobbyClientJoinedEvent.AddListener(OnLobbyClientJoined);
-            NetworkUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
+            PresentationEventBus.Instance?.Subscribe(_onCreateRoomHandler);
+            NetworkPresentationEvents.LobbyClientJoined.AddListener(OnLobbyClientJoined);
+            NetworkPresentationEvents.MatchStarted.AddListener(OnMatchStarted);
         }
 
         // 对称解除静态事件监听 防止场景切换后重复回调
         private void OnDestroy()
         {
-           EventBus.Instance?.Unsubscribe(_onCreateRoomHandler);
-           NetworkUIEventBridge.LobbyClientJoinedEvent.RemoveListener(OnLobbyClientJoined);
-           NetworkUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
+           PresentationEventBus.Instance?.Unsubscribe(_onCreateRoomHandler);
+           NetworkPresentationEvents.LobbyClientJoined.RemoveListener(OnLobbyClientJoined);
+           NetworkPresentationEvents.MatchStarted.RemoveListener(OnMatchStarted);
         }
 
         // 启动服务端监听 本机客户端回连和局域网广播
         private void OnCreateRoomRequested()
         {
             // 先启动服务端监听再发起本机连接
-            NetCodeServerController.StartListen(_gamePort);
+            ServerNetCodeController.StartListen(_gamePort);
 
             // Host 进程中的客户端通过回环地址加入自身房间
-            NetCodeClientConnector.RequestConnect(_localIpAddress, _gamePort);
+            ClientNetCodeConnector.RequestConnect(_localIpAddress, _gamePort);
 
             // 广播玩家名称和游戏端口供局域网客户端发现
             string hostName = PlayerSession.CurrentUserName;
@@ -109,7 +110,7 @@ namespace AnimarsCatcher.Presentation.UI
 
         private void OnStartGameClicked()
         {
-            HostStartGameHelper.SendStartGameRpc(_startGameSceneName);
+            HostStartMatchRequestSender.SendStartMatchRequest(_startGameSceneName);
         }
 
         private void OnBackToMainMenuClicked()
@@ -122,7 +123,7 @@ namespace AnimarsCatcher.Presentation.UI
         }
 
         // 只展示远端成员 本机 Host 客户端不占用访客槽位
-        private void OnLobbyClientJoined(LobbyClientJoinedEventData eventData)
+        private void OnLobbyClientJoined(LobbyClientJoinedEvent eventData)
         {
             if (eventData.IsLocalPlayer)
                 return;
@@ -136,7 +137,7 @@ namespace AnimarsCatcher.Presentation.UI
             Debug.Log($"[HostRoomPanel] Remote client joined lobby: {eventData.PlayerName} (NetworkId={eventData.NetworkId}, Source={eventData.Source})");
         }
 
-        private void OnMatchStarted(MatchStartedEventData info)
+        private void OnMatchStarted(MatchStartedEvent info)
         {
             _hostRoomPanel?.SetActive(false);
             _mainMenuPanel?.SetActive(true);

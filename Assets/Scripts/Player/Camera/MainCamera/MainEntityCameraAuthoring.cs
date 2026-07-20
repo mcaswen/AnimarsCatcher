@@ -1,16 +1,14 @@
 namespace AnimarsCatcher.Player
 {
-    using System.Collections;
-    using System.Collections.Generic;
-    using UnityEngine;
-    using Unity.Entities;
     using System;
+    using Unity.Entities;
+    using UnityEngine;
 
     /// <summary>
     /// 标记需要驱动主 GameObject 相机的实体
     /// </summary>
     [Serializable]
-    public struct MainEntityCamera : IComponentData {}
+    public struct MainEntityCameraTag : IComponentData {}
 
     /// <summary>
     /// 把场景中的相机目标烘焙为主相机实体
@@ -18,15 +16,12 @@ namespace AnimarsCatcher.Player
     [DisallowMultipleComponent]
     public class MainEntityCameraAuthoring : MonoBehaviour
     {
-        /// <summary>
-        /// 负责创建主相机标记组件
-        /// </summary>
-        public class Baker : Baker<MainEntityCameraAuthoring>
+        private sealed class Baker : Baker<MainEntityCameraAuthoring>
         {
             public override void Bake(MainEntityCameraAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
-                AddComponent<MainEntityCamera>(entity);
+                AddComponent<MainEntityCameraTag>(entity);
             }
         }
     }

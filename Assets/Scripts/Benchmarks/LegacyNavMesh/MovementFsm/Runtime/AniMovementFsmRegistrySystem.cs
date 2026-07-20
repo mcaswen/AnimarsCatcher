@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    [UpdateBefore(typeof(FsmEvaluateSystem))]
+    [UpdateBefore(typeof(ServerFsmEvaluateSystem))]
     public partial struct AniMovementFsmRegistrySystem : ISystem
     {
         public void OnCreate(ref SystemState state)

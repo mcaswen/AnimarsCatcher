@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Gameplay
     /// <summary>
     /// 刷新区域可选择的食物预制体
     /// </summary>
-    public struct ResourceSpawnFoodPrefab : IBufferElementData
+    public struct FoodResourceSpawnPrefabReference : IBufferElementData
     {
         public Entity Prefab;
     }
@@ -40,7 +40,7 @@ namespace AnimarsCatcher.Gameplay
     /// <summary>
     /// 刷新区域可选择的水晶预制体
     /// </summary>
-    public struct ResourceSpawnCrystalPrefab : IBufferElementData
+    public struct CrystalResourceSpawnPrefabReference : IBufferElementData
     {
         public Entity Prefab;
     }

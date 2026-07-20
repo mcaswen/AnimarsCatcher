@@ -274,7 +274,7 @@ AnimarsCatcher.Navigation
 - `Allow Unsafe Code` 默认关闭
 - 不启用 `Override References`
 - 只声明实际使用的 Unity Package 程序集
-- 使用 `AnimarsCatcher.Animars.Navigation` 作为根命名空间提示
+- 使用 `AnimarsCatcher.Navigation` 作为根命名空间提示
 
 验证内容：
 

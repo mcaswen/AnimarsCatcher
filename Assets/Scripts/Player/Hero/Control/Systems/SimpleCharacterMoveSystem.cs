@@ -33,7 +33,7 @@ namespace AnimarsCatcher.Player
                          .Query<RefRW<LocalTransform>,
                                 RefRO<SimpleCharacter>,
                                 RefRO<SimpleCharacterControl>,
-                                RefRO<CharacterBoxInfo>>()
+                                RefRO<CharacterBoxGeometry>>()
                          .WithAll<PredictedGhost, Simulate, CharacterTag>())
             {
                 MoveWithBoxCast(
@@ -50,7 +50,7 @@ namespace AnimarsCatcher.Player
             ref LocalTransform localTransform,
             in SimpleCharacter config,
             in SimpleCharacterControl control,
-            in CharacterBoxInfo boxInfo,
+            in CharacterBoxGeometry boxInfo,
             float deltaTime)
         {
             float3 moveDirection = control.MoveVector;

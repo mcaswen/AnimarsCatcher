@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
             // 按发送连接解析玩家 NetworkId 并逐条处理选择请求
             foreach (var (rpc, requestedEntity) in SystemAPI
-                         .Query<RefRO<AniSelectionApplyRpc>>()
+                         .Query<RefRO<AniSelectionRequestRpc>>()
                          .WithAll<ReceiveRpcCommandRequest>()
                          .WithEntityAccess())
             {

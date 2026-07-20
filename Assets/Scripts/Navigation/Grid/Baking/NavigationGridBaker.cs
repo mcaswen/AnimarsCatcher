@@ -3,7 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid
+namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
     /// 将可检查的 Grid 烘焙资产转换为运行时只读 Blob

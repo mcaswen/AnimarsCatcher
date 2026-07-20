@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.Serialization;
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Player;
 
 namespace AnimarsCatcher.Presentation.UI

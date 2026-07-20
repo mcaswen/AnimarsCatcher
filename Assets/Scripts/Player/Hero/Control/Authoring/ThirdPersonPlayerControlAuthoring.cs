@@ -19,7 +19,7 @@ namespace AnimarsCatcher.Player
         [FormerlySerializedAs("controlledCamera")]
         [SerializeField] private GameObject _controlledCamera;
 
-        public class Baker : Baker<ThirdPersonPlayerControlAuthoring>
+        private sealed class Baker : Baker<ThirdPersonPlayerControlAuthoring>
         {
             public override void Bake(ThirdPersonPlayerControlAuthoring authoring)
             {

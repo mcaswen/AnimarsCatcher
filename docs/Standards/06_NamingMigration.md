@@ -62,6 +62,7 @@ Scroll of the wind walker      -> BGM_ScrollOfTheWindWalker
 4. Ghost Variant 和 RPC 类型不会在纯命名任务中改名，避免改变 NetCode 类型哈希和协议兼容性。
 5. 原 `Obsolete` 旧脚本已移出 Unity 项目；后续废弃源码直接删除并依赖 Git 历史，不为保留旧代码投入批量改名成本。
 6. `Assets/Scripts/Benchmarks/LegacyNavMesh` 是为 Grid 移动重构保留的可执行性能基线，不属于废弃源码；它只接受编译、可复现性和 Benchmark Harness 接入所需修改，不继续增加正式玩法能力。
+7. Legacy Navigation Benchmark 不参与纯命名格式迁移。端侧前缀、字段和 DOTS 后缀整改只覆盖活跃程序集，除非 Benchmark 编译因此被破坏。
 
 ## 5. 后续任务
 

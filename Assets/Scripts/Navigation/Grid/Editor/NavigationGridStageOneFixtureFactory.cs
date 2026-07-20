@@ -5,7 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 创建可重复生成的阶段一 Grid 烘焙验收场景

@@ -3,13 +3,14 @@ namespace AnimarsCatcher.Player
     using Unity.Entities;
     using Unity.Mathematics;
     using UnityEngine;
+    using UnityEngine.Serialization;
     using Unity.CharacterController;
     using Unity.NetCode;
 
     /// <summary>
     /// 标记参与角色控制流程的实体
     /// </summary>
-    public class CharacterTag : IComponentData { }
+    public struct CharacterTag : IComponentData { }
 
 
     /// <summary>
@@ -18,41 +19,47 @@ namespace AnimarsCatcher.Player
     [DisallowMultipleComponent]
     public class ThirdPersonCharacterAuthoring : MonoBehaviour
     {
-        public AuthoringKinematicCharacterProperties CharacterProperties = AuthoringKinematicCharacterProperties.GetDefault();
+        [FormerlySerializedAs("CharacterProperties")]
+        [SerializeField] private AuthoringKinematicCharacterProperties _characterProperties = AuthoringKinematicCharacterProperties.GetDefault();
 
-        public float RotationSharpness = 25f;
-        public float GroundMaxSpeed = 10f;
-        public float GroundedMovementSharpness = 15f;
-        public float AirAcceleration = 50f;
-        public float AirMaxSpeed = 10f;
-        public float AirDrag = 0f;
-        public float JumpSpeed = 10f;
-        public float3 Gravity = math.up() * - 30f;
-        public bool PreventAirAccelerationAgainstUngroundedHits = true;
-        public BasicStepAndSlopeHandlingParameters StepAndSlopeHandling = BasicStepAndSlopeHandlingParameters.GetDefault();
+        [FormerlySerializedAs("RotationSharpness")]
+        [SerializeField] private float _rotationSharpness = 25f;
+        [FormerlySerializedAs("GroundMaxSpeed")]
+        [SerializeField] private float _groundMaximumSpeed = 10f;
+        [FormerlySerializedAs("GroundedMovementSharpness")]
+        [SerializeField] private float _groundedMovementSharpness = 15f;
+        [FormerlySerializedAs("AirAcceleration")]
+        [SerializeField] private float _airAcceleration = 50f;
+        [FormerlySerializedAs("AirMaxSpeed")]
+        [SerializeField] private float _airMaximumSpeed = 10f;
+        [FormerlySerializedAs("AirDrag")]
+        [SerializeField] private float _airDrag = 0f;
+        [FormerlySerializedAs("Gravity")]
+        [SerializeField] private float3 _gravity = math.up() * - 30f;
+        [FormerlySerializedAs("PreventAirAccelerationAgainstUngroundedHits")]
+        [SerializeField] private bool _preventAirAccelerationAgainstUngroundedHits = true;
+        [FormerlySerializedAs("StepAndSlopeHandling")]
+        [SerializeField] private BasicStepAndSlopeHandlingParameters _stepAndSlopeHandling = BasicStepAndSlopeHandlingParameters.GetDefault();
 
-        /// <summary>
-        /// 负责创建第三人称 KCC 角色的预测组件
-        /// </summary>
-        public class Baker : Baker<ThirdPersonCharacterAuthoring>
+        private sealed class Baker : Baker<ThirdPersonCharacterAuthoring>
         {
             public override void Bake(ThirdPersonCharacterAuthoring authoring)
             {
-                KinematicCharacterUtilities.BakeCharacter(this, authoring.gameObject, authoring.CharacterProperties);
+                KinematicCharacterUtilities.BakeCharacter(this, authoring.gameObject, authoring._characterProperties);
 
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic | TransformUsageFlags.WorldSpace);
 
                 AddComponent(entity, new ThirdPersonCharacter
                 {
-                    RotationSharpness = authoring.RotationSharpness,
-                    GroundMaxSpeed = authoring.GroundMaxSpeed,
-                    GroundedMovementSharpness = authoring.GroundedMovementSharpness,
-                    AirAcceleration = authoring.AirAcceleration,
-                    AirMaxSpeed = authoring.AirMaxSpeed,
-                    AirDrag = authoring.AirDrag,
-                    Gravity = authoring.Gravity,
-                    PreventAirAccelerationAgainstUngroundedHits = authoring.PreventAirAccelerationAgainstUngroundedHits,
-                    StepAndSlopeHandling = authoring.StepAndSlopeHandling,
+                    RotationSharpness = authoring._rotationSharpness,
+                    GroundMaxSpeed = authoring._groundMaximumSpeed,
+                    GroundedMovementSharpness = authoring._groundedMovementSharpness,
+                    AirAcceleration = authoring._airAcceleration,
+                    AirMaxSpeed = authoring._airMaximumSpeed,
+                    AirDrag = authoring._airDrag,
+                    Gravity = authoring._gravity,
+                    PreventAirAccelerationAgainstUngroundedHits = authoring._preventAirAccelerationAgainstUngroundedHits,
+                    StepAndSlopeHandling = authoring._stepAndSlopeHandling,
                 });
 
                 AddComponent(entity, new ThirdPersonCharacterControl());
@@ -62,9 +69,7 @@ namespace AnimarsCatcher.Player
                 AddComponent<Simulate>(entity);
 
                 AddBuffer<InputCommand>(entity);
-
             }
         }
-
     }
 }

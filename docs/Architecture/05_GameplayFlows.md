@@ -9,7 +9,7 @@
 ```mermaid
 sequenceDiagram
     participant Device as Keyboard / Mouse
-    participant Input as PlayerInputSystem
+    participant Input as ClientPlayerInputSystem
     participant Build as BuildMoveCommandSystem
     participant Cmd as InputCommand Buffer
     participant ClientSim as Client Predicted KCC
@@ -25,13 +25,13 @@ sequenceDiagram
     Snapshot-->>ClientSim: 校正预测偏差
 ```
 
-客户端先由 `PlayerInputSystem` 采集键盘和鼠标状态，再由命令构建系统把输入写入当前 `NetworkTick` 对应的 `InputCommand`。同一份命令一边驱动本地预测的角色控制器，一边通过 NetCode 发送给服务器。服务器重新模拟后生成权威姿态，客户端收到 Ghost 快照时再修正预测偏差。
+客户端先由 `ClientPlayerInputSystem` 采集键盘和鼠标状态，再由命令构建系统把输入写入当前 `NetworkTick` 对应的 `InputCommand`。同一份命令一边驱动本地预测的角色控制器，一边通过 NetCode 发送给服务器。服务器重新模拟后生成权威姿态，客户端收到 Ghost 快照时再修正预测偏差。
 
 移动方向还需要经过相机坐标系转换。Fixed 和 Orbit 相机模式各自有命令构建逻辑，把屏幕视角中的前后左右转换成世界空间方向。
 
 ### 输入锁的当前边界
 
-`PlayerInputLockState` 使用引用计数表示 HUD、菜单或过场正在占用输入。任意模块加锁后，`PlayerInputSystem` 会停止向玩法层传递部分操作。
+`PlayerInputLockState` 使用引用计数表示 HUD、菜单或过场正在占用输入。任意模块加锁后，`ClientPlayerInputSystem` 会停止向玩法层传递部分操作。
 
 当前实现只清零移动、缩放、交互和暂停输入，没有清除视角、跳跃、左右鼠标按键等状态。因此它只能视为部分输入锁，不能当成完整的玩法输入隔离层。新增面板或过场时，不能只依赖这个状态来保证所有操作都被阻止。
 
@@ -49,7 +49,7 @@ sequenceDiagram
     Input->>Drag: 记录屏幕拖拽矩形
     Drag->>Client: 释放边沿
     Client->>Client: 按模式、屏幕范围和本地 GhostOwner 收集 GhostId
-    Client->>Server: AniSelectionApplyRpc
+    Client->>Server: AniSelectionRequestRpc
     Server->>Server: 按 SourceConnection.NetworkId 复核 GhostOwner
     Server->>Ani: 启用或禁用 AniSelectedTag
     Ani-->>View: Ghost enable bit
@@ -60,16 +60,16 @@ sequenceDiagram
 
 服务器不会直接相信客户端给出的所有权。`ServerApplyAniSelectionRpcSystem` 使用 `SourceConnection.NetworkId` 再次检查每个 Ghost 的 `GhostOwner`，然后才启用或禁用 `AniSelectedTag`。这个 enable bit 随 Ghost 同步到客户端，选择光圈系统只负责根据最终状态更新表现。
 
-选择模式由 `GameMainInterfaceController` 发起，经 `NetworkUIEventBridge` 写入 `AniSelectionModeSingleton`。
+选择模式由 `GameplayHudController` 通过 `AniSelectionEvents` 发布，再由 `ClientAniSelectionModeSyncSystem` 写入 `AniSelectionModeState`。
 
 ## 3. Ani 移动与交互指令
 
 ```mermaid
 flowchart LR
-    Click[MovementClickInputSystem]
-    Ray[MovementClickRaycastSystem]
-    Rpc[MovementOrderRpc<br/>目标 + 选中 GhostId]
-    Validate[ServerMovementOrderReceiveRpcSystem<br/>校验 SourceConnection 与 GhostOwner]
+    Click[ClientWorldCommandClickInputSystem]
+    Ray[ClientWorldCommandRaycastSystem]
+    Rpc[AniCommandRpc<br/>目标 + 选中 GhostId]
+    Validate[ServerReceiveAniCommandRpcSystem<br/>校验 SourceConnection 与 GhostOwner]
     Blackboard[FsmVar Blackboard]
     Fsm[FSM Evaluate / Transition / Tick]
     Formation[Formation Management]
@@ -86,7 +86,7 @@ flowchart LR
     Planner --> Nav --> Steering --> Move
 ```
 
-玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与当前选中的 GhostId 放进 `MovementOrderRpc`。服务器按 RPC 的源连接复核 Ani 所有权，合法指令才会写入各 Ani 的 Blackboard。
+玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与当前选中的 GhostId 放进 `AniCommandRpc`。服务器按 RPC 的源连接复核 Ani 所有权，合法指令才会写入各 Ani 的 Blackboard。
 
 Blackboard 后面不是一条单线流水线。FSM 与阵型管理分别消费指令产生的状态：
 
@@ -107,13 +107,13 @@ Blackboard 后面不是一条单线流水线。FSM 与阵型管理分别消费�
 
 ```mermaid
 sequenceDiagram
-    participant Sense as AniAttackSenseSystem
-    participant Fire as AniAttackFireSystem
+    participant Sense as ServerAniAttackSenseSystem
+    participant Fire as ServerAniAttackFireSystem
     participant ClientView as Client Attack View
     participant Rpc as Hit RPC
     participant Apply as ServerApplyHitRpcSystem
     participant Damage as DamageEvent Buffer
-    participant Health as ApplyDamageSystem
+    participant Health as ServerApplyDamageSystem
     participant Death as Death / GameOver Systems
 
     Sense->>Sense: 按敌 Ani、基地、资源优先级选目标
@@ -121,16 +121,16 @@ sequenceDiagram
     Fire->>Fire: 冷却结束，生成 ShotId 和 AniPendingAttack
     Fire-->>ClientView: Ghost AniAttackFireRequest
     ClientView->>ClientView: 播放动画并在命中帧产生候选
-    ClientView->>Rpc: AttackHitRpc 或 RangedHitRpc
+    ClientView->>Rpc: MeleeHitRpc 或 RangedHitRpc
     Rpc->>Apply: Server 接收并验证
     Apply->>Damage: AddBuffer 写入本次伤害并替换已有内容
     Damage->>Health: 后续系统读取并更新 Health
     Health->>Death: 普通死亡、资源死亡或基地败北
 ```
 
-服务器首先由 `AniAttackSenseSystem` 选择目标，再由 `AniAttackFireSystem` 检查冷却并创建 `AniPendingAttack`。这个组件冻结了本次攻击的目标、结算类别和唯一 `ShotId`，是后续命中确认的权威上下文。
+服务器首先由 `ServerAniAttackSenseSystem` 选择目标，再由 `ServerAniAttackFireSystem` 检查冷却并创建 `AniPendingAttack`。这个组件冻结了本次攻击的目标、结算类别和唯一 `ShotId`，是后续命中确认的权威上下文。
 
-客户端收到攻击表现数据后播放动画，并在命中帧通过 `AttackHitRpc` 或 `RangedHitRpc` 回报候选。客户端只应该决定“何时回报命中候选”，最终是否造成伤害以及伤害落到谁身上仍应由服务器判断。当前远程命中仍允许客户端提供的 `TargetGhostId` 影响结算目标，服务器校验还没有完全闭合。
+客户端收到攻击表现数据后播放动画，并在命中帧通过 `MeleeHitRpc` 或 `RangedHitRpc` 回报候选。客户端只应该决定“何时回报命中候选”，最终是否造成伤害以及伤害落到谁身上仍应由服务器判断。当前远程命中仍允许客户端提供的 `TargetGhostId` 影响结算目标，服务器校验还没有完全闭合。
 
 ### `DamageEvent` 目前不是追加式事件队列
 
@@ -142,7 +142,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Order as MovementOrderRpc
+    participant Order as AniCommandRpc
     participant Request as ResourcePickupRequest
     participant Assign as ServerAssignSelectedAniToResourceSystem
     participant Setup as Legacy ServerResourceCarrySetupSystem
@@ -159,7 +159,7 @@ sequenceDiagram
     Setup->>Move: 满足最少人数后开始搬运
     Move->>Move: 资源沿服务端路径移动到玩家机器人
     Move->>Hub: 写 Food 或 Crystal 增量事件
-    Hub->>State: PlayerResourceApplyCollectedSystem
+    Hub->>State: ServerPlayerResourceApplyDeltaSystem
     State-->>State: Ghost 同步给所属客户端 HUD
 ```
 
@@ -191,11 +191,11 @@ flowchart LR
 
 ## 7. 生成 Ani 与维护玩家资源
 
-Mono 桥接层通过 `AniSpawnRequestSender` 创建 `SpawnAniRpc`。服务器收到请求后按以下顺序处理：
+Mono 桥接层通过 `ClientAniSpawnRequestSender` 创建 `SpawnAniRequestRpc`。服务器收到请求后按以下顺序处理：
 
 1. 从 `SourceConnection.NetworkId` 确定请求属于哪个玩家
 2. 通过 `ServerCampAssignmentPolicy` 确定该玩家阵营
-3. 从 `AniGhostPrefabCollection` 选择 Picker 或 Blaster Prefab
+3. 从 `AniGhostPrefabRegistry` 选择 Picker 或 Blaster Prefab
 4. 在相同 `Camp` 的 `AniSpawnPointTag` 中选择出生点
 5. 创建 Ani，并写入 `GhostOwner`、`Camp` 和对应类型 Tag
 
@@ -207,23 +207,23 @@ Mono 桥接层通过 `AniSpawnRequestSender` 创建 `SpawnAniRpc`。服务器收
 
 ```mermaid
 sequenceDiagram
-    participant Damage as ApplyDamageSystem
+    participant Damage as ServerApplyDamageSystem
     participant Base as Big Base Health
     participant Result as ServerBaseDefeatSystem
-    participant Rpc as GameOverRpc
+    participant Rpc as MatchResultRpc
     participant Clients as InGame Clients
-    participant UI as GameOverUIBridge
+    participant UI as MatchResultUIBridge
 
     Damage->>Base: Health 降至 0
     Base->>Result: 检测 BigBaseTag
     Result->>Result: 写入 GameResult 并锁定胜方
     Result->>Rpc: 为每个 InGame 连接创建 RPC
-    Rpc-->>Clients: 发送 GameOverRpc
+    Rpc-->>Clients: 发送 MatchResultRpc
     Clients->>UI: 比较 LocalPlayerCamp 并显示胜负
 ```
 
 `ServerBaseDefeatSystem` 只检查带 `BigBaseTag` 的基地。第一次发现大基地生命值降到零时，它根据被摧毁基地的阵营确定胜方，并把结果写进服务器的 `GameResult`。
 
-`GameResult` 本身不是同步给客户端的 Ghost 状态。服务器会为每个带 `NetworkStreamInGame` 的连接创建并发送 `GameOverRpc`。Mono Global 中的客户端系统收到 RPC 后，由 `GameOverUIBridge` 比较本地阵营和胜方，再显示胜利或失败界面。
+`GameResult` 本身不是同步给客户端的 Ghost 状态。服务器会为每个带 `NetworkStreamInGame` 的连接创建并发送 `MatchResultRpc`。`Presentation.Match` 中的客户端系统收到 RPC 后，由 `MatchResultUIBridge` 比较本地阵营和胜方，再显示胜利或失败界面。
 
 `GameResult.IsGameOver` 一旦写入就会阻止后续帧再次覆盖结果，`BaseDestroyedTag` 则防止同一基地被重复处理。

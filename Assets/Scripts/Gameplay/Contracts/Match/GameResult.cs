@@ -16,7 +16,7 @@ public struct GameResult : IComponentData
 /// <summary>
 /// 由服务器发送给每个客户端的对局结束通知
 /// </summary>
-public struct GameOverRpc : IRpcCommand
+public struct MatchResultRpc : IRpcCommand
 {
     public CampType Winner;
 }

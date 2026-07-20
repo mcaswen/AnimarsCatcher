@@ -8,7 +8,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 在 Player 构建前拒绝缺失或过期的 Navigation Grid 资产

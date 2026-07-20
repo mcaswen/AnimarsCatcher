@@ -10,9 +10,9 @@
 
 - `NetworkRuntimeRole` 位于 `Netcode/Bootstrap/NetworkRunRole.cs`，负责在 Bootstrap 运行前判断当前是 Host、Client 还是 Dedicated Server
 - `CustomBootstrap` 位于 `Netcode/Bootstrap/CustomBootstrap.cs`，根据进程角色创建 Client World、Server World 和可选 Thin Client World
-- `WorldManager` 位于 `Netcode/Tools/WorldManager.cs`，为 MonoBehaviour 和 UI 提供查找 Client World 或 Server World 的统一入口
-- `NetCodeServerController` 把主线程发出的“开始监听”命令转换为 Server World 中的请求 Entity
-- `NetCodeClientConnector` 把“连接某个地址”转换为 Client World 中的连接请求
+- `NetworkWorldLocator` 位于 `Netcode/Tools/NetworkWorldLocator.cs`，为 MonoBehaviour 和 UI 提供查找 Client World 或 Server World 的统一入口
+- `ServerNetCodeController` 把主线程发出的“开始监听”命令转换为 Server World 中的请求 Entity
+- `ClientNetCodeConnector` 把“连接某个地址”转换为 Client World 中的连接请求
 
 这几类构成 GameObject 流程进入 ECS/NetCode 的门面。业务 UI 应调用这些入口，不应自行遍历所有 World，也不应在多个面板里重复实现连接状态机。
 
@@ -24,10 +24,10 @@ Host 侧的主入口是 `HostRoomPanelController`。它依次启动服务器监�
 
 点击开始游戏后，关键类按以下顺序协作：
 
-1. `HostStartGameHelper` 从 Host 的 Client World 创建 `StartGameRpc`
-2. `ServerStartGameSystem` 接收请求，并用 `ServerMatchStartState` 记录当前开局阶段
-3. Server 向每个连接发送目标场景，`ClientStartGameSystem` 收到后创建 `ClientSceneLoadRequest`
-4. `ClientSetInGameWhenReadySystem` 等待 Ghost 资源满足当前 Ready 条件，再发送 `SetInGameRpc`
+1. `HostStartMatchRequestSender` 从 Host 的 Client World 创建 `StartMatchRequestRpc`
+2. `ServerStartMatchSystem` 接收请求，并用 `ServerMatchStartState` 记录当前开局阶段
+3. Server 向每个连接发送目标场景，`ClientHandleStartMatchNotificationSystem` 收到后创建 `ClientSceneLoadRequest`
+4. `ClientSendReadyForGameRpcSystem` 等待 Ghost 资源满足当前 Ready 条件，再发送 `ClientReadyForGameRpc`
 5. `ServerGetConnectionAspect` 封装连接的 InGame 标记、出生去重和 `CommandTarget` 写入
 6. `CharacterSpawnUtility` 负责实例化玩家角色并选择出生位置
 
@@ -37,12 +37,12 @@ Host 侧的主入口是 `HostRoomPanelController`。它依次启动服务器监�
 
 玩家移动不是直接修改 Transform，而是把输入写成逐 Tick 的网络命令，再由 Client 和 Server 执行同一套 KCC 模拟。
 
-- `PlayerInputSystem` 每帧只采集一次键盘和鼠标快照，并写入 `PlayerInput`
+- `ClientPlayerInputSystem` 每帧只采集一次键盘和鼠标快照，并写入 `PlayerInput`
 - `InputCommand` 是发送给 NetCode 的 Tick 命令，承载移动、视角、缩放和按钮状态
 - `ThirdPersonCharacterPredictedMoveSystem` 读取命令并生成预测角色控制数据
 - `ThirdPersonCharacterAspect` 封装 KCC 更新需要的组件访问和移动处理
-- `EnsureClientCommandTargetSystem` 把本地连接、所属角色 Ghost、Player 控制实体和相机关联起来
-- `ThirdPersonPlayerBuildCameraControlSystem` 把输入写入相机控制组件
+- `ClientEnsureCommandTargetSystem` 把本地连接、所属角色 Ghost、Player 控制实体和相机关联起来
+- `ClientThirdPersonPlayerBuildCameraControlSystem` 把输入写入相机控制组件
 - `MainCameraSystem` 最后把 ECS 相机姿态应用到 Unity Camera
 
 当前同时保留 Fixed 和 Orbit 两套相机实现，两套移动命令构建系统没有按相机模式互斥。新增相机模式前，应先建立唯一的模式选择状态，让同一 Tick 只有一个系统能写 `InputCommand`。
@@ -51,13 +51,13 @@ Host 侧的主入口是 `HostRoomPanelController`。它依次启动服务器监�
 
 Ani 的服务端移动链路由“接收命令、解释状态、规划路径、生成移动意图、执行位移”五个阶段组成。
 
-`ServerMovementOrderReceiveRpcSystem` 是入口。它根据 `SourceConnection` 检查所选 Ani 是否属于发送者，然后把目标和命令模式写入 `FsmVar` Blackboard。
+`ServerReceiveAniCommandRpcSystem` 是入口。它根据 `SourceConnection` 检查所选 Ani 是否属于发送者，然后把目标和命令模式写入 `FsmVar` Blackboard。
 
 FSM 本身分成三个步骤：
 
-- `FsmEvaluateSystem` 判断当前状态是否满足迁移条件
-- `FsmApplyTransitionSystem` 执行旧状态退出和新状态进入
-- `FsmTickSystem` 执行当前状态的持续行为
+- `ServerFsmEvaluateSystem` 判断当前状态是否满足迁移条件
+- `ServerFsmApplyTransitionSystem` 执行旧状态退出和新状态进入
+- `ServerFsmTickSystem` 执行当前状态的持续行为
 
 `FsmRegistry` 保存条件和动作函数指针。Blackboard Key 是跨系统契约，新增 Key 时必须同步检查定义、初始化、所有读写方，以及它是否真的需要参与 Ghost 同步。
 
@@ -85,7 +85,7 @@ FSM 和阵型数据最终汇入移动规划：
 - `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 构成路径服务的 ECS 契约。调用方通过递增 `Version` 区分新旧请求，并只消费同版本完成结果
 - `NavigationGridPathAlgorithms` 负责世界坐标转换、稳定端点投影、Region 预拒绝、Octile 启发、确定性 A*、Bresenham 直线检查和代价保持平滑，不访问 EntityManager 或主线程 API
 - `NavigationGridPathfindingJob` 在单个 Burst Job 内处理一个稳定排序后的请求批次，多个请求顺序复用 G Cost、Parent、Heap 和 Generation 数组
-- `NavigationGridPathfindingSystem` 只在 Server 或 Local World 运行。主线程负责收集请求和提交已完成结果，搜索期间不调用 `Complete`，下一 Tick 只在 Handle 已完成时写回 Buffer
+- `ServerNavigationGridPathfindingSystem` 只在 Server 或 Local World 运行。主线程负责收集请求和提交已完成结果，搜索期间不调用 `Complete`，下一 Tick 只在 Handle 已完成时写回 Buffer
 - `NavigationGridStageTwoValidation` 使用合成 Grid 验证投影、Region、穿角、Clearance、Terrain Cost、确定性、失败状态和异步 ECS 写回
 
 固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二算法验收使用运行时相同 Blob 和 Job 构造合成地图，不依赖场景对象。当前路径服务仍是独立基础设施，接入正式命令和移动前必须先实现后端互斥，防止 Grid 与 Legacy 同时写 Transform。
@@ -96,11 +96,11 @@ FSM 和阵型数据最终汇入移动规划：
 
 服务端部分：
 
-- `AniAttackSenseSystem` 按距离和目标优先级选择攻击对象
-- `AniAttackFireSystem` 处理冷却，生成 `ShotId`，并冻结本次 `AniPendingAttack`
-- `ServerApplyAttackHitRpcSystem` 和 `ServerApplyRangedHitRpcSystem` 接收客户端回报的候选命中
-- `ApplyDamageSystem` 读取当前 `DamageEvent` Buffer，累加其中已有元素并更新 `Health`
-- `AniDeathSystem` 销毁生命值耗尽且未被排除的实体；当前查询范围实际上不只包含 Ani
+- `ServerAniAttackSenseSystem` 按距离和目标优先级选择攻击对象
+- `ServerAniAttackFireSystem` 处理冷却，生成 `ShotId`，并冻结本次 `AniPendingAttack`
+- `ServerApplyMeleeHitRpcSystem` 和 `ServerApplyRangedHitRpcSystem` 接收客户端回报的候选命中
+- `ServerApplyDamageSystem` 读取当前 `DamageEvent` Buffer，累加其中已有元素并更新 `Health`
+- `ServerAniDeathSystem` 销毁生命值耗尽且未被排除的实体；当前查询范围实际上不只包含 Ani
 
 客户端表现部分：
 
@@ -118,10 +118,10 @@ FSM 和阵型数据最终汇入移动规划：
 - `ServerAssignSelectedAniToResourceSystem` 从当前玩家已选中的 Picker 中分配搬运者
 - Legacy `ServerResourceCarrySetupSystem` 管理旧 NavMesh 后端的站位、到达状态和开始搬运条件
 - Legacy `ServerResourceCarryMoveSystem` 移动资源，完成交付并释放 Picker
-- `PlayerResourceApplyCollectedSystem` 消费资源事件 Hub 中的增量
+- `ServerPlayerResourceApplyDeltaSystem` 消费资源事件 Hub 中的增量
 - `ServerPlayerAniCountUpdateSystem` 按 `GhostOwner` 重建每个玩家的 Ani 数量统计
 
-UI 通过 `GameResourceGetter` 读取状态。本地玩家资源来自 Client World；比赛时间当前却直接查询 Server World，所以纯 Client 无法正常读取该值。这不是推荐模式，而是现状和待修复边界。
+UI 通过 `ResourceStateReader` 读取状态。本地玩家资源来自 Client World；比赛时间当前却直接查询 Server World，所以纯 Client 无法正常读取该值。这不是推荐模式，而是现状和待修复边界。
 
 ## 7. Hybrid View 与 UI 桥
 
@@ -129,22 +129,22 @@ UI 通过 `GameResourceGetter` 读取状态。本地玩家资源来自 Client Wo
 
 角色 View 的典型链路是：
 
-1. `AvatarViewAuthoring` 把本地 View Prefab 烘焙为托管组件
-2. `SpawnAvatarViewSystem` 在 Client World 中实例化 GameObject
-3. `AvatarViewFollower.Bind` 接收目标 Entity 和所属 `EntityManager`
-4. `AvatarViewFollower` 逐帧同步姿态、动画速度和生命周期
+1. `EntityViewAuthoring` 把本地 View Prefab 烘焙为托管组件
+2. `ClientSpawnEntityViewSystem` 在 Client World 中实例化 GameObject
+3. `EntityViewFollower.Bind` 接收目标 Entity 和所属 `EntityManager`
+4. `EntityViewFollower` 逐帧同步姿态、动画速度和生命周期
 
 其他桥接沿用同一思路：
 
-- `SpawnHealthBarViewSystem` 根据 ECS `Health` 创建 `HealthBarView`
-- `AniSelectionUIAttachSystem` 把场景中的 Camera、Canvas 和 RectTransform 注入 Client ECS
+- `ClientSpawnHealthBarViewSystem` 根据 ECS `Health` 创建 `HealthBarView`
+- `ClientAniSelectionUIAttachSystem` 把场景中的 Camera、Canvas 和 RectTransform 注入 Client ECS
 - `LobbyClientJoinedNotification`、`MatchStartedNotification` 和 `ClientSceneLoadRequest` 从 Networking 发布生命周期通知
-- `NetworkPresentationBridgeSystem` 把通知 Entity 转换为 Mono 加载流程和 `NetworkUIEventBridge` 事件
-- `NetworkUIEventBridge` 用 static UnityEvent 连接表现层内部状态与 Mono UI
-- `EventBus` 负责主菜单内部的 MonoBehaviour 事件流
+- `NetworkPresentationBridgeSystem` 把通知 Entity 转换为 Mono 加载流程和 `NetworkPresentationEvents`
+- `UIInputEvents`、`AniSelectionEvents` 和 `ResourceRequestEvents` 用独立 static UnityEvent 承载三类本地请求
+- `PresentationEventBus` 负责主菜单内部的 MonoBehaviour 事件流
 - `GlobalLoadingUI` 管理持久加载遮罩和异步切换场景
 - `BattleIntroCinematic` 管理 Cinemachine 开场、HUD 显隐和输入占用
-- Mono Global 中的 `GameOverUIBridge` 把 Client ECS 收到的胜负结果交给结算面板
+- `Presentation.Match.MatchResultUIBridge` 把 Client ECS 收到的胜负结果交给结算面板
 
 新增 View 时，应沿用“Authoring 提供引用、Client System 实例化、Bind 显式注入 World、Spawned Tag 去重、View 自行检测生命周期”的流程。
 

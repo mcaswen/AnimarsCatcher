@@ -143,7 +143,7 @@ Ani 业务 ID、事件、Registry 生命周期和具体 System 没有进入 Core
 Contracts 保存确实需要跨领域和网络共享的数据：
 
 - Ani、Base、Camp、Health、Match 和 Resource 相关 Component、Tag 与 Buffer
-- `CampType`、`LocalPlayerCamp`、`DamageEvent`、`GameResult` 和 `GameOverRpc`
+- `CampType`、`LocalPlayerCamp`、`DamageEvent`、`GameResult` 和 `MatchResultRpc`
 - 资源分类、搬运分配、移动命令锁和拾取请求
 
 Contracts 不保存具体 System、MonoBehaviour、Authoring、Baker、静态运行角色或 UI 实现。NetCode Ghost Serializer 需要的 Burst、Collections、Entities、Mathematics 和 NetCode 依赖均显式声明。
@@ -196,9 +196,9 @@ Gameplay 不负责菜单与 HUD、网络 World 生命周期、Player 输入、Le
 
 阶段三按数据所有权移动具体实现：
 
-- `MovementClickInputSystem` 移到 Player 输入目录
-- `AniSpawnRequestSender` 移到 Mono 桥接目录
-- 客户端 GameOver RPC 消费与结算界面移到表现层
+- `ClientWorldCommandClickInputSystem` 移到 Player 输入目录
+- `ClientAniSpawnRequestSender` 移到 Mono 桥接目录
+- 客户端 `MatchResultRpc` 消费与结算界面移到表现层
 - Ghost Collection 调试 System 移到 Netcode Debug
 - `ServerCampAssignmentPolicy` 不再读取进程级网络角色
 - 资源初始化不再通过 `UpdateAfter` 引用 Networking 具体 System
@@ -242,10 +242,10 @@ Player 保存：
 - 固定 Tick 输入事件
 - KCC 与简化角色预测移动
 - Fixed、Orbit 和主相机控制
-- Player Character、Camera、Avatar View 的 Authoring 与组件
+- Player Character、Camera、Entity View 的 Authoring 与组件
 - 过场相机占用状态
 
-`CharacterBoxAuthoring` 从无归属 Physics 目录迁入 Player。`PlayerInputLockFromUISystem` 因为订阅 Mono UI 事件而移到表现桥接层。`ClientCinematicState` 迁入 Player，使表现层可以控制相机让权，但 Player 不反向引用 Presentation。
+`CharacterBoxGeometryAuthoring` 从无归属 Physics 目录迁入 Player。`ClientPlayerInputLockFromUISystem` 因为订阅 Mono UI 事件而移到表现桥接层。`ClientCinematicState` 迁入 Player，使表现层可以控制相机让权，但 Player 不反向引用 Presentation。
 
 ### 6.2 Networking 边界
 
@@ -261,7 +261,7 @@ Networking 允许依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity P
 
 ### 6.3 网络表现桥
 
-迁移前 Networking 直接调用 `NetworkUIEventBridge`、`GlobalLoadingUI` 和表现状态，形成 Runtime 到 Mono 的反向依赖。
+迁移前 Networking 直接调用旧网络 UI 事件桥、`GlobalLoadingUI` 和表现状态，形成 Runtime 到 Mono 的反向依赖。
 
 阶段四增加 `NetworkLifecycleNotifications`，由 Networking 产生短生命周期 ECS 通知。`NetworkPresentationBridgeSystem` 在表现层消费通知，再驱动房间 UI、加载遮罩、场景切换和开场演出。
 
@@ -273,7 +273,7 @@ Presentation -> Networking / Player
 
 ### 6.4 命名空间与序列化
 
-Player、Player Editor 和 Networking 使用各自根命名空间。移动 `CharacterBoxAuthoring`、`ClientCinematicState`、`NetworkRunRole` 和输入锁桥接时均保留原 `.meta` GUID。
+Player、Player Editor 和 Networking 使用各自根命名空间。移动 `CharacterBoxGeometryAuthoring`、`ClientCinematicState`、`NetworkRunRole` 和输入锁桥接时均保留原 `.meta` GUID。
 
 Mono 输入桥命名空间避免使用会遮蔽 `UnityEngine.Input` 的名称，防止常用 Unity 类型产生模糊解析。
 

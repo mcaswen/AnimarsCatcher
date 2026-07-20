@@ -50,11 +50,11 @@
             Path = 'Assets/Scripts/Navigation/Grid/Editor'
             Assembly = 'AnimarsCatcher.Navigation.Editor'
             AsmdefPath = 'Assets/Scripts/Navigation/Grid/Editor/AnimarsCatcher.Navigation.Editor.asmdef'
-            RootNamespace = 'AnimarsCatcher.Animars.Navigation.Grid.Editor'
+            RootNamespace = 'AnimarsCatcher.Navigation.Grid.Editor'
             Owner = 'Navigation Editor'
             Status = 'PhaseSevenImplemented'
             Lifecycle = 'Editor'
-            NamespacePrefixes = @('AnimarsCatcher.Animars.Navigation.Grid.Editor')
+            NamespacePrefixes = @('AnimarsCatcher.Navigation.Grid.Editor')
             RequireNamespace = $true
             EnforceDependencyBoundary = $true
             AllowedProjectDependencies = @('AnimarsCatcher.Navigation')
@@ -63,11 +63,11 @@
             Path = 'Assets/Scripts/Navigation/Grid'
             Assembly = 'AnimarsCatcher.Navigation'
             AsmdefPath = 'Assets/Scripts/Navigation/Grid/AnimarsCatcher.Navigation.asmdef'
-            RootNamespace = 'AnimarsCatcher.Animars.Navigation'
+            RootNamespace = 'AnimarsCatcher.Navigation'
             Owner = 'Navigation'
             Status = 'PhaseSevenTightened'
             Lifecycle = 'Mixed'
-            NamespacePrefixes = @('AnimarsCatcher.Animars.Navigation')
+            NamespacePrefixes = @('AnimarsCatcher.Navigation')
             RequireNamespace = $true
             EnforceDependencyBoundary = $true
             AllowedProjectDependencies = @(

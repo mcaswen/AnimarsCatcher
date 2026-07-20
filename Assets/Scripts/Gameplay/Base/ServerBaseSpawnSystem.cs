@@ -53,8 +53,8 @@ namespace AnimarsCatcher.Gameplay
                     baseEntity,
                     new Health
                     {
-                        max = spawnPoint.ValueRO.Health,
-                        current = spawnPoint.ValueRO.Health
+                        Maximum = spawnPoint.ValueRO.Health,
+                        Current = spawnPoint.ValueRO.Health
                     });
 
                 // 使用刷新点变换覆盖预制体默认变换

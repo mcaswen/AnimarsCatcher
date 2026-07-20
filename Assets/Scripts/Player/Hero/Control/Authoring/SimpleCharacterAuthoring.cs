@@ -3,6 +3,7 @@ namespace AnimarsCatcher.Player
     using Unity.Entities;
     using Unity.Mathematics;
     using UnityEngine;
+    using UnityEngine.Serialization;
     using Unity.NetCode;
 
     /// <summary>
@@ -11,12 +12,16 @@ namespace AnimarsCatcher.Player
     [DisallowMultipleComponent]
     public class SimpleCharacterAuthoring : MonoBehaviour
     {
-        public float MoveSpeed = 6f;
-        public float RotationSharpness = 15f;
-        public float ColliderHeight = 1.8f;
-        public float ColliderRadius = 0.4f;
+        [FormerlySerializedAs("MoveSpeed")]
+        [SerializeField] private float _moveSpeed = 6f;
+        [FormerlySerializedAs("RotationSharpness")]
+        [SerializeField] private float _rotationSharpness = 15f;
+        [FormerlySerializedAs("ColliderHeight")]
+        [SerializeField] private float _colliderHeight = 1.8f;
+        [FormerlySerializedAs("ColliderRadius")]
+        [SerializeField] private float _colliderRadius = 0.4f;
 
-        class Baker : Baker<SimpleCharacterAuthoring>
+        private sealed class Baker : Baker<SimpleCharacterAuthoring>
         {
             public override void Bake(SimpleCharacterAuthoring authoring)
             {
@@ -24,10 +29,10 @@ namespace AnimarsCatcher.Player
 
                 AddComponent(entity, new SimpleCharacter
                 {
-                    MoveSpeed        = authoring.MoveSpeed,
-                    RotationSharpness = authoring.RotationSharpness,
-                    ColliderHeight   = authoring.ColliderHeight,
-                    ColliderRadius   = authoring.ColliderRadius,
+                    MoveSpeed        = authoring._moveSpeed,
+                    RotationSharpness = authoring._rotationSharpness,
+                    ColliderHeight   = authoring._colliderHeight,
+                    ColliderRadius   = authoring._colliderRadius,
                 });
 
                 AddComponent(entity, new SimpleCharacterControl

@@ -20,7 +20,7 @@ namespace AnimarsCatcher.Gameplay
     {
         public void OnCreate(ref SystemState state)
         {
-            state.RequireForUpdate<AniGhostPrefabCollection>();
+            state.RequireForUpdate<AniGhostPrefabRegistry>();
             state.RequireForUpdate<AniSpawnPointTag>();
         }
 
@@ -28,7 +28,7 @@ namespace AnimarsCatcher.Gameplay
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-            var hasPrefab = SystemAPI.TryGetSingleton<AniGhostPrefabCollection>(out var aniGhostPrefabCollection);
+            var hasPrefab = SystemAPI.TryGetSingleton<AniGhostPrefabRegistry>(out var aniGhostPrefabCollection);
             if (!hasPrefab)
             {
                 entityCommandBuffer.Playback(state.EntityManager);
@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Gameplay
 
             // 服务器是生成数量、阵营归属和实体拥有权的最终执行方
             foreach (var (rpc, req, rpcEntity) in SystemAPI
-                         .Query<RefRO<SpawnAniRpc>, RefRO<ReceiveRpcCommandRequest>>()
+                         .Query<RefRO<SpawnAniRequestRpc>, RefRO<ReceiveRpcCommandRequest>>()
                          .WithEntityAccess())
             {
                 var connectionEntity = req.ValueRO.SourceConnection;

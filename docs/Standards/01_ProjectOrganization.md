@@ -146,9 +146,10 @@ Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使�
 3. Inspector 字段默认使用 `[SerializeField] private`。
 4. MonoBehaviour、ScriptableObject 及主要公共类型的文件名必须与类型名一致。
 5. 接口以 `I` 开头。
-6. RPC 类型使用 `Rpc` 后缀，标识符使用 `Id`，例如 `StartGameRpc`、`NetworkId`。
+6. RPC 类型使用 `Rpc` 后缀，标识符使用 `Id`，例如 `StartMatchRequestRpc`、`NetworkId`。
 7. `Manager` 仅用于确实管理生命周期或跨模块协调的类型。
 8. DOTS 组件、RPC 和 Buffer Element 等纯数据结构允许使用 public 字段。
+9. 私有静态字段与私有实例字段统一使用 `_camelCase`，不混用 `s_`、PascalCase 和 `_camelCase`。
 
 ### 5.1 缩写与变量生命周期
 
@@ -192,7 +193,39 @@ Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使�
 11. Unity、NetCode 和 NavMesh 等官方产品或 API 名称沿用官方大小写，不自行改写为 `Netcode`、`Net` 或 `Navmesh`。
 12. 不为了统一缩写直接破坏序列化引用、Ghost 协议或公共 API；存量协议名称按迁移规范渐进处理。当前 `FsmVar`、`FsmVarType`、`FsmGraphRef` 及 Ghost 字段中的 `Deg` 属于兼容性保留名称，不作为新代码命名示例。
 
-### 5.2 命名空间
+### 5.2 DOTS 类型命名
+
+1. `IComponentData` 类型不统一添加 `Component` 后缀。组件身份由接口和使用位置表达，类型名应优先说明业务职责。
+2. 不携带字段、只表达实体身份或状态存在性的组件使用 `Tag` 后缀，例如 `PlayerTag`、`AniSelectedTag`。
+3. 持续变化的运行时数据使用 `State` 后缀；不使用 `Singleton` 表达业务含义，单例只是存储约束。
+4. 烘焙或初始化后主要作为只读参数的数据使用 `Config` 后缀。
+5. 只保存一个 Entity、Prefab 或托管对象引用的数据使用 `Reference` 后缀；保存一组同类引用时使用 `Registry` 后缀。
+6. 一次性消费的命令数据使用 `Request` 后缀；结果通知使用 `Event` 或 `Notification` 后缀。
+7. Buffer Element 使用单数业务名称。名称本身不能说明其为元素时使用 `Element`，事件缓冲使用 `Event`，引用缓冲使用 `Reference`。
+8. 碰撞体尺寸、形状和局部几何数据使用 `Geometry` 或明确的形状名称，不使用含义宽泛的 `Info`。
+9. DOTS 纯数据结构的 public 字段使用 PascalCase。MonoBehaviour 和 ScriptableObject 的 Inspector 字段仍默认使用 `[SerializeField] private`。
+10. managed `IComponentData` 仅用于确实需要托管引用的数据。空 Tag 不得声明为 managed class。
+
+### 5.3 端侧类型命名
+
+1. 只在 Client World 运行的 System、发送器、连接入口和端侧桥接类型使用 `Client` 前缀。
+2. 只在 Server World 运行的 System、接收器、权威处理器和端侧工具使用 `Server` 前缀。
+3. 同时运行于 Client 和 Server、参与双方预测，或属于纯共享数据的类型不添加端侧前缀。
+4. `Client`、`Server`、`Host` 目录只存放对应端侧职责。类型实际操作 Client World 时不得放入 `Server` 目录，反之亦然。
+5. `Host` 表示同一进程内同时持有 Client 和 Server World 的产品角色。仅通过本地 Client World 发请求的 Host 入口放入 `Host` 目录，不视为 Server 入口。
+6. 端侧前缀放在类型名开头，例如 `ClientWorldCommandRaycastSystem`、`ServerApplyDamageSystem`，不使用 `StartClientXxx`、`NetCodeClientXxx` 等位置不一致的写法。
+7. 纯数据类型不因为暂时位于端侧目录就机械添加前缀；如果数据只被另一端消费，应先修正目录和所有权边界。
+
+### 5.4 Authoring 与 Baker 命名
+
+1. 仅用于把场景配置烘焙为 Entity 数据的 MonoBehaviour 使用 `Authoring` 后缀。
+2. 默认把 Baker 声明为 Authoring 内部的 `private sealed class Baker : Baker<XxxAuthoring>`。
+3. Baker 只有在逻辑复杂、需要独立测试或确实需要单独文件时才拆分；拆分后使用 `XxxBaker`，文件名必须与类型名一致。
+4. Authoring 文件只保留 Authoring、本地专用 Baker 和紧密关联的小型数据类型。存在四个以上公共类型或跨运行时职责时，应拆分为 Components、Contracts 或独立类型文件。
+5. 运行时确实承担注册、查询或生命周期维护职责的 MonoBehaviour 可以使用 `Registry`；只在 Bake 阶段提供 Prefab 的类型仍应使用 `Authoring`。
+6. Authoring 和 MonoBehaviour 的序列化字段使用 `[SerializeField] private _camelCase`。迁移已有字段时使用 `FormerlySerializedAs` 保留 Scene、Prefab 和 SubScene 数据。
+
+### 5.5 命名空间
 
 1. 所有新增手写业务类型必须声明命名空间，禁止继续向全局命名空间增加类型。
 2. 项目代码统一使用 `AnimarsCatcher` 根命名空间，第三方代码、Unity Sample 和生成代码除外。
@@ -210,13 +243,13 @@ Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使�
 推荐示例：
 
 ```text
-AnimarsCatcher.Animars.Navigation.Grid
+AnimarsCatcher.Navigation.Grid
 AnimarsCatcher.Gameplay
 AnimarsCatcher.Gameplay.Contracts
 AnimarsCatcher.Player
 AnimarsCatcher.Networking
 AnimarsCatcher.Presentation.Selection
-AnimarsCatcher.Presentation.HealthUI
+AnimarsCatcher.Presentation.HealthBars
 AnimarsCatcher.Benchmarks.LegacyNavigation
 AnimarsCatcher.Player.Editor
 ```

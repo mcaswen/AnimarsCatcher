@@ -49,11 +49,11 @@ flowchart LR
     Game[SCN_GameLevel<br/>HUD 相机 过场 Mono 表现]
     Sub[SCN_GameLevel_SubScene<br/>Authoring Registry Spawn 配置]
     UI[Mono UI 与输入]
-    Bridge[Lifecycle Notification Entity / NetworkPresentationBridgeSystem<br/>EventBus / NetworkUIEventBridge]
+    Bridge[Lifecycle Notification Entity / NetworkPresentationBridgeSystem<br/>PresentationEventBus / Typed Presentation Events]
     Client[Client World<br/>输入 预测 RPC 表现]
     Net[Unity NetCode<br/>Command RPC Ghost]
     Server[Server World<br/>校验 规则 生成 结算]
-    View[GameObject View<br/>Avatar 血条 VFX UI]
+    View[GameObject View<br/>Entity View 血条 VFX UI]
 
     Menu --> Bridge
     Menu --> Client

@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Presentation.Selection
     /// <summary>
     /// 标识框选 UI 引用已完成注入
     /// </summary>
-    public struct SelectionUIAttachedTag : IComponentData {}
+    public struct AniSelectionUIAttachedTag : IComponentData {}
 
     /// <summary>
     /// 当前框选允许的 Ani 类型
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Presentation.Selection
     /// <summary>
     /// 客户端当前 Ani 选择模式单例
     /// </summary>
-    public struct AniSelectionModeSingleton : IComponentData
+    public struct AniSelectionModeState : IComponentData
     {
         public AniSelectionMode Mode;
     }
@@ -65,7 +65,7 @@ namespace AnimarsCatcher.Presentation.Selection
     /// <summary>
     /// 客户端提交的 Ani 选择 GhostId 列表
     /// </summary>
-    public struct AniSelectionApplyRpc : IRpcCommand
+    public struct AniSelectionRequestRpc : IRpcCommand
     {
         public byte Append; // 零表示替换现有选择 非零表示追加选择
         public FixedList512Bytes<int> GhostIds; // 本次请求包含的 GhostId 列表

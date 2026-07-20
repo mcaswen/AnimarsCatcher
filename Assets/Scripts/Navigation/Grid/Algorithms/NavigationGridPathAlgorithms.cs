@@ -2,7 +2,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid
+namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
     /// 提供不依赖 World 和主线程 API 的确定性 Grid 路径算法

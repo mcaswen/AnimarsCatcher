@@ -18,13 +18,13 @@ namespace AnimarsCatcher.Gameplay
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<NetworkId>();
-            state.RequireForUpdate<PlayerResourceGhostPrefab>();
+            state.RequireForUpdate<PlayerResourceGhostPrefabReference>();
         }
 
         public void OnUpdate(ref SystemState state)
         {
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
-            var prefab = SystemAPI.GetSingleton<PlayerResourceGhostPrefab>().Value;
+            var prefab = SystemAPI.GetSingleton<PlayerResourceGhostPrefabReference>().Value;
 
             // 遍历连接并保证每个 NetworkId 只有一份资源实体
             foreach (var (networkId, connectionEntity) in SystemAPI
@@ -59,8 +59,8 @@ namespace AnimarsCatcher.Gameplay
                     TotalBlasterAniCount  = 0,
                     InTeamPickerAniCount  = 0,
                     InTeamBlasterAniCount = 0,
-                    FoodSum               = 20,
-                    CrystalSum            = 5
+                    FoodAmount               = 20,
+                    CrystalAmount            = 5
                 });
 
                 Debug.Log($"[ServerPlayerResourceInitializationSystem] Created PlayerResourceState for NetworkId = {id}");

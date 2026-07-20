@@ -11,17 +11,17 @@ namespace AnimarsCatcher.Physics.Authoring
     /// <summary>
     /// 将 Unity Terrain 高度图烘焙为 Unity Physics 地形碰撞体
     /// </summary>
-    public class TerrainColliderBaker : Baker<TerrainColliderAuthoring>
+    public sealed class TerrainColliderBaker : Baker<TerrainColliderAuthoring>
     {
         public override void Bake(TerrainColliderAuthoring authoring)
         {
-            if (authoring.terrain == null)
+            if (authoring.Terrain == null)
             {
                 Debug.LogError("TerrainColliderAuthoring requires a Terrain component to function", authoring);
                 return;
             }
 
-            var terrain = authoring.terrain;
+            var terrain = authoring.Terrain;
 
             DependsOn(terrain.terrainData);
             var terrainData = terrain.terrainData;
@@ -39,17 +39,19 @@ namespace AnimarsCatcher.Physics.Authoring
             var source = terrainData.GetHeights(0, 0, resolution, resolution);
             var colliderHeights = new NativeArray<float>(resolution * resolution, Allocator.Temp);
             for (int z = 0; z < resolution; z++)
+            {
                 for (int x = 0; x < resolution; x++)
+                {
                     colliderHeights[x + z * resolution] = source[z, x];
-
+                }
+            }
 
             // 沿用项目物理模板 保持碰撞层和表面属性一致
-            var template = authoring.physicsTemplate;
-
+            var template = authoring.PhysicsMaterialTemplate;
             var filter = new CollisionFilter
             {
                 BelongsTo = template.BelongsTo.Value,
-                CollidesWith = template.CollidesWith.Value,
+                CollidesWith = template.CollidesWith.Value
             };
 
             var material = new Material

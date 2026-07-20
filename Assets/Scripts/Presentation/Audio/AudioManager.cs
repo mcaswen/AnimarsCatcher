@@ -15,17 +15,23 @@ namespace AnimarsCatcher.Presentation.Audio
     {
         public static AudioManager Instance { get; private set; }
 
-        public AudioMixer AudioMixer;
+        [FormerlySerializedAs("AudioMixer")]
+        [SerializeField] private AudioMixer _audioMixer;
         private AudioSource _uiAudioSource;
 
         [FormerlySerializedAs("MenuBtnClick")]
-        public AudioClip MenuButtonClickClip;
+        [FormerlySerializedAs("MenuButtonClickClip")]
+        [SerializeField] private AudioClip _menuButtonClickClip;
         [FormerlySerializedAs("SwitchBtnClick")]
-        public AudioClip SwitchButtonClickClip;
+        [FormerlySerializedAs("SwitchButtonClickClip")]
+        [SerializeField] private AudioClip _switchButtonClickClip;
 
-        public Scrollbar MasterVolumeScrollbar;
-        public Scrollbar BGMVolumeScrollbar;
-        public Scrollbar UIVolumeScrollbar;
+        [FormerlySerializedAs("MasterVolumeScrollbar")]
+        [SerializeField] private Scrollbar _masterVolumeScrollbar;
+        [FormerlySerializedAs("BGMVolumeScrollbar")]
+        [SerializeField] private Scrollbar _bgmVolumeScrollbar;
+        [FormerlySerializedAs("UIVolumeScrollbar")]
+        [SerializeField] private Scrollbar _uiVolumeScrollbar;
 
         // 建立唯一实例并跨场景保留音频对象
         private void Awake()
@@ -44,22 +50,22 @@ namespace AnimarsCatcher.Presentation.Audio
         {
             _uiAudioSource = GetComponent<AudioSource>();
 
-            MasterVolumeScrollbar.onValueChanged.AddListener(value =>
+            _masterVolumeScrollbar.onValueChanged.AddListener(value =>
             {
-                AudioMixer.SetFloat("MasterVolume", Mathf.Lerp(-80f, 20f, value));
+                _audioMixer.SetFloat("MasterVolume", Mathf.Lerp(-80f, 20f, value));
             });
-            BGMVolumeScrollbar.onValueChanged.AddListener(value =>
+            _bgmVolumeScrollbar.onValueChanged.AddListener(value =>
             {
-                AudioMixer.SetFloat("BGMVolume", Mathf.Lerp(-80f, 20f, value));
+                _audioMixer.SetFloat("BGMVolume", Mathf.Lerp(-80f, 20f, value));
             });
-            UIVolumeScrollbar.onValueChanged.AddListener(value =>
+            _uiVolumeScrollbar.onValueChanged.AddListener(value =>
             {
-                AudioMixer.SetFloat("UIVolume", Mathf.Lerp(-80f, 20f, value));
+                _audioMixer.SetFloat("UIVolume", Mathf.Lerp(-80f, 20f, value));
             });
 
-            MasterVolumeScrollbar.value = 0.5f;
-            BGMVolumeScrollbar.value = 0.5f;
-            UIVolumeScrollbar.value = 0.5f;
+            _masterVolumeScrollbar.value = 0.5f;
+            _bgmVolumeScrollbar.value = 0.5f;
+            _uiVolumeScrollbar.value = 0.5f;
         }
 
         /// <summary>
@@ -67,7 +73,7 @@ namespace AnimarsCatcher.Presentation.Audio
         /// </summary>
         public void PlayMenuButtonAudio()
         {
-            _uiAudioSource.PlayOneShot(MenuButtonClickClip);
+            _uiAudioSource.PlayOneShot(_menuButtonClickClip);
         }
 
         /// <summary>
@@ -75,7 +81,7 @@ namespace AnimarsCatcher.Presentation.Audio
         /// </summary>
         public void PlaySwitchButtonAudio()
         {
-            _uiAudioSource.PlayOneShot(SwitchButtonClickClip);
+            _uiAudioSource.PlayOneShot(_switchButtonClickClip);
         }
 
         /// <summary>
@@ -83,7 +89,7 @@ namespace AnimarsCatcher.Presentation.Audio
         /// </summary>
         public void EnterMenu()
         {
-            AudioMixer.SetFloat("GameVolume", -30f);
+            _audioMixer.SetFloat("GameVolume", -30f);
         }
 
         /// <summary>
@@ -91,9 +97,8 @@ namespace AnimarsCatcher.Presentation.Audio
         /// </summary>
         public void ExitMenu()
         {
-            AudioMixer.SetFloat("GameVolume", 0f);
+            _audioMixer.SetFloat("GameVolume", 0f);
         }
     }
 }
-
 

@@ -3,6 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -40,38 +41,42 @@ namespace AnimarsCatcher.Gameplay
     public class BaseSpawnPointAuthoring : MonoBehaviour
     {
         [Header("刷出的基地预制体（Prefab 里自己配好 Camp、血条、碰撞体）")]
-        public GameObject BasePrefab;
+        [FormerlySerializedAs("BasePrefab")]
+        [SerializeField] private GameObject _basePrefab;
 
         [Header("阵营：Alpha / Beta")]
-        public CampType CampKind = CampType.Alpha;
+        [FormerlySerializedAs("CampKind")]
+        [SerializeField] private CampType _camp = CampType.Alpha;
 
         [Header("基地大小：小基地 / 大基地")]
-        public BaseSizeKind SizeKind = BaseSizeKind.Small;
+        [FormerlySerializedAs("SizeKind")]
+        [SerializeField] private BaseSizeKind _size = BaseSizeKind.Small;
 
         [Header("血量")]
-        public int Health = 1000;
+        [FormerlySerializedAs("Health")]
+        [SerializeField] private int _health = 1000;
 
-        class Baker : Baker<BaseSpawnPointAuthoring>
+        private sealed class Baker : Baker<BaseSpawnPointAuthoring>
         {
             public override void Bake(BaseSpawnPointAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
 
-                if (!authoring.BasePrefab)
+                if (!authoring._basePrefab)
                 {
                     Debug.LogWarning($"[BaseSpawnPointAuthoring] {authoring.name} 没有配置 BasePrefab");
                     return;
                 }
 
-                Entity prefabEntity = GetEntity(authoring.BasePrefab, TransformUsageFlags.Dynamic);
+                Entity prefabEntity = GetEntity(authoring._basePrefab, TransformUsageFlags.Dynamic);
 
                 AddComponent(entity, new BaseSpawnPoint
                 {
                     BasePrefab = prefabEntity,
-                    CampKind   = authoring.CampKind,
-                    SizeKind   = authoring.SizeKind,
+                    CampKind   = authoring._camp,
+                    SizeKind   = authoring._size,
                     HasSpawned = 0,
-                    Health     = authoring.Health
+                    Health     = authoring._health
                 });
 
                 // 刷新点本身的位置，用它当基地出生点

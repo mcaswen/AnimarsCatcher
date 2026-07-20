@@ -4,7 +4,7 @@ namespace AnimarsCatcher.Editor
     using System;
     using System.IO;
     using System.Linq;
-    using AnimarsCatcher.Animars.Navigation.Grid.Editor;
+    using AnimarsCatcher.Navigation.Grid.Editor;
     using AnimarsCatcher.Gameplay.Editor;
     using AnimarsCatcher.Physics.Authoring;
     using UnityEditor;
@@ -71,7 +71,7 @@ namespace AnimarsCatcher.Editor
 
         private static void ValidatePhysicsAuthoringOwnership()
         {
-            AssertAssembly(typeof(CapsulePhysicsAuthoring), PhysicsAuthoringAssemblyName);
+            AssertAssembly(typeof(CapsuleColliderGeometryAuthoring), PhysicsAuthoringAssemblyName);
             AssertAssembly(typeof(TerrainColliderAuthoring), PhysicsAuthoringAssemblyName);
             AssertAssembly(typeof(TerrainColliderBaker), PhysicsAuthoringAssemblyName);
         }

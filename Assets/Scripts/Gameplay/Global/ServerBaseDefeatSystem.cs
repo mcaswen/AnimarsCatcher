@@ -38,7 +38,7 @@ namespace AnimarsCatcher.Gameplay
                          .WithAll<BigBaseTag>()
                          .WithEntityAccess())
             {
-                if (health.ValueRO.current > 0f)
+                if (health.ValueRO.Current > 0f)
                     continue;
 
                 // 被摧毁基地的对立阵营成为胜方
@@ -62,7 +62,7 @@ namespace AnimarsCatcher.Gameplay
                         .WithEntityAccess())
                 {
                     var rpcEntity = entityCommandBuffer.CreateEntity();
-                    entityCommandBuffer.AddComponent(rpcEntity, new GameOverRpc
+                    entityCommandBuffer.AddComponent(rpcEntity, new MatchResultRpc
                     {
                         Winner = winner
                     });

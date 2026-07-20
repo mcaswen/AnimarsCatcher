@@ -49,7 +49,7 @@ Legacy 现阶段仍是活动实现。独立 asmdef 只提供编译隔离，不�
 
 Bootstrap 必须断言两个 Tag 不会同时存在。每个后端 System Group 使用 `RequireForUpdate` 等待自己的 Tag。
 
-公共输入收敛为已通过服务器权限校验的 `AniMovementOrder`，公共输出收敛为权威 Transform 和表现速度。新旧入口不能同时消费同一个 RPC，也不能同时写 Transform。
+公共输入收敛为已通过服务器权限校验的 `AniCommandRpc`，公共输出收敛为权威 Transform 和表现速度。新旧入口不能同时消费同一个 RPC，也不能同时写 Transform。
 
 ## 3. 相同输入
 

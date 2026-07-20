@@ -24,8 +24,8 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public static class AniHitBridge
     {
-        private static Queue<AniHitResultData> Hits = new Queue<AniHitResultData>();
-        private static object LockObject = new object();
+        private static readonly Queue<AniHitResultData> _hits = new Queue<AniHitResultData>();
+        private static readonly object _lockObject = new object();
 
         /// <summary>
         /// 将一次远程射线结果加入待发送队列
@@ -33,9 +33,9 @@ namespace AnimarsCatcher.Gameplay
         /// <param name="hitData">视图计算出的候选命中数据</param>
         public static void Enqueue(in AniHitResultData hitData)
         {
-            lock (LockObject)
+            lock (_lockObject)
             {
-                Hits.Enqueue(hitData);
+                _hits.Enqueue(hitData);
             }
         }
 
@@ -46,11 +46,11 @@ namespace AnimarsCatcher.Gameplay
         /// <returns>队列中存在结果时返回真</returns>
         public static bool TryDequeue(out AniHitResultData hitData)
         {
-            lock (LockObject)
+            lock (_lockObject)
             {
-                if (Hits.Count > 0)
+                if (_hits.Count > 0)
                 {
-                    hitData = Hits.Dequeue();
+                    hitData = _hits.Dequeue();
                     return true;
                 }
             }

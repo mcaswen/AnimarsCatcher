@@ -3,7 +3,7 @@ using System;
 using UnityEditor;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     internal sealed class NavigationGridInspectorWindow : EditorWindow
     {

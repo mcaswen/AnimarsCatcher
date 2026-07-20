@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using UnityEngine;
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Networking;
 
 namespace AnimarsCatcher.Presentation.Lan

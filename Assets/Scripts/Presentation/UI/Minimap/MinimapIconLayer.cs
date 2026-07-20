@@ -42,8 +42,8 @@ namespace AnimarsCatcher.Presentation.UI
             foreach (var target in all)
             {
                 var img = Instantiate(_iconPrefab, _overlayRect);
-                img.sprite = target.iconSprite;
-                img.color = target.iconColor;
+                img.sprite = target.IconSprite;
+                img.color = target.IconColor;
                 img.raycastTarget = false;
                 img.rectTransform.localScale = Vector3.one;
                 img.rectTransform.localRotation = Quaternion.identity;
@@ -70,7 +70,7 @@ namespace AnimarsCatcher.Presentation.UI
                     continue;
                 }
 
-                Vector3 samplePos = target.transform.position + target.worldOffset;
+                Vector3 samplePos = target.transform.position + target.WorldOffset;
                 Vector3 viewPoint = _minimapCamera.WorldToViewportPoint(samplePos);
 
                 // 只显示位于相机前方且处于视口范围内的目标

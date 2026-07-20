@@ -1,5 +1,5 @@
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Presentation.Resource;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,8 +27,7 @@ namespace AnimarsCatcher.Presentation.UI
         // 请求服务端增加配置数量的食物
         private void OnAddFoodClicked()
         {
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                 ResourceItemKind.Food,
                 _debugAddAmount
             );
@@ -37,8 +36,7 @@ namespace AnimarsCatcher.Presentation.UI
         // 请求服务端增加配置数量的水晶
         private void OnAddCrystalClicked()
         {
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                 ResourceItemKind.Crystal,
                 _debugAddAmount
             );

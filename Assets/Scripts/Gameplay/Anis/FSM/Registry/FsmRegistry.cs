@@ -26,10 +26,10 @@ namespace AnimarsCatcher.Gameplay
     [BurstCompile]
     public static class FsmRegistry
     {
-        private static NativeArray<FunctionPointer<ConditionFunction>> s_Conditions;
-        private static NativeArray<FunctionPointer<ActionFunction>> s_Actions;
-        private static bool s_Alive = true;
-        private static bool s_Initialized = false;
+        private static NativeArray<FunctionPointer<ConditionFunction>> _conditions;
+        private static NativeArray<FunctionPointer<ActionFunction>> _actions;
+        private static bool _isAlive = true;
+        private static bool _isInitialized;
         private const int MaxConditionCount = 1024;
         private const int MaxActionCount = 1024;
 
@@ -38,22 +38,22 @@ namespace AnimarsCatcher.Gameplay
         /// </summary>
         public static void Initialize()
         {
-            if (s_Initialized) return;
+            if (_isInitialized) return;
 
-            s_Conditions  = new NativeArray<FunctionPointer<ConditionFunction>>(MaxConditionCount, Allocator.Persistent);
-            s_Actions = new NativeArray<FunctionPointer<ActionFunction>>(MaxActionCount, Allocator.Persistent);
+            _conditions = new NativeArray<FunctionPointer<ConditionFunction>>(MaxConditionCount, Allocator.Persistent);
+            _actions = new NativeArray<FunctionPointer<ActionFunction>>(MaxActionCount, Allocator.Persistent);
 
-            s_Initialized = true;
+            _isInitialized = true;
         }
         /// <summary>
         /// 释放注册表持有的原生数组
         /// </summary>
         public static void Dispose()
         {
-            if (!s_Alive) return;
-            if (s_Conditions.IsCreated) s_Conditions.Dispose();
-            if (s_Actions.IsCreated) s_Actions.Dispose();
-            s_Alive = false;
+            if (!_isAlive) return;
+            if (_conditions.IsCreated) _conditions.Dispose();
+            if (_actions.IsCreated) _actions.Dispose();
+            _isAlive = false;
         }
 
         /// <summary>
@@ -65,7 +65,7 @@ namespace AnimarsCatcher.Gameplay
             ConditionId id,
             FunctionPointer<ConditionFunction> conditionFunctionPointer)
         {
-            var conditions = s_Conditions;
+            var conditions = _conditions;
             conditions[(int)id] = conditionFunctionPointer;
         }
 
@@ -78,7 +78,7 @@ namespace AnimarsCatcher.Gameplay
             ActionId id,
             FunctionPointer<ActionFunction> actionFunctionPointer)
         {
-            var actions = s_Actions;
+            var actions = _actions;
             actions[(int)id] = actionFunctionPointer;
         }
 
@@ -91,7 +91,7 @@ namespace AnimarsCatcher.Gameplay
         /// <returns>条件函数的评估结果</returns>
         public static bool InvokeCondition(ConditionId id, in Entity entity, in FsmContext context)
         {
-            var fp = s_Conditions[(int)id];
+            var fp = _conditions[(int)id];
             if (fp.IsCreated) return fp.Invoke(entity, context);
             return false; // 未注册条件不能触发状态迁移
         }
@@ -105,7 +105,7 @@ namespace AnimarsCatcher.Gameplay
         /// <param name="context">当前状态机上下文</param>
         public static void InvokeAction(ActionId id, in Entity entity, ref Fsm fsm, in FsmContext context)
         {
-            var fp = s_Actions[(int)id];
+            var fp = _actions[(int)id];
             if (fp.IsCreated) fp.Invoke(entity, ref fsm, context);
         }
     }

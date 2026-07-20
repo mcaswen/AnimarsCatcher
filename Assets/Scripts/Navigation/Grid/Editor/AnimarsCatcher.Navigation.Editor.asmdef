@@ -1,6 +1,6 @@
 {
   "name": "AnimarsCatcher.Navigation.Editor",
-  "rootNamespace": "AnimarsCatcher.Animars.Navigation.Grid.Editor",
+  "rootNamespace": "AnimarsCatcher.Navigation.Grid.Editor",
   "references": [
     "GUID:f05c300e182190c41b105556583f32e4",
     "GUID:e0cd26848372d4e5c891c569017e11f1",

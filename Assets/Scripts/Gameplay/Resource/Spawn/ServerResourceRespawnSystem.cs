@@ -102,20 +102,20 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                DynamicBuffer<ResourceSpawnFoodPrefab>    foodPrefabs    = default;
-                DynamicBuffer<ResourceSpawnCrystalPrefab> crystalPrefabs = default;
+                DynamicBuffer<FoodResourceSpawnPrefabReference>    foodPrefabs    = default;
+                DynamicBuffer<CrystalResourceSpawnPrefabReference> crystalPrefabs = default;
 
                 bool hasFoodPrefabs =
-                    SystemAPI.HasBuffer<ResourceSpawnFoodPrefab>(areaEntity);
+                    SystemAPI.HasBuffer<FoodResourceSpawnPrefabReference>(areaEntity);
 
                 bool hasCrystalPrefabs =
-                    SystemAPI.HasBuffer<ResourceSpawnCrystalPrefab>(areaEntity);
+                    SystemAPI.HasBuffer<CrystalResourceSpawnPrefabReference>(areaEntity);
 
                 if (hasFoodPrefabs)
-                    foodPrefabs = SystemAPI.GetBuffer<ResourceSpawnFoodPrefab>(areaEntity);
+                    foodPrefabs = SystemAPI.GetBuffer<FoodResourceSpawnPrefabReference>(areaEntity);
 
                 if (hasCrystalPrefabs)
-                    crystalPrefabs = SystemAPI.GetBuffer<ResourceSpawnCrystalPrefab>(areaEntity);
+                    crystalPrefabs = SystemAPI.GetBuffer<CrystalResourceSpawnPrefabReference>(areaEntity);
 
                 if (foodSpawnBudget > 0 && (!hasFoodPrefabs || foodPrefabs.Length == 0))
                     foodSpawnBudget = 0;
@@ -210,7 +210,7 @@ namespace AnimarsCatcher.Gameplay
             ref EntityCommandBuffer entityCommandBuffer,
             ref Unity.Mathematics.Random random,
             in ResourceSpawnArea area,
-            in DynamicBuffer<ResourceSpawnFoodPrefab> foodPrefabs)
+            in DynamicBuffer<FoodResourceSpawnPrefabReference> foodPrefabs)
         {
             if (foodPrefabs.Length == 0)
                 return false;
@@ -249,7 +249,7 @@ namespace AnimarsCatcher.Gameplay
             ref EntityCommandBuffer entityCommandBuffer,
             ref Unity.Mathematics.Random random,
             in ResourceSpawnArea area,
-            in DynamicBuffer<ResourceSpawnCrystalPrefab> crystalPrefabs)
+            in DynamicBuffer<CrystalResourceSpawnPrefabReference> crystalPrefabs)
         {
             if (crystalPrefabs.Length == 0)
                 return false;

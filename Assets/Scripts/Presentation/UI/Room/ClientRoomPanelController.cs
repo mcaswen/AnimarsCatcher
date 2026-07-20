@@ -3,11 +3,12 @@ using UnityEngine;
 using UnityEngine.UI;
 using Unity.Entities;
 using Unity.NetCode;
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.Lan;
 using UnityEngine.Events;
 using AnimarsCatcher.Networking;
 using AnimarsCatcher.Presentation.Account;
+using AnimarsCatcher.Presentation.Network;
+using AnimarsCatcher.Presentation.Room;
 
 namespace AnimarsCatcher.Presentation.UI
 {
@@ -57,7 +58,7 @@ namespace AnimarsCatcher.Presentation.UI
         private float _lastDiscoveryPollTime;
         private float _connectStartTime;
 
-        private UnityAction<JoinGameRoomRequestEventData> _onJoinRoomRequestedHandler;
+        private UnityAction<JoinRoomRequestedEvent> _onJoinRoomRequestedHandler;
 
         private void Awake()
         {
@@ -77,15 +78,15 @@ namespace AnimarsCatcher.Presentation.UI
         private void Start()
         {
             _onJoinRoomRequestedHandler = data => OnJoinRoomRequested();
-            EventBus.Instance.Subscribe(_onJoinRoomRequestedHandler);
-            NetworkUIEventBridge.MatchStartedEvent.AddListener(OnMatchStarted);
+            PresentationEventBus.Instance.Subscribe(_onJoinRoomRequestedHandler);
+            NetworkPresentationEvents.MatchStarted.AddListener(OnMatchStarted);
         }
 
         // 对称解除事件监听并停止局域网发现
         private void OnDestroy()
         {
-            EventBus.Instance.Unsubscribe(_onJoinRoomRequestedHandler);
-            NetworkUIEventBridge.MatchStartedEvent.RemoveListener(OnMatchStarted);
+            PresentationEventBus.Instance.Unsubscribe(_onJoinRoomRequestedHandler);
+            NetworkPresentationEvents.MatchStarted.RemoveListener(OnMatchStarted);
         }
 
         // 清空一次连接尝试的计时器 状态标记和提示界面
@@ -148,7 +149,7 @@ namespace AnimarsCatcher.Presentation.UI
             _lastDiscoveryPollTime = 0f;
         }
 
-        private void OnMatchStarted(MatchStartedEventData eventData)
+        private void OnMatchStarted(MatchStartedEvent eventData)
         {
             _clientRoomPanel?.SetActive(false);
             _mainMenuPanel?.SetActive(true);
@@ -237,7 +238,7 @@ namespace AnimarsCatcher.Presentation.UI
             _lanDiscoveryClient?.StopListening();
 
             // 连接请求会在客户端世界异步建立连接实体
-            NetCodeClientConnector.RequestConnect(ip, port);
+            ClientNetCodeConnector.RequestConnect(ip, port);
 
             _isSearchingServer = false;
             _isConnecting = true;
@@ -252,7 +253,7 @@ namespace AnimarsCatcher.Presentation.UI
         {
             if (!_isConnecting) return;
 
-            var clientWorld = WorldManager.FindClientWorld();
+            var clientWorld = NetworkWorldLocator.FindClientWorld();
             if (clientWorld == null) return;
 
             var entityManager = clientWorld.EntityManager;
@@ -265,7 +266,7 @@ namespace AnimarsCatcher.Presentation.UI
                 Debug.Log("[ClientRoomPanel] Detected successful connection (NetworkId present).");
 
                 // 连接建立后再发送玩家身份 避免 RPC 早于连接可用
-                ClientLobbyIntroSender.SendIntro(clientWorld, PlayerSession.CurrentUserName);
+                ClientLobbyIntroRpcSender.SendIntro(clientWorld, PlayerSession.CurrentUserName);
 
                 return;
             }

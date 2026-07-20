@@ -1,6 +1,7 @@
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -10,20 +11,21 @@ namespace AnimarsCatcher.Gameplay
     [DisallowMultipleComponent]
     public class HealthAuthoring : MonoBehaviour
     {
-        public int maxHealth = 100;
+        [FormerlySerializedAs("maxHealth")]
+        [SerializeField] private int _maximumHealth = 100;
 
-        class Baker : Baker<HealthAuthoring>
+        private sealed class Baker : Baker<HealthAuthoring>
         {
             public override void Bake(HealthAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
 
-                int maxHealth = Mathf.Max(1, authoring.maxHealth);
+                int maximumHealth = Mathf.Max(1, authoring._maximumHealth);
 
                 AddComponent(entity, new Health
                 {
-                    current = maxHealth,
-                    max     = maxHealth,
+                    Current = maximumHealth,
+                    Maximum = maximumHealth,
                 });
             }
         }

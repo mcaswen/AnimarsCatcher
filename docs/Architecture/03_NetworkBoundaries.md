@@ -15,7 +15,7 @@
 - Player 使用 `-client` 时只创建 Client World；无参数启动当前也默认按 Client 处理
 - Dedicated Server 使用 `-dedicated`，只创建 Server World
 
-`WorldManager` 为 MonoBehaviour 和 UI 提供查找 Client World、Server World 的入口。ECS System 自身应通过 `WorldSystemFilter` 明确运行侧，不应依赖静态查找来决定自己承担客户端还是服务器职责。
+`NetworkWorldLocator` 为 MonoBehaviour 和 UI 提供查找 Client World、Server World 的入口。ECS System 自身应通过 `WorldSystemFilter` 明确运行侧，不应依赖静态查找来决定自己承担客户端还是服务器职责。
 
 ## 2. 网络数据采用哪种方式传输
 
@@ -39,7 +39,7 @@ Ghost Snapshot 用于持续复制服务器权威状态，例如 `Health`、`Camp
 
 ### 2.4 进程内桥接
 
-生命周期通知 Entity、`NetworkPresentationBridgeSystem`、`NetworkUIEventBridge`、攻击事件队列以及 managed `IComponentData` 用于同一进程内 ECS World 与 GameObject UI/View 之间的交互。Networking 只发布短生命周期通知，Mono 桥接负责加载界面和 UnityEvent 适配。这类桥接不经过网络，也不能替代客户端和服务器之间的正式同步。
+生命周期通知 Entity、`NetworkPresentationBridgeSystem`、按职责拆分的表现事件、攻击事件队列以及 managed `IComponentData` 用于同一进程内 ECS World 与 GameObject UI/View 之间的交互。Networking 只发布短生命周期通知，Mono 桥接负责加载界面和 UnityEvent 适配。这类桥接不经过网络，也不能替代客户端和服务器之间的正式同步。
 
 ## 3. 客户端和服务器分别负责什么
 
@@ -52,7 +52,7 @@ Ghost Snapshot 用于持续复制服务器权威状态，例如 `Health`、`Camp
 - 对自己拥有的玩家角色执行移动预测
 - 发送 Ani 选择、移动、生成和命中候选等请求
 - 根据 Ghost 状态播放动画、特效、音频并更新 HUD
-- 创建 Avatar View、血条、选择光圈和其他 GameObject 表现
+- 创建 Entity View、血条、选择光圈和其他 GameObject 表现
 
 客户端不应直接决定伤害、资源到账、Ani 权威状态、基地败北或最终胜方。即使本地已经计算出一个候选结果，也必须由服务器复核。
 
@@ -81,24 +81,24 @@ Ani、基地和资源主要采用服务器权威、客户端插值的方式。�
 
 ### 4.1 大厅与开局
 
-- `ClientLobbyIntroRpc` 从 Client 发往 Server，由 `ServerReceiveLobbyIntroSystem` 接收，用于提交大厅显示名称
-- `StartGameRpc` 从 Host Client 发往 Server，由 `ServerStartGameSystem` 接收，用于请求开始目标场景
-- `ClientStartGameRpc` 从 Server 发往 Client，由 `ClientStartGameSystem` 接收，用于广播服务器决定的目标场景
-- `SetInGameRpc` 从 Client 发往 Server，由 `ServerSetInGameRpcSystem` 接收，表示客户端场景和 Ghost 资源已经就绪
-- `GoInGameRequest` 从 Client 发往 Server，由 `ServerGoInGameDebugSystem` 接收，仅用于 Editor 调试直入游戏
+- `LobbyIntroRequestRpc` 从 Client 发往 Server，由 `ServerReceiveLobbyIntroRpcSystem` 接收，用于提交大厅显示名称
+- `StartMatchRequestRpc` 从 Host Client 发往 Server，由 `ServerStartMatchSystem` 接收，用于请求开始目标场景
+- `StartMatchNotificationRpc` 从 Server 发往 Client，由 `ClientHandleStartMatchNotificationSystem` 接收，用于广播服务器决定的目标场景
+- `ClientReadyForGameRpc` 从 Client 发往 Server，由 `ServerHandleReadyForGameRpcSystem` 接收，表示客户端场景和 Ghost 资源已经就绪
+- `DebugEnterGameRpc` 从 Client 发往 Server，由 `ServerHandleDebugEnterGameRpcSystem` 接收，仅用于 Editor 调试直入游戏
 
 ### 4.2 Ani 生成与指挥
 
-- `SpawnAniRpc` 从 Client 发往 Server，由 `ServerSpawnAnisSystem` 接收，用于请求生成两类 Ani
-- `AniSelectionApplyRpc` 从 Client 发往 Server，由 `ServerApplyAniSelectionRpcSystem` 接收，携带选中 Ani 的 GhostId 列表
-- `MovementOrderRpc` 从 Client 发往 Server，由 `ServerMovementOrderReceiveRpcSystem` 接收，携带目标位置和选中 Ani 快照
+- `SpawnAniRequestRpc` 从 Client 发往 Server，由 `ServerSpawnAnisSystem` 接收，用于请求生成两类 Ani
+- `AniSelectionRequestRpc` 从 Client 发往 Server，由 `ServerApplyAniSelectionRpcSystem` 接收，携带选中 Ani 的 GhostId 列表
+- `AniCommandRpc` 从 Client 发往 Server，由 `ServerReceiveAniCommandRpcSystem` 接收，携带目标位置和选中 Ani 快照
 
 ### 4.3 战斗、资源与比赛结果
 
-- `AttackHitRpc` 从 Client 发往 Server，由 `ServerApplyAttackHitRpcSystem` 接收，表示近战动画产生了命中候选
+- `MeleeHitRpc` 从 Client 发往 Server，由 `ServerApplyMeleeHitRpcSystem` 接收，表示近战动画产生了命中候选
 - `RangedHitRpc` 从 Client 发往 Server，由 `ServerApplyRangedHitRpcSystem` 接收，表示远程射线产生了命中候选
-- `ResourceChangedRpc` 从 Client 发往 Server，由资源调试系统接收，用于请求资源增量。它属于需要重点限制的调试入口
-- `GameOverRpc` 从 Server 发往 Client，由 `ClientGameOverRpcSystem` 接收，用于通知服务器判定的胜方
+- `DebugAdjustResourceRpc` 从 Client 发往 Server，由资源调试系统接收，用于请求资源增量。它属于需要重点限制的调试入口
+- `MatchResultRpc` 从 Server 发往 Client，由 `ClientHandleMatchResultRpcSystem` 接收，用于通知服务器判定的胜方
 
 RPC Entity 在消费后必须销毁，避免同一请求被重复处理。
 
@@ -129,7 +129,7 @@ RPC Entity 在消费后必须销毁，避免同一请求被重复处理。
 
 有两项状态需要特别说明：
 
-- `GameResult` 当前是 Server World 中的普通 Entity，并不是客户端可读取的 Ghost。客户端通过 `GameOverRpc` 接收最终结果
+- `GameResult` 当前是 Server World 中的普通 Entity，并不是客户端可读取的 Ghost。客户端通过 `MatchResultRpc` 接收最终结果
 - `GlobalGameResourceState` 虽然使用了 Ghost 相关标注，但当前场景 Entity 没有形成实际 Ghost 同步链路，因此纯 Client 无法直接读取服务器比赛时间
 
 ## 6. 服务端校验顺序
@@ -151,14 +151,14 @@ RPC Entity 在消费后必须销毁，避免同一请求被重复处理。
 客户端表现层通过以下桥接访问 ECS：
 
 - `LobbyClientJoinedNotification`、`MatchStartedNotification` 和 `ClientSceneLoadRequest` 从 Networking 发布生命周期通知，不引用具体 UI
-- `NetworkPresentationBridgeSystem` 消费通知 Entity，把网络状态适配为加载界面和现有 `NetworkUIEventBridge` 事件
-- `NetworkUIEventBridge` 继续处理输入锁、选择模式和少量 UI 发出的命令
-- `EventBus` 负责主菜单和房间流程中的 MonoBehaviour 之间通信
-- `WorldManager` 让 MonoBehaviour 查找当前进程中的 Client World 或 Server World
-- `GameResourceGetter` 直接查询 World。本地玩家资源从 Client World 读取，但比赛时间目前直接读取 Server World
+- `NetworkPresentationBridgeSystem` 消费通知 Entity，把网络状态适配为加载界面和 `NetworkPresentationEvents`
+- `UIInputEvents`、`AniSelectionEvents` 和 `ResourceRequestEvents` 分别处理输入锁、选择模式和资源调试请求
+- `PresentationEventBus` 负责主菜单和房间流程中的 MonoBehaviour 之间通信
+- `NetworkWorldLocator` 让 MonoBehaviour 查找当前进程中的 Client World 或 Server World
+- `ResourceStateReader` 直接查询 World。本地玩家资源从 Client World 读取，但比赛时间目前直接读取 Server World
 - `AniAttackEventBridge` 和 `AniHitBridge` 把动画事件与射线命中候选从 View 传入 Client ECS
-- `AvatarViewPrefabReference`、`HealthBarViewPrefab` 等 managed `IComponentData` 把 Prefab 或 View 引用提供给客户端表现 System
+- `EntityViewConfig`、`HealthBarViewConfig` 等 managed `IComponentData` 把 Prefab 或 View 引用提供给客户端表现 System
 
 不同 World 之间不能共享 `EntityManager`、Entity 或可变 NativeContainer。跨层桥接数据至少要包含明确的 `NetworkId`；如果同一进程中同时存在 Client World 和 Server World，还需要明确数据来自哪个 World。
 
-当前 `TryGlobalGameResourceState` 会直接查找 Server World，所以只有 Host 进程能够稳定读取服务器维护的比赛时间。纯 Client 进程没有 Server World。后续需要把比赛时间纳入实际 Ghost 同步链路，或者通过专门的服务器消息同步。
+当前 `TryGetGlobalGameResourceState` 会直接查找 Server World，所以只有 Host 进程能够稳定读取服务器维护的比赛时间。纯 Client 进程没有 Server World。后续需要把比赛时间纳入实际 Ghost 同步链路，或者通过专门的服务器消息同步。

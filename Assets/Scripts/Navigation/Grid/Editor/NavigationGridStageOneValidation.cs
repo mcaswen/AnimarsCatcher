@@ -7,7 +7,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 执行阶段一 Grid 算法与编辑器烘焙自动验收

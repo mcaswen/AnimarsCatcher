@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(FsmApplyTransitionSystem))]
+    [UpdateAfter(typeof(ServerFsmApplyTransitionSystem))]
     [UpdateAfter(typeof(AniFormationManagementSystem))]
     public partial struct AniMovementPlannerSystem : ISystem
     {

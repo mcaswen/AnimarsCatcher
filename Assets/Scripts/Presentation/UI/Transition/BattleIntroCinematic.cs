@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using UnityEngine.Serialization;
 using Cinemachine;
-using AnimarsCatcher.Presentation.Global;
+using AnimarsCatcher.Presentation.InputLock;
 using AnimarsCatcher.Player;
 
 namespace AnimarsCatcher.Presentation.UI
@@ -109,9 +109,9 @@ namespace AnimarsCatcher.Presentation.UI
         private void SetInputEnabled(bool enabled)
         {
             if (enabled)
-                NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
+                UIInputEvents.RaiseUnlocked();
             else
-                NetworkUIEventBridge.RaiseUIPanelInputLocked();
+                UIInputEvents.RaiseLocked();
         }
     }
 }

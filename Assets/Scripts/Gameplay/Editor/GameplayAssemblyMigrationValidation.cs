@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Gameplay.Editor
             AssertAssembly(typeof(ServerSpawnAnisSystem), GameplayAssemblyName);
             AssertAssembly(typeof(ServerBaseDefeatSystem), GameplayAssemblyName);
             AssertAssembly(typeof(PlayerResourceState), GameplayAssemblyName);
-            AssertAssembly(typeof(ResourceChangedRpc), ContractsAssemblyName);
+            AssertAssembly(typeof(DebugAdjustResourceRpc), ContractsAssemblyName);
         }
 
         private static void ValidateScenes()

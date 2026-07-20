@@ -12,47 +12,55 @@ namespace AnimarsCatcher.Player
     [DisallowMultipleComponent]
     public class FixedCameraAuthoring : MonoBehaviour
     {
-
         // 固定视角参数决定相机相对角色的稳定构图
+        [FormerlySerializedAs("Distance")]
         [Header("Fixed Config")]
-
-        public float Distance = 6f;
+        [SerializeField] private float _distance = 6f;
 
         [FormerlySerializedAs("PitchDeg")]
-        [Range(-89, 89)] public float PitchDegrees = 20f;
+        [FormerlySerializedAs("PitchDegrees")]
+        [Range(-89, 89)]
+        [SerializeField] private float _pitchDegrees = 20f;
 
         [FormerlySerializedAs("YawDeg")]
-        public float YawDegrees = 45f;
+        [FormerlySerializedAs("YawDegrees")]
+        [SerializeField] private float _yawDegrees = 45f;
 
+        [FormerlySerializedAs("Height")]
         [Tooltip("相机相对目标的垂直偏移，单位米")]
-        public float Height = 1.5f;
+        [SerializeField] private float _height = 1.5f;
 
-        public float Damping = 0.12f;
+        [FormerlySerializedAs("Damping")]
+        [SerializeField] private float _damping = 0.12f;
 
+        [FormerlySerializedAs("LookUpBias")]
         [Tooltip("观察点相对目标的垂直偏移，单位米")]
-        public float LookUpBias = 0.8f;
+        [SerializeField] private float _lookUpBias = 0.8f;
 
         // 网络偏差超过阈值时跳过阻尼直接吸附
+        [FormerlySerializedAs("SnapDistance")]
         [Header("Network Snap Settings")]
-        public float SnapDistance = 0.5f;
+        [SerializeField] private float _snapDistance = 0.5f;
+        [FormerlySerializedAs("SnapAngleDegrees")]
         [FormerlySerializedAs("SnapAngleDeg")]
-        public float SnapAngleDegrees = 8f;
+        [SerializeField] private float _snapAngleDegrees = 8f;
 
-        class Baker : Baker<FixedCameraAuthoring>
+        private sealed class Baker : Baker<FixedCameraAuthoring>
         {
             public override void Bake(FixedCameraAuthoring authoring)
             {
-
                 var cameraEntity = GetEntity(TransformUsageFlags.Dynamic);
 
                 AddComponent(cameraEntity, new FixedCamera
                 {
-                    Distance = authoring.Distance,
-                    PitchDeg = authoring.PitchDegrees,
-                    YawDeg = authoring.YawDegrees,
-                    Height = authoring.Height,
-                    Damping = math.max(0.0001f, authoring.Damping),
-                    LookUpBias = authoring.LookUpBias
+                    Distance = authoring._distance,
+                    PitchDeg = authoring._pitchDegrees,
+                    YawDeg = authoring._yawDegrees,
+                    Height = authoring._height,
+                    Damping = math.max(0.0001f, authoring._damping),
+                    LookUpBias = authoring._lookUpBias,
+                    SnapDistance = math.max(0f, authoring._snapDistance),
+                    SnapAngleDeg = math.max(0f, authoring._snapAngleDegrees)
                 });
 
                 AddComponent<FixedCameraSmoothState>(cameraEntity);

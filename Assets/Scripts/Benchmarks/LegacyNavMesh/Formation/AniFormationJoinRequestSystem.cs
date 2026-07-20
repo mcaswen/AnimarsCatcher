@@ -14,7 +14,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ServerMovementOrderReceiveRpcSystem))]
+    [UpdateAfter(typeof(ServerReceiveAniCommandRpcSystem))]
     [UpdateBefore(typeof(AniFormationManagementSystem))]
     public partial struct AniFormationJoinRequestSystem : ISystem
     {

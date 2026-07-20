@@ -4,33 +4,45 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
-using AnimarsCatcher.Presentation.Global;
 using AnimarsCatcher.Presentation.Audio;
 using AnimarsCatcher.Gameplay.Contracts;
-using AnimarsCatcher.Presentation.Gameplay;
+using AnimarsCatcher.Presentation.Anis;
+using AnimarsCatcher.Presentation.InputLock;
 using AnimarsCatcher.Presentation.Resource;
+using AnimarsCatcher.Presentation.UI;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace AnimarsCatcher.Presentation.UI
+namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
     /// 管理本地玩家准备生成的 Picker 和 Blaster 数量
     /// 所有增减操作都会先按当前资源快照校验成本
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Presentation.UI", "AnimarsCatcher.Presentation", "AniSelectionPanelController")]
     public class AniSelectionPanelController : MonoBehaviour
     {
-        public TextMeshProUGUI Text_Selection_SpawningPickerAniCount;
-        public TextMeshProUGUI Text_Selection_SpawningBlasterAniCount;
+        [FormerlySerializedAs("Text_Selection_SpawningPickerAniCount")]
+        [SerializeField] private TextMeshProUGUI _spawningPickerAniCountText;
+        [FormerlySerializedAs("Text_Selection_SpawningBlasterAniCount")]
+        [SerializeField] private TextMeshProUGUI _spawningBlasterAniCountText;
 
-        public Button Selection_AddPickerAniButton;
-        public Button Selection_DeductPickerAniButton;
+        [FormerlySerializedAs("Selection_AddPickerAniButton")]
+        [SerializeField] private Button _addPickerAniButton;
+        [FormerlySerializedAs("Selection_DeductPickerAniButton")]
+        [SerializeField] private Button _deductPickerAniButton;
 
-        public Button Selection_AddBlasterAniButton;
-        public Button Selection_DeductBlasterAniButton;
+        [FormerlySerializedAs("Selection_AddBlasterAniButton")]
+        [SerializeField] private Button _addBlasterAniButton;
+        [FormerlySerializedAs("Selection_DeductBlasterAniButton")]
+        [SerializeField] private Button _deductBlasterAniButton;
 
-        public Button Selection_ConfirmButton;
-        public Button Selection_ReturnButton;
+        [FormerlySerializedAs("Selection_ConfirmButton")]
+        [SerializeField] private Button _confirmButton;
+        [FormerlySerializedAs("Selection_ReturnButton")]
+        [SerializeField] private Button _returnButton;
 
-        public GameObject SelectionPanel;
+        [FormerlySerializedAs("SelectionPanel")]
+        [SerializeField] private GameObject _selectionPanel;
 
         // 当前面板中的临时选择值 确认前不会提交到服务端
         private int _spawningBlasterAniCount = 0;
@@ -45,45 +57,45 @@ namespace AnimarsCatcher.Presentation.UI
 
         private void Awake()
         {
-            SelectionPanel?.SetActive(false);
+            _selectionPanel?.SetActive(false);
 
-            Selection_AddPickerAniButton?.onClick.AddListener(() =>
+            _addPickerAniButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 CheckAddPickerAni();
             });
 
-            Selection_DeductPickerAniButton?.onClick.AddListener(() =>
+            _deductPickerAniButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 CheckDeductPickerAni();
             });
 
-            Selection_AddBlasterAniButton?.onClick.AddListener(() =>
+            _addBlasterAniButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 CheckAddBlasterAni();
             });
 
-            Selection_DeductBlasterAniButton?.onClick.AddListener(() =>
+            _deductBlasterAniButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 CheckDeductBlasterAni();
             });
 
-            Selection_ConfirmButton?.onClick.AddListener(() => OnSelectionMenuConfirmed());
-            Selection_ReturnButton?.onClick.AddListener(() =>
+            _confirmButton?.onClick.AddListener(OnSelectionMenuConfirmed);
+            _returnButton?.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
 
                 _spawningPickerAniCount = 0;
                 _spawningBlasterAniCount = 0;
 
-                Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
-                Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
+                _spawningBlasterAniCountText.text = _spawningBlasterAniCount.ToString();
+                _spawningPickerAniCountText.text = _spawningPickerAniCount.ToString();
 
-                NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
-                SmoothPanelView.HidePanel(SelectionPanel, _panelAnimationDuration);
+                UIInputEvents.RaiseUnlocked();
+                SmoothPanelView.HidePanel(_selectionPanel, _panelAnimationDuration);
             });
         }
 
@@ -91,36 +103,34 @@ namespace AnimarsCatcher.Presentation.UI
         {
             if (Input.GetKeyDown(KeyCode.E))
             {
-                SmoothPanelView.ShowPanel(SelectionPanel, _panelAnimationDuration);
-                NetworkUIEventBridge.RaiseUIPanelInputLocked();
+                SmoothPanelView.ShowPanel(_selectionPanel, _panelAnimationDuration);
+                UIInputEvents.RaiseLocked();
             }
         }
 
         // 校验食物和水晶成本后增加 Picker 计划数量
         private void CheckAddPickerAni()
         {
-            var success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
+            var success = ResourceStateReader.TryGetLocalPlayerResourceState(out var playerResourceState);
             if (!success)
             {
                 Debug.LogError("[AniSelectionPanelController] Failed to get local player resource state.");
                 return;
             }
-            int foodSum = playerResourceState.FoodSum;
-            int crystalSum = playerResourceState.CrystalSum;
+            int foodSum = playerResourceState.FoodAmount;
+            int crystalSum = playerResourceState.CrystalAmount;
 
             if (foodSum >= _pickerAniFoodCostCount &&
                 crystalSum >= _pickerAniCrystalCostCount)
             {
                 _spawningPickerAniCount++;
-                Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
+                _spawningPickerAniCountText.text = _spawningPickerAniCount.ToString();
 
-                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetworkUIEventSource.ClientWorld,
+                ResourceRequestEvents.RaiseAdjustmentRequested(
                     ResourceItemKind.Food,
                     -_pickerAniFoodCostCount);
 
-                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                        NetworkUIEventSource.ClientWorld,
+                ResourceRequestEvents.RaiseAdjustmentRequested(
                         ResourceItemKind.Crystal,
                         -_pickerAniCrystalCostCount);
 
@@ -136,15 +146,13 @@ namespace AnimarsCatcher.Presentation.UI
                 return;
 
             _spawningPickerAniCount--;
-            Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
+            _spawningPickerAniCountText.text = _spawningPickerAniCount.ToString();
 
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                 ResourceItemKind.Food,
                 _pickerAniFoodCostCount);
 
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                     ResourceItemKind.Crystal,
                     _pickerAniCrystalCostCount);
 
@@ -155,29 +163,27 @@ namespace AnimarsCatcher.Presentation.UI
         // 校验食物和水晶成本后增加 Blaster 计划数量
         private void CheckAddBlasterAni()
         {
-            var success = GameResourceGetter.TryGetLocalPlayerResourceState(out var playerResourceState);
+            var success = ResourceStateReader.TryGetLocalPlayerResourceState(out var playerResourceState);
             if (!success)
             {
                 Debug.LogError("[AniSelectionPanelController] Failed to get local player resource state.");
                 return;
             }
 
-            int foodSum = playerResourceState.FoodSum;
-            int crystalSum = playerResourceState.CrystalSum;
+            int foodSum = playerResourceState.FoodAmount;
+            int crystalSum = playerResourceState.CrystalAmount;
 
             if (foodSum >= _blasterAniFoodCostCount &&
                 crystalSum >= _blasterAniCrystalCostCount)
             {
                 _spawningBlasterAniCount++;
-                Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
+                _spawningBlasterAniCountText.text = _spawningBlasterAniCount.ToString();
 
-                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetworkUIEventSource.ClientWorld,
+                ResourceRequestEvents.RaiseAdjustmentRequested(
                     ResourceItemKind.Food,
                     -_blasterAniFoodCostCount);
 
-                NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                        NetworkUIEventSource.ClientWorld,
+                ResourceRequestEvents.RaiseAdjustmentRequested(
                         ResourceItemKind.Crystal,
                         -_blasterAniCrystalCostCount);
 
@@ -193,15 +199,13 @@ namespace AnimarsCatcher.Presentation.UI
                 return;
 
             _spawningBlasterAniCount--;
-            Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
+            _spawningBlasterAniCountText.text = _spawningBlasterAniCount.ToString();
 
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                 ResourceItemKind.Food,
                 _blasterAniFoodCostCount);
 
-            NetworkUIEventBridge.RaiseResourceChangedRequestedEvent(
-                    NetworkUIEventSource.ClientWorld,
+            ResourceRequestEvents.RaiseAdjustmentRequested(
                     ResourceItemKind.Crystal,
                     _blasterAniCrystalCostCount);
 
@@ -212,16 +216,16 @@ namespace AnimarsCatcher.Presentation.UI
         // 发布最终选择并关闭面板输入锁
         private void OnSelectionMenuConfirmed()
         {
-            SmoothPanelView.HidePanel(SelectionPanel, _panelAnimationDuration);
-            NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
+            SmoothPanelView.HidePanel(_selectionPanel, _panelAnimationDuration);
+            UIInputEvents.RaiseUnlocked();
 
-            AniSpawnRequestSender.RequestSpawnAnis(_spawningBlasterAniCount, _spawningPickerAniCount);
+            ClientAniSpawnRequestSender.RequestSpawnAnis(_spawningBlasterAniCount, _spawningPickerAniCount);
 
             _spawningPickerAniCount = 0;
             _spawningBlasterAniCount = 0;
 
-            Text_Selection_SpawningBlasterAniCount.text = _spawningBlasterAniCount.ToString();
-            Text_Selection_SpawningPickerAniCount.text = _spawningPickerAniCount.ToString();
+            _spawningBlasterAniCountText.text = _spawningBlasterAniCount.ToString();
+            _spawningPickerAniCountText.text = _spawningPickerAniCount.ToString();
         }
     }
 }

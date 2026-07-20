@@ -54,7 +54,7 @@ namespace AnimarsCatcher.Networking
             CharacterSpawnPointsState stateRW,
             in ServerGetConnectionAspect connectionAspect,
             in DynamicBuffer<CharacterSpawnPointElement> pointsRO,
-            SpawnSelectMode mode,
+            CharacterSpawnSelectionMode mode,
             out float3 spawnPosition,
             out quaternion spawnRotation)
         {
@@ -64,7 +64,7 @@ namespace AnimarsCatcher.Networking
             if (pointsRO.Length > 0)
             {
                 int index;
-                if (mode == SpawnSelectMode.NetworkIdModulo)
+                if (mode == CharacterSpawnSelectionMode.NetworkIdModulo)
                 {
                     index = math.abs(connectionAspect.Id) % pointsRO.Length;
                 }

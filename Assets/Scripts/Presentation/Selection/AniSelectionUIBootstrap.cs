@@ -1,6 +1,5 @@
-using Unity.Entities;
 using UnityEngine;
-using Unity.NetCode;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Presentation.Selection
 {
@@ -9,8 +8,15 @@ namespace AnimarsCatcher.Presentation.Selection
     /// </summary>
     public class AniSelectionUIBootstrap : MonoBehaviour
     {
-        public Camera worldCamera;
-        public Canvas rootCanvas;
-        public RectTransform selectionRect;
+        [FormerlySerializedAs("worldCamera")]
+        [SerializeField] private Camera _worldCamera;
+        [FormerlySerializedAs("rootCanvas")]
+        [SerializeField] private Canvas _rootCanvas;
+        [FormerlySerializedAs("selectionRect")]
+        [SerializeField] private RectTransform _selectionRect;
+
+        public Camera WorldCamera => _worldCamera;
+        public Canvas RootCanvas => _rootCanvas;
+        public RectTransform SelectionRect => _selectionRect;
     }
 }

@@ -2,7 +2,7 @@ using UnityEngine;
 using Unity.Entities;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Presentation.Global
+namespace AnimarsCatcher.Presentation.Match
 {
     /// <summary>
     /// 负责结束当前网络会话并安全返回主菜单场景

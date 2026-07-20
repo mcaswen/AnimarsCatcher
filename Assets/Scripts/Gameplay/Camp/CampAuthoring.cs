@@ -1,6 +1,7 @@
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -10,9 +11,10 @@ namespace AnimarsCatcher.Gameplay
     [DisallowMultipleComponent]
     public class CampAuthoring : MonoBehaviour
     {
-        public CampType initialCamp = CampType.Neutral;
+        [FormerlySerializedAs("initialCamp")]
+        [SerializeField] private CampType _initialCamp = CampType.Neutral;
 
-        class Baker : Baker<CampAuthoring>
+        private sealed class Baker : Baker<CampAuthoring>
         {
             public override void Bake(CampAuthoring authoring)
             {
@@ -20,7 +22,7 @@ namespace AnimarsCatcher.Gameplay
 
                 AddComponent(entity, new Camp
                 {
-                    Value = authoring.initialCamp
+                    Value = authoring._initialCamp
                 });
             }
         }

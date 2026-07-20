@@ -23,8 +23,8 @@ namespace AnimarsCatcher.Gameplay
         [GhostField] public int SelectedBlasterAniCount;
 
         // 可用于玩法消耗的资源总量
-        [GhostField] public int FoodSum;
-        [GhostField] public int CrystalSum;
+        [GhostField] public int FoodAmount;
+        [GhostField] public int CrystalAmount;
     }
 
     /// <summary>

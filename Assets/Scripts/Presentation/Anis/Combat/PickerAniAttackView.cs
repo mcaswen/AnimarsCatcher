@@ -2,6 +2,7 @@ using AnimarsCatcher.Gameplay;
 using UnityEngine;
 using Unity.Entities;
 using Unity.NetCode;
+using UnityEngine.Serialization;
 using UnityEngine.Scripting.APIUpdating;
 
 namespace AnimarsCatcher.Presentation.Anis
@@ -14,12 +15,12 @@ namespace AnimarsCatcher.Presentation.Anis
     [DisallowMultipleComponent]
     public class PickerAniAttackView : MonoBehaviour
     {
-        [Header("ECS 绑定")]
-        public Entity TargetEntity;
-        public EntityManager BoundEntityManager;
+        private Entity _targetEntity;
+        private EntityManager _boundEntityManager;
 
         [Header("Animator 参数名")]
-        public string AttackTriggerName   = "Attack";
+        [FormerlySerializedAs("AttackTriggerName")]
+        [SerializeField] private string _attackTriggerName = "Attack";
 
         // 记录最近消费的攻击序号，避免同一请求重复触发动画
         private uint _lastConsumedShotId;
@@ -27,7 +28,6 @@ namespace AnimarsCatcher.Presentation.Anis
         private Animator _animator;
         private bool _bound;
         private World _boundWorld;
-        public bool IsServerWorld = true;
 
         private void Awake()
         {
@@ -44,14 +44,12 @@ namespace AnimarsCatcher.Presentation.Anis
         /// </summary>
         /// <param name="entity">视图跟随的网络实体</param>
         /// <param name="entityManager">实体所属世界的管理器</param>
-        /// <param name="isServerWorld">视图是否属于服务器世界</param>
-        public void Bind(Entity entity, EntityManager entityManager, bool isServerWorld = true)
+        public void Bind(Entity entity, EntityManager entityManager)
         {
-            TargetEntity  = entity;
-            BoundEntityManager = entityManager;
+            _targetEntity = entity;
+            _boundEntityManager = entityManager;
             _boundWorld = entityManager.World;
-            _bound  = true;
-            IsServerWorld = isServerWorld;
+            _bound = true;
         }
 
         private void Update()
@@ -59,14 +57,14 @@ namespace AnimarsCatcher.Presentation.Anis
             if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
                 return;
 
-            if (!BoundEntityManager.Exists(TargetEntity))
+            if (!_boundEntityManager.Exists(_targetEntity))
                 return;
 
             // 没有服务器开火请求时不驱动表现
-            if (!BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity))
+            if (!_boundEntityManager.HasComponent<AniAttackFireRequest>(_targetEntity))
                 return;
 
-            var fire = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
+            var fire = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
 
             // ShotId 同时承担新事件检测和重复消费保护
             if (fire.ShotId == 0 || fire.ShotId == _lastConsumedShotId)
@@ -82,11 +80,11 @@ namespace AnimarsCatcher.Presentation.Anis
             if (_animator == null)
                 return;
 
-            if (!string.IsNullOrEmpty(AttackTriggerName))
+            if (!string.IsNullOrEmpty(_attackTriggerName))
             {
                 // 重置旧触发器，避免快速攻击时 Animator 队列堆积
-                _animator.ResetTrigger(AttackTriggerName);
-                _animator.SetTrigger(AttackTriggerName);
+                _animator.ResetTrigger(_attackTriggerName);
+                _animator.SetTrigger(_attackTriggerName);
             }
         }
 
@@ -99,7 +97,7 @@ namespace AnimarsCatcher.Presentation.Anis
             if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
                 return;
 
-            if (!BoundEntityManager.Exists(TargetEntity))
+            if (!_boundEntityManager.Exists(_targetEntity))
                 return;
 
             if (_lastConsumedShotId == 0)
@@ -107,7 +105,7 @@ namespace AnimarsCatcher.Presentation.Anis
 
             var evtData = new AniAttackHitEvent
             {
-                Attacker = TargetEntity,
+                Attacker = _targetEntity,
                 ShotId   = _lastConsumedShotId
             };
 

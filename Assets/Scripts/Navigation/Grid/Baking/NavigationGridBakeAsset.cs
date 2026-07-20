@@ -1,7 +1,8 @@
 using System;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid
+namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
     /// 保存编辑器 Physics 采样生成的可检查 Grid 数据
@@ -9,6 +10,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
     [CreateAssetMenu(
         fileName = "SO_NavigationGrid",
         menuName = "Animars Catcher/Navigation/Grid Bake Asset")]
+    [MovedFrom(true, "AnimarsCatcher.Animars.Navigation.Grid", "AnimarsCatcher.Navigation", "NavigationGridBakeAsset")]
     public sealed class NavigationGridBakeAsset : ScriptableObject
     {
         /// <summary>

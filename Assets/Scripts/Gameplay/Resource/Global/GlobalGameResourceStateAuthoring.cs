@@ -1,5 +1,6 @@
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -8,9 +9,10 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class GlobalGameResourceStateAuthoring : MonoBehaviour
     {
-        public int initialTimeSeconds;
+        [FormerlySerializedAs("initialTimeSeconds")]
+        [SerializeField] private int _initialTimeSeconds;
 
-        class Baker : Baker<GlobalGameResourceStateAuthoring>
+        private sealed class Baker : Baker<GlobalGameResourceStateAuthoring>
         {
             public override void Bake(GlobalGameResourceStateAuthoring authoring)
             {
@@ -18,7 +20,7 @@ namespace AnimarsCatcher.Gameplay
 
                 AddComponent(entity, new GlobalGameResourceState
                 {
-                    MatchTimeSeconds = authoring.initialTimeSeconds
+                    MatchTimeSeconds = authoring._initialTimeSeconds
                 });
 
                 AddComponent<GlobalGameResourceTag>(entity);

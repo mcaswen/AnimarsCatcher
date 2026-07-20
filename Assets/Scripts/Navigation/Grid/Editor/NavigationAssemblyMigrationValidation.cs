@@ -5,7 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 验证 Navigation 程序集迁移后的类型和烘焙资产引用

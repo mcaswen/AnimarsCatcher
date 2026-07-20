@@ -149,7 +149,7 @@ namespace AnimarsCatcher.Gameplay
                 // 伤害写入缓冲区，由统一伤害系统在后续阶段汇总
                 ecb.AddBuffer<DamageEvent>(targetEntity).Add(new DamageEvent
                 {
-                    amount = attributes.AttackDamage,
+                    Amount = attributes.AttackDamage,
                 });
 
                 // 待结算快照只能成功消费一次

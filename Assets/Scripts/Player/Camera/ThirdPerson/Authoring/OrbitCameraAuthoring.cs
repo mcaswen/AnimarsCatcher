@@ -14,37 +14,48 @@ namespace AnimarsCatcher.Player
     public class OrbitCameraAuthoring : MonoBehaviour
     {
         // 旋转参数控制输入响应以及相对移动平台的朝向继承
+        [FormerlySerializedAs("RotationSpeed")]
         [Header("Rotation")]
-        public float RotationSpeed = 2f;
+        [SerializeField] private float _rotationSpeed = 2f;
+        [FormerlySerializedAs("MaxVerticalAngle")]
         [FormerlySerializedAs("MaxVAngle")]
-        public float MaxVerticalAngle = 89f;
+        [SerializeField] private float _maximumVerticalAngle = 89f;
+        [FormerlySerializedAs("MinVerticalAngle")]
         [FormerlySerializedAs("MinVAngle")]
-        public float MinVerticalAngle = -89f;
-        public bool RotateWithCharacterParent = true;
+        [SerializeField] private float _minimumVerticalAngle = -89f;
+        [FormerlySerializedAs("RotateWithCharacterParent")]
+        [SerializeField] private bool _rotateWithCharacterParent = true;
 
         // 距离平滑与输入速度分开配置，避免缩放手感依赖帧率
+        [FormerlySerializedAs("StartDistance")]
         [Header("Distance")]
-        public float StartDistance = 5f;
-        public float MinDistance = 0f;
-        public float MaxDistance = 10f;
-        public float DistanceMovementSpeed = 1f;
-        public float DistanceMovementSharpness = 20f;
+        [SerializeField] private float _startDistance = 5f;
+        [FormerlySerializedAs("MinDistance")]
+        [SerializeField] private float _minimumDistance = 0f;
+        [FormerlySerializedAs("MaxDistance")]
+        [SerializeField] private float _maximumDistance = 10f;
+        [FormerlySerializedAs("DistanceMovementSpeed")]
+        [SerializeField] private float _distanceMovementSpeed = 1f;
+        [FormerlySerializedAs("DistanceMovementSharpness")]
+        [SerializeField] private float _distanceMovementSharpness = 20f;
 
         // 遮挡收缩和恢复使用不同平滑强度，减少穿模和相机弹跳
+        [FormerlySerializedAs("ObstructionRadius")]
         [Header("Obstructions")]
-        public float ObstructionRadius = 0.1f;
-        public float ObstructionInnerSmoothingSharpness = float.MaxValue;
-        public float ObstructionOuterSmoothingSharpness = 5f;
-        public bool PreventFixedUpdateJitter = true;
+        [SerializeField] private float _obstructionRadius = 0.1f;
+        [FormerlySerializedAs("ObstructionInnerSmoothingSharpness")]
+        [SerializeField] private float _obstructionInnerSmoothingSharpness = float.MaxValue;
+        [FormerlySerializedAs("ObstructionOuterSmoothingSharpness")]
+        [SerializeField] private float _obstructionOuterSmoothingSharpness = 5f;
+        [FormerlySerializedAs("PreventFixedUpdateJitter")]
+        [SerializeField] private bool _preventFixedUpdateJitter = true;
 
         // 忽略列表用于排除角色附件等不应阻挡相机的碰撞体
+        [FormerlySerializedAs("IgnoredEntities")]
         [Header("Misc")]
-        public List<GameObject> IgnoredEntities = new List<GameObject>();
+        [SerializeField] private List<GameObject> _ignoredEntities = new List<GameObject>();
 
-        /// <summary>
-        /// 负责把环绕相机配置及忽略列表烘焙到实体
-        /// </summary>
-        public class Baker : Baker<OrbitCameraAuthoring>
+        private sealed class Baker : Baker<OrbitCameraAuthoring>
         {
             public override void Bake(OrbitCameraAuthoring authoring)
             {
@@ -52,24 +63,24 @@ namespace AnimarsCatcher.Player
 
                 AddComponent(entity, new OrbitCamera
                 {
-                    RotationSpeed = authoring.RotationSpeed,
-                    MaxVerticalAngle = authoring.MaxVerticalAngle,
-                    MinVerticalAngle = authoring.MinVerticalAngle,
-                    RotateWithCharacterParent = authoring.RotateWithCharacterParent,
+                    RotationSpeed = authoring._rotationSpeed,
+                    MaxVerticalAngle = authoring._maximumVerticalAngle,
+                    MinVerticalAngle = authoring._minimumVerticalAngle,
+                    RotateWithCharacterParent = authoring._rotateWithCharacterParent,
 
-                    MinDistance = authoring.MinDistance,
-                    MaxDistance = authoring.MaxDistance,
-                    DistanceMovementSpeed = authoring.DistanceMovementSpeed,
-                    DistanceMovementSharpness = authoring.DistanceMovementSharpness,
+                    MinDistance = authoring._minimumDistance,
+                    MaxDistance = authoring._maximumDistance,
+                    DistanceMovementSpeed = authoring._distanceMovementSpeed,
+                    DistanceMovementSharpness = authoring._distanceMovementSharpness,
 
-                    ObstructionRadius = authoring.ObstructionRadius,
-                    ObstructionInnerSmoothingSharpness = authoring.ObstructionInnerSmoothingSharpness,
-                    ObstructionOuterSmoothingSharpness = authoring.ObstructionOuterSmoothingSharpness,
-                    PreventFixedUpdateJitter = authoring.PreventFixedUpdateJitter,
+                    ObstructionRadius = authoring._obstructionRadius,
+                    ObstructionInnerSmoothingSharpness = authoring._obstructionInnerSmoothingSharpness,
+                    ObstructionOuterSmoothingSharpness = authoring._obstructionOuterSmoothingSharpness,
+                    PreventFixedUpdateJitter = authoring._preventFixedUpdateJitter,
 
-                    TargetDistance = authoring.StartDistance,
-                    SmoothedTargetDistance = authoring.StartDistance,
-                    ObstructedDistance = authoring.StartDistance,
+                    TargetDistance = authoring._startDistance,
+                    SmoothedTargetDistance = authoring._startDistance,
+                    ObstructedDistance = authoring._startDistance,
 
                     PitchAngle = 0f,
                     PlanarForward = -math.forward(),
@@ -79,11 +90,11 @@ namespace AnimarsCatcher.Player
                 AddComponent<Simulate>(entity);
 
                 DynamicBuffer<OrbitCameraIgnoredEntityBufferElement> ignoredEntitiesBuffer = AddBuffer<OrbitCameraIgnoredEntityBufferElement>(entity);
-                for (int i = 0; i < authoring.IgnoredEntities.Count; i++)
+                for (int i = 0; i < authoring._ignoredEntities.Count; i++)
                 {
                     ignoredEntitiesBuffer.Add(new OrbitCameraIgnoredEntityBufferElement
                     {
-                        Entity = GetEntity(authoring.IgnoredEntities[i], TransformUsageFlags.None),
+                        Entity = GetEntity(authoring._ignoredEntities[i], TransformUsageFlags.None),
                     });
                 }
             }

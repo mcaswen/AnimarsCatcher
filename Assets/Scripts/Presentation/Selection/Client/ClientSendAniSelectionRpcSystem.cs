@@ -27,7 +27,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
             state.RequireForUpdate<AniSelectionDragState>();
             state.RequireForUpdate<NetworkStreamInGame>();
-            state.RequireForUpdate<AniSelectionModeSingleton>();
+            state.RequireForUpdate<AniSelectionModeState>();
         }
 
         public void OnUpdate(ref SystemState state)
@@ -50,15 +50,15 @@ namespace AnimarsCatcher.Presentation.Selection
             var camera = Camera.main;
             var localId = SystemAPI.GetSingleton<NetworkId>();
 
-            if (!SystemAPI.TryGetSingleton<AniSelectionModeSingleton>(out var modeSingleton))
+            if (!SystemAPI.TryGetSingleton<AniSelectionModeState>(out var modeSingleton))
             {
-                Debug.LogError("[ClientSendAniSelectionRpcSystem] AniSelectionModeSingleton not found!");
+                Debug.LogError("[ClientSendAniSelectionRpcSystem] AniSelectionModeState not found!");
                 return;
             }
             AniSelectionMode selectionMode = modeSingleton.Mode;
 
             // FixedList 避免为单次选择额外分配托管内存
-            AniSelectionApplyRpc rpcData = default;
+            AniSelectionRequestRpc rpcData = default;
             rpcData.Append = 0;
             rpcData.GhostIds = default;
 

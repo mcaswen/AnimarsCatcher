@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
 using AnimarsCatcher.Presentation.Audio;
-using AnimarsCatcher.Presentation.Global;
+using AnimarsCatcher.Presentation.InputLock;
 using DG.Tweening;
 
 namespace AnimarsCatcher.Presentation.UI
@@ -11,15 +11,21 @@ namespace AnimarsCatcher.Presentation.UI
     /// <summary>
     /// 管理游戏内暂停菜单和音量面板之间的切换
     /// </summary>
-    public class GameMenuPanelController: MonoBehaviour
+    public class GameMenuPanelController : MonoBehaviour
     {
-        public GameObject MenuPanel;
-        public GameObject VolumeAdjustPanel;
+        [FormerlySerializedAs("MenuPanel")]
+        [SerializeField] private GameObject _menuPanel;
+        [FormerlySerializedAs("VolumeAdjustPanel")]
+        [SerializeField] private GameObject _volumeAdjustPanel;
 
-        public Button Button_ReturnGame;
-        public Button Button_AdjustVolume;
-        public Button Button_QuitGame;
-        public Button Button_VolumeConfirm;
+        [FormerlySerializedAs("Button_ReturnGame")]
+        [SerializeField] private Button _returnGameButton;
+        [FormerlySerializedAs("Button_AdjustVolume")]
+        [SerializeField] private Button _adjustVolumeButton;
+        [FormerlySerializedAs("Button_QuitGame")]
+        [SerializeField] private Button _quitGameButton;
+        [FormerlySerializedAs("Button_VolumeConfirm")]
+        [SerializeField] private Button _volumeConfirmButton;
 
         [FormerlySerializedAs("_panelAnimDuration")]
         [SerializeField] private float _panelAnimationDuration = 0.25f;
@@ -27,30 +33,30 @@ namespace AnimarsCatcher.Presentation.UI
         // 绑定返回游戏 音量设置和退出命令
         void Start()
         {
-            Button_ReturnGame.onClick.AddListener(() =>
+            _returnGameButton.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 AudioManager.Instance.ExitMenu();
-                NetworkUIEventBridge.RaiseUIPanelInputUnlocked();
-                SmoothPanelView.HidePanel(MenuPanel, _panelAnimationDuration);
+                UIInputEvents.RaiseUnlocked();
+                SmoothPanelView.HidePanel(_menuPanel, _panelAnimationDuration);
                 Time.timeScale = 1;
             });
 
-            Button_AdjustVolume.onClick.AddListener(() =>
+            _adjustVolumeButton.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                SmoothPanelView.HidePanel(MenuPanel, _panelAnimationDuration);
-                SmoothPanelView.ShowPanel(VolumeAdjustPanel, _panelAnimationDuration);
+                SmoothPanelView.HidePanel(_menuPanel, _panelAnimationDuration);
+                SmoothPanelView.ShowPanel(_volumeAdjustPanel, _panelAnimationDuration);
             });
 
-            Button_VolumeConfirm.onClick.AddListener(() =>
+            _volumeConfirmButton.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
-                SmoothPanelView.HidePanel(VolumeAdjustPanel, _panelAnimationDuration);
-                SmoothPanelView.ShowPanel(MenuPanel, _panelAnimationDuration);
+                SmoothPanelView.HidePanel(_volumeAdjustPanel, _panelAnimationDuration);
+                SmoothPanelView.ShowPanel(_menuPanel, _panelAnimationDuration);
             });
 
-            Button_QuitGame.onClick.AddListener(() =>
+            _quitGameButton.onClick.AddListener(() =>
             {
                 AudioManager.Instance.PlayMenuButtonAudio();
                 Debug.LogWarning("Quit Game");

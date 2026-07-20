@@ -1,5 +1,6 @@
 using Unity.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Presentation.Selection
 {
@@ -9,19 +10,21 @@ namespace AnimarsCatcher.Presentation.Selection
     [DisallowMultipleComponent]
     public class SelectionRingPrefabAuthoring : MonoBehaviour
     {
-        public GameObject RingPrefab;
-        public float YOffset = 0.02f;
+        [FormerlySerializedAs("RingPrefab")]
+        [SerializeField] private GameObject _ringPrefab;
+        [FormerlySerializedAs("YOffset")]
+        [SerializeField] private float _yOffset = 0.02f;
 
-        class Baker : Unity.Entities.Baker<SelectionRingPrefabAuthoring>
+        private sealed class Baker : Unity.Entities.Baker<SelectionRingPrefabAuthoring>
         {
             public override void Bake(SelectionRingPrefabAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.None);
-                var ringPrefabEntity = GetEntity(authoring.RingPrefab, TransformUsageFlags.Renderable);
+                var ringPrefabEntity = GetEntity(authoring._ringPrefab, TransformUsageFlags.Renderable);
                 AddComponent(entity, new SelectionRingPrefabConfig
                 {
                     Prefab = ringPrefabEntity,
-                    YOffset = authoring.YOffset
+                    YOffset = authoring._yOffset
                 });
             }
         }

@@ -3,6 +3,7 @@ using AnimarsCatcher.Presentation.Selection;
 using UnityEngine;
 using Unity.Entities;
 using Unity.Mathematics;
+using UnityEngine.Serialization;
 using UnityEngine.Scripting.APIUpdating;
 using Unity.Transforms;
 
@@ -16,34 +17,45 @@ namespace AnimarsCatcher.Presentation.Anis
     [DisallowMultipleComponent]
     public class BlasterAniAttackView : MonoBehaviour
     {
-        [Header("ECS 绑定")]
-        public Entity TargetEntity;
-        public EntityManager BoundEntityManager;
-
-        public bool IsServerWorld = true;
+        private Entity _targetEntity;
+        private EntityManager _boundEntityManager;
 
         [Header("Animator & 参数")]
-        public Animator Animator;
+        [FormerlySerializedAs("Animator")]
+        [SerializeField] private Animator _animator;
         [Tooltip("留空则不设置 Trigger，非空需匹配 Animator 参数名")]
-        public string ShootTriggerName = "Shoot";
+        [FormerlySerializedAs("ShootTriggerName")]
+        [SerializeField] private string _shootTriggerName = "Shoot";
         [Tooltip("可留空，非空需匹配 Animator Bool 参数名")]
-        public string IsShootingBoolName = "IsShooting";
+        [FormerlySerializedAs("IsShootingBoolName")]
+        [SerializeField] private string _isShootingBoolName = "IsShooting";
 
         [Header("IK 绑定")]
-        public Transform LeftHandIKTarget;
-        public Transform RightHandIKTarget;
-        public Transform GunMuzzle;      // 枪口世界位置
+        [FormerlySerializedAs("LeftHandIKTarget")]
+        [SerializeField] private Transform _leftHandIkTarget;
+        [FormerlySerializedAs("RightHandIKTarget")]
+        [SerializeField] private Transform _rightHandIkTarget;
+        [FormerlySerializedAs("GunMuzzle")]
+        [SerializeField] private Transform _gunMuzzle;
 
         [Range(0f, 1f)]
-        public float IKPositionWeight = 0.7f;
+        [FormerlySerializedAs("IKPositionWeight")]
+        [SerializeField] private float _ikPositionWeight = 0.7f;
         [Range(0f, 1f)]
-        public float IKRotationWeight = 0.7f;
+        [FormerlySerializedAs("IKRotationWeight")]
+        [SerializeField] private float _ikRotationWeight = 0.7f;
 
         [Header("激光 & 射线检测")]
-        public GameObject BeamPrefab;     // 预制体，提前在 Inspector 里拖，不要 Resources.Load
-        public LayerMask LaserHitMask;    // 只勾 Ground + 敌 Ani 的 Collider 所在 Layer
-        public float MaxLaserDistance = 15f;
-        public float BeamLifetime = 0.1f;
+        [Tooltip("在 Inspector 中绑定，运行时不会从 Resources 加载")]
+        [FormerlySerializedAs("BeamPrefab")]
+        [SerializeField] private GameObject _beamPrefab;
+        [Tooltip("只包含地面和敌方 Ani 的碰撞层")]
+        [FormerlySerializedAs("LaserHitMask")]
+        [SerializeField] private LayerMask _laserHitMask;
+        [FormerlySerializedAs("MaxLaserDistance")]
+        [SerializeField] private float _maximumLaserDistance = 15f;
+        [FormerlySerializedAs("BeamLifetime")]
+        [SerializeField] private float _beamLifetime = 0.1f;
 
         private int _shootTriggerHash;
         private int _isShootingBoolHash;
@@ -56,15 +68,15 @@ namespace AnimarsCatcher.Presentation.Anis
 
         private void Awake()
         {
-            if (!Animator)
+            if (!_animator)
             {
-                Animator = GetComponentInChildren<Animator>();
+                _animator = GetComponentInChildren<Animator>();
             }
 
-            if (!string.IsNullOrEmpty(ShootTriggerName))
-                _shootTriggerHash = Animator.StringToHash(ShootTriggerName);
-            if (!string.IsNullOrEmpty(IsShootingBoolName))
-                _isShootingBoolHash = Animator.StringToHash(IsShootingBoolName);
+            if (!string.IsNullOrEmpty(_shootTriggerName))
+                _shootTriggerHash = Animator.StringToHash(_shootTriggerName);
+            if (!string.IsNullOrEmpty(_isShootingBoolName))
+                _isShootingBoolHash = Animator.StringToHash(_isShootingBoolName);
         }
 
         /// <summary>
@@ -72,13 +84,11 @@ namespace AnimarsCatcher.Presentation.Anis
         /// </summary>
         /// <param name="entity">视图跟随的网络实体</param>
         /// <param name="entityManager">实体所属世界的管理器</param>
-        /// <param name="isServerWorld">视图是否属于服务器世界</param>
-        public void Bind(Entity entity, EntityManager entityManager, bool isServerWorld = true)
+        public void Bind(Entity entity, EntityManager entityManager)
         {
-            TargetEntity = entity;
-            BoundEntityManager = entityManager;
+            _targetEntity = entity;
+            _boundEntityManager = entityManager;
             _boundWorld = entityManager.World;
-            IsServerWorld = isServerWorld;
             _bound = true;
         }
 
@@ -87,13 +97,13 @@ namespace AnimarsCatcher.Presentation.Anis
             if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
                 return;
 
-            if (!BoundEntityManager.Exists(TargetEntity))
+            if (!_boundEntityManager.Exists(_targetEntity))
                 return;
 
-            if (!BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity))
+            if (!_boundEntityManager.HasComponent<AniAttackFireRequest>(_targetEntity))
                 return;
 
-            var fireRequest = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
+            var fireRequest = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
 
             // ShotId 同时承担新事件检测和重复消费保护
             if (fireRequest.ShotId == 0 || fireRequest.ShotId == _lastConsumedShotId)
@@ -106,43 +116,43 @@ namespace AnimarsCatcher.Presentation.Anis
 
         private void TriggerShootAnimation()
         {
-            if (!Animator)
+            if (!_animator)
                 return;
 
             if (_shootTriggerHash != 0)
             {
-                Animator.ResetTrigger(_shootTriggerHash);
-                Animator.SetTrigger(_shootTriggerHash);
+                _animator.ResetTrigger(_shootTriggerHash);
+                _animator.SetTrigger(_shootTriggerHash);
             }
 
             _isShooting = true;
 
             if (_isShootingBoolHash != 0)
             {
-                Animator.SetBool(_isShootingBoolHash, true);
+                _animator.SetBool(_isShootingBoolHash, true);
             }
         }
 
         // 仅在攻击动画期间更新手部 IK，避免空闲帧持续写 Animator
         private void OnAnimatorIK(int layerIndex)
         {
-            if (!_isShooting || !Animator)
+            if (!_isShooting || !_animator)
                 return;
 
-            if (LeftHandIKTarget)
+            if (_leftHandIkTarget)
             {
-                Animator.SetIKPosition(AvatarIKGoal.LeftHand, LeftHandIKTarget.position);
-                Animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, IKPositionWeight);
-                Animator.SetIKRotation(AvatarIKGoal.LeftHand, LeftHandIKTarget.rotation);
-                Animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, IKRotationWeight);
+                _animator.SetIKPosition(AvatarIKGoal.LeftHand, _leftHandIkTarget.position);
+                _animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, _ikPositionWeight);
+                _animator.SetIKRotation(AvatarIKGoal.LeftHand, _leftHandIkTarget.rotation);
+                _animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, _ikRotationWeight);
             }
 
-            if (RightHandIKTarget)
+            if (_rightHandIkTarget)
             {
-                Animator.SetIKPosition(AvatarIKGoal.RightHand, RightHandIKTarget.position);
-                Animator.SetIKPositionWeight(AvatarIKGoal.RightHand, IKPositionWeight);
-                Animator.SetIKRotation(AvatarIKGoal.RightHand, RightHandIKTarget.rotation);
-                Animator.SetIKRotationWeight(AvatarIKGoal.RightHand, IKRotationWeight);
+                _animator.SetIKPosition(AvatarIKGoal.RightHand, _rightHandIkTarget.position);
+                _animator.SetIKPositionWeight(AvatarIKGoal.RightHand, _ikPositionWeight);
+                _animator.SetIKRotation(AvatarIKGoal.RightHand, _rightHandIkTarget.rotation);
+                _animator.SetIKRotationWeight(AvatarIKGoal.RightHand, _ikRotationWeight);
             }
         }
 
@@ -154,13 +164,13 @@ namespace AnimarsCatcher.Presentation.Anis
             if (!_bound || _boundWorld == null || !_boundWorld.IsCreated)
                 return;
 
-            if (!BoundEntityManager.Exists(TargetEntity))
+            if (!_boundEntityManager.Exists(_targetEntity))
                 return;
 
-            if (!BoundEntityManager.HasComponent<AniAttackFireRequest>(TargetEntity))
+            if (!_boundEntityManager.HasComponent<AniAttackFireRequest>(_targetEntity))
                 return;
 
-            var fireRequest = BoundEntityManager.GetComponentData<AniAttackFireRequest>(TargetEntity);
+            var fireRequest = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
             uint shotId = fireRequest.ShotId;
 
             // 零值表示尚未收到有效服务器开火请求
@@ -191,9 +201,9 @@ namespace AnimarsCatcher.Presentation.Anis
         {
             _isShooting = false;
 
-            if (Animator && _isShootingBoolHash != 0)
+            if (_animator && _isShootingBoolHash != 0)
             {
-                Animator.SetBool(_isShootingBoolHash, false);
+                _animator.SetBool(_isShootingBoolHash, false);
             }
         }
 
@@ -202,39 +212,39 @@ namespace AnimarsCatcher.Presentation.Anis
         {
             Debug.Log($"[BlasterAniAttackView] FireLaser from instance {GetInstanceID()}, name={name}, ShotId={shotId}");
 
-            if (!GunMuzzle)
+            if (!_gunMuzzle)
             {
                 Debug.LogWarning($"[BlasterAniAttackView] {name} 未设置 GunMuzzle，无法发射激光");
                 return;
             }
 
-            Vector3 origin    = GunMuzzle.position;
-            Vector3 direction = GunMuzzle.forward;
-            float maxDist = MaxLaserDistance; // 表现射线使用视图配置的最大可见距离
+            Vector3 origin = _gunMuzzle.position;
+            Vector3 direction = _gunMuzzle.forward;
+            float maximumDistance = _maximumLaserDistance;
 
             RaycastHit hitInfo;
             bool hit = Physics.Raycast(
                 origin,
                 direction,
                 out hitInfo,
-                maxDist,
-                LaserHitMask,
+                maximumDistance,
+                _laserHitMask,
                 QueryTriggerInteraction.Collide);
 
-            Vector3 endPos = hit ? hitInfo.point : origin + direction * maxDist;
+            Vector3 endPosition = hit ? hitInfo.point : origin + direction * maximumDistance;
 
-            if (BeamPrefab != null)
+            if (_beamPrefab != null)
             {
-                Quaternion rot = Quaternion.LookRotation(direction, Vector3.up);
-                var fx = Instantiate(BeamPrefab, origin, rot, transform);
-                Destroy(fx, BeamLifetime);
+                Quaternion rotation = Quaternion.LookRotation(direction, Vector3.up);
+                var beam = Instantiate(_beamPrefab, origin, rotation, transform);
+                Destroy(beam, _beamLifetime);
             }
 
             Entity hitTargetEntity = Entity.Null;
 
             if (hit)
             {
-                var selectableProxy = hitInfo.collider.GetComponentInParent<MovementSelectableProxy>();
+                var selectableProxy = hitInfo.collider.GetComponentInParent<WorldCommandTargetProxy>();
                 if (selectableProxy != null)
                 {
                     hitTargetEntity = selectableProxy.Entity;  // 桥接到当前世界中的 Ghost 实体
@@ -243,9 +253,9 @@ namespace AnimarsCatcher.Presentation.Anis
 
             var hitResult = new AniHitResultData
             {
-                Attacker    = TargetEntity,
+                Attacker = _targetEntity,
                 HitTarget   = hitTargetEntity,
-                HitPosition = (float3)endPos,
+                HitPosition = (float3)endPosition,
                 HitNormal   = hit ? (float3)hitInfo.normal : (float3)(-direction),
                 Damage      = 10,
                 AttackMode  = AniAttackMode.Ranged,

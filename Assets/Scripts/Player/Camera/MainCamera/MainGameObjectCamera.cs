@@ -7,11 +7,19 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public class MainGameObjectCamera : MonoBehaviour
     {
-        public static Camera Instance;
+        public static Camera Instance { get; private set; }
 
-        void Awake()
+        private void Awake()
         {
             Instance = GetComponent<Camera>();
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == GetComponent<Camera>())
+            {
+                Instance = null;
+            }
         }
     }
 }

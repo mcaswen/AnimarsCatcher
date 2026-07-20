@@ -2,6 +2,7 @@ using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 using Unity.Transforms;
 
 namespace AnimarsCatcher.Gameplay
@@ -16,16 +17,17 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class AniSpawnPointAuthoring : MonoBehaviour
     {
-        public CampType campType = CampType.Alpha;
+        [FormerlySerializedAs("campType")]
+        [SerializeField] private CampType _camp = CampType.Alpha;
 
-        class Baker : Baker<AniSpawnPointAuthoring>
+        private sealed class Baker : Baker<AniSpawnPointAuthoring>
         {
             public override void Bake(AniSpawnPointAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 
                 AddComponent<AniSpawnPointTag>(entity);
-                AddComponent(entity, new Camp { Value = authoring.campType });
+                AddComponent(entity, new Camp { Value = authoring._camp });
 
                 // 保存场景变换，服务器生成 Ghost 时直接复用
                 AddComponent(entity, LocalTransform.FromPositionRotationScale(

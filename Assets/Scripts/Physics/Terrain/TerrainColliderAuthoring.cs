@@ -1,6 +1,7 @@
 using UnityEngine;
 using Unity.Entities;
 using Unity.Physics.Authoring;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Physics.Authoring
 {
@@ -9,7 +10,13 @@ namespace AnimarsCatcher.Physics.Authoring
     /// </summary>
     public sealed class TerrainColliderAuthoring : MonoBehaviour
     {
-        public PhysicsMaterialTemplate physicsTemplate;
-        public Terrain terrain;
+        [FormerlySerializedAs("physicsTemplate")]
+        [SerializeField] private PhysicsMaterialTemplate _physicsMaterialTemplate;
+
+        [FormerlySerializedAs("terrain")]
+        [SerializeField] private Terrain _terrain;
+
+        public PhysicsMaterialTemplate PhysicsMaterialTemplate => _physicsMaterialTemplate;
+        public Terrain Terrain => _terrain;
     }
 }

@@ -2,20 +2,26 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using AnimarsCatcher.Presentation.UI;
+using UnityEngine.Serialization;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace AnimarsCatcher.Presentation.Global
+namespace AnimarsCatcher.Presentation.Match
 {
     /// <summary>
     /// 展示本地玩家的对局结果并提供返回主菜单入口
     /// </summary>
+    [MovedFrom(true, "AnimarsCatcher.Presentation.Global", "AnimarsCatcher.Presentation", "GameResultPanelController")]
     public class GameResultPanelController : MonoBehaviour
     {
         public static GameResultPanelController Instance { get; private set; }
 
         [Header("引用")]
-        public GameObject RootPanel;   // 完整的对局结束面板
-        public TMP_Text  ResultText;   // 显示本地玩家的胜利或失败结果
-        public Button ReturnButton; // 返回主界面
+        [FormerlySerializedAs("RootPanel")]
+        [SerializeField] private GameObject _rootPanel;
+        [FormerlySerializedAs("ResultText")]
+        [SerializeField] private TMP_Text _resultText;
+        [FormerlySerializedAs("ReturnButton")]
+        [SerializeField] private Button _returnButton;
 
         private bool _shown;
 
@@ -29,8 +35,8 @@ namespace AnimarsCatcher.Presentation.Global
 
             Instance = this;
 
-            if (RootPanel != null)
-                RootPanel.SetActive(false);
+            if (_rootPanel != null)
+                _rootPanel.SetActive(false);
         }
 
         /// <summary>
@@ -44,18 +50,18 @@ namespace AnimarsCatcher.Presentation.Global
 
             _shown = true;
 
-            SmoothPanelView.ShowPanel(RootPanel);
+            SmoothPanelView.ShowPanel(_rootPanel);
 
-            if (ResultText != null)
-                ResultText.text = isWin ? "VICTORY" : "DEFEAT";
+            if (_resultText != null)
+                _resultText.text = isWin ? "VICTORY" : "DEFEAT";
 
             // Host 会同时暂停服务器和客户端世界，纯客户端只暂停本地模拟
             Time.timeScale = 0f;
 
-            if (ReturnButton != null)
+            if (_returnButton != null)
             {
-                ReturnButton.onClick.RemoveListener(OnReturnClicked);
-                ReturnButton.onClick.AddListener(OnReturnClicked);
+                _returnButton.onClick.RemoveListener(OnReturnClicked);
+                _returnButton.onClick.AddListener(OnReturnClicked);
             }
         }
 

@@ -2,6 +2,7 @@ using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -11,22 +12,32 @@ namespace AnimarsCatcher.Gameplay
     [DisallowMultipleComponent]
     public class PickableResourceAuthoring : MonoBehaviour
     {
-        public ResourceItemKind ResourceItemKind;
+        [FormerlySerializedAs("ResourceItemKind")]
+        [SerializeField] private ResourceItemKind _resourceKind;
 
-        public int TotalResourceAmount = 10;
+        [FormerlySerializedAs("TotalResourceAmount")]
+        [SerializeField] private int _totalResourceAmount = 10;
 
-        public int MinimumCarrierAniCount = 1;
-        public int MaximumCarrierAniCount = 3;
+        [FormerlySerializedAs("MinimumCarrierAniCount")]
+        [SerializeField] private int _minimumCarrierAniCount = 1;
 
-        public float StartCarryDistance = 1f;
-        public float DeliveryArrivalRadius = 3f;
+        [FormerlySerializedAs("MaximumCarrierAniCount")]
+        [SerializeField] private int _maximumCarrierAniCount = 3;
 
-        public float CarryMoveSpeed = 3.0f;
+        [FormerlySerializedAs("StartCarryDistance")]
+        [SerializeField] private float _startCarryDistance = 1f;
+
+        [FormerlySerializedAs("DeliveryArrivalRadius")]
+        [SerializeField] private float _deliveryArrivalRadius = 3f;
+
+        [FormerlySerializedAs("CarryMoveSpeed")]
+        [SerializeField] private float _carryMoveSpeed = 3.0f;
 
         // 搬运 Ani 相对资源中心的局部站位列表 为空时使用中心槽位
-        public Vector3[] CarrierSlotLocalOffsets;
+        [FormerlySerializedAs("CarrierSlotLocalOffsets")]
+        [SerializeField] private Vector3[] _carrierSlotLocalOffsets;
 
-        class Baker : Baker<PickableResourceAuthoring>
+        private sealed class Baker : Baker<PickableResourceAuthoring>
         {
             public override void Bake(PickableResourceAuthoring authoring)
             {
@@ -34,23 +45,23 @@ namespace AnimarsCatcher.Gameplay
 
                 AddComponent(entity, new PickableResource
                 {
-                    ResourceItemKind       = authoring.ResourceItemKind,
-                    TotalResourceAmount    = authoring.TotalResourceAmount,
-                    MinimumCarrierAniCount = authoring.MinimumCarrierAniCount,
-                    MaximumCarrierAniCount = authoring.MaximumCarrierAniCount,
-                    StartCarryDistance     = authoring.StartCarryDistance,
-                    DeliveryArrivalRadius  = authoring.DeliveryArrivalRadius,
-                    CarryMoveSpeed         = authoring.CarryMoveSpeed,
+                    ResourceItemKind       = authoring._resourceKind,
+                    TotalResourceAmount    = authoring._totalResourceAmount,
+                    MinimumCarrierAniCount = authoring._minimumCarrierAniCount,
+                    MaximumCarrierAniCount = authoring._maximumCarrierAniCount,
+                    StartCarryDistance     = authoring._startCarryDistance,
+                    DeliveryArrivalRadius  = authoring._deliveryArrivalRadius,
+                    CarryMoveSpeed         = authoring._carryMoveSpeed,
                 });
 
                 DynamicBuffer<PickableResourceCarrierSlot> slotBuffer =
                     AddBuffer<PickableResourceCarrierSlot>(entity);
 
                 // 自定义槽位按配置顺序写入 该顺序同时作为分配索引
-                if (authoring.CarrierSlotLocalOffsets != null &&
-                    authoring.CarrierSlotLocalOffsets.Length > 0)
+                if (authoring._carrierSlotLocalOffsets != null &&
+                    authoring._carrierSlotLocalOffsets.Length > 0)
                 {
-                    foreach (Vector3 offset in authoring.CarrierSlotLocalOffsets)
+                    foreach (Vector3 offset in authoring._carrierSlotLocalOffsets)
                     {
                         slotBuffer.Add(new PickableResourceCarrierSlot
                         {

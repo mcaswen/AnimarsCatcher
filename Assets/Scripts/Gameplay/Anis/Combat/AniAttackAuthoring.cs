@@ -9,10 +9,7 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class AniAttackAuthoring : MonoBehaviour
     {
-        /// <summary>
-        /// 将攻击状态初始化到 Ani 实体
-        /// </summary>
-        public class Baker : Baker<AniAttackAuthoring>
+        private sealed class Baker : Baker<AniAttackAuthoring>
         {
             public override void Bake(AniAttackAuthoring authoring)
             {
@@ -31,6 +28,5 @@ namespace AnimarsCatcher.Gameplay
                 AddComponent<AniAttackFireRequest>(entity);
             }
         }
-
     }
 }

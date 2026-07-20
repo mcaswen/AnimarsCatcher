@@ -19,8 +19,8 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public static class AniAttackEventBridge
     {
-        private static readonly Queue<AniAttackHitEvent> Events = new Queue<AniAttackHitEvent>();
-        private static readonly object LockObject = new object();
+        private static readonly Queue<AniAttackHitEvent> _events = new Queue<AniAttackHitEvent>();
+        private static readonly object _lockObject = new object();
 
         /// <summary>
         /// 将一次近战动画命中时机加入待发送队列
@@ -28,9 +28,9 @@ namespace AnimarsCatcher.Gameplay
         /// <param name="eventData">攻击者和攻击序号</param>
         public static void Enqueue(in AniAttackHitEvent eventData)
         {
-            lock (LockObject)
+            lock (_lockObject)
             {
-                Events.Enqueue(eventData);
+                _events.Enqueue(eventData);
             }
         }
 
@@ -41,11 +41,11 @@ namespace AnimarsCatcher.Gameplay
         /// <returns>队列中存在事件时返回真</returns>
         public static bool TryDequeue(out AniAttackHitEvent eventData)
         {
-            lock (LockObject)
+            lock (_lockObject)
             {
-                if (Events.Count > 0)
+                if (_events.Count > 0)
                 {
-                    eventData = Events.Dequeue();
+                    eventData = _events.Dequeue();
                     return true;
                 }
             }

@@ -51,7 +51,7 @@ flowchart LR
 - **连接 Entity** 由 NetCode 创建，包含 `NetworkId`、`NetworkStreamConnection`、`NetworkStreamInGame` 和 `CommandTarget` 等连接状态。服务器通过 `PlayerSpawnedTag` 防止同一个连接重复创建玩家角色
 - **玩家角色 Ghost** 来自 `PFB_SmartCommandRobot_CharacterEntity`。它包含 KCC 组件、`ThirdPersonCharacter`、`ThirdPersonCharacterControl`、`CharacterTag`、`InputCommand` Buffer、`GhostOwner` 和 `Camp` 等数据。拥有者客户端负责本地预测，服务器执行相同模拟并提供最终校正
 - **玩家控制 Entity** 由 `ThirdPersonPlayerControlAuthoring` 烘焙，包含 `ThirdPersonPlayerControl`、`PlayerInput` 和 `PlayerTag`。它描述客户端本地输入与受控角色之间的关系，不是服务器上的权威玩家状态
-- **主相机 Entity** 只在客户端使用。它包含 `MainEntityCamera`，并根据相机模式带有 `FixedCamera` 或 `OrbitCamera` 以及对应的 Control 和 State 组件
+- **主相机 Entity** 只在客户端使用。它包含 `MainEntityCameraTag`，并根据相机模式带有 `FixedCamera` 或 `OrbitCamera` 以及对应的 Control 和 State 组件
 
 ### 3.2 Ani 与基地
 
@@ -66,7 +66,7 @@ flowchart LR
 - **脆弱资源 Ghost** 包含 `FragileCrystal`、`AttackableResourceTag`、`Health` 和掉落配置。服务器处理受伤、破坏和掉落
 - **玩家资源 Ghost** 由 `ServerPlayerResourceInitializationSystem` 创建，包含 `PlayerResourceTag`、`PlayerResourceState` 和 `GhostOwner`。服务器写入资源值，所属客户端读取同步结果
 - **全局比赛资源 Entity** 由 SubScene Authoring 产生，包含 `GlobalGameResourceTag` 和 `GlobalGameResourceState`。Server System 只更新 Server World 中的实例；这个场景 Entity 没有形成实际 Ghost 同步链路，因此 Client World 中的副本不会得到服务器比赛时间
-- **对局结果 Entity** 包含 `GameResult`，由 `ServerBaseSpawnSystem` 创建。它是 Server-only 数据，最终胜方通过 `GameOverRpc` 广播给客户端。SubScene 中还保留了一个当前禁用的 `GameResultRegistry`
+- **对局结果 Entity** 包含 `GameResult`，由 `ServerBaseSpawnSystem` 创建。它是 Server-only 数据，最终胜方通过 `MatchResultRpc` 广播给客户端。SubScene 中还保留了一个当前禁用的 `GameResultAuthoring`
 
 ### 3.4 场景注册 Entity
 
@@ -76,7 +76,7 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - 玩家与 Ani 出生点
 - 资源刷新区域及其候选 Prefab
 - 食物和水晶变化事件 Hub
-- 选择光圈、血条和 Avatar View 配置
+- 选择光圈、血条和 Entity View 配置
 
 这些 Entity 本身通常不代表玩家可见对象，而是为服务器或客户端 System 提供场景级配置入口。
 
@@ -103,12 +103,12 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 
 ### 4.5 Tag 与 Enableable Component
 
-- `PickerAniTag`、`BaseTag` 和 `AvatarViewSpawnedTag` 等普通 Tag 表示稳定类型或生命周期阶段
+- `PickerAniTag`、`BaseTag` 和 `EntityViewSpawnedTag` 等普通 Tag 表示稳定类型或生命周期阶段
 - `AniSelectedTag`、`AniInTeamTag` 和 `AniCommandLockedTag` 等 Enableable Component 适合高频开关状态，可以减少结构变化
 
 ### 4.6 Managed Bridge
 
-`AvatarViewPrefabReference`、`HealthBarViewPrefab` 和 `AniSelectionUIReference` 等 managed `IComponentData` 用于在客户端 World 中保存托管对象引用。它们是 ECS 与 GameObject 表现层的桥梁，不应进入服务器核心结算路径。
+`EntityViewConfig`、`HealthBarViewConfig` 和 `AniSelectionUIReference` 等 managed `IComponentData` 用于在客户端 World 中保存托管对象引用。它们是 ECS 与 GameObject 表现层的桥梁，不应进入服务器核心结算路径。
 
 ## 5. 关键 Buffer
 
@@ -117,29 +117,29 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - `NavWaypoint` 挂在 Ani 上，保存服务器 NavMesh 规划得到的路径点
 - `DamageEvent` 挂在可受伤 Entity 上，保存待结算伤害。当前命中链路使用 `AddBuffer` 写入时会替换已有 Buffer 内容，因此不能可靠汇总同一结算周期内的多次命中
 - `PickableResourceCarrierSlot` 挂在可搬运资源上，保存 Picker 相对资源的搬运站位
-- `FoodAmountChangedEvent` 和 `CrystalAmountChangedEvent` 位于资源事件 Hub，记录指定 `NetworkId` 的资源增量
+- `FoodResourceDeltaEvent` 和 `CrystalResourceDeltaEvent` 位于资源事件 Hub，记录指定 `NetworkId` 的资源增量
 - `CharacterSpawnPointElement` 保存各阵营角色的出生位置和旋转
-- `ResourceSpawnFoodPrefab` 与 `ResourceSpawnCrystalPrefab` 保存刷新区域可随机生成的资源 Prefab
+- `FoodResourceSpawnPrefabReference` 与 `CrystalResourceSpawnPrefabReference` 保存刷新区域可随机生成的资源 Prefab
 - `SelectedAniGhostReference` 保存客户端选中 Ani 的 GhostId 快照
 
 ## 6. Authoring、Baker 与注册数据
 
 ### 6.1 玩家和 Ani
 
-- `PlayerPrefabRegistry` 提供 `CharacterGhostPrefab` 和 `CameraGhostPrefab`，由 `ServerSetInGameRpcSystem` 在玩家就绪后使用
-- `AniRegistry` 烘焙出 `AniGhostPrefabCollection`，由 `ServerSpawnAnisSystem` 创建 Ani
+- `PlayerPrefabRegistryAuthoring` 提供 `CharacterGhostPrefabReference` 和 `CameraGhostPrefabReference`，由 `ServerHandleReadyForGameRpcSystem` 在玩家就绪后使用
+- `AniPrefabRegistryAuthoring` 烘焙出 `AniGhostPrefabRegistry`，由 `ServerSpawnAnisSystem` 创建 Ani
 - `CharacterSpawnPointsAuthoring` 提供玩家出生点组、阵营和选择模式
 - `AniSpawnPointAuthoring` 烘焙 `AniSpawnPointTag`、`Camp` 和 Transform，供 Ani 生成链路查询
 
 ### 6.2 资源
 
 - `ResourceSpawnAreaAuthoring` 保存刷新区域配置以及食物、水晶 Prefab Buffer，由 `ServerResourceRespawnSystem` 使用
-- `ResourceEventHubAuthoring` 创建食物和水晶变化事件 Buffer，资源结算系统通过它们把增量应用到对应玩家
+- `PlayerResourceDeltaHubAuthoring` 创建食物和水晶变化事件 Buffer，资源结算系统通过它们把增量应用到对应玩家
 
 ### 6.3 客户端表现
 
-- `AvatarViewAuthoring` 提供 `AvatarViewPrefabReference`，由 `SpawnAvatarViewSystem` 创建 Avatar View
-- `HealthBarViewAuthoring` 提供 `HealthBarViewPrefab`，由 `SpawnHealthBarViewSystem` 创建血条
+- `EntityViewAuthoring` 提供 `EntityViewConfig`，由 `ClientSpawnEntityViewSystem` 创建 Entity View
+- `HealthBarViewAuthoring` 提供 `HealthBarViewConfig`，由 `ClientSpawnHealthBarViewSystem` 创建血条
 - Camera Authoring 负责相机配置、控制组件和忽略列表
 - Terrain 与 Physics Authoring 负责 Collider 和探测配置，供 Unity Physics 与 Ani 物理系统读取
 
@@ -158,7 +158,7 @@ Aspect 适合包装同一个 Entity 上需要高频共同访问的数据，不�
 
 ```mermaid
 flowchart LR
-    Input[PlayerInputSystem<br/>GhostInputSystemGroup]
+    Input[ClientPlayerInputSystem<br/>GhostInputSystemGroup]
     Build[Build Move Command<br/>GhostInputSystemGroup]
     Command[InputCommand Buffer]
     Predicted[ThirdPersonCharacterPredictedMoveSystem]
@@ -182,7 +182,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Rpc[ServerMovementOrderReceiveRpcSystem]
+    Rpc[ServerReceiveAniCommandRpcSystem]
     Formation[AniFormationJoinRequestSystem<br/>AniFormationManagementSystem]
     Fsm[FsmEvaluate -> ApplyTransition -> Tick]
     Planner[AniMovementPlannerSystem]

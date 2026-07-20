@@ -20,60 +20,63 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class AniAttributesAuthoring : MonoBehaviour
     {
-        public AniType AniType;
+        [FormerlySerializedAs("AniType")]
+        [SerializeField] private AniType _aniType;
 
         [Tooltip("单位米/秒，需大于等于 0")]
         [FormerlySerializedAs("MoveSpeed")]
-        public float MovementSpeed;
+        [FormerlySerializedAs("MovementSpeed")]
+        [SerializeField] private float _movementSpeed;
 
         [Tooltip("单位秒，需大于等于 0")]
-        public float AttackInterval;
+        [FormerlySerializedAs("AttackInterval")]
+        [SerializeField] private float _attackInterval;
 
         [Tooltip("需大于等于 0")]
-        public int AttackDamage;
+        [FormerlySerializedAs("AttackDamage")]
+        [SerializeField] private int _attackDamage;
 
         [Tooltip("单位米，同时影响索敌和远程站位")]
-        public float AttackRange;
+        [FormerlySerializedAs("AttackRange")]
+        [SerializeField] private float _attackRange;
 
-        public AniAttackMode AttackMode;
-    }
+        [FormerlySerializedAs("AttackMode")]
+        [SerializeField] private AniAttackMode _attackMode;
 
-    /// <summary>
-    /// 将 Ani 配置转换为运行时组件和可启用标签
-    /// </summary>
-    public class AniAttributesBaker : Baker<AniAttributesAuthoring>
-    {
-        public override void Bake(AniAttributesAuthoring authoring)
+        private sealed class Baker : Unity.Entities.Baker<AniAttributesAuthoring>
         {
-            var entity = GetEntity(TransformUsageFlags.Dynamic);
-            AddComponent(entity, new AniAttributes
+            public override void Bake(AniAttributesAuthoring authoring)
             {
-                MovementSpeed = authoring.MovementSpeed,
-                AttackInterval = authoring.AttackInterval,
-                AttackDamage = authoring.AttackDamage,
-                AttackRange = authoring.AttackRange,
-                AttackMode = authoring.AttackMode,
-            });
+                var entity = GetEntity(TransformUsageFlags.Dynamic);
+                AddComponent(entity, new AniAttributes
+                {
+                    MovementSpeed = authoring._movementSpeed,
+                    AttackInterval = authoring._attackInterval,
+                    AttackDamage = authoring._attackDamage,
+                    AttackRange = authoring._attackRange,
+                    AttackMode = authoring._attackMode,
+                });
 
-            // 可启用标签预先烘焙后只切换状态，避免运行时增删结构组件
-            AddComponent<AniSelectedTag>(entity);
-            SetComponentEnabled<AniSelectedTag>(entity, false);
+                // 可启用标签预先烘焙后只切换状态 避免运行时增删结构组件
+                AddComponent<AniSelectedTag>(entity);
+                SetComponentEnabled<AniSelectedTag>(entity, false);
 
-            AddComponent<AniCommandLockedTag>(entity);
-            SetComponentEnabled<AniCommandLockedTag>(entity, false);
+                AddComponent<AniCommandLockedTag>(entity);
+                SetComponentEnabled<AniCommandLockedTag>(entity, false);
 
-            // 类型标签驱动不同攻击表现和移动站位策略
-            if (authoring.AniType == AniType.Picker)
-            {
-                AddComponent<PickerAniTag>(entity);
+                // 类型标签驱动不同攻击表现和移动站位策略
+                if (authoring._aniType == AniType.Picker)
+                {
+                    AddComponent<PickerAniTag>(entity);
+                }
+                else if (authoring._aniType == AniType.Blaster)
+                {
+                    AddComponent<BlasterAniTag>(entity);
+                }
+
+                AddComponent<MeleeAttackableTag>(entity);
+                AddComponent<RangedAttackableTag>(entity);
             }
-            else if (authoring.AniType == AniType.Blaster)
-            {
-                AddComponent<BlasterAniTag>(entity);
-            }
-
-            AddComponent<MeleeAttackableTag>(entity);
-            AddComponent<RangedAttackableTag>(entity);
         }
     }
 }

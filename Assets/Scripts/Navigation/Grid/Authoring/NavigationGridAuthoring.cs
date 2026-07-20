@@ -1,8 +1,9 @@
 using System;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Scripting.APIUpdating;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid
+namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
     /// 定义 Scene 视图中 Grid 数据的显示模式
@@ -65,6 +66,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid
     /// 配置编辑器 Physics Grid 烘焙范围和静态采样参数
     /// </summary>
     [DisallowMultipleComponent]
+    [MovedFrom(true, "AnimarsCatcher.Animars.Navigation.Grid", "AnimarsCatcher.Navigation", "NavigationGridAuthoring")]
     public sealed class NavigationGridAuthoring : MonoBehaviour
     {
         [Header("Grid")]

@@ -9,7 +9,7 @@ using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 执行阶段二端点投影、普通 A 星和路径平滑自动验收
@@ -64,14 +64,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 WorldSystemFilterFlags.ClientSimulation);
 
             Assert(
-                ContainsSystem(serverSystems, typeof(NavigationGridPathfindingSystem)),
-                "Server World 必须自动注册 NavigationGridPathfindingSystem");
+                ContainsSystem(serverSystems, typeof(ServerNavigationGridPathfindingSystem)),
+                "Server World 必须自动注册 ServerNavigationGridPathfindingSystem");
             Assert(
-                ContainsSystem(localSystems, typeof(NavigationGridPathfindingSystem)),
-                "Local World 必须自动注册 NavigationGridPathfindingSystem");
+                ContainsSystem(localSystems, typeof(ServerNavigationGridPathfindingSystem)),
+                "Local World 必须自动注册 ServerNavigationGridPathfindingSystem");
             Assert(
-                !ContainsSystem(clientSystems, typeof(NavigationGridPathfindingSystem)),
-                "Client World 不应自动注册 NavigationGridPathfindingSystem");
+                !ContainsSystem(clientSystems, typeof(ServerNavigationGridPathfindingSystem)),
+                "Client World 不应自动注册 ServerNavigationGridPathfindingSystem");
         }
 
         // 系统列表可能包含不同程序集中的同名类型 因而按 Type 身份比较
@@ -357,7 +357,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 NavigationPathState.CreatePending(request.Version));
 
             // 首帧只允许进入 Searching 不能同步完成并写回
-            SystemHandle system = world.GetOrCreateSystem<NavigationGridPathfindingSystem>();
+            SystemHandle system = world.GetOrCreateSystem<ServerNavigationGridPathfindingSystem>();
             system.Update(world.Unmanaged);
             NavigationPathState pathState =
                 entityManager.GetComponentData<NavigationPathState>(requestEntity);

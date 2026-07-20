@@ -2,6 +2,7 @@ using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace AnimarsCatcher.Gameplay
 {
@@ -12,33 +13,38 @@ namespace AnimarsCatcher.Gameplay
     public class FragileCrystalAuthoring : MonoBehaviour
     {
         [Header("掉落配置")]
-        public ResourceItemKind DropKind = ResourceItemKind.Crystal;
-        public int DropPieceCount = 3;
+        [FormerlySerializedAs("DropKind")]
+        [SerializeField] private ResourceItemKind _dropKind = ResourceItemKind.Crystal;
 
-        public float DropSpawnRadius = 1.5f;
+        [FormerlySerializedAs("DropPieceCount")]
+        [SerializeField] private int _dropPieceCount = 3;
+
+        [FormerlySerializedAs("DropSpawnRadius")]
+        [SerializeField] private float _dropSpawnRadius = 1.5f;
 
         [Header("掉落小矿 Prefab")]
-        public GameObject PickablePrefab;
+        [FormerlySerializedAs("PickablePrefab")]
+        [SerializeField] private GameObject _pickablePrefab;
 
-        class Baker : Baker<FragileCrystalAuthoring>
+        private sealed class Baker : Baker<FragileCrystalAuthoring>
         {
             public override void Bake(FragileCrystalAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
 
                 Entity pickablePrefabEntity = Entity.Null;
-                if (authoring.PickablePrefab != null)
+                if (authoring._pickablePrefab != null)
                 {
                     // 将掉落 GameObject 转换为可实例化的 Ghost 预制体实体
                     pickablePrefabEntity =
-                        GetEntity(authoring.PickablePrefab, TransformUsageFlags.Dynamic);
+                        GetEntity(authoring._pickablePrefab, TransformUsageFlags.Dynamic);
                 }
 
                 AddComponent(entity, new FragileCrystal
                 {
-                    DropKind         = authoring.DropKind,
-                    DropPieceCount   = authoring.DropPieceCount,
-                    DropSpawnRadius  = authoring.DropSpawnRadius,
+                    DropKind         = authoring._dropKind,
+                    DropPieceCount   = authoring._dropPieceCount,
+                    DropSpawnRadius  = authoring._dropSpawnRadius,
                     PickablePrefab   = pickablePrefabEntity
                 });
 

@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
+namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
     /// 将烘焙 Cell 批量生成为 Scene 视图表面覆盖层
@@ -20,14 +20,14 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         private const int RegionBucketCount = 16;
 
         // Shader 属性 Id 预缓存避免 Scene 重绘期间重复执行字符串查找
-        private static readonly int ColorPropertyId = Shader.PropertyToID("_Color");
+        private static readonly int _colorPropertyId = Shader.PropertyToID("_Color");
 
         // 阻挡与可行走使用跨模式稳定语义色 降低切换视图时的认知成本
-        private static readonly Color BlockedColor = new Color32(216, 74, 88, 255);
-        private static readonly Color WalkableColor = new Color32(59, 164, 114, 255);
-        private static readonly Color WarningColor = new Color32(239, 171, 67, 255);
+        private static readonly Color _blockedColor = new Color32(216, 74, 88, 255);
+        private static readonly Color _walkableColor = new Color32(59, 164, 114, 255);
+        private static readonly Color _warningColor = new Color32(239, 171, 67, 255);
         // Region 使用固定分类色板 避免 HSV 随机色出现亮度失控或相邻颜色过近
-        private static readonly Color[] RegionPalette =
+        private static readonly Color[] _regionPalette =
         {
             new Color32(72, 120, 226, 255),
             new Color32(48, 166, 116, 255),
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         };
 
         // 每个 Authoring 只保留一份覆盖层 Mesh 参数或数据变化时整体替换
-        private static readonly Dictionary<int, CacheEntry> CacheByAuthoringId = new();
+        private static readonly Dictionary<int, CacheEntry> _cacheByAuthoringId = new();
         private static Material _overlayMaterial;
 
         static NavigationGridVisualizationRenderer()
@@ -93,7 +93,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                 }
 
                 overlayMaterial.SetColor(
-                    ColorPropertyId,
+                    _colorPropertyId,
                     ResolveBucketColor(
                         authoring.GizmoMode,
                         bucketIndex,
@@ -202,7 +202,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
             NavigationGridBakeAsset bakeAsset)
         {
             int authoringId = authoring.GetInstanceID();
-            if (CacheByAuthoringId.TryGetValue(authoringId, out CacheEntry current) &&
+            if (_cacheByAuthoringId.TryGetValue(authoringId, out CacheEntry current) &&
                 current.Matches(authoring, bakeAsset))
             {
                 return current;
@@ -210,7 +210,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 
             current?.Dispose();
             CacheEntry replacement = BuildCache(authoring, bakeAsset);
-            CacheByAuthoringId[authoringId] = replacement;
+            _cacheByAuthoringId[authoringId] = replacement;
             return replacement;
         }
 
@@ -447,7 +447,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         {
             if (bucketIndex == 0)
             {
-                return WithOpacity(BlockedColor, opacity * 0.82f);
+                return WithOpacity(_blockedColor, opacity * 0.82f);
             }
 
             // 连续数据已经在建网格时量化为稳定色桶 此处只还原对应梯度颜色
@@ -467,7 +467,7 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
                     break;
 
                 case NavigationGridGizmoMode.Region:
-                    color = RegionPalette[(bucketIndex - 1) % RegionPalette.Length];
+                    color = _regionPalette[(bucketIndex - 1) % _regionPalette.Length];
                     break;
 
                 case NavigationGridGizmoMode.Slope:
@@ -485,12 +485,12 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
 
                 case NavigationGridGizmoMode.AgentOccupancy:
                     color = bucketIndex == 2
-                        ? WalkableColor
-                        : WarningColor;
+                        ? _walkableColor
+                        : _warningColor;
                     break;
 
                 default:
-                    color = WalkableColor;
+                    color = _walkableColor;
                     break;
             }
 
@@ -578,12 +578,12 @@ namespace AnimarsCatcher.Animars.Navigation.Grid.Editor
         // 缓存清空后不会保留失效的 UnityEngine.Object 引用
         private static void ClearCache()
         {
-            foreach (CacheEntry cacheEntry in CacheByAuthoringId.Values)
+            foreach (CacheEntry cacheEntry in _cacheByAuthoringId.Values)
             {
                 cacheEntry.Dispose();
             }
 
-            CacheByAuthoringId.Clear();
+            _cacheByAuthoringId.Clear();
 
             if (_overlayMaterial != null)
             {

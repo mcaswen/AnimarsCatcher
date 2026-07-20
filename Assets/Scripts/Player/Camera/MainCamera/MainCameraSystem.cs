@@ -19,7 +19,7 @@ namespace AnimarsCatcher.Player
         protected override void OnCreate()
         {
             _cameraEntityQuery = SystemAPI.QueryBuilder()
-                .WithAll<MainEntityCamera>()
+                .WithAll<MainEntityCameraTag>()
                 .Build();
 
             RequireForUpdate(_cameraEntityQuery);

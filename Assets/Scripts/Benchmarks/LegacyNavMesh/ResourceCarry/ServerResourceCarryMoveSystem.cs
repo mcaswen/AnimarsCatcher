@@ -216,9 +216,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         {
             foreach (var (foodBuffer, crystalBuffer, hubEntity) in
                      SystemAPI.Query<
-                         DynamicBuffer<FoodAmountChangedEvent>,
-                         DynamicBuffer<CrystalAmountChangedEvent>>()
-                         .WithAll<ResourceEventHubTag>()
+                         DynamicBuffer<FoodResourceDeltaEvent>,
+                         DynamicBuffer<CrystalResourceDeltaEvent>>()
+                         .WithAll<PlayerResourceDeltaHubTag>()
                          .WithEntityAccess())
             {
                 if (!SystemAPI.HasComponent<GhostOwner>(assignment.PlayerRobotEntity))
@@ -232,7 +232,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 switch (pickable.ResourceItemKind)
                 {
                     case ResourceItemKind.Food:
-                        foodBuffer.Add(new FoodAmountChangedEvent
+                        foodBuffer.Add(new FoodResourceDeltaEvent
                         {
                             OwnerNetworkId = networkId,
                             Amount = totalAmount
@@ -241,7 +241,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         break;
 
                     case ResourceItemKind.Crystal:
-                        crystalBuffer.Add(new CrystalAmountChangedEvent
+                        crystalBuffer.Add(new CrystalResourceDeltaEvent
                         {
                             OwnerNetworkId = networkId,
                             Amount = totalAmount

@@ -26,7 +26,7 @@
 
 - `AniMovementBackendConfig`
 - Grid 与 Legacy 互斥 Tag
-- 公共 `AniMovementOrder` 输入契约
+- 公共 `AniCommandRpc` 输入契约
 - 固定随机种子和命令回放格式
 - 32、64、128 Ani Benchmark 场景
 - Raw Legacy 与 Normalized Legacy 基线结果
@@ -96,11 +96,11 @@
 - 对角移动同时校验烘焙邻接、目标 Cell 和两个正交侧边的当前 Agent Clearance
 - `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 已定义 Pending、Searching、Succeeded、Failed、Cancelled 生命周期以及稳定失败原因
 - `NavigationGridPathfindingJob` 在 Burst 后台任务中顺序处理一批请求，并使用 Generation 数组复用 Scratch 内存
-- `NavigationGridPathfindingSystem` 在 Server 或 Local World 每批最多调度 32 个请求，Job 未完成时不会在主线程调用 `Complete`
+- `ServerNavigationGridPathfindingSystem` 在 Server 或 Local World 每批最多调度 32 个请求，Job 未完成时不会在主线程调用 `Complete`
 - 完成结果按 Entity、请求 `Version` 和状态复核后写回；实体销毁、版本变化或取消不会写入旧路径
 - `NavigationGridStageTwoValidation.RunFromCommandLine` 已验证投影、Region 快速拒绝、穿角、开放区平滑、不同体型 Clearance、Terrain Cost、重复确定性、失败状态和异步 ECS Buffer 写回
 
-阶段二当前只提供通用路径基础设施，不消费 `AniMovementOrder`，不生成速度，也不写入 Ani Transform。Legacy 后端仍是正式场景当前使用的移动实现。
+阶段二当前只提供通用路径基础设施，不消费 `AniCommandRpc`，不生成速度，也不写入 Ani Transform。Legacy 后端仍是正式场景当前使用的移动实现。
 
 ### 交付物
 

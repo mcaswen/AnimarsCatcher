@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Gameplay
                 var stone = stoneRef.ValueRO;
 
                 // 未死亡水晶保留到后续帧继续观察
-                if (health.ValueRO.current > 0)
+                if (health.ValueRO.Current > 0)
                     continue;
 
                 // 缺少有效掉落预制体时仍需销毁死亡水晶

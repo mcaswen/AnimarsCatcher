@@ -1,6 +1,6 @@
 using Unity.Mathematics;
 
-namespace AnimarsCatcher.Animars.Navigation.Grid
+namespace AnimarsCatcher.Navigation.Grid
 {
     public static partial class NavigationGridPathAlgorithms
     {

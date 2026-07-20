@@ -3,6 +3,7 @@ namespace AnimarsCatcher.Player
     using System.Collections;
     using System.Collections.Generic;
     using UnityEngine;
+    using UnityEngine.Serialization;
     using Unity.Entities;
 
     /// <summary>
@@ -11,19 +12,17 @@ namespace AnimarsCatcher.Player
     [DisallowMultipleComponent]
     public class CameraTargetAuthoring : MonoBehaviour
     {
-        public GameObject Target;
+        [FormerlySerializedAs("Target")]
+        [SerializeField] private GameObject _target;
 
-        /// <summary>
-        /// 负责将相机目标引用转换为实体引用
-        /// </summary>
-        public class Baker : Baker<CameraTargetAuthoring>
+        private sealed class Baker : Baker<CameraTargetAuthoring>
         {
             public override void Bake(CameraTargetAuthoring authoring)
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
                 AddComponent(entity, new CameraTarget
                 {
-                    TargetEntity = GetEntity(authoring.Target, TransformUsageFlags.Dynamic),
+                    TargetEntity = GetEntity(authoring._target, TransformUsageFlags.Dynamic),
                 });
             }
         }

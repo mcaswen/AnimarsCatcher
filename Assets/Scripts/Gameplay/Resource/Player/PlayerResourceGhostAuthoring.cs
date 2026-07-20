@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public class PlayerResourceGhostAuthoring : MonoBehaviour
     {
-        class Baker : Baker<PlayerResourceGhostAuthoring>
+        private sealed class Baker : Baker<PlayerResourceGhostAuthoring>
         {
             public override void Bake(PlayerResourceGhostAuthoring authoring)
             {
