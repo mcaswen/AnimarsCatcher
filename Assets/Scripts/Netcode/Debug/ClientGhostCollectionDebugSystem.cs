@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Networking
     /// 在客户端首次就绪时输出 Ghost 预制体集合以辅助网络配置排查
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
     [UpdateAfter(typeof(GhostCollectionSystem))]
     public partial struct ClientGhostCollectionDebugSystem : ISystem
     {

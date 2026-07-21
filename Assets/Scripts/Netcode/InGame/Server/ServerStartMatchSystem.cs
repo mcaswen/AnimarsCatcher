@@ -13,7 +13,6 @@ namespace AnimarsCatcher.Networking
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerStartMatchSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

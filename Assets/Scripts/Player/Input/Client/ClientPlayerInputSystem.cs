@@ -16,7 +16,6 @@ namespace AnimarsCatcher.Player
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostInputSystemGroup))]
-    [UpdateBefore(typeof(FixedStepSimulationSystemGroup))]
     public partial class ClientPlayerInputSystem : SystemBase
     {
         private const float RightMouseLongPressThreshold = 0.35f;

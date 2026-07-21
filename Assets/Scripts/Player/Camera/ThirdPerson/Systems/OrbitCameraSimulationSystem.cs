@@ -12,10 +12,8 @@ namespace AnimarsCatcher.Player
     /// <summary>
     /// 在模拟阶段根据玩家输入计算环绕相机的目标姿态
     /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
-    [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
-    [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
     [UpdateBefore(typeof(TransformSystemGroup))]
     [BurstCompile]
     public partial struct OrbitCameraSimulationSystem : ISystem

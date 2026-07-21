@@ -10,7 +10,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ClientHandleStartMatchNotificationSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

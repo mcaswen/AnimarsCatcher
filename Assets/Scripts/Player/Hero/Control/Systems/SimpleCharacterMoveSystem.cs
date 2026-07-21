@@ -12,8 +12,6 @@ namespace AnimarsCatcher.Player
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
-    [UpdateAfter(typeof(PredictedFixedStepSimulationSystemGroup))]
-    [UpdateBefore(typeof(TransformSystemGroup))]
     public partial struct SimpleCharacterMoveSystem : ISystem
     {
         [BurstCompile]

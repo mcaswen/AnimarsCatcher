@@ -12,11 +12,9 @@ namespace AnimarsCatcher.Player
     /// <summary>
     /// 在物理和 Transform 更新后修正环绕相机的平滑距离与遮挡
     /// </summary>
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateAfter(typeof(TransformSystemGroup))]
-    [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
-    [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
-
     [BurstCompile]
     public partial struct OrbitCameraLateUpdateSystem : ISystem
     {

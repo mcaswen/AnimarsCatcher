@@ -15,7 +15,6 @@ namespace AnimarsCatcher.Gameplay
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerSpawnAnisSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

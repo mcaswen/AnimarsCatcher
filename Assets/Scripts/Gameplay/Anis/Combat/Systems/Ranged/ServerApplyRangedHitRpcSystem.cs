@@ -14,7 +14,6 @@ namespace AnimarsCatcher.Gameplay
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerApplyRangedHitRpcSystem : ISystem
     {
         private NativeParallelHashMap<int, Entity> _ghostIdToEntity;

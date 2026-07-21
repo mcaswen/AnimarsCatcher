@@ -5,17 +5,13 @@ namespace AnimarsCatcher.Player
     using Unity.Mathematics;
     using Unity.Transforms;
     using Unity.CharacterController;
-    using Unity.NetCode;
 
     /// <summary>
-    /// 在客户端预测世界中按固定角度跟随受控角色
+    /// 在客户端模拟阶段按固定角度跟随受控角色
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
-    [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
-    // 角色姿态确定后再计算相机，避免读取上一帧的 KCC 状态
-    [UpdateAfter(typeof(ThirdPersonCharacterVariableUpdateSystem))]
-    [UpdateAfter(typeof(ThirdPersonCharacterPhysicsUpdateSystem))]
-
+    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateBefore(typeof(TransformSystemGroup))]
     [BurstCompile]
     public partial struct ClientFixedFollowCameraSystem : ISystem
     {
@@ -31,8 +27,6 @@ namespace AnimarsCatcher.Player
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            float deltaTime = SystemAPI.Time.DeltaTime;
-
             foreach (var (config, control, cameraTransform, _)
                      in SystemAPI
                         .Query<RefRO<FixedCamera>, RefRO<FixedCameraControl>, RefRW<LocalTransform>>()

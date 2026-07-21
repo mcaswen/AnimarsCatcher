@@ -10,7 +10,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))]
     public partial struct ServerReceiveLobbyIntroRpcSystem : ISystem
     {
         public void OnUpdate(ref SystemState state)

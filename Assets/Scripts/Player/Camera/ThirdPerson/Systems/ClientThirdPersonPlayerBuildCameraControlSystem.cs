@@ -17,7 +17,8 @@ namespace AnimarsCatcher.Player
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(FixedStepSimulationSystemGroup))]
+    [UpdateBefore(typeof(OrbitCameraSimulationSystem))]
+    [UpdateBefore(typeof(ClientFixedFollowCameraSystem))]
     [BurstCompile]
     public partial struct ClientThirdPersonPlayerBuildCameraControlSystem : ISystem
     {

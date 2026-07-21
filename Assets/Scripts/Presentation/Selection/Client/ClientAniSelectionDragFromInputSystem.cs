@@ -1,6 +1,7 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.NetCode;
 using AnimarsCatcher.Player;
 
 namespace AnimarsCatcher.Presentation.Selection
@@ -9,7 +10,8 @@ namespace AnimarsCatcher.Presentation.Selection
     /// 将右键按压边沿转换为框选拖拽状态
     /// </summary>
     [BurstCompile]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
+    [UpdateInGroup(typeof(GhostInputSystemGroup))]
     [UpdateAfter(typeof(ClientPlayerInputSystem))]
     public partial struct ClientAniSelectionDragFromInputSystem : ISystem
     {

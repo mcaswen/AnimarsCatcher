@@ -12,7 +12,6 @@ namespace AnimarsCatcher.Networking
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(RpcSystem))] // 收完 StartMatchNotificationRpc 之后
     public partial struct ClientSendReadyForGameRpcSystem : ISystem
     {
         private bool   _hasSent;          // 是否已经发送 ClientReadyForGameRpc
