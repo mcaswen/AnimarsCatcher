@@ -63,17 +63,17 @@ namespace Unity.NetCode.Tests
 
                 VerifyGhostTypes(testWorld.ServerWorld);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Assert that replicated version is correct
+                // 验证相同 Archetype 的两个 Ghost 类型仍被正确区分
                 VerifyGhostTypes(testWorld.ClientWorlds[0]);
             }
         }

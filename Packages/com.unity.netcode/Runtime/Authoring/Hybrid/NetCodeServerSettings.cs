@@ -11,9 +11,9 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// The <see cref="IEntitiesPlayerSettings"/> baking settings to use for server builds. You can assign the <see cref="GUID"/>
-    /// to the <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/> to instrument the asset import worker to bake the
-    /// scene using this setting.
+    /// 用于服务器构建的 <see cref="IEntitiesPlayerSettings"/> 烘焙设置
+    /// 可以将 <see cref="GUID"/> 分配给 <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/>，
+    /// 指示 Asset 导入工作进程使用此设置烘焙场景
     /// </summary>
     [FilePath("ProjectSettings/NetCodeServerSettings.asset", FilePathAttribute.Location.ProjectFolder)]
     public class NetCodeServerSettings : ScriptableSingleton<NetCodeServerSettings>, IEntitiesPlayerSettings, INetCodeConversionTarget
@@ -104,12 +104,11 @@ namespace Unity.NetCode.Hybrid
 #if !UNITY_2023_2_OR_NEWER
             Save();
 #else
-            //But the depedency is going to be update when the scriptable is re-enabled.
+            // 重新启用 ScriptableObject 时会更新依赖
             if (AssetDatabase.IsAssetImportWorkerProcess())
                 return;
             Save(true);
-            //This safeguard is necessary because the RegisterCustomDependency throw exceptions
-            //if this is called when the editor is refreshing the database.
+            // 此保护必不可少，因为在编辑器刷新数据库时调用 RegisterCustomDependency 会抛出异常
             if(!EditorApplication.isUpdating)
             {
                 ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
@@ -182,14 +181,14 @@ namespace Unity.NetCode.Hybrid
 
         static void OnAttachToPanel(AttachToPanelEvent evt)
         {
-            // The ScriptableSingleton<T> is not directly editable by default.
-            // Change the hideFlags to make the SerializedObject editable.
+            // ScriptableSingleton<T> 默认不能直接编辑
+            // 修改 hideFlags 使 SerializedObject 可编辑
             NetCodeServerSettings.instance.hideFlags = HideFlags.HideInHierarchy | HideFlags.DontSave;
         }
 
         static void OnDetachFromPanel(DetachFromPanelEvent evt)
         {
-            // Restore the original flags
+            // 恢复原始标志
             NetCodeServerSettings.instance.hideFlags = HideFlags.HideAndDontSave;
             NetCodeServerSettings.instance.Save();
         }

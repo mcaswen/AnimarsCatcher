@@ -1,17 +1,23 @@
 namespace Unity.NetCode.Tests
 {
     /// <summary>
-    /// Static-optimization can APPEAR to work when acking is 100% reliable and instantaneous
-    /// (i.e. on ServerTick:3, snapshot for ServerTick:2 is already acked), so test other cases too.
+    /// 当 ACK 完全可靠且即时返回时，静态优化可能只是表面上正常工作
+    /// 例如 ServerTick 为 3 时，ServerTick 2 的 Snapshot 已被确认，因此还需要覆盖其他网络条件
     /// </summary>
     internal enum NetCodeTestLatencyProfile
     {
         None,
-        /// <summary>Round trip time (i.e. latency) of 60ms (rounds up to 4 ticks).</summary>
+        /// <summary>
+        /// 往返时间为 60ms，向上取整为 4 个 Tick
+        /// </summary>
         RTT60ms,
-        /// <summary>Packet loss of 33% (every 3rd packet).</summary>
+        /// <summary>
+        /// 丢包率为 33%，即每 3 个包丢失 1 个
+        /// </summary>
         PL33,
-        /// <summary>Round trip time (i.e. latency) of 16ms (one tick), and packet loss of 33% (every 3rd packet).</summary>
+        /// <summary>
+        /// 每个方向延迟 16ms，约为 1 个 Tick，丢包率为 5%，即每 20 个包丢失 1 个
+        /// </summary>
         RTT16ms_PL5,
     }
 }

@@ -4,7 +4,7 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// Wrapper struct to hold all the emitted metadata for a single frame in the Netcode profiler.
+    /// 保存 NetCode Profiler 单帧全部已发送 Metadata 的包装结构
     /// </summary>
     struct ProfilerFrameMetadata
     {

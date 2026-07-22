@@ -3,16 +3,16 @@ using Unity.Burst;
 
 namespace Unity.NetCode
 {
-    ///<summary>
-    ///Simple RAII-like wrapper that simplify making C# function delegate burst compatible.
-    ///</summary>
-    ///<typeparam name="T">the function delegate type</typeparam>
+    /// <summary>
+    /// 简单的 RAII 风格包装器，用于让 C# 函数委托更方便地兼容 Burst
+    /// </summary>
+    /// <typeparam name="T">函数委托类型</typeparam>
     public struct PortableFunctionPointer<T> where T : Delegate
     {
         /// <summary>
-        /// Convert the delegate to a burst-compatible function pointer.
+        /// 将委托转换为兼容 Burst 的函数指针
         /// </summary>
-        /// <param name="executeDelegate">the function delegate</param>
+        /// <param name="executeDelegate">函数委托</param>
         public PortableFunctionPointer(T executeDelegate)
         {
             Ptr = BurstCompiler.CompileFunctionPointer(executeDelegate);

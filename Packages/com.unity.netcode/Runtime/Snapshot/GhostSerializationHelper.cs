@@ -11,7 +11,7 @@ namespace Unity.NetCode
 {
     namespace LowLevel.Unsafe
     {
-        // Internal serializer helper. Hold a bunch of serializer related data together
+        // 内部 Serializer 辅助器，用于集中保存一组序列化相关数据
         [BurstCompile]
         unsafe struct GhostSerializeHelper
         {
@@ -23,7 +23,7 @@ namespace Unity.NetCode
             public int snapshotSize;
             public int dynamicSnapshotCapacity;
             public int changeMaskUints;
-            //Constant data
+            // 常量数据
             [ReadOnly] public DynamicComponentTypeHandle* ghostChunkComponentTypesPtr;
             [ReadOnly] public DynamicBuffer<GhostCollectionComponentIndex> GhostComponentIndex;
             [ReadOnly] public DynamicBuffer<GhostComponentSerializer.State> GhostComponentCollection;
@@ -78,15 +78,15 @@ namespace Unity.NetCode
                 if(!serializer.HasGhostFields) return;
                 var compSize = serializer.ComponentSize;
                 var bufData = chunk.GetUntypedBufferAccessor(ref typeHandle);
-                // Collect the buffer data to serialize by storing pointers, offset and size.
+                // 通过记录指针、偏移量和长度来收集待序列化 Buffer 数据
                 var bufferPointer = (IntPtr) bufData.GetUnsafeReadOnlyPtrAndLength(ent, out var bufferLen);
                 var snapshotData = (uint*) (snapshotPtr + snapshotOffset);
                 snapshotData[0] = (uint) bufferLen;
                 snapshotData[1] = (uint) dynamicSnapshotDataOffset;
-                //Serialize the buffer contents
+                // 序列化 Buffer 内容
                 var maskSize = SnapshotDynamicBuffersHelper.GetDynamicDataChangeMaskSize(serializer.ChangeMaskBits, bufferLen);
                 CheckValidDynamicSnapshotOffset(serializer, maskSize, bufferLen);
-                //Prepare data at tick here
+                // 在此准备当前 Tick 的数据
                 serializer.CopyToSnapshot.Invoke(
                     (IntPtr)UnsafeUtility.AddressOf(ref serializerState),
                     (IntPtr)(snapshotDynamicPtr + maskSize), dynamicSnapshotDataOffset, serializer.SnapshotSize,
@@ -103,7 +103,7 @@ namespace Unity.NetCode
                 int enableableMaskOffset = 0;
                 if (option == ClearOption.Clear)
                 {
-                    //Clear changemask and enable bitmask
+                    // 清除 ChangeMask 和 EnableMask
                     var bitmaskSize = changeMaskUints + GhostComponentSerializer.ChangeMaskArraySizeInUInts(typeData.EnableableBits);
                     bitmaskSize = GhostComponentSerializer.SnapshotSizeAligned(bitmaskSize * sizeof(uint));
                     UnsafeUtility.MemClear(snapshotPtr+snapshotOffset, bitmaskSize);
@@ -206,7 +206,7 @@ namespace Unity.NetCode
                         snapshotOffset += sizeInSnapshot;
                     }
                 }
-                //Update the dynamic data total size if the header has been assigned to be updated
+                // 如果已指定要更新的 Header，则更新动态数据总大小
                 if(typeData.NumBuffers > 0 && snapshotDynamicHeaderPtr != null)
                     *(uint*)snapshotDynamicHeaderPtr = (uint)(dynamicSnapshotDataOffset - currentDynamicDataOffset);
             }
@@ -214,7 +214,7 @@ namespace Unity.NetCode
             [BurstCompile]
             public void CopyChunkToSnapshot(ArchetypeChunk chunk, in GhostCollectionPrefabSerializer typeData)
             {
-                // Loop through all components and call the serialize method which will write the snapshot data and serialize the entities to the temporary stream
+                // 遍历全部组件并调用序列化方法，将 Snapshot 数据写入并把实体序列化到临时流
                 int enableableMaskOffset = 0;
                 int numBaseComponents = typeData.NumComponents - typeData.NumChildComponents;
                 for (int comp = 0; comp < numBaseComponents; ++comp)
@@ -224,16 +224,14 @@ namespace Unity.NetCode
                     CheckValidComponentIndex(compIdx);
                     ref readonly var ghostSerializer = ref GhostComponentCollection.ElementAtRO(serializerIdx);
                     var compSize = ghostSerializer.ComponentSize;
-                    //Don't access the data but always increment the offset by the component SnapshotSize.
-                    //Otherwise, the next serialized component would technically copy the data in the wrong memory slot
-                    //It might still work in some cases but if this snapshot is then part of the history and used for
-                    //interpolated data we might get incorrect results
+                    // 即使不访问数据，也始终按组件 SnapshotSize 推进偏移量
+                    // 否则下一个序列化组件会将数据复制到错误的内存槽位
+                    // 部分情况下可能暂时正常，但如果此 Snapshot 后续进入历史并用于插值数据，就可能产生错误结果
 
                     if (ghostSerializer.SerializesEnabledBit != 0)
                     {
                         var handle = ghostChunkComponentTypesPtr[compIdx];
-                        //There is no need to check if the chunk has the component because the chunl.GetEnableableBits will return
-                        //default if the component is not present
+                        // 无需检查 Chunk 是否具有该组件，因为组件不存在时 chunk.GetEnableableBits 会返回默认值
                         GhostChunkSerializer.UpdateEnableableMasks(chunk, 0, chunk.Count, ref handle, snapshotPtr, changeMaskUints, enableableMaskOffset, snapshotSize);
                         ++enableableMaskOffset;
                         GhostChunkSerializer.ValidateWrittenEnableBits(enableableMaskOffset, typeData.EnableableBits);
@@ -252,7 +250,7 @@ namespace Unity.NetCode
                             {
                                 var compData = (byte*)bufData.GetUnsafeReadOnlyPtrAndLength(ent, out var len);
                                 var maskSize = SnapshotDynamicBuffersHelper.GetDynamicDataChangeMaskSize(ghostSerializer.ChangeMaskBits, len);
-                                //Set the elements count and the buffer content offset inside the dynamic data history buffer
+                                // 设置元素数量及 Buffer 内容在动态数据历史 Buffer 中的偏移量
                                 *(uint*)(snapshotPtr + snapshotOffset + ent * snapshotSize) = (uint)len;
                                 *(uint*)(snapshotPtr + snapshotOffset + ent * snapshotSize + sizeof(int)) = (uint)(dynamicSnapshotDataOffset);
                                 ghostSerializer.CopyToSnapshot.Invoke((IntPtr)UnsafeUtility.AddressOf(ref serializerState),
@@ -315,7 +313,7 @@ namespace Unity.NetCode
                                         var compData = (byte*)bufData.GetUnsafeReadOnlyPtrAndLength(childChunk.IndexInChunk, out var len);
 
                                         var maskSize = SnapshotDynamicBuffersHelper.GetDynamicDataChangeMaskSize(ghostSerializer.ChangeMaskBits, len);
-                                        //Set the elements count and the buffer content offset inside the dynamic data history buffer
+                                        // 设置元素数量及 Buffer 内容在动态数据历史 Buffer 中的偏移量
                                         *(uint*)(snapshotPtr + snapshotOffset + ent * snapshotSize) = (uint)len;
                                         *(uint*)(snapshotPtr + snapshotOffset + ent * snapshotSize + sizeof(int)) = (uint)(dynamicSnapshotDataOffset);
                                         ghostSerializer.CopyToSnapshot.Invoke((IntPtr)UnsafeUtility.AddressOf(ref serializerState),
@@ -354,7 +352,7 @@ namespace Unity.NetCode
                             {
                                 var linkedEntityGroup = linkedEntityGroupAccessor[ent];
                                 var childEnt = linkedEntityGroup[GhostComponentIndex[typeData.FirstComponent + comp].EntityIndex].Value;
-                                //We can skip here, because the memory buffer offset is computed using the start-end entity indices
+                                // 此处可以跳过，因为内存 Buffer 偏移量根据实体起止索引计算
                                 if (childEntityLookup.TryGetValue(childEnt, out var childChunk) && childChunk.Chunk.Has(ref ghostChunkComponentTypesPtr[compIdx]))
                                 {
                                     if (ghostSerializer.HasGhostFields)
@@ -362,7 +360,7 @@ namespace Unity.NetCode
                                         var compData = (byte*) childChunk.Chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize).GetUnsafeReadOnlyPtr();
                                         compData += childChunk.IndexInChunk * compSize;
 
-                                        // TODO: would batching be faster?
+                                        // TODO：评估批处理是否更快
                                         ghostSerializer.CopyToSnapshot.Invoke((IntPtr) UnsafeUtility.AddressOf(ref serializerState),
                                             (IntPtr) snapshotPtr + ent * snapshotSize, snapshotOffset, snapshotSize, (IntPtr) compData, compSize, 1);
                                     }

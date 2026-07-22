@@ -5,7 +5,7 @@ using UnityEngine.UIElements;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// The base class for Netcode profiler tabs.
+    /// NetCode Profiler 页签的基类
     /// </summary>
     class NetcodeProfilerTab : Tab
     {

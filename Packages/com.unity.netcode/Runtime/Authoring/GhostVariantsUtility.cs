@@ -6,8 +6,7 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Collection of utility that are used by the editor and runtime to compute and check ghost
-    /// component variants hashes.
+    /// 编辑器和运行时用于计算及检查 Ghost 组件变体哈希值的工具集合
     /// </summary>
     public static class GhostVariantsUtility
     {
@@ -29,62 +28,76 @@ namespace Unity.NetCode
             hash = TypeHash.CombineFNV1A64(hash, variantTypeHash);
             return hash;
         }
-        /// <summary>Calculates the "variant hash" for the component type itself, so that we can fetch the meta-data.</summary>
-        /// <remarks>It's a little odd, but the default serializer for a Component is the ComponentType itself. I.e. It is its own variant.</remarks>
-        /// <param name="componentType">The ComponentType to be used for both the component, and the variant.</param>
-        /// <returns>The calculated hash.</returns>
+        /// <summary>
+        /// 计算组件类型自身的变体哈希值，以便获取元数据
+        /// </summary>
+        /// <remarks>这种设计有些特殊：组件的默认序列化器就是 ComponentType 本身，即组件自身也是一个变体</remarks>
+        /// <param name="componentType">同时用作组件和变体的 ComponentType</param>
+        /// <returns>计算出的哈希值</returns>
         public static ulong CalculateVariantHashForComponent(ComponentType componentType)
         {
             var componentTypeHash = TypeManager.GetFullNameHash(componentType.TypeIndex);
             return CalculateVariantHash(componentTypeHash, componentTypeHash);
         }
 
-        /// <summary>Calculates a stable hash for a variant via <see cref="TypeManager.GetTypeNameFixed"/>.</summary>
-        /// <param name="variantTypeFullName">The Variant Type's <see cref="Type.FullName"/>.</param>
-        /// <param name="componentType">The ComponentType that this variant applies to.</param>
-        /// <returns>The calculated hash.</returns>
+        /// <summary>
+
+        /// 通过 <see cref="TypeManager.GetTypeNameFixed"/> 为变体计算稳定哈希值
+
+        /// </summary>
+        /// <param name="variantTypeFullName">变体类型的 <see cref="Type.FullName"/></param>
+        /// <param name="componentType">此变体所应用的 ComponentType</param>
+        /// <returns>计算出的哈希值</returns>
         public static ulong UncheckedVariantHash(in FixedString512Bytes variantTypeFullName, ComponentType componentType)
         {
             return CalculateVariantHash(TypeHash.FNV1A64(variantTypeFullName), TypeManager.GetFullNameHash(componentType.TypeIndex));
         }
 
-        /// <summary>Calculates the "variant hash" for the variant + component pair.</summary>
-        /// <param name="variantTypeFullName">The Variant Type's System.Type.FullName.</param>
-        /// <param name="componentTypeFullName">The Component Type's System.Type.FullName that this variant applies to.</param>
-        /// <returns>The calculated hash.</returns>
+        /// <summary>
+
+        /// 为变体与组件配对计算变体哈希值
+
+        /// </summary>
+        /// <param name="variantTypeFullName">变体类型的 System.Type.FullName</param>
+        /// <param name="componentTypeFullName">此变体所应用组件类型的 System.Type.FullName</param>
+        /// <returns>计算出的哈希值</returns>
         public static ulong UncheckedVariantHash(in FixedString512Bytes variantTypeFullName, in FixedString512Bytes componentTypeFullName)
         {
             return CalculateVariantHash(TypeHash.FNV1A64(variantTypeFullName), TypeHash.FNV1A64(componentTypeFullName));
         }
 
         /// <summary>
-        /// Calculates the "variant hash" for the variant + component pair. Non-Burst Compatible version.
+        /// 为变体与组件配对计算变体哈希值，此版本不兼容 Burst
         /// </summary>
-        /// <param name="variantTypeFullName">The Variant Type's System.Type.FullName.</param>
-        /// <param name="componentTypeFullName">The Component Type's System.Type.FullName that this variant applies to.</param>
-        /// <returns>The calculated hash.</returns>
-        /// <remarks>This method is not Burst Compatible.</remarks>
+        /// <param name="variantTypeFullName">变体类型的 System.Type.FullName</param>
+        /// <param name="componentTypeFullName">此变体所应用组件类型的 System.Type.FullName</param>
+        /// <returns>计算出的哈希值</returns>
+        /// <remarks>此方法不兼容 Burst</remarks>
         [ExcludeFromBurstCompatTesting("Use managed types")]
         public static ulong UncheckedVariantHashNBC(string variantTypeFullName, string componentTypeFullName)
         {
             return CalculateVariantHash(TypeHash.FNV1A64(variantTypeFullName), TypeHash.FNV1A64(componentTypeFullName));
         }
 
-        /// <summary>Calculates a stable hash for a variant by combining the variant Type.Fullname and
-        /// <see cref="ComponentType"/> name hash <see cref="TypeManager.GetFullNameHash"/>.</summary>
-        /// <param name="variantStructDeclaration">The Variant struct declaration type.</param>
-        /// <param name="componentType">The ComponentType that this variant applies to.</param>
-        /// <returns>The calculated hash.</returns>
+        /// <summary>组合变体 Type.Fullname 与 <see cref="ComponentType"/> 名称哈希
+        /// <see cref="TypeManager.GetFullNameHash"/>，为变体计算稳定哈希值</summary>
+        /// <param name="variantStructDeclaration">变体结构体的声明类型</param>
+        /// <param name="componentType">此变体所应用的 ComponentType</param>
+        /// <returns>计算出的哈希值</returns>
         [ExcludeFromBurstCompatTesting("Use managed types")]
         public static ulong UncheckedVariantHashNBC(Type variantStructDeclaration, ComponentType componentType)
         {
             return CalculateVariantHash(TypeHash.FNV1A64(variantStructDeclaration.FullName), TypeManager.GetFullNameHash(componentType.TypeIndex));
         }
 
-        /// <summary>Calculates the "variant hash" for the variant + component pair.</summary>
-        /// <param name="variantTypeHash">The hash of the Variant Type's System.Type.FullName.</param>
-        /// <param name="componentType">The ComponentType that this variant applies to.</param>
-        /// <returns>The calculated hash.</returns>
+        /// <summary>
+
+        /// 为变体与组件配对计算变体哈希值
+
+        /// </summary>
+        /// <param name="variantTypeHash">变体类型 System.Type.FullName 的哈希值</param>
+        /// <param name="componentType">此变体所应用的 ComponentType</param>
+        /// <returns>计算出的哈希值</returns>
         public static ulong UncheckedVariantHash(ulong variantTypeHash, ComponentType componentType)
         {
             return CalculateVariantHash(variantTypeHash, TypeManager.GetFullNameHash(componentType.TypeIndex));

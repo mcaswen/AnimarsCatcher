@@ -82,7 +82,7 @@ namespace NetCodeAnalyzer
 
             chain.Add(current);
 
-            // Walk up the chain to find all method calls
+            // 沿父节点向上遍历调用链，查找全部方法调用
             while (current.Parent is MemberAccessExpressionSyntax parentMember &&
                 parentMember.Parent is InvocationExpressionSyntax parentInvocation)
             {

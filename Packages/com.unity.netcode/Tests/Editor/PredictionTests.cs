@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Core;
@@ -11,14 +11,14 @@ using Random = UnityEngine.Random;
 
 namespace Unity.NetCode.Tests
 {
-    //FIXME this will break serialization. It is non handled and must be documented
+    // FIXME：该类型会破坏序列化，当前未处理且需要在文档中说明
     [GhostEnabledBit]
     struct BufferWithReplicatedEnableBits: IBufferElementData, IEnableableComponent
     {
         public byte value;
     }
 
-    //Added to the ISystem state entity, track the number of time a system update has been called
+    // 添加到 ISystem 状态实体，用于记录 System 更新次数
     struct SystemExecutionCounter : IComponentData
     {
         public int value;
@@ -29,15 +29,15 @@ namespace Unity.NetCode.Tests
         public void Bake(GameObject gameObject, IBaker baker)
         {
             var entity = baker.GetEntity(TransformUsageFlags.Dynamic);
-            //Transform is replicated, Owner is replicated (components with sizes)
+            // Transform 与 GhostOwner 都参与复制，覆盖有数据组件
             baker.AddComponent(entity, new GhostOwner());
-            //Buffer with enable bits, replicated
-            //TODO: missing: Buffer with enable bits, no replicated fields. This break serialization
+            // 带启用位且参与复制的 Buffer
+            // TODO：缺少带启用位但无复制字段的 Buffer，该情况会破坏序列化
             //baker.AddBuffer<BufferWithReplicatedEnableBits>().ResizeUninitialized(3);
             baker.AddBuffer<EnableableBuffer>(entity).ResizeUninitialized(3);
-            //Empty enable flags
+            // 无字段的可启用标记组件
             baker.AddComponent<EnableableFlagComponent>(entity);
-            //Non empty enable flags
+            // 包含字段的可启用组件
             baker.AddComponent(entity, new ReplicatedEnableableComponentWithNonReplicatedField{value = 9999});
         }
     }
@@ -70,7 +70,7 @@ namespace Unity.NetCode.Tests
             var deltaTime = SystemAPI.Time.DeltaTime;
 
             Entities.WithAll<Simulate, GhostInstance>().ForEach((ref LocalTransform trans) => {
-                // Make sure we advance by one unit per tick, makes it easier to debug the values
+                // 每 Tick 前进一个单位，便于调试数值
                 trans.Position.x += deltaTime * 60.0f;
             }).ScheduleParallel();
         }
@@ -94,7 +94,7 @@ namespace Unity.NetCode.Tests
             var tick = networkTime.ServerTick;
             if(!tick.IsValid)
                 return;
-            //Do not invalidate full ticks. The backup is not restored in that case
+            // 不破坏完整 Tick，因为该情况下不会执行 Backup 恢复
             if(!networkTime.IsPartialTick)
                 return;
             Entities
@@ -153,10 +153,10 @@ namespace Unity.NetCode.Tests
                     Assert.IsTrue(trans.Position.z > 0f);
                     Assert.IsTrue(math.abs(1f - trans.Scale) < 1e-4f);
 
-                    //enable bits must be replicated
+                    // 启用位必须从 Backup 正确恢复
                     Assert.IsTrue(EntityManager.IsComponentEnabled<ReplicatedEnableableComponentWithNonReplicatedField>(ent));
                     Assert.IsTrue(EntityManager.IsComponentEnabled<EnableableFlagComponent>(ent));
-                    //This component is not replicated. As such its values is never restored.
+                    // 该组件字段不参与复制，因此其字段值不会从 Backup 恢复
                     Assert.AreEqual(-10*(int)tick.SerializedData, comp.value);
                     for (int el = 0; el < buffer.Length; ++el)
                          Assert.AreEqual(1000 * (el+1), buffer[el].value);
@@ -181,10 +181,10 @@ namespace Unity.NetCode.Tests
                 SinceFirstUpdate = time.ElapsedTime;
             }
             Assert.GreaterOrEqual(time.ElapsedTime, LastElapsedTime);
-            //the elapsed time must be always an integral multiple of the time step
+            // ElapsedTime 必须始终是 Timestep 的整数倍
             Assert.LessOrEqual(math.fmod(time.ElapsedTime, timestep), 1e-6);
-            //the relative elapsed time since last update should also be equal to the timestep. If the timestep is changed
-            //before the last update, this may be not true
+            // 相邻更新之间以及首次更新以来的相对时间也应为 Timestep 的整数倍
+            // 若在上次更新前修改 Timestep，该关系可能暂时不成立
             var totalElapsedSinceFirstUpdate = math.fmod(time.ElapsedTime - SinceFirstUpdate,  timestep);
             var elapsedTimeSinceLastUpdate = math.fmod(time.ElapsedTime - LastElapsedTime,  timestep);
             Assert.LessOrEqual(elapsedTimeSinceLastUpdate, 1e-6);
@@ -236,7 +236,7 @@ namespace Unity.NetCode.Tests
             foreach (var (data, instance) in SystemAPI.Query<RefRW<CountSimulationFromSpawnTick>, RefRO<GhostInstance>>().WithAll<Simulate>())
             {
                 var spawnTick = instance.ValueRO.spawnTick;
-                //don't check prediction spawned ghosts not initialized yet
+                // 尚未初始化的预测生成 Ghost 没有有效 SpawnTick，不参与检查
                 if(!spawnTick.IsValid)
                     return;
                 if (!time.IsPartialTick && time.ServerTick.TicksSince(spawnTick) == 1)
@@ -254,7 +254,7 @@ namespace Unity.NetCode.Tests
     {
         public void OnUpdate(ref SystemState state)
         {
-            //don't need to map
+            // 直接查询参与模拟的 Ghost，无需建立实体映射
             foreach (var rollback in SystemAPI.Query<RefRW<CountSimulationFromSpawnTick>>().WithAll<GhostInstance>().WithAll<Simulate>())
             {
                 ++rollback.ValueRW.Value;
@@ -342,13 +342,13 @@ namespace Unity.NetCode.Tests
                 // for (int i = 0; i < nonReplicatedBuffer.Length; ++i)
                 //     nonReplicatedBuffer[i] = new BufferWithReplicatedEnableBits { value = (byte)(10 * (i + 1)) };
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -365,15 +365,15 @@ namespace Unity.NetCode.Tests
                     var curServer = testWorld.ServerWorld.EntityManager.GetComponentData<LocalTransform>(serverEnt);
                     var curClient = testWorld.ClientWorlds[0].EntityManager.GetComponentData<LocalTransform>(clientEnt);
                     testWorld.ServerWorld.EntityManager.CompleteAllTrackedJobs();
-                    // Server does not do fractional ticks so it will not advance the position every frame
+                    // 服务端不执行部分 Tick，因此位置不会每帧都前进
                     Assert.GreaterOrEqual(curServer.Position.x, prevServer.x);
                     testWorld.ClientWorlds[0].EntityManager.CompleteAllTrackedJobs();
-                    // Client does fractional ticks and position should be always increasing
+                    // 客户端执行部分 Tick，因此位置应每帧持续增加
                     Assert.Greater(curClient.Position.x, prevClient.x);
                     prevServer = curServer.Position;
                     prevClient = curClient.Position;
                 }
-                // Stop updating, let it run for a while and check that they ended on the same value
+                // 停止移动并继续运行，验证客户端与服务端最终收敛到相同位置
                 PredictionTestPredictionSystem.s_IsEnabled = false;
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
@@ -397,7 +397,7 @@ namespace Unity.NetCode.Tests
             ghostConfig.DefaultGhostMode = GhostMode.Predicted;
 
             const int one60HzTickMs = 17;
-            testWorld.DriverSimulatedDelay = 150 - one60HzTickMs; // EACH WAY! Thus, adjusted to be a EstimatedRTT of ~300ms.
+            testWorld.DriverSimulatedDelay = 150 - one60HzTickMs; // 单向延迟，扣除一个 60 Hz Tick 后得到约 300 ms 的估算 RTT
             Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
             testWorld.CreateWorlds(true, 3);
             var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
@@ -409,11 +409,11 @@ namespace Unity.NetCode.Tests
             testWorld.ClientWorlds[0].EntityManager.CreateSingleton(clientTickRate);
 
             clientTickRate.MaxPredictAheadTimeMS = 200;
-            clientTickRate.ForcedInputLatencyTicks = 6; // 100ms.
+            clientTickRate.ForcedInputLatencyTicks = 6; // 约 100 ms
             testWorld.ClientWorlds[1].EntityManager.CreateSingleton(clientTickRate);
 
             clientTickRate.MaxPredictAheadTimeMS = 500;
-            clientTickRate.ForcedInputLatencyTicks = 3; // 50ms.
+            clientTickRate.ForcedInputLatencyTicks = 3; // 约 50 ms
             testWorld.ClientWorlds[2].EntityManager.CreateSingleton(clientTickRate);
 
             testWorld.Connect(maxSteps:64);
@@ -432,15 +432,15 @@ namespace Unity.NetCode.Tests
             Assert.That(client0SnapshotAck.EstimatedRTT, Is.EqualTo(300).Within(20));
             Assert.That(client1SnapshotAck.EstimatedRTT, Is.EqualTo(300).Within(20));
             Assert.That(client2SnapshotAck.EstimatedRTT, Is.EqualTo(300).Within(20));
-            Assert.That(client0NetTime.EffectiveInputLatencyTicks, Is.EqualTo(9).Within(2)); // ( ~18 ticks (~300ms) + 2 ticks for TargetCommandSlack - clamped at 12 ticks (200ms) = ~8 ticks.
-            Assert.That(client1NetTime.EffectiveInputLatencyTicks, Is.EqualTo(9).Within(2)); // Same as above, as ForcedInputLatency is essentially ignored here, as its lower than 8 ticks, which is being forced by MaxPredictAheadMS.
-            Assert.That(client2NetTime.EffectiveInputLatencyTicks, Is.EqualTo(3).Within(2)); // Expect it to be the same as its config value.
+            Assert.That(client0NetTime.EffectiveInputLatencyTicks, Is.EqualTo(9).Within(2)); // 约 18 个 RTT Tick 加 2 个 TargetCommandSlack，再由 200 ms 上限裁剪，得到约 8 至 9 个 Tick
+            Assert.That(client1NetTime.EffectiveInputLatencyTicks, Is.EqualTo(9).Within(2)); // 配置的 6 Tick 低于 MaxPredictAheadTimeMS 强制产生的延迟，因此结果与客户端 0 接近
+            Assert.That(client2NetTime.EffectiveInputLatencyTicks, Is.EqualTo(3).Within(2)); // 500 ms 上限足够大，因此保持配置的 3 Tick
             Assert.That(client0NetTime.InputTargetTick.TicksSince(client0NetTime.ServerTick), Is.EqualTo(client0NetTime.EffectiveInputLatencyTicks));
             Assert.That(client1NetTime.InputTargetTick.TicksSince(client1NetTime.ServerTick), Is.EqualTo(client1NetTime.EffectiveInputLatencyTicks));
             Assert.That(client2NetTime.InputTargetTick.TicksSince(client2NetTime.ServerTick), Is.EqualTo(client2NetTime.EffectiveInputLatencyTicks));
-            Assert.That(client0NetTime.PredictedTickIndex, Is.GreaterThan(12)); // ~200ms + 1 for partial tick.
-            Assert.That(client1NetTime.PredictedTickIndex, Is.GreaterThan(12)); // ~200ms + 1 for partial tick.
-            Assert.That(client2NetTime.PredictedTickIndex, Is.GreaterThan((6*3)-3)); // ~300ms - 3 ticks for ForcedInputLatency.
+            Assert.That(client0NetTime.PredictedTickIndex, Is.GreaterThan(12)); // 约 200 ms，再加一个部分 Tick
+            Assert.That(client1NetTime.PredictedTickIndex, Is.GreaterThan(12)); // 约 200 ms，再加一个部分 Tick
+            Assert.That(client2NetTime.PredictedTickIndex, Is.GreaterThan((6*3)-3)); // 约 300 ms，减去 3 个 ForcedInputLatency Tick
         }
 
         [TestCase(1)]
@@ -476,10 +476,10 @@ namespace Unity.NetCode.Tests
                     // for (int el = 0; el < nonReplicatedBuffer.Length; ++el)
                     //     nonReplicatedBuffer[el] = new BufferWithReplicatedEnableBits { value = (byte)(10 * (el + 1)) };
                 }
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 PredictionTestPredictionSystem.s_IsEnabled = true;
@@ -512,9 +512,9 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.GetOrCreateSystemManaged<PredictedFixedStepSimulationSystemGroup>().InternalRateManager.Timestep = 1f/fixedStepRate;
                 testWorld.ClientWorlds[0].GetOrCreateSystemManaged<PredictedFixedStepSimulationSystemGroup>().InternalRateManager.Timestep = 1f/fixedStepRate;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
-                //Expect 2, one for server, one for the client
+                // 预期两条警告，服务端和客户端各一条
                 LogAssert.Expect(LogType.Warning, $"The PredictedFixedStepSimulationSystemGroup.TimeStep is {1f/fixedStepRate}ms ({fixedStepRate}FPS) but should be equals to ClientServerTickRate.PredictedFixedStepSimulationTimeStep: {1f/60f}ms ({60f}FPS).\n" +
                                                   "The current timestep will be changed to match the ClientServerTickRate settings. You should never set the rate of this system directly with neither the PredictedFixedStepSimulationSystemGroup.TimeStep nor the RateManager.TimeStep method.\n " +
                                                   "Instead, you must always configure the desired rate by changing the ClientServerTickRate.PredictedFixedStepSimulationTickRatio property.");
@@ -523,7 +523,7 @@ namespace Unity.NetCode.Tests
                                                   "The current timestep will be changed to match the ClientServerTickRate settings. You should never set the rate of this system directly with neither the PredictedFixedStepSimulationSystemGroup.TimeStep nor the RateManager.TimeStep method.\n " +
                                                   "Instead, you must always configure the desired rate by changing the ClientServerTickRate.PredictedFixedStepSimulationTickRatio property.");
 
-                //Check that the simulation tick rate are the same
+                // 检查客户端与服务端的模拟 Timestep 已统一
                 var clientRate = testWorld.GetSingleton<ClientServerTickRate>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(60, clientRate.SimulationTickRate);
                 Assert.AreEqual(1, clientRate.PredictedFixedStepSimulationTickRatio);
@@ -532,7 +532,7 @@ namespace Unity.NetCode.Tests
                 Assert.That(serverTimeStep, Is.EqualTo(clientRate.SimulationFixedTimeStep));
                 Assert.That(clientTimestep, Is.EqualTo(clientRate.SimulationFixedTimeStep));
 
-                //Also check that if the value is overriden, it is still correctly set to the right value
+                // 即使每帧再次覆盖 Timestep，RateManager 仍应将其恢复为配置值
                 for (int i = 0; i < 8; ++i)
                 {
                     testWorld.ServerWorld.GetOrCreateSystemManaged<PredictedFixedStepSimulationSystemGroup>().InternalRateManager.Timestep = 1f/fixedStepRate;
@@ -563,8 +563,8 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(CheckElapsedTime));
                 testWorld.CreateWorlds(true, 1);
 
-                //tick the world before connecting or finalizing the setup to mimic the fact the values has been changed by users
-                //after the world creation later on.
+                // 在连接和完成设置前推进 World
+                // 模拟用户在 World 创建后才修改 TickRate 配置的情况
                 for(int i=0;i<10;++i)
                     testWorld.Tick();
                 var tickRate = testWorld.ServerWorld.EntityManager.CreateEntity(typeof(ClientServerTickRate));
@@ -573,7 +573,7 @@ namespace Unity.NetCode.Tests
                     PredictedFixedStepSimulationTickRatio = ratio
                 });
                 testWorld.Connect();
-                //Check that the simulation tick rate are the same
+                // 检查客户端同步到相同的模拟 TickRate 与预测固定步长比例
                 var clientRate = testWorld.GetSingleton<ClientServerTickRate>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(60, clientRate.SimulationTickRate);
                 Assert.AreEqual(ratio, clientRate.PredictedFixedStepSimulationTickRatio);
@@ -617,7 +617,7 @@ namespace Unity.NetCode.Tests
                         Assert.AreEqual(currentPartialTick.TicksSince(lastBackupTick), predictionCount);
                     }
 
-                    //reset here the start tick, so next partial we will track and reset counters
+                    // 重置计数，便于下一个部分 Tick 独立追踪 PredictionStartTick
                     testWorld.ClientWorlds[0].EntityManager.SetComponentData(entities[i], new CountSimulationFromSpawnTick());
                 }
             }
@@ -707,21 +707,21 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 testWorld.Connect();
                 testWorld.GoInGame();
-                //sync clocks
+                // 同步客户端与服务端时钟
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
-                //spawn
+                // 生成测试 Ghost
                 for (int i = 0; i < ghostCount; ++i)
                 {
                     testWorld.SpawnOnServer(ghostGameObject);
                 }
 
                 testWorld.ClientWorlds[0].Unmanaged.GetExistingSystemState<CheckGhostsAlwaysResumedFromLastPredictionBackupTick>().Enabled = false;
-                //sync everything
+                // 等待全部 Ghost 和 Snapshot 同步完成
                 for(int i=0;i<64;++i)
                     testWorld.Tick();
 
-                //Run one last time with a delta time such that we end up exactly on a full tick
+                // 使用精确补足剩余分数的 DeltaTime，使客户端落在完整 Tick 上
                 var time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 testWorld.TickClientWorld((1 - time.ServerTickFraction)/60f);
 
@@ -736,54 +736,50 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(ghostCount, entities.Length);
                 CheckValues(entities, testWorld, dataValues);
 
-                //run partial ticks and verify max 1 prediction step is done
+                // 运行部分 Tick，并验证每次最多执行一个预测步骤
                 testWorld.ClientWorlds[0].Unmanaged.GetExistingSystemState<CheckGhostsAlwaysResumedFromLastPredictionBackupTick>().Enabled = true;
                 var lastBackupTick = testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value;
                 Assert.IsTrue(lastBackupTick.IsValid);
-                //there is no partial tick restore in this tick because the last tick was a full tick. The continuation goes without actually
-                //restoring from the backup.
-                //TODO: would be nice to distinguish
+                // 上一个 Tick 是完整 Tick，因此本次部分 Tick 不会执行恢复，而是直接继续模拟
+                // TODO：最好能在状态上明确区分“从 Backup 恢复”和“直接继续”
                 testWorld.TickClientWorld(1f/240f);
                 var currentPartialTick = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]).ServerTick;
                 CheckPredicitionStepsAndStartTick(entities, testWorld, currentPartialTick, lastBackupTick);
-                //Now I can invalidate and check restore work properly
+                // 破坏当前值，验证下一次部分 Tick 能从 Backup 正确恢复
                 InvalidateValues(entities, testWorld);
                 testWorld.TickClientWorld(1f/240f);
-                //run partial ticks and verify max 1 prediction step is done`
+                // 运行部分 Tick，并验证每次最多执行一个预测步骤
                 Assert.AreEqual(testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value, lastBackupTick);
                 CheckPredicitionStepsAndStartTick(entities, testWorld, currentPartialTick, lastBackupTick);
                 CheckValues(entities, testWorld, dataValues);
-                //change half of the entities. Backup should be still the same and so all values should be restored as they were at backup time
+                // 对一半实体执行结构变更，Backup 本身应保持不变，其他值仍恢复到备份时状态
                 for (int i = 0; i < entities.Length; i+=2)
                     testWorld.ClientWorlds[0].EntityManager.RemoveComponent<Data>(entities[i]);
                 InvalidateValues(entities, testWorld);
-                //What happen in this tick ? The client will receive a new snapshot from the server and rollback-prediction will occur,
-                //causing a new backup being made for the same tick on the client. What the Data backup contains? because the component has been
-                //removed, the value should be 0 on certain entities
+                // 本 Tick 客户端收到新 Snapshot 并发生预测回滚，因此会为同一 Tick 重新创建 Backup
+                // 部分实体已移除 Data 组件，所以新 Backup 中这些实体不再包含对应数据
                 testWorld.TickServerWorld();
                 testWorld.TickClientWorld(1f/240f);
-                //run partial ticks and verify max 1 prediction step is done`
+                // 运行部分 Tick，并验证每次最多执行一个预测步骤
                 Assert.AreEqual(testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value, lastBackupTick);
                 CheckPredicitionStepsAndStartTick(entities, testWorld, currentPartialTick, lastBackupTick);
                 CheckValues(entities, testWorld, dataValues);
-                //Add 1/4 of the entities back to the previous chunk. For these entities the data value will be 0 now.
+                // 为四分之一实体重新添加 Data，使其回到之前的 Chunk，此时字段值为 0
                 for (int i = 0; i < entities.Length; i += 4)
                 {
                     testWorld.ClientWorlds[0].EntityManager.AddComponent<Data>(entities[i]);
                     dataValues[i] = 0;
                 }
                 InvalidateValues(entities, testWorld);
-                //What happen here: the client will now re-add the component and it state will be restored from the backup, that does not contain
-                //the correct authoritative (or predicted) data (that is 100) but instead 0.
-                //Should this be considered a bug?
-                //In the original implementation, because a rollback to that last received snapshot occur (because of the structural change)
-                //this will sync the component to a correct state.
-                //But because now the recovery is able to find the backup, until we don't receive new data from the server, that value is stale.
-                //This does not occur if the structural change does not affect replicated components. That is probably the most common scenario.
-                //How do we solve this?
+                // 重新添加组件后，恢复流程会使用不包含该组件权威值的 Backup，因此字段暂时为 0，而不是预期的 100
+                // 这是否应视为缺陷仍需确认
+                // 旧实现会因结构变更回滚到最后接收的 Snapshot，从而把组件同步到正确状态
+                // 当前实现能找到 Backup，因此在收到服务端新数据前会保留这个陈旧值
+                // 若结构变更不影响复制组件则不会出现该问题，这也是更常见的使用场景
+                // TODO：明确复制组件发生结构变更时的恢复策略
                 testWorld.TickClientWorld(1f/240f);
                 Assert.AreEqual(currentPartialTick.TickIndexForValidTick, testWorld.GetNetworkTime(testWorld.ClientWorlds[0]).ServerTick.TickIndexForValidTick);
-                //A new backup has been made
+                // 此时已经创建新的 Backup
                 Assert.AreNotEqual(lastBackupTick, testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value);
                 CheckPredicitionStepsAndStartTick(entities, testWorld, currentPartialTick, lastBackupTick);
                 CheckValues(entities, testWorld, dataValues);
@@ -822,7 +818,7 @@ namespace Unity.NetCode.Tests
                 {
                     testWorld.Tick();
 
-                    // Check that the margin is zero
+                    // 检查 IPC 下 Command Margin 为 0
                     var serverTime = testWorld.GetNetworkTime(testWorld.ServerWorld);
                     var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                     var serverAck = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ServerWorld);
@@ -840,7 +836,7 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                //enable using IPC connection
+                // 启用 IPC 连接
                 testWorld.UseFakeSocketConnection = 0;
                 testWorld.Bootstrap(true, typeof(CheckSkipFrameSystem));
                 var ghostGameObject = new GameObject();
@@ -869,8 +865,8 @@ namespace Unity.NetCode.Tests
                     testWorld.Tick(dt);
                     var serverTime = testWorld.GetNetworkTime(testWorld.ServerWorld);
                     var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
-                    //check that when the server tick change, the client tick is already ahead so that the server always
-                    //receive the right full tick.
+                    // 服务端 Tick 变化时，客户端 Tick 应已领先
+                    // 这样服务端才能及时收到对应的完整 Command Tick
                     if (clientTime.ServerTick.IsValid)
                     {
                         Assert.IsTrue(clientTime.ServerTick.IsNewerThan(serverTime.ServerTick), $"Expected client tick {clientTime.ServerTick}.{clientTime.ServerTickFraction} to be always ahead of the server to ensure full command tick update arrive in time, but server tick was already {serverTime.ServerTick}");
@@ -888,7 +884,7 @@ namespace Unity.NetCode.Tests
             testWorld.Bootstrap(true, typeof(AssertNetworkTimeSingletonValuesCorrectInsidePredictionLoopSystem));
             testWorld.DriverSimulatedDelay = 40;
             testWorld.DriverSimulatedJitter = 20;
-            testWorld.DriverSimulatedDrop = 20; // Interval, so 5%, or every 20th packet.
+            testWorld.DriverSimulatedDrop = 20; // 按间隔丢包，即每 20 个包丢 1 个，约 5%
             var ghostGameObject = new GameObject();
             var ghostConfig = ghostGameObject.AddComponent<GhostAuthoringComponent>();
             ghostConfig.DefaultGhostMode = GhostMode.Predicted;
@@ -897,11 +893,11 @@ namespace Unity.NetCode.Tests
             const float FrameTime = 1.0f / 60.0f;
             testWorld.Connect(FrameTime, 128);
             testWorld.GoInGame();
-            // Spawn a new entity on the server. Server will start send snapshots now.
+            // 在服务端生成实体，服务端随后开始发送 Snapshot
             var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
             Assert.AreNotEqual(Entity.Null, serverEnt);
 
-            // Tick for a while, using an extremely wobbly client step.
+            // 使用大幅波动的客户端步长运行一段时间
             AssertNetworkTimeSingletonValuesCorrectInsidePredictionLoopSystem.Reset();
             var rand = Unity.Mathematics.Random.CreateFromIndex(10350135);
             for (int i = 0; i < 100; i++)
@@ -1028,10 +1024,8 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(networkTime.InputTargetTick.IsValid, "InputTargetTick.IsValid");
                 Assert.IsTrue(networkTime.ServerTick.IsValid, "ServerTick.IsValid");
 
-                // NetCodeTestWorld.TickIndex is a test-compatible proxy for the outer loop tick.
-                // I.e. Time.frameCount.
-                // So we can use this to validate that we're not ticking
-                // the outer loop when networkTime.IsFinalPredictionTick is false.
+                // NetCodeTestWorld.TickIndex 是测试环境中外层循环 Tick 的替代值，作用类似 Time.frameCount
+                // 因此可用它验证 networkTime.IsFinalPredictionTick 为 false 时不会推进外层循环
                 if (networkTime.IsFinalPredictionTick)
                 {
                     m_LastFinalTickIndex = NetCodeTestWorld.TickIndex;

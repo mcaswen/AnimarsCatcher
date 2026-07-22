@@ -6,14 +6,14 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Singleton component with APIs and collections required for Ghost counting.
+    /// 包含 Ghost 计数所需 API 和集合的单例组件
     /// </summary>
     [BurstCompile]
     public struct GhostCount : IComponentData
     {
         /// <summary>
-        /// The <b>approximate</b> total number of relevant ghosts that the server wishes to send to this client.
-        /// Updated in each snapshot, thus updated on the client whenever a snapshot is received.
+        /// 服务器希望发送给此客户端的相关 Ghost <b>近似</b>总数
+        /// 每个 Snapshot 都会更新此值，因此客户端每次收到 Snapshot 时也会更新
         /// </summary>
         /// <seealso cref="InstantiatedPercent"/>
         /// <seealso cref="ReceivedPercent"/>
@@ -24,78 +24,76 @@ namespace Unity.NetCode
         public int GhostCountOnClient => IsCreated ? m_GhostCompletionCount[1] : 0;
 
         /// <summary>
-        /// The total number of relevant (to our connection) ghosts that the client has actually instantiated
-        /// (but skips/ignores <see cref="PendingSpawnPlaceholder"/> ghost instances).
-        /// Count is updated any time a finalized ghost is actually instantiated or destroyed (via the <see cref="GhostSpawnSystemGroup"/>).
-        /// <br/>Zero if <see cref="IsCreated"/> is false.
-        /// Use this with <see cref="GhostCountOnServer"/> to figure out how much of the state the client has received.
+        /// 客户端实际实例化且与当前连接相关的 Ghost 总数
+        /// 不统计 <see cref="PendingSpawnPlaceholder"/> Ghost 实例
+        /// 每当最终化的 Ghost 通过 <see cref="GhostSpawnSystemGroup"/> 实际实例化或销毁时都会更新此计数
+        /// <br/><see cref="IsCreated"/> 为 false 时值为零
+        /// 可结合 <see cref="GhostCountOnServer"/> 判断客户端已接收多少状态
         /// </summary>
         /// <remarks>
-        /// Note: If the relevant set suddenly changes - or the server destroys many ghosts within a single frame -
-        /// it's possible to have more ghosts on the client than the client should have.
+        /// 注意：如果相关性集合突然变化，或服务器在单帧内销毁大量 Ghost
+        /// 客户端的 Ghost 数量可能暂时超过其应有数量
         /// </remarks>
         /// <seealso cref="InstantiatedPercent"/>
         /// <seealso cref="GhostCountReceivedOnClient"/>
         public int GhostCountInstantiatedOnClient => IsCreated ? m_GhostCompletionCount[2] : 0;
 
         /// <summary>
-        /// The total number of relevant (to our connection) ghosts that the client has received (NOT instantiated!).
-        /// Count is updated any time a snapshot is received and processed.
-        /// <br/>The number of received ghosts can be different from the number of currently spawned ghosts.
-        /// <br/>Zero if <see cref="IsCreated"/> is false.
-        /// Use this with <see cref="GhostCountOnServer"/> to figure out how much of the state the client has received.
+        /// 客户端已接收且与当前连接相关的 Ghost 总数，并非已实例化数量
+        /// 每当收到并处理 Snapshot 时都会更新此计数
+        /// <br/>已接收 Ghost 数量可能与当前已生成 Ghost 数量不同
+        /// <br/><see cref="IsCreated"/> 为 false 时值为零
+        /// 可结合 <see cref="GhostCountOnServer"/> 判断客户端已接收多少状态
         /// </summary>
         /// <remarks>
-        /// Note: If the relevant set suddenly changes - or the server destroys many ghosts within a single frame -
-        /// it's possible to have more ghosts on the client than the client should have.
+        /// 注意：如果相关性集合突然变化，或服务器在单帧内销毁大量 Ghost
+        /// 客户端的 Ghost 数量可能暂时超过其应有数量
         /// </remarks>
         /// <seealso cref="ReceivedPercent"/>
         /// <seealso cref="GhostCountInstantiatedOnClient"/>
         public int GhostCountReceivedOnClient => IsCreated ? m_GhostCompletionCount[1] : 0;
 
         /// <summary>
-        /// Denotes the percentage of ghosts instantiated on the client (<see cref="GhostCountInstantiatedOnClient"/>)
-        /// versus the number of ghosts the server has said exist (i.e. <see cref="GhostCountOnServer"/>).
-        /// <br/>Only counts relevant ghosts!
-        /// <br/>0% when no ghosts are expected: I.e. No ghosts spawned on server, or no ghosts considered relevant,
-        /// or if this struct is not initialized (i.e. when <see cref="IsCreated"/> is false).
-        /// Distinct from <see cref="ReceivedPercent"/>!
+        /// 客户端已实例化 Ghost 数量 <see cref="GhostCountInstantiatedOnClient"/> 相对于
+        /// 服务器声明存在的 Ghost 数量 <see cref="GhostCountOnServer"/> 的比例
+        /// <br/>仅统计相关 Ghost
+        /// <br/>没有预期 Ghost 时为 0%，例如服务器未生成 Ghost、没有相关 Ghost
+        /// 或此结构尚未初始化，即 <see cref="IsCreated"/> 为 false
+        /// 此值不同于 <see cref="ReceivedPercent"/>
         /// </summary>
         /// <remarks>
-        /// Note: If the relevant set suddenly changes - or the server destroys many ghosts within a single frame -
-        /// it's possible to have more ghosts on the client than the client should have. Therefore, this value can be
-        /// greater than 100%.
-        /// <br/>Also note: Due to above nuances, it's possible to have the correct count of ghosts, but it's the
-        /// incorrect set. In other words: This percentage is a naive approximation of 'the client has replicated
-        /// everything they need'.
+        /// 注意：如果相关性集合突然变化，或服务器在单帧内销毁大量 Ghost
+        /// 客户端的 Ghost 数量可能暂时超过其应有数量，因此此值可能大于 100%
+        /// <br/>还需注意，由于上述细节，Ghost 数量可能正确但集合内容不正确
+        /// 换言之，此百分比只是对客户端已复制全部所需内容的粗略估计
         /// </remarks>
         public float InstantiatedPercent => IsCreated && GhostCountOnServer != 0 ? (float) GhostCountInstantiatedOnClient / GhostCountOnServer : -1;
 
         /// <summary>
-        /// Denotes the percentage of ghosts received by the client (<see cref="GhostCountReceivedOnClient"/>)
-        /// versus the number of ghosts the server has said exist to us (i.e. <see cref="GhostCountOnServer"/>).
-        /// <br/>Only counts relevant ghosts!
-        /// <br/>0% when no ghosts are expected: I.e. No ghosts spawned on server, or no ghosts considered relevant,
-        /// or if this struct is not initialized (i.e. when <see cref="IsCreated"/> is false).
-        /// Distinct from <see cref="InstantiatedPercent"/>!
+        /// 客户端已接收 Ghost 数量 <see cref="GhostCountReceivedOnClient"/> 相对于
+        /// 服务器声明存在的 Ghost 数量 <see cref="GhostCountOnServer"/> 的比例
+        /// <br/>仅统计相关 Ghost
+        /// <br/>没有预期 Ghost 时为 0%，例如服务器未生成 Ghost、没有相关 Ghost
+        /// 或此结构尚未初始化，即 <see cref="IsCreated"/> 为 false
+        /// 此值不同于 <see cref="InstantiatedPercent"/>
         /// </summary>
         /// <remarks>
-        /// Note: If the relevant set suddenly changes - or the server destroys many ghosts within a single frame -
-        /// it's possible to have more ghosts on the client than the client should have. Therefore, this value can be
-        /// greater than 100%.
-        /// <br/>Also note: Due to above nuances, it's possible to have the correct count of ghosts, but it's the
-        /// incorrect set. In other words: This percentage is a naive approximation of 'the client has replicated
-        /// everything they need'.
+        /// 注意：如果相关性集合突然变化，或服务器在单帧内销毁大量 Ghost
+        /// 客户端的 Ghost 数量可能暂时超过其应有数量，因此此值可能大于 100%
+        /// <br/>还需注意，由于上述细节，Ghost 数量可能正确但集合内容不正确
+        /// 换言之，此百分比只是对客户端已复制全部所需内容的粗略估计
         /// </remarks>
         public float ReceivedPercent => IsCreated && GhostCountOnServer != 0 ? (float) GhostCountReceivedOnClient / GhostCountOnServer : -1;
 
-        /// <summary>Helper denoting if the values are valid.</summary>
+        /// <summary>
+        /// 表示这些值是否有效的辅助属性
+        /// </summary>
         public bool IsCreated => m_GhostCompletionCount.IsCreated;
 
         internal NativeArray<int> m_GhostCompletionCount;
 
         /// <summary>
-        /// Construct and initialize the new ghost count instance.
+        /// 构造并初始化新的 GhostCount 实例
         /// </summary>
         /// <param name="ghostCompletionCount"></param>
         internal GhostCount(NativeArray<int> ghostCompletionCount)
@@ -104,9 +102,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// For debugging and logging.
+        /// 用于调试和日志记录
         /// </summary>
-        /// <returns>Logs <c>GhostCount[received:GhostCountReceivedOnClient %, inst:GhostCountInstantiatedOnClient %, server:GhostCountOnServer]</c>.</returns>
+        /// <returns>格式为 <c>GhostCount[received:GhostCountReceivedOnClient %, inst:GhostCountInstantiatedOnClient %, server:GhostCountOnServer]</c> 的日志文本</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString128Bytes ToFixedString() => IsCreated ? $"GhostCount[received:{GhostCountReceivedOnClient} {(int)(ReceivedPercent * 100)}%, inst:{GhostCountInstantiatedOnClient} {(int)(InstantiatedPercent * 100)}%, server:{GhostCountOnServer}]" : "GhostCount[default]";
 

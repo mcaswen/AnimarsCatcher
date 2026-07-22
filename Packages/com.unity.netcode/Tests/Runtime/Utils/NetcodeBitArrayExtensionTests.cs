@@ -44,7 +44,7 @@ namespace Unity.NetCode.Tests
             TestOnLength(127);
             TestOnLength(1);
 
-            // Test zero:
+            // 测试零长度位数组
             var testBitArray = new UnsafeBitArray(0, Allocator.Temp);
             ref var test = ref UnsafeUtility.AsRef<UnsafeBitArray>(&testBitArray);
             Assert.AreEqual(-1, test.FindLastSetBitExt(), "BitArray of size ZERO should return -1 for FindLastSetBit!");
@@ -55,10 +55,10 @@ namespace Unity.NetCode.Tests
                 ref var test = ref UnsafeUtility.AsRef<UnsafeBitArray>(&testBitArray);
                 Assert.IsTrue(test.TestNone(0, bitArrayLength), $"TestOnLength[{bitArrayLength}] All bits should START as zero! {test.ToDecimalFixedStringExt()}");
                 Assert.AreEqual(-1, test.FindLastSetBitExt(), $"TestOnLength[{bitArrayLength}] FindLastSetBit should be -1 as there should be ZERO true bits! {test.ToDecimalFixedStringExt()}");
-                // Set the lowest bit true, so that we can get a false positive.
+                // 先置最低位，验证查找过程不会因已有低位而产生误判
                 test.Set(0, true);
 
-                // Set and test every other index (individually).
+                // 逐个设置并验证其余索引
                 for (int indexToSet = 1; indexToSet < test.Length; indexToSet++)
                 {
                     test.Set(indexToSet, true);
@@ -95,20 +95,20 @@ namespace Unity.NetCode.Tests
             TestAndAssertShift(ref test, 129, zero);
             TestAndAssertShift(ref test, int.MaxValue, zero);
 
-            // Test all bits being "ONES":
+            // 测试所有位均为 1 的情况
             test.SetBits(0, true, test.Length);
             Assert.AreEqual("BitArray[bits:128,len:2ul,num1s:128,last1:127,ONES][11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111|11111111_11111111_11111111_11111111_11111111_11111111_11111111_11111111|]", test.ToDecimalFixedStringExt().ToString());
 
             void TestAndAssertShift(ref UnsafeBitArray test, int shiftDistance, FixedString4096Bytes expectedResult)
             {
-                // Reset:
+                // 重置测试数据
                 test.Clear();
                 test.SetBits(0, constant, 64);
                 Assert.AreEqual(trueBits, test.CountBits(0, numBits));
                 Assert.AreEqual(constant, test.GetBits(0, 64));
                 Assert.AreEqual(idxOfLastTrue, test.FindLastSetBitExt());
 
-                // Test:
+                // 执行位移并验证结果
                 if(shiftDistance < 0) test.ShiftRightExt(math.abs(shiftDistance));
                 else test.ShiftLeftExt(shiftDistance);
                 try

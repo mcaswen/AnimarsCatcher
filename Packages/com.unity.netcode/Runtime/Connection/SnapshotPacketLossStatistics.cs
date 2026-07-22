@@ -4,52 +4,73 @@ using Unity.Mathematics;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Stores packet loss causes and statistics for all received snapshots. Thus, client-only (with one exception).
-    /// Access via <see cref="NetworkSnapshotAck"/>.
+    /// 保存所有已接收 Snapshot 的丢包原因和统计信息，因此除一项例外外仅客户端使用
+    /// 通过 <see cref="NetworkSnapshotAck"/> 访问
     /// </summary>
-    /// <remarks>Very similar approach to <see cref="Unity.Networking.Transport.UnreliableSequencedPipelineStage"/> Statistics.</remarks>
+    /// <remarks>实现方式与 <see cref="Unity.Networking.Transport.UnreliableSequencedPipelineStage"/> 统计信息非常相似</remarks>
     public struct SnapshotPacketLossStatistics
     {
         /// <summary>
-        ///     On the client, it counts the number of snapshot packets received by said client from the server.
-        ///     On the server, it stores the number of snapshots sent.
+        ///     在客户端上，统计该客户端从服务器收到的 Snapshot Packet 数量
+        ///     在服务器上，保存已发送 Snapshot 数量
         /// </summary>
         public ulong NumPacketsReceived;
-        /// <summary>Server-only. Stores the number of snapshots the client has successfully replied that they have acked.</summary>
+        /// <summary>
+        /// 仅服务器使用，保存客户端成功回复已确认的 Snapshot 数量
+        /// </summary>
         public ulong NumPacketsAcked;
-        /// <summary>Counts the number of snapshot packets dropped (i.e. "culled") due to invalid SequenceId. I.e. Implies the packet arrived, but out of order.</summary>
+        /// <summary>
+        /// 统计因 Sequence ID 无效而丢弃的 Snapshot Packet 数量，即数据包已经到达但顺序错误
+        /// </summary>
         public ulong NumPacketsCulledOutOfOrder;
         /// <summary>
-        /// The Netcode package can only process one snapshot per render frame. If 2 or more arrive on the same frame, we'll delete all but one, without processing them.
-        /// Therefore, this form of packet loss is common when your connection jitter is higher than a <see cref="ClientServerTickRate.NetworkTickRate"/> interval.
-        /// E.g. If your jitter is ±20ms, but your NetworkTickRate is 60Hz (16.67ms), you can expect a lot of packet clobbering.
+        /// NetCode 包每个渲染帧只能处理一个 Snapshot
+        /// 如果同一帧到达两个或更多 Snapshot，会删除除一个之外的全部 Snapshot，且不处理它们
+        /// 因此当连接抖动高于一个 <see cref="ClientServerTickRate.NetworkTickRate"/> 间隔时，这种丢包很常见
+        /// 例如抖动为 ±20 ms，而 NetworkTickRate 为 60 Hz（16.67 ms）时，会发生大量数据包覆盖
         /// </summary>
-        /// <remarks>This is also called a "Packet Burst".</remarks>
+        /// <remarks>这种情况也称为 Packet Burst</remarks>
         public ulong NumPacketsCulledAsArrivedOnSameFrame;
-        /// <summary>Detects gaps in <see cref="NetworkSnapshotAck.CurrentSnapshotSequenceId"/> to determine real packet loss.</summary>
+        /// <summary>
+        /// 检测 <see cref="NetworkSnapshotAck.CurrentSnapshotSequenceId"/> 中的间断，以判断真实丢包
+        /// </summary>
         public ulong NumPacketsDroppedNeverArrived;
-        /// <summary>Denotes how many times the client has reported a snapshot ack error, leading to the ack history buffer to have to be reset.</summary>
+        /// <summary>
+        /// 表示客户端报告 Snapshot Ack 错误并导致 Ack History Buffer 必须重置的次数
+        /// </summary>
         public ulong NumClientAckErrorsEncountered;
 
-        /// <summary>Server-only. Percentage of all snapshot packets sent that the client has acked.</summary>
+        /// <summary>
+        /// 仅服务器使用，客户端已确认的 Snapshot Packet 占全部已发送 Snapshot Packet 的百分比
+        /// </summary>
         public double AckPercent => NumPacketsReceived != 0 ? NumPacketsAcked / (double) (NumPacketsReceived) : 0;
-        /// <summary>Percentage of all snapshot packets - that we assume must have been sent to us (based on SequenceId) - which are lost due to network-caused packet loss.</summary>
+        /// <summary>
+        /// 根据 Sequence ID 推定已发送给我们的全部 Snapshot Packet 中，因网络丢包而丢失的百分比
+        /// </summary>
         public double NetworkPacketLossPercent => NumPacketsReceived != 0 ? NumPacketsDroppedNeverArrived / (double) (NumPacketsReceived + NumPacketsDroppedNeverArrived) : 0;
-        /// <summary>Percentage of all snapshot packets - that we assume must have been sent to us (based on SequenceId) - which are lost due to arriving out of order (and thus being culled).</summary>
+        /// <summary>
+        /// 根据 Sequence ID 推定已发送给我们的全部 Snapshot Packet 中，因乱序到达而被丢弃的百分比
+        /// </summary>
         public double OutOfOrderPacketLossPercent => NumPacketsReceived != 0 ? NumPacketsCulledOutOfOrder / (double) (NumPacketsReceived + NumPacketsDroppedNeverArrived) : 0;
-        /// <summary>Percentage of all snapshot packets - that we assume must have been sent to us (based on SequenceId) - which are culled due to arriving on the same frame as another snapshot.</summary>
+        /// <summary>
+        /// 根据 Sequence ID 推定已发送给我们的全部 Snapshot Packet 中，因与另一 Snapshot 同帧到达而被丢弃的百分比
+        /// </summary>
         public double ArrivedOnTheSameFrameClobberedPacketLossPercent => NumPacketsReceived != 0 ? NumPacketsCulledAsArrivedOnSameFrame / (double) (NumPacketsReceived + NumPacketsDroppedNeverArrived) : 0;
-        /// <summary>Percentage of all snapshot packets - that we assume must have been sent to us (based on SequenceId) - which are dropped (for any reason).</summary>
+        /// <summary>
+        /// 根据 Sequence ID 推定已发送给我们的全部 Snapshot Packet 中，因任意原因被丢弃的百分比
+        /// </summary>
         public double CombinedPacketLossPercent => NumPacketsReceived != 0 ? (CombinedPacketLossCount) / (double) (NumPacketsReceived + NumPacketsDroppedNeverArrived) : 0;
-        /// <summary>Count of packets lost in some form.</summary>
+        /// <summary>
+        /// 以任意形式丢失的数据包数量
+        /// </summary>
         public ulong CombinedPacketLossCount => NumPacketsDroppedNeverArrived + NumPacketsCulledOutOfOrder + NumPacketsCulledAsArrivedOnSameFrame;
 
         /// <summary>
-        /// Adds two SnapshotPacketLossStatistics
+        /// 将两个 SnapshotPacketLossStatistics 相加
         /// </summary>
-        /// <param name="a">First SnapshotPacketLossStatistics</param>
-        /// <param name="b">Second SnapshotPacketLossStatistics</param>
-        /// <returns>The resulting sum of the two SnapshotPacketLossStatistics.</returns>
+        /// <param name="a">第一个 SnapshotPacketLossStatistics</param>
+        /// <param name="b">第二个 SnapshotPacketLossStatistics</param>
+        /// <returns>两个 SnapshotPacketLossStatistics 相加的结果</returns>
         public static SnapshotPacketLossStatistics operator +(SnapshotPacketLossStatistics a, SnapshotPacketLossStatistics b)
         {
             a.NumPacketsReceived += b.NumPacketsReceived;
@@ -61,14 +82,14 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Subtracts two SnapshotPacketLossStatistics
+        /// 将两个 SnapshotPacketLossStatistics 相减
         /// </summary>
-        /// <param name="a">First SnapshotPacketLossStatistics</param>
-        /// <param name="b">Second SnapshotPacketLossStatistics</param>
-        /// <returns>The resulting difference of the two SnapshotPacketLossStatistics.</returns>
+        /// <param name="a">第一个 SnapshotPacketLossStatistics</param>
+        /// <param name="b">第二个 SnapshotPacketLossStatistics</param>
+        /// <returns>两个 SnapshotPacketLossStatistics 相减的结果</returns>
         public static SnapshotPacketLossStatistics operator -(SnapshotPacketLossStatistics a, SnapshotPacketLossStatistics b)
         {
-            // Guard subtraction as it can get negative when we're polling 3s intervals.
+            // 保护减法结果，因为每 3 秒轮询时可能出现负值
             a.NumPacketsReceived -= math.min(a.NumPacketsReceived, b.NumPacketsReceived);
             a.NumPacketsAcked -= math.min(a.NumPacketsAcked, b.NumPacketsAcked);
             a.NumPacketsCulledOutOfOrder -= math.min(a.NumPacketsCulledOutOfOrder, b.NumPacketsCulledOutOfOrder);
@@ -78,9 +99,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Formatted dump of statistics for this world-type.
+        /// 此 World 类型的格式化统计信息转储
         /// </summary>
-        /// <returns>Formatted dump of statistics for this world-type.</returns>
+        /// <returns>此 World 类型的格式化统计信息转储</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString512Bytes ToFixedString()
         {

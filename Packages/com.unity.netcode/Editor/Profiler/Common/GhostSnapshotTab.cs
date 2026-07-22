@@ -51,7 +51,7 @@ namespace Unity.NetCode.Editor
         {
             m_OverheadEnabled = overheadEnabled;
             var profilerWindow = EditorWindow.GetWindow<ProfilerWindow>();
-            // A bit of a hack to force the ProfilerWindow to refresh the selected frame.
+            // 临时通过切换选中帧，强制 ProfilerWindow 刷新当前帧
             var selectedFrame = profilerWindow.selectedFrameIndex;
             profilerWindow.selectedFrameIndex = profilerWindow.firstAvailableFrameIndex;
             profilerWindow.selectedFrameIndex = selectedFrame;
@@ -99,14 +99,14 @@ namespace Unity.NetCode.Editor
                 m_TabHeader.SetText(3, snapshotAgeRange);
             }
 
-            // Save expanded items, this could break if the list size changes.
+            // 保存展开项，列表大小变化时这些 ID 可能失效
             var expandedIds = m_TreeView.GetExpandedIds();
 
             m_ItemList = PopulateTreeView(frameData);
             m_TreeView.SetRootItems(m_ItemList);
             m_TreeView.RefreshItems();
 
-            // Restore expanded items
+            // 恢复展开项
             m_TreeView.ExpandItemsById(expandedIds);
             m_TreeView.showAlternatingRowBackgrounds = AlternatingRowBackground.All;
         }
@@ -139,7 +139,7 @@ namespace Unity.NetCode.Editor
                 var children = new List<TreeViewItemData<ProfilerGhostTypeData>>();
                 if (m_OverheadEnabled && tickData.ghostTypeData.Length > 0)
                 {
-                    // Add overhead item
+                    // 添加 Overhead 项
                     var overheadItem = CreateOverheadItem("Overhead", tickData.overheadSize, true, -1, ref id);
                     children.Add(overheadItem);
                 }
@@ -154,7 +154,7 @@ namespace Unity.NetCode.Editor
 
                     if (m_OverheadEnabled)
                     {
-                        // Add overhead item
+                        // 添加 Overhead 项
                         var overheadData = CreateOverheadItem("Overhead", ghostTypeData.overheadSize, true, -1, ref id);
                         var overheadItem = new TreeViewItemData<ProfilerGhostTypeData>(id++, overheadData.data);
                         ghostTypeComponents.Add(overheadItem);
@@ -221,17 +221,17 @@ namespace Unity.NetCode.Editor
             multiColumnTreeView.columns["avgSizePerEntity"].makeCell = UIFactory.CreateTreeViewLabel;
             // multiColumnTreeView.columns["avgSizePerInstance"].makeCell = UIFactory.CreateTreeViewLabel;
 
-            // Ghost type name
+            // Ghost 类型名称
             multiColumnTreeView.columns["name"].width = 250;
             multiColumnTreeView.columns["name"].bindCell = (element, index) =>
             {
                 ((LabelWithIcon)element).SetText(GetGhostTypeDataAtIndex(multiColumnTreeView, index).name.Value);
-                // Insert Overhead icon in front of the name if this is an overhead item
+                // 若当前行为 Overhead 项，在名称前显示对应图标
                 var isOverhead = GetGhostTypeDataAtIndex(multiColumnTreeView, index).needsOverheadIcon;
                 ((LabelWithIcon)element).SetIconEnabled(isOverhead);
             };
 
-            // Ghost type size
+            // Ghost 类型大小
             multiColumnTreeView.columns["size"].width = 120;
             multiColumnTreeView.columns["size"].bindCell = (element, index) =>
             {
@@ -239,10 +239,10 @@ namespace Unity.NetCode.Editor
                 var isOverhead = GetGhostTypeDataAtIndex(multiColumnTreeView, index).needsOverheadIcon;
                 var bitsAndBytes = $"{size} ({UIUtils.BitsToBytes(size)})";
                 ((Label)element).text = bitsAndBytes;
-                element.parent.parent.SetEnabled(isOverhead || size != 0); // Disable the row if size is 0 and not overhead
+                element.parent.parent.SetEnabled(isOverhead || size != 0); // 大小为 0 且不是 Overhead 时禁用该行
             };
 
-            // Ghost type size as a percentage of the snapshot size
+            // Ghost 类型大小占 Snapshot 总大小的百分比
             multiColumnTreeView.columns["percentOfSnapshot"].bindCell = (element, index) =>
             {
                 var item = GetGhostTypeDataAtIndex(multiColumnTreeView, index);
@@ -265,7 +265,7 @@ namespace Unity.NetCode.Editor
                 percentBar.SetValue(Mathf.RoundToInt(percentage));
             };
 
-            // Ghost type instance count
+            // Ghost 类型实例数量
             multiColumnTreeView.columns["instanceCount"].bindCell = (element, index) =>
             {
                 var count = GetGhostTypeDataAtIndex(multiColumnTreeView, index).instanceCount;
@@ -278,7 +278,7 @@ namespace Unity.NetCode.Editor
                 ((Label)element).text = text;
             };
 
-            // Compression efficiency
+            // 压缩效率
             multiColumnTreeView.columns["compressed"].bindCell = (element, index) =>
             {
                 var ghostTypeData = GetGhostTypeDataAtIndex(multiColumnTreeView, index);
@@ -288,7 +288,7 @@ namespace Unity.NetCode.Editor
                 ((Label)element).text = compressionEfficiencyString;
             };
 
-            // Average size per entity
+            // 每个 Entity 的平均大小
             multiColumnTreeView.columns["avgSizePerEntity"].bindCell = (element, index) =>
             {
                 var sizePerEntity = GetGhostTypeDataAtIndex(multiColumnTreeView, index).avgSizePerEntity;
@@ -296,7 +296,7 @@ namespace Unity.NetCode.Editor
                 ((Label)element).text = bitsAndBytes;
             };
 
-            // Average size per servertick over last second
+            // 最近一秒内每个 Server Tick 的平均大小
             // multiColumnTreeView.columns["avgSizePerInstance"].bindCell = (element, index) =>
             //     ((Label)element).text = "TODO";
 
@@ -336,7 +336,7 @@ namespace Unity.NetCode.Editor
                 //     filteredItems.Add(item);
                 // }
                 //
-                // // assumes we only nest one layer
+                // // 假定最多只有一层嵌套
                 // foreach (var child in item.children)
                 // {
                 //     if (child.data.name.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)

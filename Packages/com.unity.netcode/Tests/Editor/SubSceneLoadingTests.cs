@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -77,7 +77,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void SubSceneListIsSentToClient()
         {
-            //Set the scene with multiple prefab types
+            // 创建包含多种 Prefab 类型的场景
             const int numObjects = 10;
             var prefab1 = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData1", typeof(GhostAuthoringComponent),
                 typeof(SomeDataAuthoring));
@@ -94,28 +94,26 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1);
-                //Stream the sub scene in
+                // 流式加载 SubScene
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
                 testWorld.GoInGame();
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrespawnsSceneInitialized>());
                 Assert.IsTrue(query.IsEmptyIgnoreFilter);
-                //First tick
-                // - the Populate prespawn should run and add the ghosts to the mapping on the server.
-                // - the scene list is populated
+                // 第一 Tick 会填充预生成 Ghost，将其加入服务器映射并建立场景列表
                 testWorld.Tick();
                 query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubScenePrespawnBaselineResolved>());
                 Assert.IsFalse(query.IsEmptyIgnoreFilter);
-                //On the client we should received the prefabs. But prespawn asn subscenes are not initialized now (next frame)
+                // 客户端此时已收到 Prefab，但预生成 Ghost 和 SubScene 要到下一帧才完成初始化
                 query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubScenePrespawnBaselineResolved>());
                 Assert.IsTrue(query.IsEmptyIgnoreFilter);
-                //Second tick: server will send the subscene list ghost
+                // 第二 Tick 由服务器发送 SubScene 列表 Ghost
                 testWorld.Tick();
                 query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrespawnsSceneInitialized>());
                 Assert.IsFalse(query.IsEmptyIgnoreFilter);
                 query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubScenePrespawnBaselineResolved>());
                 Assert.IsFalse(query.IsEmptyIgnoreFilter);
-                //Third tick: prespawn ghost start streaming
+                // 第三 Tick 开始流式同步预生成 Ghost
                 for (int i = 0; i < 10; ++i)
                 {
                     testWorld.Tick();
@@ -126,7 +124,7 @@ namespace Unity.NetCode.Tests
                 var prespawnLoaded = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ClientWorlds[0]);
                 Assert.AreEqual(1, prespawnLoaded.Length);
 
-                //Need one more tick now to have the ghost map updated
+                // 再推进一个 Tick 以更新 Ghost 映射
                 testWorld.Tick();
 
                 var sendGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ServerWorld);
@@ -136,7 +134,7 @@ namespace Unity.NetCode.Tests
                 var recvGhostMap = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton);
                 Assert.AreEqual(21, recvGhostMap.ClientGhostEntityMap.Count());
                 Assert.AreEqual(21, recvGhostMap.Value.Count());
-                //Check that they are identically mapped.
+                // 检查服务器与客户端的预生成 Ghost 映射一致
                 foreach (var kv in sendGhostMap.Value)
                 {
                     var ghost = kv.Key;
@@ -159,7 +157,7 @@ namespace Unity.NetCode.Tests
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用组件类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 var array = chunk.GetNativeArray(ref someDataHandle);
@@ -173,9 +171,9 @@ namespace Unity.NetCode.Tests
         [Test]
         public void ClientLoadSceneWhileInGame()
         {
-            //The test is composed by two subscene.
-            //The server load both scenes before having clients in game.
-            //The client will load only the first one and then the second one after a bit
+            // 测试包含两个 SubScene
+            // 服务器在客户端进入游戏前加载两个场景
+            // 客户端先只加载第一个场景，稍后再加载第二个场景
 
             const int numObjects = 5;
             var ghostPrefab = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData1", typeof(GhostAuthoringComponent),
@@ -198,7 +196,7 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1);
-                //Stream the sub scene in
+                // 服务器加载两个 SubScene，客户端先加载第一个
                 SubSceneHelper.LoadSubScene(testWorld.ServerWorld, sub0, sub1);
                 SubSceneHelper.LoadSubScene(testWorld.ClientWorlds[0], sub0);
                 testWorld.Connect();
@@ -212,7 +210,7 @@ namespace Unity.NetCode.Tests
                 Assert.IsFalse(someDataQuery.IsEmptyIgnoreFilter);
                 Assert.AreEqual(5, someDataQuery.CalculateEntityCount());
 
-                //Modify some data on the server
+                // 修改服务器上的预生成 Ghost 数据
                 var subsceneList = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubSceneWithPrespawnGhosts>())
                     .ToComponentDataArray<SubSceneWithPrespawnGhosts>(Allocator.Temp);
                 var q = testWorld.ServerWorld.EntityManager.CreateEntityQuery(
@@ -233,7 +231,7 @@ namespace Unity.NetCode.Tests
                 }
 
                 SubSceneHelper.LoadSubScene(testWorld.ClientWorlds[0], sub1);
-                //Run some frame.
+                // 推进若干帧以完成第二个场景的加载和同步
                 for (int i = 0; i < 16; ++i)
                 {
                     testWorld.Tick();
@@ -242,7 +240,7 @@ namespace Unity.NetCode.Tests
                 q = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                 Assert.AreEqual(10, q.CalculateEntityCount());
 
-                //Check everything is in sync
+                // 检查两个场景的数据均已同步
                 q = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<PreSpawnedGhostIndex>(),
                     ComponentType.ReadWrite<SomeData>(), ComponentType.ReadOnly<SubSceneGhostComponentHash>());
@@ -266,11 +264,8 @@ namespace Unity.NetCode.Tests
         [Test]
         public void ServerAndClientsLoadSceneInGame()
         {
-            //The test is composed by one scene.
-            //The server and client starts without scene loaded.
-            //The server initiate the load first
-            //The client will then follow and load the scene as well.
-            //Ghost should be synched
+            // 测试只包含一个场景，服务器和客户端启动时均不加载它
+            // 服务器先发起加载，客户端随后加载同一场景，最终 Ghost 应保持同步
 
 
 
@@ -288,30 +283,30 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true, typeof(LoadingGhostCollectionSystem));
                 testWorld.CreateWorlds(true, 1);
-                //Just create the scene entities proxies but not load any content
+                // 只创建场景代理实体，不加载场景内容
                 SubSceneHelper.LoadSceneSceneProxies(sub0.SceneGUID, testWorld, 1.0f/60.0f, 200);
                 testWorld.Connect();
                 testWorld.GoInGame();
-                //Run some frames, nothing should be synched or sent here
+                // 推进若干帧，此时不应同步或发送场景内容
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
                 Assert.AreEqual(Entity.Null, testWorld.TryGetSingletonEntity<PrespawnSceneLoaded>(testWorld.ServerWorld));
                 Assert.AreEqual(Entity.Null, testWorld.TryGetSingletonEntity<PrespawnSceneLoaded>(testWorld.ClientWorlds[0]));
-                //Server will load first. Wait some frame
+                // 服务器先异步加载场景
                 SubSceneHelper.LoadSubSceneAsync(testWorld.ServerWorld, testWorld, sub0.SceneGUID);
-                //No subscene are ready on the client
+                // 客户端此时尚未准备好任何 SubScene
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrespawnsSceneInitialized>()).IsEmpty);
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubScenePrespawnBaselineResolved>()).IsEmpty);
-                //Run some frames, so the ghost scene list is synchronized
+                // 推进若干帧以同步 Ghost 场景列表
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
                 var subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ClientWorlds[0]);
                 Assert.AreEqual(1, subSceneList.Length);
-                //Client load the scene now
+                // 客户端开始加载场景
                 SubSceneHelper.LoadSubSceneAsync(testWorld.ClientWorlds[0], testWorld, sub0.SceneGUID);
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
-                //Modify the data on the server
+                // 修改服务器上的预生成 Ghost 数据
                 {
                     var q = testWorld.ServerWorld.EntityManager.CreateEntityQuery(
                         ComponentType.ReadOnly<PreSpawnedGhostIndex>(), ComponentType.ReadWrite<SomeData>());
@@ -325,7 +320,7 @@ namespace Unity.NetCode.Tests
 
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
-                //Check everything is in sync
+                // 检查修改后的数据已同步
                 {
                     var q = testWorld.ServerWorld.EntityManager.CreateEntityQuery(
                         ComponentType.ReadOnly<PreSpawnedGhostIndex>(),
@@ -345,8 +340,7 @@ namespace Unity.NetCode.Tests
         {
             Dictionary<ulong, uint2> GetIdsRanges(World world, in DynamicBuffer<PrespawnSceneLoaded> subSceneList)
             {
-                //Get all the ids and collect the ranges from the ghost components. They are going to be used later
-                //for checking ids re-use
+                // 收集所有 Ghost ID 及其范围，供后续检查 ID 是否复用
                 var ranges = new Dictionary<ulong, uint2>();
                 using var q = world.EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<GhostInstance>(),
@@ -371,11 +365,9 @@ namespace Unity.NetCode.Tests
                 return ranges;
             }
 
-            //The test is composed by two scene.
-            //The server and client starts with both scene loaded.
-            //The server will unload one scene
-            //The client will then follow (after a bit) and unload the scene as well.
-            //The server and the client will then reload the scene again
+            // 测试包含两个场景，服务器和客户端启动时均已加载
+            // 服务器先卸载其中一个场景，客户端稍后跟随卸载
+            // 随后服务器和客户端再次加载该场景
             const int numObjects = 5;
             var ghostPrefab = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData1", typeof(GhostAuthoringComponent),
                 typeof(SomeDataAuthoring));
@@ -404,30 +396,30 @@ namespace Unity.NetCode.Tests
 
                 var subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ServerWorld);
                 var idsRanges = GetIdsRanges(testWorld.ServerWorld, subSceneList);
-                //Server will unload the first scene. This will despawn ghosts and also update the scene list
+                // 服务器卸载第一个场景，同时销毁其中的 Ghost 并更新场景列表
                 SceneSystem.UnloadScene(testWorld.ServerWorld.Unmanaged, sub0.SceneGUID, SceneSystem.UnloadParameters.DestroyMetaEntities);
                 for (int i = 0; i < 16; ++i)
                 {
                     testWorld.Tick();
                 }
-                //Scene list should be 1 now
+                // 此时服务器和客户端的场景列表都只剩一项
                 subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ServerWorld);
                 Assert.AreEqual(1, subSceneList.Length);
                 subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ClientWorlds[0]);
                 Assert.AreEqual(1, subSceneList.Length);
-                //Only 5 ghost should be present on both
+                // 双方都应只剩五个预生成 Ghost
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                 Assert.AreEqual(numObjects, query.CalculateEntityCount());
                 query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                 Assert.AreEqual(numObjects, query.CalculateEntityCount());
-                //Unload the scene on the client too
+                // 客户端也卸载该场景
                 SceneSystem.UnloadScene(testWorld.ClientWorlds[0].Unmanaged, sub0.SceneGUID, SceneSystem.UnloadParameters.DestroyMetaEntities);
-                //And nothing should break
+                // 继续推进并确认流程正常
                 for (int i = 0; i < 16; ++i)
                 {
                     testWorld.Tick();
                 }
-                //Then re-load the scene. The ids should be reused and everything should be in sync again
+                // 重新加载场景，Ghost ID 应复用且双方再次同步
                 SubSceneHelper.LoadSubScene(testWorld.ServerWorld, sub0);
                 for (int i = 0; i < 16; ++i)
                 {
@@ -437,7 +429,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(2, subSceneList.Length);
                 subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ClientWorlds[0]);
                 Assert.AreEqual(2, subSceneList.Length);
-                //Check that the assigned id for the sub0 are the same as before
+                // 检查 Sub0 重新分配的 Ghost ID 范围与卸载前一致
                 var newRanges = GetIdsRanges(testWorld.ServerWorld, subSceneList);
                 for (int i = 0; i < subSceneList.Length; ++i)
                     Assert.AreEqual(idsRanges[subSceneList[i].SubSceneHash], newRanges[subSceneList[i].SubSceneHash]);
@@ -472,7 +464,7 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 SubSceneHelper.LoadSubScene(testWorld.ServerWorld, subScenes);
                 testWorld.Connect();
-                //Here it is already required to have something that tell the client he need to load the prefabs
+                // 进入游戏前服务器已提供客户端加载 Prefab 所需的场景列表
                 testWorld.GoInGame();
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
@@ -480,21 +472,21 @@ namespace Unity.NetCode.Tests
                 var subSceneList = SubSceneStreamingTestHelper.GetPrespawnLoaded(testWorld, testWorld.ServerWorld);
                 Assert.AreEqual(4, subSceneList.Length);
 
-                //Load/Unload all the scene 1 by 1
+                // 逐个加载并卸载场景
                 for (int scene = 0; scene < 2; ++scene)
                 {
-                    //Client load the first scene
+                    // 客户端加载当前场景
                     SubSceneHelper.LoadSubSceneAsync(testWorld.ClientWorlds[0], testWorld, subScenes[scene].SceneGUID);
-                    //Run another bunch of frame to have the scene initialized
+                    // 推进若干帧以完成场景初始化
                     for (int i = 0; i < 4; ++i)
                         testWorld.Tick();
                     var subSceneEntity = testWorld.TryGetSingletonEntity<PrespawnsSceneInitialized>(testWorld.ClientWorlds[0]);
                     Assert.AreNotEqual(Entity.Null, subSceneEntity);
-                    //Only 5 ghost should be present
+                    // 客户端应只存在当前场景的五个 Ghost
                     var query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>(), ComponentType.ReadOnly<LocalTransform>());
                     Assert.AreEqual(numObjects, query.CalculateEntityCount());
 
-                    //Now I should receive the ghost with their state changed
+                    // 等待接收服务器上持续变化的 Ghost 状态
                     for (int i = 0; i < 16; ++i)
                         testWorld.Tick();
 
@@ -503,13 +495,13 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < translations.Length; ++i)
                         Assert.AreNotEqual(0.0f, translations[i]);
 
-                    //Unload the scene on the client
+                    // 客户端卸载当前场景
                     SceneSystem.UnloadScene(
                         testWorld.ClientWorlds[0].Unmanaged,
                         subScenes[scene].SceneGUID);
                     for (int i = 0; i < 16; ++i)
                         testWorld.Tick();
-                    //0 ghost should be preset
+                    // 卸载后客户端不应存在预生成 Ghost
                     query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                     Assert.AreEqual(0, query.CalculateEntityCount());
                 }
@@ -544,13 +536,13 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //synch scene 0 but not scene 1
+                // 只同步场景 0，暂不加载场景 1
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
                 var sendGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ServerWorld);
                 var spawnMap = testWorld.ServerWorld.EntityManager.GetComponentData<SpawnedGhostEntityMap>(sendGhostMapSingleton).Value;
-                //Host despawn 2 ghost in scene 0 and 2 ghost in scene 1
+                // Host 分别销毁场景 0 和场景 1 中的两个 Ghost
                 var despawnedGhosts = new[]
                 {
                     new SpawnedGhost
@@ -575,7 +567,7 @@ namespace Unity.NetCode.Tests
                     },
                 };
 
-                //Swap the element in the list to match the query order
+                // 按场景查询顺序调整待销毁 Ghost 的排列
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SceneSectionData>());
                 var sceneSectionDatas = query.ToComponentDataArray<SceneSectionData>(Allocator.Temp);
                 if (sceneSectionDatas[0].SceneGUID != subScenes[0].SceneGUID)
@@ -591,39 +583,39 @@ namespace Unity.NetCode.Tests
                 for(int i=0;i<despawnedGhosts.Length;++i)
                     testWorld.ServerWorld.EntityManager.DestroyEntity(spawnMap[despawnedGhosts[i]]);
 
-                //Client should despawn the two ghosts in scene 0
+                // 客户端应销毁场景 0 中的两个 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
                 var recvGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ClientWorlds[0]);
                 var clientSpawnMap = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value;
-                //3 prespawn and 1 ghost for the list
+                // 映射中包含三个预生成 Ghost 和一个场景列表 Ghost
                 Assert.AreEqual(4, clientSpawnMap.Count());
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[0]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[1]));
 
-                //Client load scene 2. Should receive the despawn
+                // 客户端加载第二个场景并补收其中 Ghost 的 Despawn
                 SubSceneHelper.LoadSubSceneAsync(testWorld.ClientWorlds[0], testWorld, subScenes[1].SceneGUID);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
                 clientSpawnMap = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value;
-                //6 prespawn and 1 ghost for the list
+                // 映射中包含六个预生成 Ghost 和一个场景列表 Ghost
                 Assert.AreEqual(7, clientSpawnMap.Count());
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[0]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[1]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[2]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[3]));
 
-                //Client unload scene 0 and then reload it later it should receive the despawns
-                //Unload the scene on the client
+                // 客户端卸载场景 0，稍后重载时仍应保留已收到的 Despawn 状态
+                // 客户端卸载场景 0
                 SceneSystem.UnloadScene(testWorld.ClientWorlds[0].Unmanaged,
                     subScenes[0].SceneGUID);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
                 clientSpawnMap = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value;
-                //3 prespawn and 1 ghost for the list
+                // 映射中包含三个预生成 Ghost 和一个场景列表 Ghost
                 Assert.AreEqual(4, clientSpawnMap.Count());
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[2]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[3]));
@@ -633,7 +625,7 @@ namespace Unity.NetCode.Tests
                     testWorld.Tick();
 
                 clientSpawnMap = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value;
-                //6 prespawn and 1 ghost for the list
+                // 映射中包含六个预生成 Ghost 和一个场景列表 Ghost
                 Assert.AreEqual(7, clientSpawnMap.Count());
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[0]));
                 Assert.IsFalse(clientSpawnMap.ContainsKey(despawnedGhosts[1]));

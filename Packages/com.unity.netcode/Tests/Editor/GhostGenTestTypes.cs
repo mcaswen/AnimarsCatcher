@@ -8,11 +8,11 @@ using UnityEngine.TestTools;
 
 namespace Unity.NetCode.Tests
 {
-    // This test class is coupled with GhostGenTestUtils, which holds the types used
+    // 此测试类依赖 GhostGenTestUtils，其中定义了测试使用的类型
     internal class GhostGenTestTypes
     {
-        // TODO - Test fragmented unreliable sends by having two large ICommandDatas on 1 client.
-        // Tests that all supported ghost values are replicated from Server->Client on IComponentData via ghost fields
+        // TODO：在单个客户端上使用两个大型 ICommandData，测试不可靠分片发送
+        // 测试 IComponentData 中所有受支持的 GhostField 值能否从服务端复制到客户端
         [Test]
         [Category(NetcodeTestCategories.Foundational)]
         public void GhostValuesAreSerialized_IComponentData()
@@ -36,13 +36,13 @@ namespace Unity.NetCode.Tests
                 var newInterpolateValues = GhostGenTestUtils.CreateGhostValuesInterpolate(42);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestUtils.GhostGenTestType_IComponentData {GhostGenTypesClamp_Values = newClampValues, GhostGenTypesClamp_Strings = newClampStrings, GhostGenTypesInterpolate = newInterpolateValues});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
@@ -64,7 +64,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Assert that replicated version is correct
+                // 断言再次复制后的数据正确
                 serverValues = testWorld.ServerWorld.EntityManager.GetComponentData<GhostGenTestUtils.GhostGenTestType_IComponentData>(serverEntity);
                 clientValues = testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostGenTestUtils.GhostGenTestType_IComponentData>(clientEntity);
 
@@ -74,8 +74,8 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        // Tests that all supported values are replicated from Client=>Server on ICommandData via command target
-        // This uses multiple test cases, because there is a size limit on ICommandData, so we split the struct into multiple values
+        // 测试 ICommandData 中所有受支持的值能否通过 CommandTarget 从客户端复制到服务端
+        // ICommandData 存在大小限制，因此拆分结构并使用多个测试用例
         [Test]
         [Category(NetcodeTestCategories.Foundational)]
         public void ValuesAreSerialized_ICommandData_Values()
@@ -98,10 +98,11 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Tests that ICommandData values are serialized properly. Uses generics since there are multiple ICommandData that needs to be split to avoid duplicating code between this and the IComponentData GhostValue tests above.
+        /// 测试 ICommandData 值能否正确序列化
+        /// 由于数据需要拆分为多个 ICommandData，因此使用泛型复用流程，避免与上方 IComponentData GhostValue 测试重复代码
         /// </summary>
-        /// <param name="creator">Function that generates the values of ICommandData</param>
-        /// <param name="verifier">Function that verifies the values two ICommandData, intended to verify that the values are the same between client and server</param>
+        /// <param name="creator">生成 ICommandData 值的函数</param>
+        /// <param name="verifier">比较两个 ICommandData 的函数，用于验证客户端与服务端的值一致</param>
         public void ValuesAreSerialized_ICommandData<T>(Func<NetworkTick, int, Entity, T> creator, Action<T, T, Entity, Entity> verifier) where T : unmanaged, ICommandData
         {
             using (var testWorld = new NetCodeTestWorld())
@@ -115,36 +116,36 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // We need a ghost on the server to verify that commands can also send ghost entities
-                // We don't care what is on the ghost though, that is tested in the IComponentData variant of this test
+                // 服务端需要存在一个 Ghost，用于验证命令也能传输 Ghost Entity 引用
+                // 此处不关心 Ghost 上的数据，其内容已由本测试的 IComponentData 版本覆盖
                 testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the world run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Add and set server command target
+                // 添加并设置服务端 CommandTarget
                 var serverConnection = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
                 Assert.AreNotEqual(Entity.Null, serverConnection);
                 testWorld.ServerWorld.EntityManager.AddBuffer<T>(serverConnection);
                 testWorld.ServerWorld.EntityManager.AddComponent<CommandTarget>(serverConnection);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverConnection, new CommandTarget{targetEntity = serverConnection});
 
-                // Add and set client command target
+                // 添加并设置客户端 CommandTarget
                 var clientConnection = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.AddBuffer<T>(clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.AddComponent<CommandTarget>(clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.SetComponentData(clientConnection, new CommandTarget{targetEntity = clientConnection});
 
-                // Add a command to client
-                var clientGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ClientWorlds[0]); // Ghost entity
+                // 向客户端添加一条命令
+                var clientGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ClientWorlds[0]); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, clientGhostEntity);
                 var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<T>(clientConnection);
                 var clientTick = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]).InputTargetTick;
@@ -154,19 +155,19 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; i++)
                     testWorld.Tick();
 
-                // Verify values
+                // 验证数据
                 clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<T>(clientConnection);
                 clientBuffer.GetDataAtTick(clientTick, out var clientValues);
                 var serverBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<T>(serverConnection);
                 serverBuffer.GetDataAtTick(clientTick, out var serverValues);
-                var serverGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ServerWorld); // Ghost entity
+                var serverGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ServerWorld); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, serverGhostEntity);
                 verifier(serverValues, clientValues, serverGhostEntity, clientGhostEntity);
             }
         }
 
-        // Tests that all supported values are replicated from Client=>Server on IInputComponentData
-        // This uses multiple test cases, because there is a size limit on ICommandData, so we split the struct into multiple values
+        // 测试 IInputComponentData 中所有受支持的值能否从客户端复制到服务端
+        // 底层 ICommandData 存在大小限制，因此拆分结构并使用多个测试用例
         [Test]
         public void ValuesAreSerialized_IInputComponentData_Values()
         {
@@ -193,48 +194,48 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true);
 
-                // Set up ghost
+                // 配置 Ghost
                 var ghostGameObject = new GameObject();
                 ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = converter;
                 var ghostConfig = ghostGameObject.AddComponent<GhostAuthoringComponent>();
                 ghostConfig.HasOwner = true;
                 ghostConfig.SupportAutoCommandTarget = true;
                 ghostConfig.SupportedGhostModes = GhostModeMask.All;
-                ghostConfig.DefaultGhostMode = GhostMode.OwnerPredicted; // Ghost must be predicted for AutoCommandTarget to work
+                ghostConfig.DefaultGhostMode = GhostMode.OwnerPredicted; // Ghost 必须使用预测模式，AutoCommandTarget 才能生效
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.CreateWorlds(true, 2);
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                // Spawn ghost and set owner
+                // 生成 Ghost 并设置所有者
                 var clientConnectionEnt = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ClientWorlds[0]);
                 var netId = testWorld.ClientWorlds[0].EntityManager.GetComponentData<NetworkId>(clientConnectionEnt).Value;
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner {NetworkId = netId});
 
 
-                // Let the world run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Change input on client
-                var clientGhostEntity = testWorld.TryGetSingletonEntity<T>(testWorld.ClientWorlds[0]); // Ghost entity
+                // 修改客户端输入
+                var clientGhostEntity = testWorld.TryGetSingletonEntity<T>(testWorld.ClientWorlds[0]); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, clientGhostEntity);
                 var newValues = creator(42, clientGhostEntity);
                 testWorld.ClientWorlds[0].EntityManager.SetComponentData(clientGhostEntity, newValues);
 
-                // Tick to ensure data has been changed
+                // 推进 Tick，确保数据已被发送并更新
                 for (int i = 0; i < 16; i++)
                 {
                     testWorld.Tick();
                     var testValues = testWorld.GetSingleton<T>(testWorld.ServerWorld);
                 }
 
-                // Verify values
+                // 验证数据
                 //var clientValues = testWorld.GetSingleton<T>(testWorld.ClientWorlds[0]);
-                var serverGhostEntity = testWorld.TryGetSingletonEntity<T>(testWorld.ServerWorld); // Ghost entity
+                var serverGhostEntity = testWorld.TryGetSingletonEntity<T>(testWorld.ServerWorld); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, serverGhostEntity);
                 var serverValues = testWorld.GetSingleton<T>(testWorld.ServerWorld);
                 verifier(serverValues, newValues, serverGhostEntity, clientGhostEntity);
@@ -255,22 +256,22 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // We need a ghost on the server to verify that commands can also send ghost entities
-                // We don't care what is on the ghost though, that is tested in the IComponentData variant of this test
+                // 服务端需要存在一个 Ghost，用于验证 RPC 也能传输 Ghost Entity 引用
+                // 此处不关心 Ghost 上的数据，其内容已由本测试的 IComponentData 版本覆盖
                 testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the world run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Create RPC on client
-                var clientGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ClientWorlds[0]); // Ghost entity
+                // 在客户端创建 RPC
+                var clientGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ClientWorlds[0]); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, clientGhostEntity);
                 var rpc = testWorld.ClientWorlds[0].EntityManager.CreateEntity(typeof(GhostGenTestUtils.GhostGenTestType_IRpc),
                     typeof(SendRpcCommandRequest));
@@ -287,14 +288,14 @@ namespace Unity.NetCode.Tests
                         Debug.LogError("Max ticks reached without finding RPC on server");
                 }
 
-                // Verify server values
-                var serverGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ServerWorld); // Ghost entity
+                // 验证服务端数据
+                var serverGhostEntity = testWorld.TryGetSingletonEntity<GhostGenTestUtils.GhostGenTestType_IComponentData>(testWorld.ServerWorld); // Ghost 实体
                 Assert.AreNotEqual(Entity.Null, serverGhostEntity);
                 var serverValues = testWorld.GetSingleton<GhostGenTestUtils.GhostGenTestType_IRpc>(testWorld.ServerWorld);
                 GhostGenTestUtils.VerifyIRpc(serverValues, clientValues, serverGhostEntity, clientGhostEntity);
                 testWorld.ServerWorld.EntityManager.DestroyEntity(query);
 
-                // Create RPC on server
+                // 在服务端创建 RPC
                 rpc = testWorld.ServerWorld.EntityManager.CreateEntity(typeof(GhostGenTestUtils.GhostGenTestType_IRpc),
                     typeof(SendRpcCommandRequest));
                 serverValues = GhostGenTestUtils.CreateIRpcValues(43, serverGhostEntity);
@@ -310,7 +311,7 @@ namespace Unity.NetCode.Tests
                         Debug.LogError("Max ticks reached without finding RPC on server");
                 }
 
-                // Verify server values
+                // 验证客户端数据
                 clientValues = testWorld.GetSingleton<GhostGenTestUtils.GhostGenTestType_IRpc>(testWorld.ClientWorlds[0]);
                 GhostGenTestUtils.VerifyIRpc(serverValues, clientValues, serverGhostEntity, clientGhostEntity);
                 testWorld.ClientWorlds[0].EntityManager.DestroyEntity(query);
@@ -322,36 +323,36 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                // Setup
+                // 初始化测试环境
                 testWorld.Bootstrap(true);
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the world run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Add and set server command target
+                // 添加并设置服务端 CommandTarget
                 var serverConnection = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
                 Assert.AreNotEqual(Entity.Null, serverConnection);
                 testWorld.ServerWorld.EntityManager.AddBuffer<GhostGenTestUtils.GhostGenTestType_ICommandData_Strings>(serverConnection);
                 testWorld.ServerWorld.EntityManager.AddComponent<CommandTarget>(serverConnection);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverConnection, new CommandTarget{targetEntity = serverConnection});
 
-                // Add and set client command target
+                // 添加并设置客户端 CommandTarget
                 var clientConnection = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.AddBuffer<GhostGenTestUtils.GhostGenTestType_ICommandData_Strings>(clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.AddComponent<CommandTarget>(clientConnection);
                 testWorld.ClientWorlds[0].EntityManager.SetComponentData(clientConnection, new CommandTarget{targetEntity = clientConnection});
 
-                // Add MASSIVE command:
+                // 添加一条远超大小限制的命令
                 var newInvalidClampValues = GhostGenTestUtils.CreateTooLargeGhostValuesStrings();
                 var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<GhostGenTestUtils.GhostGenTestType_ICommandData_Strings>(clientConnection);
                 var clientTick = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]).InputTargetTick;
@@ -362,14 +363,14 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 1; ++i)
                     testWorld.Tick();
 
-                // Expect it to log an error as it's far too large.
+                // 命令体过大，应记录错误日志
                 LogAssert.Expect(LogType.Error, new Regex("the serialized payload is too large"));
             }
         }
 
         internal struct GhostGenBigStruct : IComponentData
         {
-            //Add 100 int fields and check they are serialized correctly
+            // 添加 100 个 int 字段并检查其序列化结果
             [GhostField] public int field000;
             [GhostField] public int field001;
             [GhostField] public int field002;
@@ -603,7 +604,7 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
 
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
-                //Use reflection.. just because if is faster
+                // 按连续 int 内存直接赋值，以减少逐字段初始化的样板代码
                 var data = default(GhostGenBigStruct);
                 unsafe
                 {
@@ -615,13 +616,13 @@ namespace Unity.NetCode.Tests
                 }
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, data);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 

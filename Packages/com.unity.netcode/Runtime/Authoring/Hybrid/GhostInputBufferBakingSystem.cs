@@ -2,7 +2,8 @@ using Unity.Entities;
 
 namespace Unity.NetCode
 {
-    // Needs to run before GhostAuthoringBakingSystem so the buffer is there before ghost processing, putting it in the normal baking group ensures that since GhostAuthoringBakingSystem is in PostBakingSystemGroup
+    // 必须在 GhostAuthoringBakingSystem 之前运行，确保处理 Ghost 前 Buffer 已存在
+    // GhostAuthoringBakingSystem 位于 PostBakingSystemGroup，因此将本系统放入普通烘焙组即可保证该顺序
     [UpdateInGroup(typeof(BakingSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     [BakingVersion("cmarastoni", 1)]
@@ -10,9 +11,9 @@ namespace Unity.NetCode
     {
         protected override void OnUpdate()
         {
-            //ATTENTION! This singleton entity is always destroyed in the first non-incremental pass, because in the first import
-            //the baking system clean all the Entities in the world when you open a sub-scene.
-            //We recreate the entity here "lazily", so everything behave as expected.
+            // 注意：此 Singleton Entity 总会在第一次非增量处理时被销毁
+            // 因为首次导入并打开 SubScene 时，烘焙系统会清理 World 中的所有 Entity
+            // 这里以延迟方式重新创建该 Entity，使所有逻辑保持预期行为
             if (!SystemAPI.TryGetSingleton<GhostComponentSerializerCollectionData>(out var serializerCollectionData))
             {
                 var systemGroup = World.GetExistingSystemManaged<GhostComponentSerializerCollectionSystemGroup>();

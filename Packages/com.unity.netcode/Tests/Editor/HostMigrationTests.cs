@@ -92,10 +92,10 @@ namespace Unity.NetCode.Tests
         [GhostComponent(PrefabType = GhostPrefabType.Server)]
         internal struct HostOnlyData : IComponentData
         {
-            // TODO: There must be at least one ghost field or this will not be tracked in the ghost component serializer state
+            // TODO：必须至少包含一个 GhostField，否则该组件不会被 Ghost 组件序列化状态追踪
             [GhostField] public int Value;
             public float FloatValue;
-            // TODO: Containers are not supported and need to throw errors and/or be ignored
+            // TODO：当前不支持容器类型，应抛出错误或忽略该字段
             //public NativeArray<int> IntArray;
         }
 
@@ -191,7 +191,7 @@ namespace Unity.NetCode.Tests
         //             anotherBuffer.Add(new AnotherBuffer() { ValueOne = i+3000, ValueTwo = i+4000 });
         //         }
         //
-        //         // Allow ghosts to spawn
+        //         // 等待 Ghost 生成
         //         for (int i = 0; i < 2; ++i)
         //             testWorld.Tick();
         //
@@ -260,8 +260,8 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Skip using the test world ghost collection/baking as it requires custom spawning, but the
-                // host migration needs to be able to spawn ghosts normally
+                // 不使用测试 World 的 Ghost Collection 烘焙流程，因为它依赖自定义生成方式
+                // Host Migration 必须验证普通 Ghost 生成流程
                 for (int i = 0; i < clientCount; ++i)
                     CreatePrefabWithOnlyComponents(testWorld.ClientWorlds[i].EntityManager);
                 testWorld.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<EnableHostMigration>());
@@ -281,7 +281,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
 
-                // Wait until host migration data is gathered
+                // 等待 Host Migration 数据采集完成
                 var migrationData = new NativeList<byte>(Allocator.Temp);
                 var currentTime = testWorld.ServerWorld.Time.ElapsedTime;
                 var migrationStats = testWorld.GetSingleton<HostMigrationStats>(testWorld.ServerWorld);
@@ -306,7 +306,7 @@ namespace Unity.NetCode.Tests
 
                 HostMigrationData.Get(testWorld.ServerWorld, ref migrationData);
                 Assert.AreEqual(expectedSize, migrationData.Length);
-                Assert.AreEqual(0, migrationData[^1]);  // Last byte will always be 0
+                Assert.AreEqual(0, migrationData[^1]);  // 最后一个字节始终为 0
 
                 migrationStats = testWorld.GetSingleton<HostMigrationStats>(testWorld.ServerWorld);
                 Assert.AreEqual(expectedSize, migrationStats.UpdateSize);
@@ -323,8 +323,8 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Skip using the test world ghost collection/baking as it requires custom spawning, but the
-                // host migration needs to be able to spawn ghosts normally
+                // 不使用测试 World 的 Ghost Collection 烘焙流程，因为它依赖自定义生成方式
+                // Host Migration 必须验证普通 Ghost 生成流程
                 for (int i = 0; i < clientCount; ++i)
                     CreateHostDataPrefab(testWorld.ClientWorlds[i].EntityManager);
                 testWorld.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<EnableHostMigration>());
@@ -354,13 +354,13 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
 
-                // There should be one spawned ghost in each world
+                // 每个 World 中都应生成一个 Ghost
                 var serverGhostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                 Assert.AreEqual(1, serverGhostQuery.CalculateEntityCount());
                 var serverComponentCount = testWorld.ServerWorld.EntityManager.GetComponentTypes(serverGhostQuery.GetSingletonEntity()).Length;
                 for (int i = 0; i < clientCount; ++i)
                 {
-                    // The client version of the host data should be there but empty, entity should not include the two host only ghost components
+                    // 客户端应存在对应 Ghost，但不包含两个仅服务端组件
                     using var clientGhostQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                     Assert.AreEqual(1, clientGhostQuery.CalculateEntityCount());
                     Assert.AreEqual(serverComponentCount - 2, testWorld.ClientWorlds[i].EntityManager.GetComponentTypes(clientGhostQuery.GetSingletonEntity()).Length);
@@ -368,14 +368,14 @@ namespace Unity.NetCode.Tests
 
                 GetHostMigrationData(testWorld, out var migrationData);
 
-                // Destroy current server and create a new one
+                // 销毁当前服务端并创建新的服务端 World
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
                 WaitForClientDisconnect(testWorld, clientCount);
 
-                // Need to restore the prefab/ghost collection but normally it would happen via subscene loading during migration
+                // 恢复 Prefab 和 Ghost Collection，真实迁移流程通常由 SubScene 加载完成
                 CreateHostDataPrefab(testWorld.ServerWorld.EntityManager);
 
-                // One of the clients will be the one local to the host, so we won't reconnect that one (always skip processing client 1 from now on)
+                // 客户端索引 0 将成为新 Host 的本地客户端，因此不重新连接，后续从索引 1 开始处理
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -384,18 +384,18 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // Validate both client/server ghost collections are correct
+                // 验证客户端与服务端的 Ghost Collection 均正确
                 var serverCollection = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var prefabBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionPrefab>(serverCollection);
                 Assert.AreEqual(1, prefabBuffer.Length);
@@ -406,7 +406,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(1, prefabBuffer.Length);
                 }
 
-                // Validate the ghost spawn looks correct
+                // 验证迁移后的 Ghost 生成结果与仅服务端数据
                 using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                 var ghostEntities = ghostQuery.ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(1, ghostEntities.Length);
@@ -423,7 +423,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// The simplest host migration scenario, a host (local client) with two connected clients and one spawned ghost per client.
+        /// 最基础的 Host Migration 场景：一个本地 Host、多个已连接客户端，以及每个客户端对应的玩家 Ghost
         /// </summary>
         [Test]
         [TestCase(5, 500)]
@@ -431,16 +431,16 @@ namespace Unity.NetCode.Tests
         [TestCase(2, 0)]
         public void SimpleHostMigrationScenario(int clientCount, int serverGhostCount)
         {
-            // NOTE: No queries can be auto-disposed (via 'using') before the migration (fine afterward), as we'll manually
-            // dispose the current server world and create a new one, these queries will blow up if they are re-disposed
-            // after leaving current scope
+            // 注意：迁移前创建的 Query 不能通过 using 自动释放，迁移完成后创建的 Query 不受此限制
+            // 测试会手动销毁旧服务端 World 并创建新 World
+            // 若离开作用域时再次释放属于旧 World 的 Query，会触发异常
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Skip using the test world ghost collection/baking as it requires custom spawning, but the
-                // host migration needs to be able to spawn ghosts normally
+                // 不使用测试 World 的 Ghost Collection 烘焙流程，因为它依赖自定义生成方式
+                // Host Migration 必须验证普通 Ghost 生成流程
                 for (int i = 0; i < clientCount; ++i)
                 {
                     CreatePrefab(testWorld.ClientWorlds[i].EntityManager);
@@ -449,7 +449,7 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<EnableHostMigration>());
                 CreatePrefab(testWorld.ServerWorld.EntityManager);
                 CreatePrefabWithOnlyComponents(testWorld.ServerWorld.EntityManager);
-                int prefabCount = 2; // count is validated later, and is used in migration request
+                int prefabCount = 2; // 数量稍后会验证，并用于迁移请求
 
                 testWorld.Connect(maxSteps:10);
                 testWorld.GoInGame();
@@ -457,7 +457,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // TODO: Spawn at different ticks and check the SpawnTick
+                // TODO：在不同 Tick 生成 Ghost 并验证 SpawnTick
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
                 Assert.AreEqual(prefabCount, serverPrefabs.Length);
 
@@ -467,7 +467,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 200; ++i)
                     testWorld.Tick();
 
-                // There should be one spawned ghost for each client + the server owned ghost
+                // 应包含每个客户端的玩家 Ghost 以及全部服务端所有 Ghost
                 var allGhostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                 Assert.AreEqual(clientCount + serverGhostCount, allGhostQuery.CalculateEntityCount());
                 for (int i = 0; i < clientCount; ++i)
@@ -476,11 +476,11 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(clientCount + serverGhostCount, clientGhostQuery.CalculateEntityCount());
                 }
 
-                // Save GhostType of spawned ghost for later
+                // 保存已生成 Ghost 的 GhostType，供迁移后比较
                 var ghostTypeQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostType>());
                 var beforeGhostType = ghostTypeQuery.ToComponentDataArray<GhostType>(Allocator.Temp)[0];
 
-                // Add components to connection entities on server, it should be migrated
+                // 向服务端连接实体添加用户组件，这些组件应随连接迁移
                 var serverConnectionQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                 var serverConnectionEntities = serverConnectionQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < serverConnectionEntities.Length; ++i)
@@ -491,24 +491,24 @@ namespace Unity.NetCode.Tests
 
                 GetHostMigrationData(testWorld, out var migrationData);
 
-                // Destroy current server and create a new one
+                // 销毁当前服务端并创建新的服务端 World
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
                 using var hostMigrationDataQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<HostMigrationStorage>());
                 var hostMigrationData = hostMigrationDataQuery.ToComponentDataArray<HostMigrationStorage>(Allocator.Temp);
                 Assert.AreEqual(1, hostMigrationData.Length);
 
-                // Validate amount of connection components saved matches actual
+                // 验证保存的连接组件数量与实际一致
                 for (int i = 0; i < clientCount; ++i)
                     Assert.AreEqual(2, hostMigrationData[0].HostData.Connections[i].Components.Length);
 
-                // Need to restore the prefab/ghost collection but normally it would happen via subscene loading during migration
+                // 恢复 Prefab 和 Ghost Collection，真实迁移流程通常由 SubScene 加载完成
                 CreatePrefab(testWorld.ServerWorld.EntityManager);
                 CreatePrefabWithOnlyComponents(testWorld.ServerWorld.EntityManager);
 
                 WaitForClientDisconnect(testWorld, clientCount);
 
-                // One of the clients will be the one local to the host, so we won't reconnect that one (always skip processing client 1 from now on)
+                // 客户端索引 0 将成为新 Host 的本地客户端，因此不重新连接，后续从索引 1 开始处理
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -517,18 +517,18 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // Validate the new server connections contains the previously added component
+                // 验证新服务端连接包含迁移前添加的用户组件
                 using var userComponentQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<UserConnectionComponent>(), ComponentType.ReadOnly<UserConnectionTagComponent>(), ComponentType.ReadOnly<NetworkStreamConnection>());
                 Assert.AreEqual(clientCount-1, userComponentQuery.CalculateEntityCount());
                 var userComponents = userComponentQuery.ToComponentDataArray<UserConnectionComponent>(Allocator.Temp);
@@ -538,7 +538,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(255, userComponents[i].Value2);
                 }
 
-                // Validate both client/server ghost collections are correct
+                // 验证客户端与服务端的 Ghost Collection 均正确
                 var serverCollection = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var prefabBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionPrefab>(serverCollection);
                 Assert.AreEqual(prefabCount, prefabBuffer.Length);
@@ -549,7 +549,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(prefabCount, prefabBuffer.Length);
                 }
 
-                // Validate the ghost type is correct everywhere
+                // 验证各处的 GhostType 均保持正确
                 using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<GhostOwner>(), ComponentType.ReadOnly<GhostType>(), ComponentType.ReadOnly<LocalTransform>());
                 var ghostTypes = ghostQuery.ToComponentDataArray<GhostType>(Allocator.Temp);
                 for (int i = 0; i < clientCount-1; ++i)
@@ -591,7 +591,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Validate that the enableable state of each component is transferred properly during migration
+        /// 验证各组件的可启用状态在迁移过程中得到正确传递
         /// </summary>
         [Test]
         [TestCase(true)]
@@ -604,8 +604,8 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Skip using the test world ghost collection/baking as it requires custom spawning, but the
-                // host migration needs to be able to spawn ghosts normally
+                // 不使用测试 World 的 Ghost Collection 烘焙流程，因为它依赖自定义生成方式
+                // Host Migration 必须验证普通 Ghost 生成流程
                 for (int i = 0; i < clientCount; ++i)
                     CreatePrefabWithEnableable(testWorld.ClientWorlds[i].EntityManager);
                 testWorld.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<EnableHostMigration>());
@@ -619,7 +619,7 @@ namespace Unity.NetCode.Tests
 
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
 
-                // Add ghosts for each client on the server and set the owner to client connection
+                // 在服务端为每个客户端创建 Ghost，并将所有者设为对应连接
                 var playerEntities = new NativeList<Entity>(Allocator.Temp);
                 for (int i = 0; i < clientCount; ++i)
                 {
@@ -635,7 +635,7 @@ namespace Unity.NetCode.Tests
                     testWorld.ServerWorld.EntityManager.SetComponentData(playerEntity, new SomeEnableable() { IntValue = i+1 });
                 }
 
-                // Set enabled bit on all ghosts
+                // 设置所有 Ghost 上组件与 Buffer 的启用位
                 for (int i = 0; i < playerEntities.Length; ++i)
                 {
                     testWorld.ServerWorld.EntityManager.SetComponentEnabled<SomeEnableable>(playerEntities[i], setAsEnabled);
@@ -645,7 +645,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Verify the enable bit state on clients
+                // 验证客户端上的启用位状态
                 for (int i = 0; i < clientCount; ++i)
                 {
                     using var clientQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SomeEnableable>());
@@ -662,10 +662,10 @@ namespace Unity.NetCode.Tests
 
                 WaitForClientDisconnect(testWorld, clientCount);
 
-                // Need to restore the prefab/ghost collection but normally it would happen via subscene loading during migration
+                // 恢复 Prefab 和 Ghost Collection，真实迁移流程通常由 SubScene 加载完成
                 CreatePrefabWithEnableable(testWorld.ServerWorld.EntityManager);
 
-                // One of the clients will be the one local to the host, so we won't reconnect that one (always skip processing client 1 from now on)
+                // 客户端索引 0 将成为新 Host 的本地客户端，因此不重新连接，后续从索引 1 开始处理
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -674,18 +674,18 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // Validate the enable bits after migration
+                // 验证迁移后的启用位与 Buffer 数据
                 using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SomeEnableable>());
                 var ghostEntities = ghostQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < ghostEntities.Length; ++i)
@@ -734,7 +734,7 @@ namespace Unity.NetCode.Tests
                 var serverGhostCount = 10;
                 CreateServerGhosts(serverGhostCount, testWorld, serverPrefabs[1].GhostPrefab);
 
-                // Slowly increase the number of ghosts until the ghost data blob would need to grow
+                // 逐步增加 Ghost 数量，迫使 Ghost 数据 Blob 扩容
                 for (int i = 0; i < 10; ++i)
                 {
                     GetHostMigrationData(testWorld, out _);
@@ -744,12 +744,12 @@ namespace Unity.NetCode.Tests
                     CreateServerGhosts(10, testWorld, serverPrefabs[1].GhostPrefab, serverGhostCount);
                     serverGhostCount += 10;
 
-                    // Wait a bit or it will just reuse the previous host migration data
+                    // 等待下一次采集，否则会直接复用上一份 Host Migration 数据
                     for (int j = 0; j < 4; ++j)
                         testWorld.Tick();
                 }
 
-                // Finally do a complete host migration
+                // 最后执行一次完整 Host Migration
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
                 WaitForClientDisconnect(testWorld, clientCount);
@@ -758,7 +758,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect(maxSteps:10);
                 testWorld.GoInGame();
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
@@ -787,12 +787,12 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Instantiate the player on the server and set the owner to client connection
+                // 在服务端生成玩家，并将所有者设为对应客户端连接
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
                 Assert.AreEqual(1, serverPrefabs.Length);
                 for (int i = 0; i < clientCount; ++i)
                 {
-                    // Add some data to make sure it's not being stomped during host save/restore
+                    // 写入测试数据，确保 Host 保存和恢复不会覆盖它
                     var playerEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefabs[0].GhostPrefab);
                     testWorld.ServerWorld.EntityManager.SetComponentData(playerEntity, new GhostOwner() { NetworkId = i+1 });
                     testWorld.ServerWorld.EntityManager.SetComponentData(playerEntity, new LocalTransform() { Position = new float3(i+1, i+2, i+3) });
@@ -827,13 +827,13 @@ namespace Unity.NetCode.Tests
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                // Verify expected size and that the input component is missing
-                //   Unity.NetCode.GhostInstance - 12 bytes
-                //   Unity.NetCode.GhostOwner - 4 bytes
-                //   Unity.Transforms.LocalTransform - 32 bytes
-                //   Unity.NetCode.Tests.HostMigrationTests+SomeData - 152 bytes
-                //   Unity.NetCode.AutoCommandTarget - 1 bytes
-                //   Unity.NetCode.InputBufferData`1<Unity.NetCode.Tests.HMRemoteInput> - 320 (Should be skipped)
+                // 验证保存数据的预期大小，并确认输入 Buffer 已被跳过
+                //   Unity.NetCode.GhostInstance - 12 字节
+                //   Unity.NetCode.GhostOwner - 4 字节
+                //   Unity.Transforms.LocalTransform - 32 字节
+                //   Unity.NetCode.Tests.HostMigrationTests+SomeData - 152 字节
+                //   Unity.NetCode.AutoCommandTarget - 1 字节
+                //   Unity.NetCode.InputBufferData`1<Unity.NetCode.Tests.HMRemoteInput> - 320 字节，应跳过
                 using var hostMigrationDataQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<HostMigrationStorage>());
                 var hostMigrationData = hostMigrationDataQuery.ToComponentDataArray<HostMigrationStorage>(Allocator.Temp);
                 Assert.AreEqual(1, hostMigrationData.Length);
@@ -854,26 +854,26 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Connect(maxSteps:10);
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // Verify migrated ghost data looks intact
+                // 验证迁移后的 Ghost 数据保持完整
                 using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<GhostOwner>(), ComponentType.ReadOnly<GhostType>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<SimpleData>());
                 var ghostOwners = ghostQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 var ghostPositions = ghostQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 var someDatas = ghostQuery.ToComponentDataArray<SimpleData>(Allocator.Temp);
                 for (int i = 0; i < clientCount-1; ++i)
                 {
-                    Assert.AreEqual(i+2, ghostOwners[i].NetworkId);     // First client actually also reconnect and will get 1 but not any player spawns (removed during host data save)
-                    Assert.AreEqual(new float3(i+2, i+3, i+4), ghostPositions[i].Position); // The previous 1st connection will have been (1,2,3) so we'll start here from (2,3,4)
+                    Assert.AreEqual(i+2, ghostOwners[i].NetworkId);     // 首个客户端也会重连并获得 ID 1，但其玩家 Ghost 在保存 Host 数据时已移除
+                    Assert.AreEqual(new float3(i+2, i+3, i+4), ghostPositions[i].Position); // 原首个连接的位置为 (1,2,3)，因此剩余数据从 (2,3,4) 开始
                     Assert.AreEqual(new SimpleData(){FloatValue = i+2, IntValue = i+2, QuaternionValue = new Quaternion(i+2,i+3,i+4,i+5), StringValue = "HelloWorldHelloWorldHelloWorld"}, someDatas[i]);
                 }
             }
@@ -888,7 +888,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Create two different types of prefabs, to ensure the chunks are iterated properly when copying data as these will be two different chunks
+                // 创建两种不同 Prefab，使其进入不同 Chunk，用于验证复制数据时能正确遍历多个 Chunk
                 for (int i = 0; i < clientCount; i++)
                 {
                     CreatePrefab(testWorld.ClientWorlds[i].EntityManager);
@@ -908,7 +908,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(2, serverPrefabs.Length);
                 CreatePlayerGhosts(clientCount, testWorld, serverPrefabs[0].GhostPrefab);
 
-                // Spawn a few of the other prefab type
+                // 生成若干第二种 Prefab 实体
                 const int miscEntityCount = 5;
                 for (int i = 0; i < miscEntityCount; ++i)
                 {
@@ -920,7 +920,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // There should be one player per client world and then all the misc entities of the second prefab type
+                // 每个客户端应对应一个玩家 Ghost，此外还应包含全部第二种 Prefab 实体
                 var serverGhostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                 Assert.AreEqual(clientCount+miscEntityCount, serverGhostQuery.CalculateEntityCount());
                 for (int i = 0; i < clientCount; ++i)
@@ -932,12 +932,12 @@ namespace Unity.NetCode.Tests
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                // Need to restore the prefab/ghost collection but normally it would happen via subscene loading during migration
-                // Create the prefabs in reverse order to the ghost type index would not match between old/new servers
+                // 恢复 Prefab 和 Ghost Collection，真实迁移流程通常由 SubScene 加载完成
+                // 以相反顺序创建 Prefab，确保新旧服务端的 GhostType 索引不一致
                 CreatePrefabTypeTwo(testWorld.ServerWorld.EntityManager);
                 CreatePrefab(testWorld.ServerWorld.EntityManager);
 
-                // One of the clients will be the one local to the host, so we won't reconnect that one (always skip processing client 1 from now on)
+                // 客户端索引 0 将成为新 Host 的本地客户端，因此不重新连接，后续从索引 1 开始处理
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -946,18 +946,18 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 6; ++i)
                     testWorld.Tick();
 
-                // Validate that the data from the second prefab type has not been mangled, all 5 ghosts should still be there as these are not connected to clients/players
+                // 验证第二种 Prefab 的数据未被破坏，这 5 个 Ghost 不属于任何客户端玩家，因此都应保留
                 using var ghostServerQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<SimpleData>(), ComponentType.ReadOnly<LocalTransform>());
                 var ghostServerPositions = ghostServerQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 var serverSomeDatas = ghostServerQuery.ToComponentDataArray<SimpleData>(Allocator.Temp);
@@ -996,7 +996,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                // Ensure the prespawn ghosts are actually there (GhostsPerScene matches actual count in scenes)
+                // 确认 Prespawn Ghost 已全部加载，GhostsPerScene 应与场景实际数量一致
                 for(int i=0;i<64;++i)
                 {
                     testWorld.Tick();
@@ -1008,7 +1008,7 @@ namespace Unity.NetCode.Tests
                         break;
                 }
 
-                // Move all the prespawns a bit
+                // 修改全部 Prespawn Ghost 的位置和测试数据
                 var prespawnGhostPositionsQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(LocalTransform), typeof(GhostInstance));
                 var prespawnGhostPositions = prespawnGhostPositionsQuery.ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(VerifyGhostIds.GhostsPerScene, prespawnGhostPositions.Length);
@@ -1019,7 +1019,7 @@ namespace Unity.NetCode.Tests
                 }
                 for(int i=0;i<64;++i)
                     testWorld.Tick();
-                // Verify the movement is reflected on the clients
+                // 验证位置变化已同步到客户端
                 foreach (var client in testWorld.ClientWorlds)
                 {
                     using var clientPrespawnQuery = client.EntityManager.CreateEntityQuery(typeof(LocalTransform), typeof(GhostInstance));
@@ -1038,7 +1038,7 @@ namespace Unity.NetCode.Tests
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                // One of the clients will be the one local to the host, so we won't reconnect that one (always skip processing client 1 from now on)
+                // 客户端索引 0 将成为新 Host 的本地客户端，因此不重新连接，后续从索引 1 开始处理
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -1047,7 +1047,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Place the connected client in game on both client and server side
+                // 在客户端和服务端两侧将重连连接加入游戏状态
                 using var newServerConnectionsQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkId));
                 var newServerConnections = newServerConnectionsQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < newServerConnections.Length; ++i)
@@ -1058,11 +1058,11 @@ namespace Unity.NetCode.Tests
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 for (int i = 0; i < 6; ++i)
                     testWorld.Tick();
 
-                // Verify the new server restored the prespawns to correct positions
+                // 验证新服务端将 Prespawn Ghost 恢复到正确位置
                 using var ghostServerQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(LocalTransform), typeof(GhostInstance));
                 var ghostServerPositions = ghostServerQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 Assert.AreEqual(VerifyGhostIds.GhostsPerScene, ghostServerPositions.Length);
@@ -1071,7 +1071,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(new float3(i+1, i+2, i+3), ghostServerPositions[i].Position);
                 }
 
-                // Verify the clients also keep correct positions
+                // 验证客户端也保持正确位置和测试数据
                 foreach (var client in testWorld.ClientWorlds)
                 {
                     using var clientPrespawnQuery = client.EntityManager.CreateEntityQuery(typeof(LocalTransform), typeof(GhostInstance), typeof(SomeData));
@@ -1091,12 +1091,10 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// This will send inputs events with an input component before and after host migrations.
-        /// Checks if the input event counters in the input components look correct before and after.
-        /// If the input buffers are migrated the counters can cause issues when clients reconnect
-        /// and start sending new events (the decrement event functionality will try to subtract a count
-        /// seen before the migration against 0 which the new client will start from).
-        /// If input buffers are not migrated the counts will always start from 0 on both the new host and clients.
+        /// 在 Host Migration 前后通过输入组件发送 InputEvent，并检查迁移前后的事件计数器
+        /// 如果迁移输入 Buffer，客户端重连后发送新事件时可能出现计数问题
+        /// 递减事件逻辑会尝试从新客户端的初始值 0 中减去迁移前观察到的计数
+        /// 不迁移输入 Buffer 时，新 Host 与客户端两端的计数都会从 0 开始
         /// </summary>
         [Test]
         public void InputEventCountsWorkAfterMigration()
@@ -1119,11 +1117,11 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect(maxSteps: 10);
                 testWorld.GoInGame();
 
-                // Give ghost collection a chance to initialize
+                // 推进 Tick，让 Ghost Collection 完成初始化
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Instantiate the player on the server and set the owner to client connection
+                // 在服务端生成玩家，并将所有者设为对应客户端连接
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
                 var connectionsOnServerQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
                 var networkIdsOnServer = connectionsOnServerQuery.ToComponentDataArray<NetworkId>(Allocator.Temp);
@@ -1131,7 +1129,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(1, serverPrefabs.Length);
                 for (int i = 0; i < clientCount; ++i)
                 {
-                    // Add some data to make sure it's not being stomped during host save/restore
+                    // 写入测试数据，确保 Host 保存和恢复不会覆盖它
                     var networkId = networkIdsOnServer[i].Value;
                     var playerEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefabs[0].GhostPrefab);
                     testWorld.ServerWorld.EntityManager.SetComponentData(playerEntity, new GhostOwner() { NetworkId = networkId });
@@ -1142,7 +1140,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Set owner on client side as well
+                // 同时在客户端设置 CommandTarget 与本地所有者标记
                 foreach (var world in testWorld.ClientWorlds)
                 {
                     var connectionOnClient = testWorld.TryGetSingletonEntity<NetworkId>(world);
@@ -1151,7 +1149,7 @@ namespace Unity.NetCode.Tests
                     world.EntityManager.AddComponent<GhostOwnerIsLocal>(playerOnClient);
                 }
 
-                // Give input systems a chance to send all the required input events
+                // 推进 Tick，让输入 System 发送完全部目标事件
                 for (int i = 0; i < SetInputSystem.TargetEventCount * 2; ++i)
                     testWorld.Tick();
 
@@ -1161,19 +1159,19 @@ namespace Unity.NetCode.Tests
                     var getInputSystem = testWorld.ClientWorlds[i].GetExistingSystemManaged<GetInputSystem>();
                     Assert.AreEqual(SetInputSystem.TargetEventCount, setInputSystem.SendCounter);
                     Assert.AreEqual(SetInputSystem.TargetEventCount, getInputSystem.ReceiveCounter);
-                    // TODO: event count value should be the same as the receive counter
+                    // TODO：EventCountValue 应与 ReceiveCounter 相等
                     Assert.Greater(10000, getInputSystem.EventCountValue);
                 }
                 var serverInputSystem = testWorld.ServerWorld.GetExistingSystemManaged<GetInputSystem>();
                 Assert.AreEqual(clientCount * SetInputSystem.TargetEventCount, serverInputSystem.ReceiveCounter);
                 Assert.Greater(10000, serverInputSystem.EventCountValue);
 
-                // This actually saves the migration data and restores it on a new server on the same tick where it left off (no delay like when uploading to a service at intervals)
+                // 此处在同一 Tick 保存迁移数据并恢复到新服务端，不模拟定期上传外部服务产生的延迟
                 testWorld.ServerWorld.EntityManager.CompleteAllTrackedJobs();
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                // Reset input system counters
+                // 重置客户端输入 System 计数器
                 for (int i = 0; i < clientCount; ++i)
                 {
                     var setInputSystem = testWorld.ClientWorlds[i].GetExistingSystemManaged<SetInputSystem>();
@@ -1183,7 +1181,7 @@ namespace Unity.NetCode.Tests
                     getInputSystem.EventCountValue = 0;
                 }
 
-                // Allow host migration system to run, all the ghost need to spawn before we can handle reconnecting clients
+                // 推进 Host Migration System，必须先恢复全部 Ghost 才能处理客户端重连
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
@@ -1191,7 +1189,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Connect(maxSteps:10);
 
-                // Set command targets on new server
+                // 在新服务端设置 CommandTarget
                 using var playerEntitiesQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostOwner>());
                 var playerEntities = playerEntitiesQuery.ToEntityArray(Allocator.Temp);
                 var playerGhostOwner = playerEntitiesQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
@@ -1204,18 +1202,18 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(playerGhostOwner[i].NetworkId, networkIdsOnServer[i+1].Value);
                 }
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 1; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Need to wait until player ghost is spawned on clients via server snapshot
+                // 等待服务端 Snapshot 在客户端生成玩家 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Set owner on client side as well
+                // 同时在重连客户端设置 CommandTarget 与本地所有者标记
                 for (int i = 1; i < clientCount; ++i)
                 {
                     var world = testWorld.ClientWorlds[i];
@@ -1226,7 +1224,7 @@ namespace Unity.NetCode.Tests
                     world.EntityManager.AddComponent<GhostOwnerIsLocal>(playerOnClient);
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 和输入链路完成处理
                 for (int i = 0; i < 20; ++i)
                     testWorld.Tick();
 
@@ -1236,7 +1234,7 @@ namespace Unity.NetCode.Tests
                     var getInputSystem = testWorld.ClientWorlds[i].GetExistingSystemManaged<GetInputSystem>();
                     Assert.AreEqual(SetInputSystem.TargetEventCount, setInputSystem.SendCounter);
                     Assert.AreEqual(SetInputSystem.TargetEventCount, getInputSystem.ReceiveCounter);
-                    // TODO: EventCountValue should be equal to ReceiveCounter
+                    // TODO：EventCountValue 应与 ReceiveCounter 相等
                     Assert.Greater(10000, getInputSystem.EventCountValue);
                 }
 
@@ -1244,32 +1242,32 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual((clientCount-1) * SetInputSystem.TargetEventCount, serverInputSystem.ReceiveCounter);
                 Assert.Greater(10000, serverInputSystem.EventCountValue);
 
-                // Verify migrated ghost data looks intact
+                // 验证迁移后的 Ghost 数据保持完整
                 using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<GhostOwner>(), ComponentType.ReadOnly<GhostType>(), ComponentType.ReadOnly<LocalTransform>(), ComponentType.ReadOnly<SimpleData>());
                 var ghostOwners = ghostQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 var ghostPositions = ghostQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
                 for (int i = 0; i < clientCount-1; ++i)
                 {
-                    Assert.AreEqual(i+2, ghostOwners[i].NetworkId);     // First client actually also reconnect and will get 1 but not any player spawns (removed during host data save)
-                    Assert.AreEqual(new float3(i+2, i+3, i+4), ghostPositions[i].Position); // The previous 1st connection will have been (1,2,3) so we'll start here from (2,3,4)
+                    Assert.AreEqual(i+2, ghostOwners[i].NetworkId);     // 首个客户端也会重连并获得 ID 1，但其玩家 Ghost 在保存 Host 数据时已移除
+                    Assert.AreEqual(new float3(i+2, i+3, i+4), ghostPositions[i].Position); // 原首个连接的位置为 (1,2,3)，因此剩余数据从 (2,3,4) 开始
                 }
             }
         }
 
 
         /// <summary>
-        /// Tests that the prespawns snapshots buffer correcly handles having ther server tick rewound and snapshots with the same tick arriving at the client twice.
-        /// The bug that inspired this test was happening after a migration. Prespawns would sometimes try to deserialise more data than expected, this
-        /// was due to the prespawns snapshot buffer containing two snapshots for the same tick. One from before the migration and one after.
-        /// If the snaphot from after the migration was placed after the snapshot from before the migration, it would incorrectly be used at the baseline.
-        /// This could result in issues if the baseline changemask ended up being different causing unexpected behaviour.
-        /// This test recreates the scenario by directly manipulating the snapshot buffer for a prespawn to be in an invalid state between a host migration
+        /// 验证服务端 Tick 回退且相同 Tick 的 Snapshot 两次到达客户端时，Prespawn Snapshot Buffer 仍能正确处理
+        /// 该测试源自迁移后的一个问题：Prespawn 有时会尝试反序列化超出预期的数据
+        /// 原因是 Snapshot Buffer 同时包含迁移前和迁移后的同一 Tick Snapshot
+        /// 如果迁移后的 Snapshot 排在迁移前数据之后，旧逻辑可能错误地将其选为 Baseline
+        /// 当两个 Baseline 的 ChangeMask 不同时，会进一步导致异常行为
+        /// 本测试直接修改 Prespawn Snapshot Buffer，在 Host Migration 期间构造该无效历史状态
         /// </summary>
 
         [Test]
         public unsafe void MigrationWithPrespawnWithForcedBadSnapshotHistory()
         {
-            // Create a prespawn with our update component
+            // 创建带测试更新组件的 Prespawn Ghost
             var ghost = SubSceneHelper.CreateSimplePrefab(ScenePath, "ghost", typeof(GhostAuthoringComponent), typeof(SomeDataAuthoring));
             var scene = SubSceneHelper.CreateEmptyScene(ScenePath, "Parent");
             SubSceneHelper.CreateSubSceneWithPrefabs(scene, ScenePath, "subscene", new[] { ghost }, 1);
@@ -1286,12 +1284,12 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                // Tick the world a bunch to get the data flowing
+                // 推进足够多的 Tick，使 Snapshot 数据稳定流转
                 testWorld.TickMultiple(64);
 
                 var prespawns = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(Unity.NetCode.Tests.SomeData), typeof(GhostInstance)).ToComponentDataArray<GhostInstance>(Allocator.Temp);
 
-                // check out client has the correct compoenents in it and its a prespawn
+                // 检查客户端实体包含预期组件并且确实是 Prespawn Ghost
                 Assert.AreEqual(1, prespawns.Length, "Number of expected prespawns doesn't match.");
                 Assert.IsTrue(PrespawnHelper.IsPrespawnGhostId(prespawns[0].ghostId));
 
@@ -1299,17 +1297,17 @@ namespace Unity.NetCode.Tests
                 {
                     GetHostMigrationData(testWorld, out var migrationData);
 
-                    // Tick a bunch to move on simulation so we have snapshots ahead
-                    testWorld.TickMultiple(21); // we use 21 as that fills out the snapshot buffer
+                    // 继续推进模拟，积累后续 Snapshot
+                    testWorld.TickMultiple(21); // 21 个 Tick 可以填满 Snapshot Buffer
 
-                    // Grab the snapshot buffer for the perespawn entity
+                    // 获取 Prespawn 实体的 Snapshot Buffer 和序列化布局
                     var ghostCollectionQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
                     var ghostCollection = ghostCollectionQuery.GetSingletonEntity();
                     var ghostCollectionPrefabSerializers = testWorld.ClientWorlds[0].EntityManager.GetBuffer<GhostCollectionPrefabSerializer>(ghostCollection);
 
                     var prespawnGhostData = ghostCollectionPrefabSerializers[prespawns[0].ghostType];
 
-                    // Modify the snapshot buffer data on the client
+                    // 直接修改客户端 Snapshot Buffer 数据
                     var prespawnEntities = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(Unity.NetCode.Tests.SomeData), typeof(GhostInstance)).ToEntityArray(Allocator.Temp);
 
                     SnapshotData entitySnapshotData = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SnapshotData>(prespawnEntities[0]);
@@ -1321,39 +1319,39 @@ namespace Unity.NetCode.Tests
                     void* tempData = UnsafeUtility.Malloc(prespawnGhostData.SnapshotSize, UnsafeUtility.AlignOf<byte>(), Allocator.Temp);
                     int changeMaskUints = GhostComponentSerializer.ChangeMaskArraySizeInUInts(prespawnGhostData.ChangeMaskBits);
 
-                    // Going to flip the snapshot data so its in reverse order and place the LatestIndex in the middle
-                    // so new snapshots after the migration will always be placed after old data
+                    // 反转 Snapshot 数据顺序，并将 LatestIndex 放到 Buffer 中间
+                    // 这样迁移后的新 Snapshot 会始终写在旧数据之后
                     int bufferSize = clientSnapshotBuffer.Length / prespawnGhostData.SnapshotSize;
                     for (int i = 0; i < bufferSize / 2; ++i)
                     {
-                        int dest = i * prespawnGhostData.SnapshotSize; // start of the buffer
-                        int src = (bufferSize - 1 - i) * prespawnGhostData.SnapshotSize; // end of the buffer
+                        int dest = i * prespawnGhostData.SnapshotSize; // Buffer 起始侧
+                        int src = (bufferSize - 1 - i) * prespawnGhostData.SnapshotSize; // Buffer 末尾侧
                         uint* changeMask = (uint*)(snapshotData + src + sizeof(uint));
 
-                        // really mess up the changemasks to force bad deserialisation
+                        // 反转 ChangeMask 位，强制放大错误 Baseline 导致的反序列化问题
                         for (int cm = 0; cm < changeMaskUints; ++cm)
                         {
                             changeMask[cm] ^= 0xFFFFFFFF;
                         }
 
-                        UnsafeUtility.MemCpy(tempData, snapshotData + dest, prespawnGhostData.SnapshotSize); // save the start
-                        UnsafeUtility.MemCpy(snapshotData + dest, snapshotData + src, prespawnGhostData.SnapshotSize); // copy the end to the start
-                        UnsafeUtility.MemCpy(snapshotData + src, tempData, prespawnGhostData.SnapshotSize); // restore the start at the end
+                        UnsafeUtility.MemCpy(tempData, snapshotData + dest, prespawnGhostData.SnapshotSize); // 暂存起始侧数据
+                        UnsafeUtility.MemCpy(snapshotData + dest, snapshotData + src, prespawnGhostData.SnapshotSize); // 将末尾侧复制到起始侧
+                        UnsafeUtility.MemCpy(snapshotData + src, tempData, prespawnGhostData.SnapshotSize); // 将原起始侧数据写回末尾侧
                     }
 
                     UnsafeUtility.Free(tempData, Allocator.Temp);
 
-                    // Set the index in the middle
+                    // 将最新 Snapshot 索引设到 Buffer 中间
                     entitySnapshotData.LatestIndex = bufferSize / 2;
                     testWorld.ClientWorlds[0].EntityManager.SetComponentData<SnapshotData>(prespawnEntities[0], entitySnapshotData);
 
-                    // Do the most migration
+                    // 执行 Host Migration
                     DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                    // Allow host migration system to run, all the ghost need to spawn before we can handle reconnecting clients
+                    // 推进 Host Migration System，必须先恢复全部 Ghost 才能处理客户端重连
                     testWorld.TickMultiple(2);
 
-                    // reconnect the clients
+                    // 重新连接客户端
                     var ep = NetworkEndpoint.LoopbackIpv4;
                     ep.Port = 7979;
                     testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -1364,22 +1362,22 @@ namespace Unity.NetCode.Tests
 
                     testWorld.TickMultiple(16);
 
-                    // Place the clients in game
+                    // 将客户端连接加入游戏状态
                     for (int i = 0; i < testWorld.ClientWorlds.Length; ++i)
                     {
                         using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                         testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                     }
 
-                    // Allow ghost collection system to run
+                    // 推进 Tick，让 Ghost Collection System 完成处理
                     testWorld.TickMultiple(6);
 
-                    // Check for a successful migration
+                    // 确认 Host Migration 已成功结束
                     Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<HostMigrationInProgress>()).ToEntityArray(Allocator.Temp).Length, "'HostMigrationInProgress' component still exists. Migration failed/timed out.");
                     Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<HostMigrationRequest>()).ToEntityArray(Allocator.Temp).Length, "'HostMigrationRequest' component still exists. Migration failed/timed out.");
 
-                    // Allow the worlds to tick to send snapshots, we should encounter the error in this time, if not we will fill out the snapshot buffer
-                    // with new data and everything will be OK
+                    // 继续发送 Snapshot，若仍存在错误应在此期间触发
+                    // 随着新数据填满 Snapshot Buffer，旧的异常历史会被覆盖，因此不能再复现问题
                     testWorld.TickMultiple(64);
                 }
             }
@@ -1390,7 +1388,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public unsafe void MigrationKeepsDynamicGhostIds()
         {
-            // Check that tracked ghosts ids match, those ids are in our expected ids list (even ids)
+            // 检查被追踪 Ghost 的 ID 与原值一致，并且都在预期的偶数 ID 集合中
             Action<World, string, string> CheckTrackerGhosts = (World world, string worldName, string errorPrefix) =>
             {
                 var ghostTrackers = world.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadWrite<GhostIdAndTickChecker>());
@@ -1409,8 +1407,8 @@ namespace Unity.NetCode.Tests
                 }
             };
 
-            // Check that post migration ghost count is correct and they have been allocated the correct ids from the list (odd ids), this shows that id's are correcty returned to the free list both pre and post
-            // migration
+            // 检查迁移动作后生成的 Ghost 数量正确，并从预期的奇数 ID 集合中分配
+            // 这能证明迁移前后释放的 ID 都正确归还到空闲列表
             Action<World, string, string> CheckPostMigrationActionGhosts = (World world, string worldName, string errorPrefix) =>
             {
                 var postMighrationActionGhosts = world.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadWrite<CreatedPostHostMigrationAction>());
@@ -1433,7 +1431,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // Make our prefabs here
+                // 创建追踪 Ghost 和迁移动作 Ghost 使用的 Prefab
                 var trackerPrefabTypes = new ComponentType[1];
                 trackerPrefabTypes[0] = ComponentType.ReadOnly<GhostIdAndTickChecker>();
                 var postHostMigratioActionPrefabTypes = new ComponentType[1];
@@ -1457,29 +1455,29 @@ namespace Unity.NetCode.Tests
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
                 Assert.AreEqual(2, serverPrefabs.Length);
 
-                // check there are no ghosts yet
+                // 确认当前尚未生成 Ghost，保证测试完全控制 Ghost ID 分配
                 var ghostEntitiesQuery = serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                 Assert.AreEqual(0, ghostEntitiesQuery.ToEntityArray(Allocator.Temp).Length, "The test makes assumtions that there are no othter ghosts created so the test has complete control over the ghostIds.");
 
-                // Spawn 8 ghosts
+                // 生成 8 个 Ghost
                 for (int i = 0; i < 8; ++i)
                     serverEntityManager.Instantiate(trackerPrefab);
 
                 testWorld.TickMultiple(4);
 
-                // copy over the ghost ids and spawn ticks to the tracker and then delete any with odd ghost ids
+                // 将 Ghost ID 和 SpawnTick 写入追踪组件，并删除所有奇数 ID 的 Ghost
                 var serverGhostTrackers = serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadWrite<GhostIdAndTickChecker>());
                 var ecb = new EntityCommandBuffer(Allocator.Temp);
                 foreach (var e in serverGhostTrackers.ToEntityArray(Allocator.Temp))
                 {
                     var ghostInstance = serverEntityManager.GetComponentData<GhostInstance>(e);
 
-                    if (ghostInstance.ghostId % 2 == 0) // even ghost id
+                    if (ghostInstance.ghostId % 2 == 0) // 偶数 Ghost ID
                     {
-                        // keep and track
+                        // 保留并记录原始标识
                         serverEntityManager.SetComponentData(e, new GhostIdAndTickChecker() { originalGhostId = ghostInstance.ghostId, originalSpawnTick = ghostInstance.spawnTick });
                     }
-                    else // destroy odd components
+                    else // 销毁奇数 ID 的 Ghost
                     {
                         ecb.DestroyEntity(e);
                     }
@@ -1487,28 +1485,28 @@ namespace Unity.NetCode.Tests
 
                 ecb.Playback(serverEntityManager);
 
-                // allow the clients to catch up with the changes
+                // 推进 Tick，让客户端同步这些变更
                 testWorld.TickMultiple(6);
 
-                // Do the host migration
+                // 采集 Host Migration 数据
                 GetHostMigrationData(testWorld, out var migrationData);
 
-                // now create 4 more ghosts they should have Ids 1,3,5,7 since we reuse those Ids
+                // 再生成 4 个 Ghost，应复用空闲 ID 1、3、5、7
                 for (int i = 0; i < 4; ++i)
                     serverEntityManager.Instantiate(postHostMigrationActionPrefab);
 
-                // allow the clients to catch up with the changes
+                // 推进 Tick，让客户端同步这些变更
                 testWorld.TickMultiple(6);
 
                 CheckAllWorlds(testWorld, "Pre Migration", new List<Action<World, string, string>> { CheckTrackerGhosts, CheckPostMigrationActionGhosts });
 
-                // Destroy current server and create a new one
+                // 销毁当前服务端并创建新的服务端 World
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
                 serverEntityManager = testWorld.ServerWorld.EntityManager;
 
-                // Need to restore the prefab/ghost collection but normally it would happen via subscene loading during migration
-                // Create the prefabs in reverse order to the ghost type index would not match between old/new servers
+                // 恢复 Prefab 和 Ghost Collection，真实迁移流程通常由 SubScene 加载完成
+                // 以相反顺序创建 Prefab，确保新旧服务端的 GhostType 索引不一致
                 CreatePrefab(serverEntityManager, "GhostIdTracker", trackerPrefabTypes);
                 postHostMigrationActionPrefab = CreatePrefab(serverEntityManager, "PostHostMigrationAction", postHostMigratioActionPrefabTypes);
 
@@ -1519,24 +1517,24 @@ namespace Unity.NetCode.Tests
                     testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ClientWorlds[i]).ValueRW.Connect(testWorld.ClientWorlds[i].EntityManager, ep);
                 testWorld.TickMultiple(8);
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 0; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 testWorld.TickMultiple(6);
 
-                // now create 4 more ghosts post migration they should have Ids 1,3,5,7 since we should reuse those Ids
+                // 迁移后再生成 4 个 Ghost，仍应复用空闲 ID 1、3、5、7
                 for (int i = 0; i < 4; ++i)
                     serverEntityManager.Instantiate(postHostMigrationActionPrefab);
 
-                // allow the send system to run and allocate the ghost ids.
+                // 推进发送 System 并完成 Ghost ID 分配
                 testWorld.TickMultiple(6);
 
-                // Check the migrated IDs are kept
+                // 检查迁移 Ghost 保留原 ID，新 Ghost 正确复用空闲 ID
                 CheckAllWorlds(testWorld, "Post Migration", new List<Action<World, string, string>> { CheckTrackerGhosts, CheckPostMigrationActionGhosts });
             }
         }
@@ -1562,7 +1560,7 @@ namespace Unity.NetCode.Tests
             };
 
 
-            // so we need to make a server with 3 prespawn scenes with a tracked ghost in each
+            // 创建包含 3 个 Prespawn 场景的服务端，每个场景放置一个带追踪组件的 Ghost
             var ghost = SubSceneHelper.CreateSimplePrefab(ScenePath, "Ghost", typeof(GhostAuthoringComponent), typeof(GhostIdAndTickCheckerAuthoring));
             var scene = SubSceneHelper.CreateEmptyScene(ScenePath, "ParentScene");
             var subscene1 = SubSceneHelper.CreateSubSceneWithPrefabs(scene, ScenePath, "SubScene_1", new[] { ghost }, 1);
@@ -1594,21 +1592,21 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(8);
 
-                // We should have 3 subscenes
+                // 此时应加载 3 个 SubScene
                 Assert.AreEqual(3, serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<SceneReference>()).ToEntityArray(Allocator.Temp).Length);
 
-                // so the world should be setup and we should have 3 trackers which match
+                // World 初始化完成后，3 个追踪 Ghost 都应匹配原始标识
                 expectedGhosts = 3;
                 CheckAllWorlds(testWorld, "Pre Migration 3 scenes", new List<Action<World, string, string>> { CheckPreSpawnGhostsAreCorrect });
 
 
-                // we should have 3 prespawns with prespawn ids 1,2 and 3 we want to unload the scene containing 2 to make sure we have out of order ids
+                // 当前有 ID 为 1、2、3 的三个 Prespawn，卸载包含 ID 2 的场景以构造不连续 ID
                 foreach( var entityInScene in serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<SceneSection>(), ComponentType.ReadOnly<GhostInstance>()).ToEntityArray(Allocator.Temp) )
                 {
                     if (serverEntityManager.GetComponentData<GhostInstance>(entityInScene).ghostId == PrespawnHelper.MakePrespawnGhostId(2))
                     {
-                        // since we don't control how ghostIds are allocatied we need to make sure we unload the 'middle' scene
-                        // the one with the ghost id in the middle so we migrate with ghost ids more than 1 apart
+                        // 测试无法控制 Ghost ID 的初始分配顺序，因此明确卸载中间 ID 所在场景
+                        // 这样迁移数据中的 Prespawn ID 间隔会大于 1
                         SceneSystem.UnloadScene(testWorld.ServerWorld.Unmanaged, serverEntityManager.GetSharedComponent<SceneSection>(entityInScene).SceneGUID, SceneSystem.UnloadParameters.DestroyMetaEntities);
                         break;
                     }
@@ -1618,11 +1616,11 @@ namespace Unity.NetCode.Tests
 
                 Assert.AreEqual(2, serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<SceneReference>()).ToEntityArray(Allocator.Temp).Length);
 
-                // so there should only be 2 ghosts now
+                // 卸载后应只剩 2 个 Ghost
                 expectedGhosts = 2;
                 CheckAllWorlds(testWorld, "Pre Migration 2 scenes", new List<Action<World, string, string>> { CheckPreSpawnGhostsAreCorrect });
 
-                // do a host migration
+                // 执行 Host Migration
                 GetHostMigrationData(testWorld, out var migrationData);
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
@@ -1630,7 +1628,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(2);
 
-                // re-connect the clients
+                // 重新连接客户端
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -1639,7 +1637,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(8);
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 0; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
@@ -1648,22 +1646,22 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(32);
 
-                // we should only have 2 scenes post migration
+                // 迁移后仍应只加载 2 个场景
                 Assert.AreEqual(2, serverEntityManager.CreateEntityQuery(ComponentType.ReadOnly<SceneReference>()).ToEntityArray(Allocator.Temp).Length);
 
-                // so there should only be 2 ghosts now and their ids shgould match
+                // 迁移后应保留 2 个 Ghost，且其 ID 与迁移前一致
                 expectedGhosts = 2;
                 CheckAllWorlds(testWorld, "Post Migration 2 scenes", new List<Action<World, string, string>> { CheckPreSpawnGhostsAreCorrect });
             }
         }
 
         /// <summary>
-        /// After a host migration re-connecting clients who were originally in the session will retain their network ID
+        /// Host Migration 后，原会话中的客户端重连时应保留原 NetworkId
         /// </summary>
         [Test]
         public void ClientsKeepIDsAfterMigration()
         {
-            // so we want two new test cases we want to add a client mid migration and a client after the migration and we want to make sure they get the next logical id
+            // 在重连过程和迁移完成后分别加入新客户端，验证它们获得连续的下一个 NetworkId
 
             const int k_initialClientCount = 4;
             const int k_extraClients = 2;
@@ -1680,21 +1678,21 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<EnableHostMigration>());
                 CreatePrefabWithInputs(testWorld.ServerWorld.EntityManager);
 
-                // Start the inital client
+                // 启动初始客户端连接
                 testWorld.StartSeverListen();
                 for ( int i=0; i< k_initialClientCount; ++i )
                 {
                     testWorld.ConnectSingleClientWorld(i);
                 }
 
-                // go in game
+                // 将初始连接加入游戏状态
                 testWorld.GoInGame(testWorld.ServerWorld);
                 for (int i = 0; i < k_initialClientCount; ++i)
                 {
                     testWorld.GoInGame(testWorld.ClientWorlds[i]);
                 }
 
-                // Give ghost collection a chance to initialize
+                // 推进 Tick，让 Ghost Collection 完成初始化
                 testWorld.TickMultiple(4);
 
                 var connectionsOnServerQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
@@ -1703,29 +1701,29 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(4);
 
-                // save out the pre conncetion ids
+                // 保存迁移前的 ConnectionUniqueId 与 NetworkId 映射
                 var preMigrationNetworkIds = new NativeHashMap<uint, int>(testWorld.ClientWorlds.Length,Allocator.Temp);
                 GetUniqueAndNetworkIds( ref preMigrationNetworkIds, testWorld, k_initialClientCount);
 
-                // This actually saves the migration data and restores it on a new server on the same tick where it left off (no delay like when uploading to a service at intervals)
+                // 此处在同一 Tick 保存迁移数据并恢复到新服务端，不模拟定期上传外部服务产生的延迟
                 testWorld.ServerWorld.EntityManager.CompleteAllTrackedJobs();
                 GetHostMigrationData(testWorld, out var migrationData);
 
-                // Destroy current server and create a new one
+                // 销毁当前服务端并创建新的服务端 World
                 DisconnectServerAndCreateNewServerWorld(testWorld, ref migrationData);
 
-                // Allow host migration system to run, all the ghost need to spawn before we can handle reconnecting clients
+                // 推进 Host Migration System，必须先恢复全部 Ghost 才能处理客户端重连
                 testWorld.TickMultiple(2);
 
-                // We need to re-connect them one at a time so the Network IDs have a chance to be allocated out of order, if we do them
-                // as a batch they are processed together and in the same order as above
+                // 逐个重连客户端，以刻意打乱 NetworkId 分配请求顺序
+                // 若批量重连，它们会按上方相同顺序一起处理，无法覆盖该边界情况
                 testWorld.StartSeverListen();
 
-                // when re-connecting the clients we want to inject a new client in the middle to check it doesn't mess up the allocation order
+                // 在旧客户端重连中途插入新客户端，验证它不会破坏原 ID 恢复顺序
                 testWorld.ConnectSingleClientWorld(3);
                 testWorld.ConnectSingleClientWorld(2);
 
-                // Inject a new client in the middle
+                // 插入一个新客户端
                 testWorld.ConnectSingleClientWorld(4);
                 testWorld.GoInGame(testWorld.ClientWorlds[4]);
 
@@ -1739,14 +1737,14 @@ namespace Unity.NetCode.Tests
                 var postMigrationNetworkIds = new NativeHashMap<uint, int>(testWorld.ClientWorlds.Length, Allocator.Temp);
                 GetUniqueAndNetworkIds(ref postMigrationNetworkIds, testWorld, k_initialClientCount);
 
-                // confirm the pre and post Ids match
+                // 确认旧客户端迁移前后的 NetworkId 一致
                 foreach( var postIds in postMigrationNetworkIds)
                 {
                     Assert.IsTrue(preMigrationNetworkIds.ContainsKey(postIds.Key), $"UniqueId {postIds.Key} in post migration clients list put not pre migration clients list.");
                     Assert.AreEqual(postIds.Value, preMigrationNetworkIds[postIds.Key], $"NetworkId mismatch: Client with uniqueid:{postIds.Key} has networkId {preMigrationNetworkIds[postIds.Key]} pre migration and {postIds.Value} post migration.");
                 }
 
-                // add a new client after the migration to test its given the correct next id (current max + 1)
+                // 迁移完成后再加入新客户端，验证其获得当前最大值加 1 的 NetworkId
                 testWorld.ConnectSingleClientWorld(5);
                 testWorld.GoInGame(testWorld.ClientWorlds[5]);
 
@@ -1785,7 +1783,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(ServerHostMigrationSystem));
                 testWorld.CreateWorlds(true, clientCount);
 
-                // need to create 2 prefabs to spawn ghosts from we need to make a ghost of second type just before we do a host migration
+                // 创建两种 Ghost Prefab，并在 Host Migration 前一帧生成第二种类型的 Ghost
                 for (int i = 0; i < clientCount; ++i)
                 {
                     CreatePrefab(testWorld.ClientWorlds[i].EntityManager);
@@ -1801,13 +1799,13 @@ namespace Unity.NetCode.Tests
 
                 testWorld.TickMultiple(4);
 
-                // create a ghost of the second prefab type
+                // 生成第二种 Prefab 类型的 Ghost
                 var serverPrefabs = testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld);
                 Assert.AreEqual(2, serverPrefabs.Length);
 
                 testWorld.ServerWorld.EntityManager.Instantiate(serverPrefabs[1].GhostPrefab);
 
-                // before we migrate the only ghost in the world should not have the ghost type
+                // 迁移采集前，该 Ghost 尚未经过发送 System 分配有效 Ghost ID 和 GhostType
                 {
                     var ghostInstanceQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                     var ghostEntities = ghostInstanceQuery.ToEntityArray(Allocator.Temp);
@@ -1818,11 +1816,11 @@ namespace Unity.NetCode.Tests
                 }
 
                 var migrationConfig = testWorld.GetSingletonRW<HostMigrationConfig>(testWorld.ServerWorld);
-                migrationConfig.ValueRW.ServerUpdateInterval = 0.0f; // Do a migration instantly
+                migrationConfig.ValueRW.ServerUpdateInterval = 0.0f; // 立即采集迁移数据
 
                 GetHostMigrationData(testWorld, out var migrationData);
 
-                // So after making the migration data we should have a valid ghost id
+                // 采集迁移数据后，该 Ghost 应已获得有效 Ghost ID 和 GhostType
                 {
                     var ghostInstanceQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                     var ghostEntities = ghostInstanceQuery.ToEntityArray(Allocator.Temp);
@@ -1843,17 +1841,17 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Connect(maxSteps: 10);
 
-                // TODO: We don't handle connection restore on clients atm, so need to manually place in game
+                // TODO：客户端连接恢复尚未自动处理，因此需要手动加入游戏状态
                 for (int i = 0; i < clientCount; ++i)
                 {
                     using var clientConnectionQuery = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                     testWorld.ClientWorlds[i].EntityManager.AddComponent<NetworkStreamInGame>(clientConnectionQuery.GetSingletonEntity());
                 }
 
-                // Allow ghost collection system to run
+                // 推进 Tick，让 Ghost Collection System 完成处理
                 testWorld.TickMultiple(2);
 
-                // OK so after the migration we should have a ghost whos type is 1
+                // 迁移后应恢复该 Ghost，并保留非零 Ghost ID 和 GhostType
                 {
                     var ghostInstanceQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>());
                     var ghostEntities = ghostInstanceQuery.ToEntityArray(Allocator.Temp);
@@ -2002,7 +2000,7 @@ namespace Unity.NetCode.Tests
             var prefab = entityManager.CreateEntity();
             entityManager.AddComponentData(prefab, LocalTransform.Identity);
             entityManager.AddComponent<SimpleData>(prefab);
-            entityManager.AddBuffer<SomeBuffer>(prefab); // Empty buffer
+            entityManager.AddBuffer<SomeBuffer>(prefab); // 空 Buffer
 
             GhostPrefabCreation.ConvertToGhostPrefab(entityManager, prefab, new GhostPrefabCreation.Config
             {
@@ -2074,7 +2072,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Instantiate server owned ghosts with specific data applied
+        /// 生成服务端所有的 Ghost，并写入指定测试数据
         /// </summary>
         static void CreateServerGhosts(int serverGhostCount, NetCodeTestWorld testWorld, Entity prefab, int startIndex = 0)
         {
@@ -2087,7 +2085,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Add player ghosts for each client on the server and set the owner to client connection
+        /// 在服务端为每个客户端添加玩家 Ghost，并将所有者设为对应连接
         /// </summary>
         static void CreatePlayerGhosts(int clientCount, NetCodeTestWorld testWorld, Entity prefab)
         {
@@ -2125,9 +2123,9 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Validate the player ghost spawn looks correct.
+        /// 验证玩家 Ghost 的生成结果正确
         /// </summary>
-        /// <param name="skipHostOwnedPlayer">When the player owned by the host is not included in the host migration data we need to skip over it and adjust index/id accordingly</param>
+        /// <param name="skipHostOwnedPlayer">Host 所有的玩家未包含在迁移数据中时，跳过该玩家并相应调整索引和 ID</param>
         static void ValidatePlayerGhosts(int count, NetCodeTestWorld testWorld, bool skipHostOwnedPlayer = true)
         {
             using var ghostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<GhostOwner>(), ComponentType.ReadOnly<GhostType>(), ComponentType.ReadOnly<LocalTransform>());

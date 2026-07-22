@@ -20,10 +20,10 @@ using Prefs = Unity.NetCode.MultiplayerPlayModePreferences;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// "PlayMode Tools" Window. Provides controls for:
-    /// - Configuring PlayMode World creation & configuration.
-    /// - Bespoke views for netcode related Client, ThinClient, and Server worlds.
-    /// - Controls to aid in testing of netcode, including a Simulator utility.
+    /// PlayMode Tools 窗口，提供以下控制功能：
+    /// - 配置 PlayMode World 的创建与参数
+    /// - 查看 NetCode 相关的 Client、Thin Client 和 Server World
+    /// - 使用 Simulator 等工具辅助测试 NetCode
     /// </summary>
     internal class MultiplayerPlayModeWindow : EditorWindow, IHasCustomMenu
     {
@@ -33,7 +33,7 @@ namespace Unity.NetCode.Editor
         const string k_SimulatorPresetCaveat = "\n\n<i>Note: The simulator can only <b>add</b> additional latency to a given connection, and it does so naively. Therefore, poor editor performance will exacerbate the delay (and is not compensated for).</i>";
         const string k_ProjectSettingsConfigPath = "<i>ProjectSettings > Entities > Build</i>";
 
-        static Color s_Blue => new Color(0.5f, 0.84f, 0.99f); // TODO: netCode color into this view. GhostAuthoringComponentEditor.netcodeColor;
+        static Color s_Blue => new Color(0.5f, 0.84f, 0.99f); // TODO 在该视图使用 GhostAuthoringComponentEditor.netcodeColor 中的 NetCode 颜色
         static Color s_Green => new Color(0.51f, 0.85f, 0.49f);
         static Color s_Red => new Color(1f, 0.25f, 0.22f);
         static Color s_Orange => new Color(1f, 0.68f, 0f);
@@ -162,8 +162,10 @@ Denotes that the server driver is closed i.e. not currently listening.
 
         public delegate void SimulatorPresetsSelectionDelegate(out string presetGroupName, List<SimulatorPreset> appendPresets);
 
-        /// <summary>If your team would prefer to use other Simulator Presets, override this.
-        /// Defaults to: <see cref="SimulatorPreset.DefaultInUseSimulatorPresets"/></summary>
+        /// <summary>
+        /// 若团队希望使用其他 Simulator Preset，请覆盖此委托
+        /// 默认使用 <see cref="SimulatorPreset.DefaultInUseSimulatorPresets"/>
+        /// </summary>
         public static SimulatorPresetsSelectionDelegate InUseSimulatorPresets = SimulatorPreset.DefaultInUseSimulatorPresets;
 
         [MenuItem("Window/Multiplayer/PlayMode Tools", priority = 3007)]
@@ -205,7 +207,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
             if ( s_HighlightWarnBatchedTicks )
             {
-                s_HighlightWarnBatchedTicksTime = DateTime.UtcNow + TimeSpan.FromSeconds(0.5f); // we need to defer the highlight as calling it here causes errors
+                s_HighlightWarnBatchedTicksTime = DateTime.UtcNow + TimeSpan.FromSeconds(0.5f); // 此处直接高亮会报错，因此延后执行
                 EditorApplication.update += HighlightWarnBatchedTicks;
             }
         }
@@ -257,7 +259,7 @@ Denotes that the server driver is closed i.e. not currently listening.
             s_ForceRepaint |= didCreateOrDestroyWorlds;
 
             var utcNow = DateTime.UtcNow;
-            // Don't repaint if not playing, except when we tick.
+            // 非运行状态不重绘，但单步执行时除外
             var frameCountChangedWhilePaused = false;
             var hitRepaintTimerWhileResumed = false;
             if (EditorApplication.isPaused)
@@ -289,7 +291,7 @@ Denotes that the server driver is closed i.e. not currently listening.
             }
         }
 
-        // This interface implementation is automatically called by Unity.
+        // Unity 会自动调用该接口实现
         void IHasCustomMenu.AddItemsToMenu(GenericMenu menu)
         {
             menu.AddItem(s_ShowAllSimulatorPresets, Prefs.ShowAllSimulatorPresets, ToggleShowingAllSimulatorPresets);
@@ -367,7 +369,7 @@ Denotes that the server driver is closed i.e. not currently listening.
             GUILayout.EndScrollView();
         }
 
-        // Required due to bug: https://fogbugz.unity3d.com/f/cases/1398336/
+        // 用于规避该缺陷：https://fogbugz.unity3d.com/f/cases/1398336/
         static void HackFixBoxStyle()
         {
             s_BoxStyleHack ??= new GUIStyle(GUI.skin.box);
@@ -421,7 +423,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
         void HandleWindowProperties()
         {
-            // Window:
+            // 窗口尺寸
             minSize = new Vector2(600, 210);
             maxSize = new Vector2(1200, maxSize.y);
         }
@@ -465,12 +467,12 @@ Denotes that the server driver is closed i.e. not currently listening.
                 GUI.color = Color.white;
             }
 
-            // Notifying of code vs editor overrides:
+            // 提示代码配置与 Editor 覆盖项之间的关系
             if (EditorApplication.isPlaying)
             {
                 if (!ClientServerBootstrap.DetermineIfBootstrappingEnabled())
                 {
-                    // TODO should be able to do this warning outside of playmode
+                    // TODO 应支持在 PlayMode 外显示该警告
                     EditorGUILayout.HelpBox("Bootstrapping is disabled for this project or scene. I.e. Waiting for you to create netcode worlds yourself, which will then appear here.", MessageType.Warning);
                 }
                 else if (!ClientServerBootstrap.WillServerAutoListen)
@@ -516,9 +518,8 @@ Denotes that the server driver is closed i.e. not currently listening.
             GUI.color = Color.white;
             GUILayout.BeginHorizontal();
             {
-                // Thin clients are only enabled if the delegates are hooked up.
-                // As there are two types (bootstap vs runtime), if we're not in Play Mode,
-                // we can check if either are present.
+                // 只有挂接相应委托后才能启用 Thin Client
+                // 初始化分为 Bootstrap 与 Runtime 两类，不在 PlayMode 时可检查任一委托是否存在
                 GUI.enabled = EditorApplication.isPlaying
                     ? AutomaticThinClientWorldsUtility.IsRuntimeInitializationEnabled
                     : AutomaticThinClientWorldsUtility.IsBootstrapInitializationEnabled || AutomaticThinClientWorldsUtility.IsRuntimeInitializationEnabled;
@@ -613,7 +614,7 @@ Denotes that the server driver is closed i.e. not currently listening.
         {
             GUILayout.BeginHorizontal();
 
-            // Simulator Toggle:
+            // Simulator 开关
             {
                 EditorGUI.BeginChangeCheck();
                 GUI.color = Prefs.SimulatorEnabled ? s_Blue : Color.white;
@@ -630,13 +631,13 @@ Denotes that the server driver is closed i.e. not currently listening.
                 GUI.color = Color.white;
             }
 
-            // Per-Packet View vs Ping View.
+            // 在逐包视图与 Ping 视图之间切换
             if (Prefs.SimulatorEnabled)
             {
                 GUILayout.FlexibleSpace();
 
-                // HACK: Subtract and add 1 to resolve the issue with '[Obsolete] Disabled' being 0.
-                // It's a breaking change to fix properly.
+                // HACK 通过先减 1 再加 1，处理已弃用 Disabled 值为 0 的问题
+                // 若彻底修正会产生破坏性变更
                 var requestedSimulatorView = (int) Prefs.RequestedSimulatorView;
                 requestedSimulatorView -= 1;
                 EditorPopup(s_SimulatorView, s_SimulatorViewContents, ref requestedSimulatorView, s_SimulatorViewWidth);
@@ -647,7 +648,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
             if (Prefs.SimulatorEnabled)
             {
-                // Presets:
+                // 预设
                 {
                     EditorGUI.BeginChangeCheck();
                     Prefs.CurrentNetworkSimulatorPreset = EditorPopup(s_SimulatorPreset, s_InUseSimulatorPresetContents, Prefs.CurrentNetworkSimulatorPreset);
@@ -655,7 +656,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                         HandleSimulatorValuesChanged(false);
                 }
 
-                // Manual simulator values:
+                // 手动 Simulator 参数
                 {
                     float perPacketMin = math.max(0, Prefs.PacketDelayMs - Prefs.PacketJitterMs);
                     float perPacketMax = Prefs.PacketDelayMs + Prefs.PacketJitterMs;
@@ -687,7 +688,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
                             if (EditorGUI.EndChangeCheck())
                             {
-                                // Prevents int precision lost causing this value to change when it shouldn't.
+                                // 避免 int 精度损失导致该值意外变化
                                 if (math.abs(perPacketMin - lastPerPacketMin) - math.abs(perPacketMax - lastPerPacketMax) <= 0.001f)
                                     Prefs.PacketJitterMs = (int) math.round((perPacketMax - perPacketMin) / 2f);
                                 Prefs.PacketDelayMs = (int) (perPacketMin + Prefs.PacketJitterMs);
@@ -721,7 +722,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
                             if (EditorGUI.EndChangeCheck())
                             {
-                                // Prevents int precision lost causing this value to change when it shouldn't.
+                                // 避免 int 精度损失导致该值意外变化
                                 if (math.abs(totalDelayMin - lastTotalDelayMin) - math.abs(totalDelayMax - lastTotalDelayMax) <= 0.001f)
                                     Prefs.PacketJitterMs = (int) math.round((totalDelayMax - totalDelayMin) * .25f);
                                 Prefs.PacketDelayMs = (int) (totalDelayMin * .5f + Prefs.PacketJitterMs);
@@ -732,7 +733,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 #pragma warning disable CS0618
                         case SimulatorView.Disabled:
 #pragma warning restore CS0618
-                            // Show nothing.
+                            // 不显示任何内容
                             break;
                         default:
                             Debug.LogError("Unknown Prefs.SimulatorModeInEditor, using default!");
@@ -743,7 +744,7 @@ Denotes that the server driver is closed i.e. not currently listening.
 
 
 
-                    // Packet Loss %.
+                    // 丢包率
                     {
                         EditorGUI.BeginChangeCheck();
                         GUILayout.BeginHorizontal();
@@ -754,7 +755,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                             HandleSimulatorValuesChanged(true);
                     }
 
-                    // Notify users if they're simulating something very bad.
+                    // 模拟的网络状况过差时提醒用户
                     {
                         if (Prefs.PacketFuzzPercentage > 0)
                             EditorGUILayout.HelpBox("This simulator is intentionally corrupting packets (sent by - and received by - the client). Expect errors and data corruptions.", MessageType.Error);
@@ -767,7 +768,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                         }
                     }
 
-                    // Lag spike UI:
+                    // Lag Spike 界面
                     if (Prefs.RequestedPlayType != ClientServerBootstrap.PlayType.Server)
                     {
                         DrawSeparator();
@@ -810,8 +811,8 @@ Denotes that the server driver is closed i.e. not currently listening.
             var conSystem = world.GetExistingSystemManaged<MultiplayerClientPlayModeConnectionSystem>();
             if (conSystem == null)
             {
-                // during playmode tests, only essential systems are included as part of the world. editor systems aren't which means conSystem is null
-                // TODO should just query the world directly for that info, why is this cached in a system?
+                // PlayMode 测试创建的 World 只包含必要 System，不包含 Editor System，因此 conSystem 为 null
+                // TODO 应直接查询 World 获取信息，确认是否仍需在 System 中缓存
                 return;
             }
             if (s_ShouldUpdateStatusTexts) conSystem.UpdateStatusText();
@@ -903,7 +904,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                 }
             }
 
-            // You can force a timeout even when disconnected, to allow testing reconnect attempts while timed out.
+            // 即使已断开连接也可强制模拟超时，以测试超时期间的重连尝试
             var isTimingOut = conSystem.IsSimulatingTimeout;
             s_Timeout.text = isTimingOut ? $"Simulating Timeout\n[{Mathf.CeilToInt(conSystem.TimeoutSimulationDurationSeconds)}s]" : $"Timeout";
             GUI.color = isTimingOut ? GhostAuthoringComponentEditor.brokenColor :  Color.white;
@@ -961,8 +962,8 @@ Denotes that the server driver is closed i.e. not currently listening.
                 EditorGUILayout.LabelField(s_WorldName + $" [{(serverWorld.IsHost() ? "host" : "server")}]", s_WorldNameWidth);
                 if (conSystem == null)
                 {
-                    // during playmode tests, only essential systems are included as part of the world. editor systems aren't which means conSystem is null
-                    // TODO should just query the world directly for that info, why is this cached in a system?
+                    // PlayMode 测试创建的 World 只包含必要 System，不包含 Editor System，因此 conSystem 为 null
+                    // TODO 应直接查询 World 获取信息，确认是否仍需在 System 中缓存
                     GUILayout.EndHorizontal();
                     return;
                 }
@@ -977,7 +978,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                 GUILayout.EndHorizontal();
             }
 
-            // Server button panel:
+            // 服务端按钮面板
             {
                 GUILayout.BeginHorizontal();
 
@@ -1063,18 +1064,18 @@ Denotes that the server driver is closed i.e. not currently listening.
                 const char separator = ':';
                 FixedString32Bytes text = default;
 
-                // Family & TransportType:
+                // Network Family 与 TransportType
                 var type = ddi.TransportType switch
                 {
                     TransportType.IPC => "IPC",
-                    TransportType.Socket => "UDP",  // We assume UDP!
+                    TransportType.Socket => "UDP",  // 此处假定使用 UDP
                     TransportType.Invalid => "Invalid",
                     _ => throw new NotImplementedException(ddi.TransportType.ToString()),
                 };
                 var family = ddi.NetworkFamily switch
                 {
-                    // TODO - Transport does not reset the Bound field when disconnecting a client,
-                    // so don't display that here as it's misleading.
+                    // TODO Transport 在客户端断开时不会重置 Bound 字段
+                    // 因此此处不显示该值，避免造成误导
                     NetworkFamily.Invalid => clientConnection.HasValue ? type : $"{type}{separator}{(ddi.Bound ? "BoundOnly" : "Closed")}",
                     NetworkFamily.Ipv4 => type,
                     NetworkFamily.Ipv6 => type,
@@ -1083,7 +1084,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                 };
                 text += family;
 
-                // Address:
+                // 地址
                 string address = null;
                 if (ddi.Endpoint.IsValid) address += $"{separator}{ddi.Endpoint.Address}";
 
@@ -1099,7 +1100,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                 s_DriverDisplayInfo.text = $"[{text}{address}]";
                 GUILayout.Label(s_DriverDisplayInfo);
 
-                // Emulation:
+                // 网络模拟
                 if (clientConnection.HasValue)
                 {
                     GUI.color = Color.white;
@@ -1147,7 +1148,7 @@ Denotes that the server driver is closed i.e. not currently listening.
             else
             {
                 Prefs.CurrentNetworkSimulatorPreset = SimulatorPreset.k_CustomProfileKey;
-                // Leave values as is, as they are user-defined.
+                // 参数由用户定义，保持原值
             }
 
             if(Application.isPlaying)
@@ -1321,7 +1322,9 @@ Denotes that the server driver is closed i.e. not currently listening.
             }
         }
 
-        /// <summary>Note: Will disconnect this NetworkId from all server worlds it is found in.</summary>
+        /// <summary>
+        /// 从所有包含该 NetworkId 的 Server World 中断开对应连接
+        /// </summary>
         static void ServerDisconnectNetworkId(MultiplayerClientPlayModeConnectionSystem connSystem)
         {
             foreach (var serverWorld in ClientServerBootstrap.ServerWorlds)
@@ -1443,7 +1446,7 @@ Denotes that the server driver is closed i.e. not currently listening.
                 LastEndpoint = netStream.ValueRO.LastEndPoint;
                 IsAnyUsingSimulator = driverStore.IsAnyUsingSimulator;
                 ConnectionEventsForTick.Clear();
-                if (EditorApplication.isPaused) // Can't see one frame events when unpaused anyway.
+                if (EditorApplication.isPaused) // 未暂停时无法观察只持续一帧的事件
                 {
                     if (netStream.ValueRO.ConnectionEventsForTick.Length > 0)
                     {
@@ -1564,10 +1567,10 @@ $@"<b>GhostCount</b> Singleton
             }
             TargetEp = targetEp;
 
-            // Disconnect first:
-            // - F0: Disconnect is invoked somewhere on Frame0.
-            // - F1: NetworkStreamReceiveSystem will poll the connection entity, and create a BeginSimulation ECB destroying the existing entity.
-            // - F2: ECB is invoked, so now there is no NetworkStreamConnection. Connect can safely be called.
+            // 先断开现有连接
+            // - F0：在 Frame 0 的某处调用 Disconnect
+            // - F1：NetworkStreamReceiveSystem 轮询连接实体，并创建一个用于销毁现有实体的 BeginSimulation ECB
+            // - F2：ECB 执行，此时 NetworkStreamConnection 已不存在，可以安全调用 Connect
             if (SystemAPI.TryGetSingletonEntity<NetworkStreamConnection>(out var connectedEntity))
             {
                 var existingConn = EntityManager.GetComponentData<NetworkStreamConnection>(connectedEntity);
@@ -1583,11 +1586,11 @@ $@"<b>GhostCount</b> Singleton
                         UpdateStatusText();
                     }
                 }
-                // Wait 1 frame before reconnecting:
+                // 等待一帧后再重新连接
                 return;
             }
 
-            // Connect:
+            // 建立连接
             UpdateSimulator = true;
             if (targetEp != default)
             {
@@ -1671,7 +1674,7 @@ $@"<b>GhostCount</b> Singleton
             ref var driverStore = ref netStream.DriverStore;
             IsListening = netStream.DriverStore.GetDriverInstanceRO(netStream.DriverStore.FirstDriver).driver.Listening;
             ConnectionEventsForTick.Clear();
-            if (EditorApplication.isPaused) // Can't see one frame events when unpaused anyway.
+            if (EditorApplication.isPaused) // 未暂停时无法观察只持续一帧的事件
                 ConnectionEventsForTick.AddRange(netStream.ConnectionEventsForTick);
             Editor.DriverDisplayInfo.Read(ref driverStore, ref DriverInfos, null);
         }
@@ -1720,13 +1723,13 @@ Across {ghostChunkCount} Chunks{ghostsPerChunk}
             public void OnCreate(ref SystemState state)
             {
                 ref var sceneSystemGuid = ref state.EntityManager.GetComponentDataRW<SceneSystemData>(state.World.GetExistingSystem<SceneSystem>()).ValueRW;
-                // If client type is client-only, the server must use dedicated server data:
+                // 若客户端目标仅包含客户端，服务端必须使用 Dedicated Server 数据
                 if (NetCodeClientSettings.instance.ClientTarget == NetCodeClientTarget.Client)
                     sceneSystemGuid.BuildConfigurationGUID = DotsGlobalSettings.Instance.GetServerGUID();
-                // If playmode is simulating dedicated server, we must also use server data:
+                // 若 PlayMode 正在模拟 Dedicated Server，也必须使用服务端数据
                 else if (Prefs.SimulateDedicatedServer)
                     sceneSystemGuid.BuildConfigurationGUID = DotsGlobalSettings.Instance.GetServerGUID();
-                // Otherwise we use client & server data, as we know that 'client hosted' is possible in the editor at this point:
+                // 其他情况下使用客户端与服务端数据，因为此时 Editor 允许客户端托管
                 else
                     sceneSystemGuid.BuildConfigurationGUID = DotsGlobalSettings.Instance.GetClientGUID();
 
@@ -1756,7 +1759,7 @@ Across {ghostChunkCount} Chunks{ghostsPerChunk}
                 var driverIdx = entryIdx + driverStore.FirstDriver;
                 entry.DriverIndex = (byte)driverIdx;
                 entry.TransportType = driverStore.GetDriverType(driverIdx);
-                ref var driver = ref driverStore.GetDriverRW(driverIdx); // RW as calling non-readonly method!
+                ref var driver = ref driverStore.GetDriverRW(driverIdx); // 调用非 readonly 方法，因此需要 RW 访问
                 entry.NetworkFamily = driver.GetLocalEndpoint().Family;
                 entry.IsWebSocket = driver.CurrentSettings.TryGet<WebSocketParameter>(out _);
                 entry.SimulatorEnabled = driverStore.GetDriverInstanceRO(driverIdx).simulatorEnabled;

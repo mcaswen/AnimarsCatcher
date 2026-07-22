@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using System;
 using NUnit.Framework;
 using Unity.Entities;
@@ -63,13 +63,13 @@ namespace Unity.NetCode.Tests
                 Assert.AreNotEqual(Entity.Null, serverEnt);
             }
 
-            // Connect and make sure the connection could be established
+            // 建立连接并确认连接成功
             testWorld.Connect(maxSteps:16);
 
-            // Go in-game
+            // 进入游戏状态
             testWorld.GoInGame();
 
-            // Let the game run for a bit so the ghosts are spawned on the client
+            // 推进若干帧以便客户端生成 Ghost
             for (int i = 0; i < 16; ++i)
                 testWorld.Tick();
         }
@@ -91,20 +91,20 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < clientEntities.Length; ++i)
                 {
                     var clientEnt = clientEntities[i];
-                    // Store the last tick we got for this
+                    // 记录该 Ghost 最近收到的快照 Tick
                     var clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                     var clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                     lastSnapshot[i] = clientSnapshot.GetLatestTick(clientSnapshotBuffer);
                 }
 
-                // Run a bit longer
+                // 继续推进若干帧
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
-                // Verify that we did not get any new snapshot
+                // 验证客户端没有收到新快照
                 for (int i = 0; i < clientEntities.Length; ++i)
                 {
                     var clientEnt = clientEntities[i];
-                    // Store the last tick we got for this
+                    // 读取该 Ghost 最近收到的快照 Tick
                     var clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                     var clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                     Assert.AreEqual(lastSnapshot[i], clientSnapshot.GetLatestTick(clientSnapshotBuffer));
@@ -116,7 +116,7 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                // The system will get write access to translation which will dirty the chunk, but not actually write anything
+                // 系统取得 LocalTransform 写权限会标脏 Chunk，但不会实际修改任何实体
                 testWorld.Bootstrap(true, typeof(StaticOptimizationTestSystem));
                 StaticOptimizationTestSystem.s_ModifyNetworkId = 1;
 
@@ -131,20 +131,20 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < clientEntities.Length; ++i)
                 {
                     var clientEnt = clientEntities[i];
-                    // Store the last tick we got for this
+                    // 记录该 Ghost 最近收到的快照 Tick
                     var clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                     var clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                     lastSnapshot[i] = clientSnapshot.GetLatestTick(clientSnapshotBuffer);
                 }
 
-                // Run a bit longer
+                // 继续推进若干帧
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
-                // Verify that we did not get any new snapshot
+                // 验证客户端没有收到新快照
                 for (int i = 0; i < clientEntities.Length; ++i)
                 {
                     var clientEnt = clientEntities[i];
-                    // Store the last tick we got for this
+                    // 读取该 Ghost 最近收到的快照 Tick
                     var clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                     var clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                     Assert.AreEqual(lastSnapshot[i], clientSnapshot.GetLatestTick(clientSnapshotBuffer));
@@ -163,14 +163,13 @@ namespace Unity.NetCode.Tests
 
                 SetupBasicTest(testWorld, latencyProfile, new StaticOptimizationTestConverter(), entitiesToSpawn);
 
-                // Set one to be constantly modified.
+                // 指定一个 Ghost 持续修改位置
                 var clientEm = testWorld.ClientWorlds[0].EntityManager;
                 var clientEntities = clientEm.CreateEntityQuery(ComponentType.ReadWrite<GhostOwner>()).ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(entitiesToSpawn, clientEntities.Length);
                 clientEm.SetComponentData(clientEntities[constantlyChangingIndex], new GhostOwner{NetworkId = constantlyChangingIndex});
 
-                // Write some CLIENT data directly into the ghost fields, so we can verify that it was not touched by
-                // the ghost apply of the constantly changing entity.
+                // 直接写入客户端 GhostField，用于验证应用持续变化实体的快照时不会改动其他字段
                 var expectedPos = new float3(3, 4, 5);
                 var expectedRot = Mathematics.quaternion.Euler(5, 6, 7);
                 const int expectedScale = 8;
@@ -184,17 +183,16 @@ namespace Unity.NetCode.Tests
                     });
                 }
 
-                // Tick for a bit:
+                // 推进若干 Tick
                 for(int i = 0; i < 16; i++)
                     testWorld.Tick();
 
-                // Run test:
+                // 验证各字段的应用结果
                 for (var i = 0; i < clientEntities.Length; i++)
                 {
                     var clientTrans = clientEm.GetComponentData<LocalTransform>(clientEntities[i]);
                     var serverTick = testWorld.GetSingleton<NetworkTime>(testWorld.ClientWorlds[0]).ServerTick;
-                    // Note: GhostField's are "applied" on a per-field basis, so other GhostFields on this struct shouldn't change,
-                    // even when the LocalTransform.Position does!
+                    // GhostField 按字段应用，因此即使 LocalTransform.Position 变化，同一组件中的其他 GhostField 也不应变化
                     if (i == constantlyChangingIndex)
                         Assert.AreNotEqual(expectedPos, clientTrans.Position, $"Unexpectedly NOT changed on idx:{i} i.e. ServerTick:{serverTick.ToFixedString()}");
                     else Assert.AreEqual(expectedPos, clientTrans.Position, $"Unexpected change on idx:{i} i.e. ServerTick:{serverTick.ToFixedString()}");
@@ -217,28 +215,28 @@ namespace Unity.NetCode.Tests
                 Assert.AreNotEqual(Entity.Null, clientEnt);
 
                 var clientEntityManager = testWorld.ClientWorlds[0].EntityManager;
-                // Store the last tick we got for this
+                // 记录该 Ghost 最近收到的快照 Tick
                 var clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                 var clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                 var lastSnapshot = clientSnapshot.GetLatestTick(clientSnapshotBuffer);
 
-                // Run a bit longer
+                // 继续推进若干帧
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Verify taht we did not get any new snapshot
+                // 验证客户端没有收到新快照
                 clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                 clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                 Assert.AreEqual(lastSnapshot, clientSnapshot.GetLatestTick(clientSnapshotBuffer));
 
-                // Run N ticks with modifications
+                // 修改一次位置并继续推进若干 Tick
                 StaticOptimizationTestSystem.s_ModifyNetworkId = 0;
                 testWorld.Tick();
                 StaticOptimizationTestSystem.s_ModifyNetworkId = -1;
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Verify taht we did not get any new snapshot
+                // 验证修改后客户端收到了新快照
                 clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                 clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                 var newLastSnapshot = clientSnapshot.GetLatestTick(clientSnapshotBuffer);
@@ -247,7 +245,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Verify that the snapshot stayed static at the new position
+                // 验证同步新位置后快照再次保持静态
                 clientSnapshotBuffer = clientEntityManager.GetBuffer<SnapshotDataBuffer>(clientEnt);
                 clientSnapshot = clientEntityManager.GetComponentData<SnapshotData>(clientEnt);
                 Assert.AreEqual(newLastSnapshot, clientSnapshot.GetLatestTick(clientSnapshotBuffer));
@@ -262,12 +260,12 @@ namespace Unity.NetCode.Tests
             const int entitiesToSpawn = 2;
             SetupBasicTest(testWorld, latencyProfile, new ZeroChangeGhostStaticOptimizationTestConverter(), entitiesToSpawn:entitiesToSpawn);
 
-            // Verify the ghosts are spawned on client (bug in 1.5):
+            // 验证没有字段变化的 Ghost 仍会在客户端生成，此处覆盖 1.5 版本回归问题
             var clientEntityManager = testWorld.ClientWorlds[0].EntityManager;
             var clientEntities = clientEntityManager.CreateEntityQuery(ComponentType.ReadWrite<GhostOwner>()).ToEntityArray(Allocator.Temp);
             Assert.AreEqual(entitiesToSpawn, clientEntities.Length);
 
-            // Verify that static optimization kicked in:
+            // 验证静态优化已经生效
             var currentTick = testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick;
             foreach (var clientEnt in clientEntities)
             {
@@ -286,9 +284,9 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true);
 
-                // Spawn 16 ghosts
+                // 生成十六个 Ghost
                 SetupBasicTest(testWorld, latencyProfile, new StaticOptimizationTestConverter(), 16);
-                // Set the ghost id for one of them to 1 so it is modified
+                // 读取第一个 Ghost ID 以构造相关性键
                 using var serverQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostOwner>());
                 int ghostId;
                 var serverEntities = serverQuery.ToEntityArray(Allocator.Temp);
@@ -298,7 +296,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreNotEqual(Entity.Null, con);
                 var connectionId = testWorld.ServerWorld.EntityManager.GetComponentData<NetworkId>(con).Value;
 
-                // Get the changes across to the client
+                // 将当前状态同步到客户端
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -308,23 +306,23 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(16, clientEntities.Length);
 
 
-                // Make one of the ghosts irrelevant
+                // 将其中一个 Ghost 标记为不相关
                 ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
                 ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
                 var key = new RelevantGhostForConnection{Connection = connectionId, Ghost = ghostId};
                 ghostRelevancy.GhostRelevancySet.TryAdd(key, 1);
 
-                // Get the changes across to the client
+                // 将相关性变更同步到客户端
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
                 clientEntities = clientQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 Assert.AreEqual(15, clientEntities.Length);
 
-                // Allow it to spawn again
+                // 恢复相关性以允许该 Ghost 再次生成
                 ghostRelevancy.GhostRelevancySet.Remove(key);
 
-                // Get the changes across to the client
+                // 将恢复后的相关性同步到客户端
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 

@@ -8,51 +8,48 @@ using Debug = UnityEngine.Debug;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Am singleton entity returned by the <see cref="DriverMigrationSystem.StoreWorld"/>
-    /// that can be used to load a previously stored driver state into another world.
+    /// 由 <see cref="DriverMigrationSystem.StoreWorld"/> 返回的 Singleton Entity
+    /// 可用于把之前保存的 Driver 状态加载到另一个 World
     /// </summary>
     public struct MigrationTicket : IComponentData
     {
         /// <summary>
-        /// A unique value for the ticket.
+        /// Ticket 的唯一值
         /// </summary>
         public int Value;
     }
 
     /// <summary>
-    /// A system that should be used to temporarly keep the internal transport connections alive while transferring then
-    /// to another world.
-    /// For example, you can rely on the DriverMigrationSystem to re-use the same connections in between a lobby world and the game world.
+    /// 在把内部 Transport 连接转移到另一个 World 期间，用于临时保持这些连接存活的系统
+    /// 例如，可以依靠 DriverMigrationSystem 在 Lobby World 与 Game World 之间复用相同连接
     /// </summary>
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.LocalSimulation)]
     public partial class DriverMigrationSystem : SystemBase
     {
         /// <summary>
-        /// The minimal  internal state necessary to restore all the <see cref="NetworkStreamConnection"/> when the
-        /// drivers are migrated to the new world.
+        /// Driver 迁移到新 World 时，恢复全部 <see cref="NetworkStreamConnection"/> 所需的最小内部状态
         /// </summary>
         internal struct DriverStoreState
         {
             /// <summary>
-            /// A copy of the <see cref="NetworkDriverStore"/>
+            /// <see cref="NetworkDriverStore"/> 的副本
             /// </summary>
             public NetworkDriverStore DriverStore;
             /// <summary>
-            /// The next network id that should be assigned to a new incoming connection when there are no free
-            /// network id that be reuse.
+            /// 没有可复用 Network ID 时，应分配给新入站连接的下一个 Network ID
             /// </summary>
             public int NextId;
             /// <summary>
-            /// A list of reusable network id for the incoming connections.
+            /// 可供入站连接复用的 Network ID 列表
             /// </summary>
             public NativeArray<int> FreeList;
             /// <summary>
-            /// The last <see cref="NetworkEndpoint"/> used to either connect to the server or to listen for incoming connections.
+            /// 最近用于连接服务器或监听入站连接的 <see cref="NetworkEndpoint"/>
             /// </summary>
             public NetworkEndpoint LastEp;
             /// <summary>
-            /// Destroy all the allocated resources.
+            /// 销毁所有已分配资源
             /// </summary>
             /// <returns></returns>
             public void Dispose()
@@ -64,16 +61,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Contains the state of drivers and the backup world in which they have been temporary transferred.
+        /// 包含 Driver 状态及其临时转移到的 Backup World
         /// </summary>
         internal struct WorldState
         {
             /// <summary>
-            /// The internal state of the drivers.
+            /// Driver 的内部状态
             /// </summary>
             public DriverStoreState DriverStoreState;
             /// <summary>
-            /// A temporary backup world, constructed when the driver state is saved. See <see cref="DriverMigrationSystem.StoreWorld"/>.
+            /// 保存 Driver 状态时构造的临时 Backup World，参见 <see cref="DriverMigrationSystem.StoreWorld"/>
             /// </summary>
             public World BackupWorld;
         }
@@ -88,11 +85,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Stores NetworkDriver and Connection data for migration of a specific world.
+        /// 保存指定 World 的 NetworkDriver 与 Connection 数据以供迁移
         /// </summary>
-        /// <param name="sourceWorld">The world we want to store.</param>
-        /// <remarks>Only entities with the type `NetworkStreamConnection` are migrated over to the new World.</remarks>
-        /// <returns>A ticket that can be used to retrieve the stored NetworkDriver data.</returns>
+        /// <param name="sourceWorld">要保存的 World</param>
+        /// <remarks>只有具有 `NetworkStreamConnection` 类型的 Entity 会迁移到新 World</remarks>
+        /// <returns>用于获取已保存 NetworkDriver 数据的 Ticket</returns>
         public int StoreWorld(World sourceWorld)
         {
             var ticket = ++m_TicketCounter;
@@ -120,13 +117,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Loads a stored NetworkDriver and Connection data into a new or existing World.
+        /// 把已保存的 NetworkDriver 与 Connection 数据加载到新建或现有 World
         /// </summary>
-        /// <param name="ticket">A ticket to a stored World</param>
-        /// <param name="newWorld">An optional world we would want to Load into.</param>
-        /// <returns>A prepared world that is ready to have its systems added.</returns>
-        /// <remarks>This function needs to be called before any systems are initialized on the world we want to migrate to.</remarks>
-        /// <exception cref="ArgumentException">Is thrown incase a invalid world is supplied. Only Netcode worlds work.</exception>
+        /// <param name="ticket">已保存 World 对应的 Ticket</param>
+        /// <param name="newWorld">可选的目标 World</param>
+        /// <returns>已准备好添加系统的 World</returns>
+        /// <remarks>必须在目标 World 上的任何系统初始化前调用此函数</remarks>
+        /// <exception cref="ArgumentException">传入无效 World 时抛出，仅支持 NetCode World</exception>
         public World LoadWorld(int ticket, World newWorld = null)
         {
             if (driverMap.TryGetValue(ticket, out var driver))

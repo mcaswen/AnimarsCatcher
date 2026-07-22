@@ -13,7 +13,7 @@ namespace Unity.NetCode.Tests
         {
             var entity = baker.GetEntity(TransformUsageFlags.Dynamic);
             baker.AddComponent(entity, new GhostOwner());
-            // Dependency on the name
+            // 烘焙结果依赖对象名称
             baker.DependsOn(gameObject);
             if (gameObject.name == "ParentGhost")
             {
@@ -26,13 +26,13 @@ namespace Unity.NetCode.Tests
     }
     internal class LargeDataSizeGroupGhostConverter : TestNetCodeAuthoring.IConverter
     {
-        //we need different archetype for the children
+        // 子节点需要使用不同的 Archetype
         public void Bake(GameObject gameObject, IBaker baker)
         {
 
             var entity = baker.GetEntity(TransformUsageFlags.Dynamic);
             baker.AddComponent(entity, new GhostOwner());
-            // Dependency on the name
+            // 烘焙结果依赖对象名称
             baker.DependsOn(gameObject);
             if (gameObject.name == "ParentGhost")
             {
@@ -108,17 +108,17 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner{NetworkId = 42});
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverChildEnt, new GhostOwner{NetworkId = 43});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体及其数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostGroupRoot>(testWorld.ClientWorlds[0]);
                 var clientChildEnt = testWorld.TryGetSingletonEntity<GhostChildEntity>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(42, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -152,17 +152,17 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverChildEnt, new GhostOwner{NetworkId = 43});
                 testWorld.ServerWorld.EntityManager.GetBuffer<GhostGroup>(serverEnt).Add(new GhostGroup{Value = serverChildEnt});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体及其数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostGroupRoot>(testWorld.ClientWorlds[0]);
                 var clientChildEnt = testWorld.TryGetSingletonEntity<GhostChildEntity>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(42, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -206,17 +206,17 @@ namespace Unity.NetCode.Tests
                     testWorld.ServerWorld.EntityManager.GetBuffer<GhostGroup>(serverEnt).Add(new GhostGroup{Value = serverChildEnt});
                 }
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和分组数量是否正确
                 var ghostQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostOwner));
                 var groupQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostGroup));
                 Assert.AreEqual(64, ghostQuery.CalculateEntityCount());
@@ -259,17 +259,17 @@ namespace Unity.NetCode.Tests
                     testWorld.ServerWorld.EntityManager.GetBuffer<GhostGroup>(serverEnt).Add(new GhostGroup{Value = serverChildEnt});
                 }
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和分组数量是否正确
                 var ghostQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostOwner));
                 var groupQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostGroup));
                 Assert.AreEqual(64, ghostQuery.CalculateEntityCount());
@@ -285,14 +285,14 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                testWorld.LogLevel = NetDebug.LogLevelType.Debug; // PERFORMANCE warnings need this.
+                testWorld.LogLevel = NetDebug.LogLevelType.Debug; // 需要此日志等级才能输出 PERFORMANCE 警告
                 testWorld.Bootstrap(true);
 
                 var ghostGameObjects = new GameObject[4];
                 var ghostGameObject = new GameObject();
                 ghostGameObject.name = "ParentGhost";
-                //The LargeDataSizeGroupGhostConverter will create different archetypes for each child.
-                //This would exercize correctly the group serialization rollback (using the same archetype would test anything).
+                // LargeDataSizeGroupGhostConverter 会为每个子节点创建不同的 Archetype
+                // 这样才能正确覆盖分组序列化回滚，使用相同 Archetype 无法触发目标路径
                 ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new LargeDataSizeGroupGhostConverter();
                 ghostGameObjects[0] = ghostGameObject;
                 for (int i = 0; i < 3; ++i)
@@ -303,8 +303,8 @@ namespace Unity.NetCode.Tests
                     ghostGameObjects[i+1] = childGhostGameObject;
                 }
 
-                //we need a large data size to fail this. We can actually hack it around a bit by forcing the
-                //max snapshot size for sake of convenience.
+                // 此测试需要足够大的数据才能触发失败
+                // 为方便构造场景，可以通过强制限制最大 Snapshot 大小来实现
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObjects));
 
                 testWorld.CreateWorlds(true, 1);
@@ -317,20 +317,20 @@ namespace Unity.NetCode.Tests
                     testWorld.ServerWorld.EntityManager.GetBuffer<GhostGroup>(serverEnt).Add(new GhostGroup{Value = serverChildEnt});
                 }
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                 {
                     ValidateComponentStatsLessThanTypeStats(testWorld);
                     testWorld.Tick();
                 }
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的分组、子节点及 Buffer 数据是否正确
                 var ghostQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostChildEntity));
                 var groupQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostGroup));
                 Assert.AreEqual(3, ghostQuery.CalculateEntityCount());
@@ -372,20 +372,20 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
 
                 testWorld.CreateWorlds(true, 1);
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 for(int i=0;i<32;++i)
                     testWorld.Tick();
 
                 var systemData = testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld);
-                // Force a very small packet size to trigger a HasFailedWrites within the ghost group serialization logic:
-                // Tweak the test by iteratively changing one the encoded size:
-                // Expected test SETUP result:
-                //  * fail on the first entity: expected: -> larger size requested (twice the size)
-                //  * fail on the second entity: only the first transmitted, then second time other entity
+                // 强制使用很小的包容量，使 Ghost Group 序列化触发 HasFailedWrites
+                // 通过调整单个实体的编码大小分别构造两种失败位置
+                // 预期测试环境如下
+                // 首个实体失败时，应申请更大的容量并以两倍大小重试
+                // 第二个实体失败时，首次只发送第一个实体，下次再发送另一个实体
                 int baseSize;
                 int inc;
                 if (failingEntity == 0)
@@ -404,10 +404,10 @@ namespace Unity.NetCode.Tests
                 for (int ent = 0; ent < 2; ++ent)
                 {
                     var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
-                    //this will fail serialize the first entity, therefore we will retry with fragmented pipeline
+                    // 该大小会使首个实体序列化失败，随后通过分片 Pipeline 重试
                     var buffer = testWorld.ServerWorld.EntityManager.GetBuffer<GhostGenBuffer_ByteBuffer>(serverEnt);
-                    //TODO: this is really a trick. The correct would be unit test the ChunkSerializer. And we can
-                    //but it get a little annoying
+                    // TODO：这里通过数据大小间接构造失败，更准确的做法是直接对 ChunkSerializer 编写单元测试
+                    // 当前可以做到，但测试环境搭建会更繁琐
                     buffer.Resize(baseSize + inc*ent, NativeArrayOptions.UninitializedMemory);
                     for (int i = 0; i < buffer.Length; ++i)
                         buffer.ElementAt(i).Value = 7;
@@ -416,8 +416,8 @@ namespace Unity.NetCode.Tests
                 var groupQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostGroup));
                 for(int i=0;i<3;++i)
                     testWorld.Tick();
-                //third tick: we should receive the first entity and second entity (case 0)
-                //third tick: we should receive the first entity only (case 1)
+                // 第三个 Tick 时，用例 0 应收到两个实体
+                // 第三个 Tick 时，用例 1 应只收到第一个实体
                 if(failingEntity == 0)
                     Assert.AreEqual(2, groupQuery.CalculateEntityCount());
                 else
@@ -429,7 +429,7 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < rootBuffer.Length; ++i)
                         Assert.AreEqual(7, rootBuffer[i].Value);
                 }
-                //sub-sequent tick we should have both
+                // 再推进一个 Tick 后应收到两个实体
                 testWorld.Tick();
                 Assert.AreEqual(2, groupQuery.CalculateEntityCount());
                 for (int ent = 0; ent < clientEntities.Length; ++ent)
@@ -445,7 +445,7 @@ namespace Unity.NetCode.Tests
         {
             var stats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ServerWorld);
 
-            // TODO validate total size of packet sent is bigger than total stats size
+            // TODO：验证已发送包的总大小大于统计信息记录的总大小
 
             var perTypeStatsList = stats.UnsafeMainStatsRead.PerGhostTypeStatsListRO;
             for (int i = 0; i < perTypeStatsList.Length; i++)
@@ -495,38 +495,37 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect(maxSteps:16);
                 testWorld.GoInGame();
 
-                // Important quirk: GhostGroup children;
-                // - Ignore their own relevancy value.
-                // - Follow the root's relevancy value (i.e. become relevant when the root does).
-                // - EXCEPT when the root becomes irrelevant (i.e. they don't despawn along with
-                // a now-irrelevant GhostGroup root, but they do stop receiving updates - they become "stranded").
-                // - When a GhostGroup child leaves the group, it can now again follow its own relevancy rules.
-                // TODO: Test coverage of relevancy while a ghost enters & leaves a GhostGroup.
+                // GhostGroup 子节点的相关性存在以下特殊规则
+                // 子节点忽略自身的相关性值
+                // 子节点跟随根节点的相关性值，即根节点相关时子节点也相关
+                // 但根节点变为不相关时，子节点不会随根节点一起销毁，只会停止接收更新并进入滞留状态
+                // 子节点离开 GhostGroup 后，会重新遵循自身的相关性规则
+                // TODO：补充 Ghost 进入和离开 GhostGroup 时的相关性测试
                 const bool ghostGroupChildNuance = true;
 
                 Assert.AreEqual(GhostRelevancyMode.Disabled, testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancyMode);
                 ExpectExist(testWorld, true, true, "relevancy is disabled by default, expect relevant");
 
-                // Make them irrelevant:
+                // 将根节点和子节点设为不相关
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
                 ExpectExist(testWorld, false, ghostGroupChildNuance, "forced irrelevant 1st");
 
-                // Make them relevant again:
+                // 将根节点和子节点重新设为相关
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
                 ExpectExist(testWorld, true, ghostGroupChildNuance, "forced relevant 1st");
 
-                // Again irrelevant:
+                // 再次设为不相关
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
                 ExpectExist(testWorld, false, ghostGroupChildNuance, "forced irrelevant 2nd");
 
-                // Only the root:
+                // 只将根节点设为相关
                 var serverEntGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEnt).ghostId;
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancySet.Clear();
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancySet.Add(new RelevantGhostForConnection(1, serverEntGhostId), 1);
                 ExpectExist(testWorld, true, ghostGroupChildNuance, "only root relevant (child not)");
 
-                // Only the child:
+                // 只将子节点设为相关
                 var serverChildEntGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverChildEnt).ghostId;
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancySet.Clear();
                 testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW.GhostRelevancySet.Add(new RelevantGhostForConnection(1, serverChildEntGhostId), 1);

@@ -6,9 +6,9 @@ using Unity.Entities;
 namespace Unity.NetCode.LowLevel
 {
     /// <summary>
-    /// Simple <see cref="BlobString"/> wrapper that can be embedded into components and allow
-    /// to access the blob text as <see cref="IUTF8Bytes"/> and <see cref="INativeList{T}"/>.
-    /// The text is considered readonly. All methods that change or affect the string will throw <see cref="NotImplementedException"/>.
+    /// 可嵌入组件的简单 <see cref="BlobString"/> 包装器，
+    /// 允许通过 <see cref="IUTF8Bytes"/> 和 <see cref="INativeList{T}"/> 访问 Blob 文本
+    /// 文本视为只读，所有会修改或影响字符串的方法都会抛出 <see cref="NotImplementedException"/>
     /// </summary>
     public struct BlobStringText: INativeList<byte>, IUTF8Bytes
     {
@@ -16,11 +16,10 @@ namespace Unity.NetCode.LowLevel
         private int m_Length;
 
         /// <summary>
-        /// Construct the text from a <see cref="BlobString"/> reference. The string pointer
-        /// is cached internally by this wrapper and if the original blob is detroyed, the memory content
-        /// may point to something that it is not a string.
+        /// 根据 <see cref="BlobString"/> 引用构造文本
+        /// 此包装器会在内部缓存字符串指针，如果原始 Blob 被销毁，该内存内容可能不再指向字符串
         /// </summary>
-        /// <param name="blob"><see cref="BlobString"/> reference.</param>
+        /// <param name="blob"><see cref="BlobString"/> 引用</param>
         public BlobStringText(ref BlobString blob)
         {
             unsafe
@@ -40,38 +39,38 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <inheritdoc cref="IUTF8Bytes.TryResize"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public bool TryResize(int newLength, NativeArrayOptions clearOptions = NativeArrayOptions.ClearMemory)
         {
             throw new NotImplementedException();
         }
 
         /// <inheritdoc cref="INativeList{T}.Length"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public int Length
         {
             get => m_Length;
             set => throw new NotImplementedException();
         }
         /// <inheritdoc cref="INativeList{T}.ElementAt"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public ref byte ElementAt(int index)
         {
             throw new NotImplementedException();
         }
         /// <inheritdoc cref="INativeList{T}.Capacity"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public int Capacity {
             get => m_Length;
             set => throw new NotImplementedException();
         }
         /// <inheritdoc cref="INativeList{T}.this[int]"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public byte this[int index]
         {
             get
@@ -81,8 +80,8 @@ namespace Unity.NetCode.LowLevel
             set => throw new NotImplementedException();
         }
         /// <inheritdoc cref="INativeList{T}.Clear"/>
-        /// <remarks>Always throw NotImplementedException</remarks>
-        /// <exception cref="NotImplementedException">Always throw NotImplementedException</exception>
+        /// <remarks>始终抛出 NotImplementedException</remarks>
+        /// <exception cref="NotImplementedException">始终抛出 NotImplementedException</exception>
         public void Clear()
         {
             throw new NotImplementedException();

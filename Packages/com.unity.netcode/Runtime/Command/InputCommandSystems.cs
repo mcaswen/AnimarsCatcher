@@ -7,13 +7,13 @@ using UnityEngine.UIElements;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Internal job (don't use directly) used to copy the input data for struct implementing the
-    /// <see cref="IInputComponentData"/> to the underlying <see cref="InputBufferData{T}"/> command data
-    /// buffer. The job is also responsible to increment the <see cref="InputEvent"/> counters, in case the input
-    /// component contains input events.
+    /// 仅供内部使用且不应直接调用的 Job
+    /// 用于把实现 <see cref="IInputComponentData"/> 的结构体输入数据复制到底层
+    /// <see cref="InputBufferData{T}"/> 命令数据 Buffer
+    /// 如果 Input Component 包含输入事件，该 Job 还负责递增 <see cref="InputEvent"/> 计数器
     /// </summary>
-    /// <typeparam name="TInputComponentData">Input component data</typeparam>
-    /// <typeparam name="TInputHelper">Input helper</typeparam>
+    /// <typeparam name="TInputComponentData">输入组件数据</typeparam>
+    /// <typeparam name="TInputHelper">输入辅助类型</typeparam>
     [BurstCompile]
     public struct CopyInputToBufferJob<TInputComponentData, TInputHelper> : IJobChunk
         where TInputComponentData : unmanaged, IInputComponentData
@@ -26,12 +26,12 @@ namespace Unity.NetCode
         internal BufferTypeHandle<InputBufferData<TInputComponentData>> InputBufferDataType;
 
         /// <summary>
-        /// Copy the input component for current server tick to the command buffer.
+        /// 把当前 Server Tick 的 Input Component 复制到 Command Buffer
         /// </summary>
-        /// <param name="chunk">Chunk</param>
-        /// <param name="unfilteredChunkIndex">Chunk index</param>
-        /// <param name="useEnabledMask">Should use enabled</param>
-        /// <param name="chunkEnabledMask">Chunk enabled mask</param>
+        /// <param name="chunk">数据所在 Chunk</param>
+        /// <param name="unfilteredChunkIndex">未过滤的 Chunk 索引</param>
+        /// <param name="useEnabledMask">是否使用 Enabled Mask</param>
+        /// <param name="chunkEnabledMask">Chunk 启用掩码</param>
         [BurstCompile]
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
@@ -45,18 +45,16 @@ namespace Unity.NetCode
                 var owner = owners[i];
                 var inputBuffer = inputBuffers[i];
 
-                // Validate owner ID in case all entities are being predicted, only inputs from local player should be collected
+                // 验证 Owner ID，避免预测全部 Entity 时采集到非本地玩家的输入
                 if (owner.NetworkId != ConnectionId)
                     continue;
-                //Why this work: because when the tick transition to new one, the GetDataAtTick will return the value for
-                //the previous tick. Thus this method is always guaranteed to increment (using the current counter for
-                //for the event) in respect to the previous tick, that is the requirement for having an always incrementing
-                //counter.
+                // 此逻辑能够工作的原因是 Tick 切换到新值时，GetDataAtTick 会返回前一个 Tick 的值
+                // 因此该方法始终以当前事件计数器为基础，相对前一个 Tick 递增，满足计数器只能递增的要求
 
                 inputBuffer.GetDataAtTick(InputTargetTick, out var lastInputDataElement);
-                // Increment event count for current tick. There could be an event and then no event but on the same
-                // predicted/simulated tick, this will still be registered as an event (count > 0) instead of the later
-                // event overriding the event to 0/false.
+                // 递增当前 Tick 的事件计数
+                // 同一预测或模拟 Tick 内可能先有事件后无事件，此逻辑仍会把它记录为事件（count > 0），
+                // 避免后一次采样把事件覆盖为 0 或 false
                 var currentInput = default(InputBufferData<TInputComponentData>);
                 currentInput.Tick = InputTargetTick;
                 currentInput.InternalInput = inputData;
@@ -68,11 +66,11 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// For internal use only, system that that copy the content of an <see cref="IInputComponentData"/> into
-    /// <see cref="InputBufferData{T}"/> buffer present on the entity.
+    /// 仅供内部使用的系统，把 <see cref="IInputComponentData"/> 内容复制到 Entity 上的
+    /// <see cref="InputBufferData{T}"/> 缓冲区
     /// </summary>
-    /// <typeparam name="TInputComponentData">Input component data</typeparam>
-    /// <typeparam name="TInputHelper">Input helper</typeparam>
+    /// <typeparam name="TInputComponentData">输入组件数据</typeparam>
+    /// <typeparam name="TInputHelper">输入辅助类型</typeparam>
     [BurstCompile]
     [UpdateInGroup(typeof(CopyInputToCommandBufferSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
@@ -123,14 +121,14 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// For internal use only.
-    /// When using Forced Input Latency (<see cref="ClientTickRate.ForcedInputLatencyTicks"/>),
-    /// this system writes the latest input back into the <see cref="IInputComponentData"/> just before input is gathered,
-    /// which puts the input struct back into the correct state to be updated by the users gather input step (i.e. this
-    /// system allows incremental values - like mouse pitch and yaw - to sum correctly).
+    /// 仅供内部使用
+    /// 使用 Forced Input Latency（<see cref="ClientTickRate.ForcedInputLatencyTicks"/>）时，
+    /// 此系统会在采集输入前把最新输入写回 <see cref="IInputComponentData"/>
+    /// 这会把输入结构体恢复到正确状态，以便由用户的输入采集步骤更新，
+    /// 从而让鼠标俯仰角和偏航角等增量值正确累加
     /// </summary>
-    /// <typeparam name="TInputComponentData">Input component data.</typeparam>
-    /// <typeparam name="TInputHelper">Input helper.</typeparam>
+    /// <typeparam name="TInputComponentData">输入组件数据</typeparam>
+    /// <typeparam name="TInputHelper">输入辅助类型</typeparam>
     [BurstCompile]
     [UpdateInGroup(typeof(GhostInputSystemGroup), OrderFirst = true)]
     public partial struct ApplyCurrentInputBufferElementToInputDataForGatherSystem<TInputComponentData, TInputHelper> : ISystem
@@ -171,7 +169,7 @@ namespace Unity.NetCode
             m_InputDataType.Update(ref state);
             var jobData = new ApplyInputDataFromBufferJob<TInputComponentData, TInputHelper>
             {
-                CurrentPredictionTick = networkTime.InputTargetTick, // Note use of `InputTargetTick` here!
+                CurrentPredictionTick = networkTime.InputTargetTick, // 注意此处使用 `InputTargetTick`
                 StepLength = networkTime.SimulationStepBatchSize,
                 InputBufferTypeHandle = m_InputBufferTypeHandle,
                 InputDataType = m_InputDataType
@@ -181,15 +179,14 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// For internal use only, system that copies commands from the <see cref="InputBufferData{T}"/> buffer
-    /// to the <see cref="IInputComponentData"/> component present on the entity.
+    /// 仅供内部使用的系统，把命令从 <see cref="InputBufferData{T}"/> Buffer
+    /// 复制到 Entity 上的 <see cref="IInputComponentData"/> 组件
     /// </summary>
     /// <remarks>
-    /// This needs to run early to ensure the input data has been applied from buffer to input data
-    /// struct before the input processing system runs.
+    /// 此系统需要尽早运行，以确保输入处理系统运行前，已经把输入数据从 Buffer 应用到输入数据结构体
     /// </remarks>
-    /// <typeparam name="TInputComponentData">Input component data.</typeparam>
-    /// <typeparam name="TInputHelper">Input helper.</typeparam>
+    /// <typeparam name="TInputComponentData">输入组件数据</typeparam>
+    /// <typeparam name="TInputHelper">输入辅助类型</typeparam>
     [BurstCompile]
     [UpdateInGroup(typeof(CopyCommandBufferToInputSystemGroup), OrderFirst = true)]
     [UpdateBefore(typeof(PredictedFixedStepSimulationSystemGroup))]
@@ -239,15 +236,14 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Internal job (don't use directly), run inside the prediction loop and copy the
-    /// input data from an <see cref="InputBufferData{T}"/> command buffer to an <see cref="IInputComponentData"/>
-    /// component for the current simulated tick.
-    /// The job is responsible to recalculate any <see cref="InputEvent"/> count, such that any events occurred
-    /// since last tick (or batch, see also <see cref="NetworkTime.SimulationStepBatchSize"/>) are correctly reported as
-    /// set (see <see cref="InputEvent.IsSet"/>
+    /// 仅供内部使用且不应直接调用的 Job，在预测循环内运行
+    /// 它把当前模拟 Tick 的输入数据从 <see cref="InputBufferData{T}"/> Command Buffer
+    /// 复制到 <see cref="IInputComponentData"/> 组件
+    /// 该 Job 负责重新计算所有 <see cref="InputEvent"/> 计数，确保从上一个 Tick 或批次以来发生的事件
+    /// 被正确报告为已设置，另请参阅 <see cref="NetworkTime.SimulationStepBatchSize"/> 和 <see cref="InputEvent.IsSet"/>
     /// </summary>
-    /// <typeparam name="TInputComponentData">Input component data</typeparam>
-    /// <typeparam name="TInputHelper">Input helper</typeparam>
+    /// <typeparam name="TInputComponentData">输入组件数据</typeparam>
+    /// <typeparam name="TInputHelper">输入辅助类型</typeparam>
     [BurstCompile]
     public struct ApplyInputDataFromBufferJob<TInputComponentData, TInputHelper> : IJobChunk
         where TInputComponentData : unmanaged, IInputComponentData
@@ -259,16 +255,16 @@ namespace Unity.NetCode
         internal BufferTypeHandle<InputBufferData<TInputComponentData>> InputBufferTypeHandle;
 
         /// <summary>
-        /// Copy the command for current server tick to the input component.
+        /// 把当前 Server Tick 的命令复制到 Input Component
         /// </summary>
-        /// <param name="chunk">Chunk</param>
-        /// <param name="unfilteredChunkIndex">Chunk index</param>
-        /// <param name="useEnabledMask">Should use enabled</param>
-        /// <param name="chunkEnabledMask">Chunk enabled mask</param>
+        /// <param name="chunk">数据所在 Chunk</param>
+        /// <param name="unfilteredChunkIndex">未过滤的 Chunk 索引</param>
+        /// <param name="useEnabledMask">是否使用 Enabled Mask</param>
+        /// <param name="chunkEnabledMask">Chunk 启用掩码</param>
         [BurstCompile]
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            // We still do buffer copying for single world host, since we still have a need for InputEvents when sampling our inputs
+            // 单 World Host 仍需复制 Buffer，因为采样输入时仍然需要 InputEvent
             var inputs = chunk.GetNativeArray(ref InputDataType);
             var inputBuffers = chunk.GetBufferAccessor(ref InputBufferTypeHandle);
             var helper = default(TInputHelper);
@@ -276,13 +272,13 @@ namespace Unity.NetCode
             {
                 var inputBuffer = inputBuffers[i];
                 inputBuffer.GetDataAtTick(CurrentPredictionTick, out var inputDataElement);
-                // Sample tick and tick-StepLength, if tick is not in the buffer it will return the latest input
-                // closest to it, and the same input for tick-StepLength, which is the right result as it should
-                // assume the same tick is repeating
+                // 对当前 Tick 和 Tick-StepLength 进行采样
+                // 如果 Buffer 中不存在该 Tick，就返回距离它最近的最新输入，并为 Tick-StepLength 返回相同输入
+                // 这是正确结果，因为此时应假定同一 Tick 的输入正在重复
                 var prevSampledTick = CurrentPredictionTick;
                 prevSampledTick.Subtract((uint)StepLength);
                 inputBuffer.GetDataAtTick(prevSampledTick, out var prevInputDataElement);
-                //reset the input data to match the current input and decrement the event counts
+                // 重置输入数据以匹配当前输入，并递减事件计数
                 var inputData = inputDataElement.InternalInput;
                 helper.DecrementEvents(ref inputData, prevInputDataElement.InternalInput);
                 inputs[i] = inputData;

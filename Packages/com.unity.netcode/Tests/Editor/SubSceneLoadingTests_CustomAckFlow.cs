@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
@@ -51,7 +51,7 @@ namespace Unity.NetCode.Tests
                 if (ackIdx != -1)
                 {
                     prespawnSceneAcks.RemoveAt(ackIdx);
-                    //Send back an rpc to confirm the unload
+                    // 回传 RPC 以确认服务器已处理卸载通知
                     var reqEnt = ecb.CreateEntity();
                     ecb.AddComponent(reqEnt, new RequestUnLoadScene
                     {
@@ -124,10 +124,10 @@ namespace Unity.NetCode.Tests
                     typeof(ServerSceneNotificationSystem),
                     typeof(ClientUnloadSceneSystem));
                 testWorld.CreateWorlds(true, 1);
-                //Server load all the scenes
+                // 服务器加载全部场景
                 SubSceneHelper.LoadSubScene(testWorld.ServerWorld, subScenes);
                 testWorld.Connect();
-                //Disable the automatic reporting
+                // 禁用预生成场景区段的自动上报
                 testWorld.ServerWorld.EntityManager.CreateEntity(typeof(DisableAutomaticPrespawnSectionReporting));
                 testWorld.ClientWorlds[0].EntityManager.CreateEntity(typeof(DisableAutomaticPrespawnSectionReporting));
                 testWorld.GoInGame();
@@ -139,13 +139,13 @@ namespace Unity.NetCode.Tests
                 for(int scene=0; scene<4; ++scene)
                 {
                     var sceneEntity = SubSceneHelper.LoadSubSceneAsync(testWorld.ClientWorlds[0], testWorld, subScenes[scene].SceneGUID);
-                    //Run a bunch of frame so scene are initialized
+                    // 推进若干帧以完成场景初始化
                     for (int i = 0; i < 16; ++i)
                         testWorld.Tick();
 
                     var prespawnSection = testWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(sceneEntity)[1].Value;
                     var loadedScenHash = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SubSceneWithPrespawnGhosts>(prespawnSection).SubSceneHash;
-                    //Notify loaded
+                    // 主动通知服务器场景已加载
                     var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
                     var notifyLoaded = commandBuffer.CreateEntity();
                     commandBuffer.AddComponent(notifyLoaded, new NotifySceneLoaded
@@ -155,14 +155,14 @@ namespace Unity.NetCode.Tests
                     commandBuffer.AddComponent(notifyLoaded, new SendRpcCommandRequest());
                     commandBuffer.Playback(testWorld.ClientWorlds[0].EntityManager);
                     commandBuffer.Dispose();
-                    //Run some frame
+                    // 推进若干帧以处理加载确认
                     for (int i = 0; i < 32; ++i)
                         testWorld.Tick();
-                    //Unload the previous one. Send the rpc.
+                    // 通知服务器准备卸载上一个场景
                     if (lastLoadedSceneHash != 0)
                     {
                         commandBuffer = new EntityCommandBuffer(Allocator.Temp);
-                        //Unload the prev loaded scene. Send and an RPC for that
+                        // 为上一个已加载场景发送卸载通知 RPC
                         var reqUnload = commandBuffer.CreateEntity();
                         commandBuffer.AddComponent(reqUnload, new NotifyUnloadingScene { SceneHash = lastLoadedSceneHash });
                         commandBuffer.AddComponent(reqUnload, new SendRpcCommandRequest());
@@ -172,10 +172,10 @@ namespace Unity.NetCode.Tests
                     lastLoadedSceneHash = loadedScenHash;
                     for (int i = 0; i < 32; ++i)
                         testWorld.Tick();
-                    //Only one scene should be active
+                    // 客户端应只保留一个活动场景
                     var subSceneEntity = testWorld.TryGetSingletonEntity<PrespawnsSceneInitialized>(testWorld.ClientWorlds[0]);
                     Assert.AreNotEqual(Entity.Null, subSceneEntity);
-                    //Only 5 ghost should be present
+                    // 客户端应只存在当前场景的五个 Ghost
                     var query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                     Assert.AreEqual(numObjects, query.CalculateEntityCount());
 

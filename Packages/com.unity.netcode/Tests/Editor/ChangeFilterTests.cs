@@ -28,8 +28,8 @@ namespace Unity.NetCode.Tests
 
         public void BuildQueries()
         {
-            //Can't use the correct IgnoreEnableComponentState with change filtering,
-            //it will incorrectly report entities as changed all the time.
+            // Change Filter 无法使用正确的 IgnoreEnableComponentState
+            // 否则会错误地持续报告 Entity 已变更
             queries.Clear();
             foreach (var componentType in checkForChanges)
             {
@@ -103,7 +103,7 @@ namespace Unity.NetCode.Tests
     {
         [TestCase(1)]
         [TestCase(10)]
-        [Timeout(360000)] // TODO: We should investigate why this test takes so much time. Is it expected or can we do something about it? Tracked in MTT-11337
+        [Timeout(360000)] // TODO 调查该测试耗时过长是否符合预期以及能否优化，跟踪项为 MTT-11337
         public void RestoreFromBackupDoesNotAffectUnchangedComponents(int entityCount)
         {
             using var testWorld = new NetCodeTestWorld();
@@ -119,7 +119,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Tick();
 
             var testFilter = testWorld.ClientWorlds[0].GetOrCreateSystemManaged<TestChangeFilter>();
-            //All components are replicated and use the default variant for serialisation.
+            // 所有组件均参与复制，并使用默认 Variant 序列化
             testFilter.checkForChanges = new NativeList<ComponentType>(Allocator.Temp);
             testFilter.checkForChanges.Add(ComponentType.ReadOnly<LocalTransform>());
             testFilter.checkForChanges.Add(ComponentType.ReadOnly<EnableableComponent_0>());
@@ -135,15 +135,15 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < entityCount; ++i)
                 serverEntities.Add(testWorld.ServerWorld.EntityManager.Instantiate(prefab));
 
-            //Spawn all entities, reach a stable state.
+            // Spawn 全部 Entity 并进入稳定状态
             for (int i = 0; i < 32; ++i)
                 testWorld.Tick();
 
-            //Expectation: all entities has changed, all components has changed once!
-            //There is no data changes, so apart from the first spawn no change filter should trigger
+            // 预期所有 Entity 都发生变更，且所有组件只变更一次
+            // 数据未再变化，因此除首次 Spawn 外不应触发 Change Filter
             Assert.AreEqual(6*entityCount, testFilter.changedEntities.Count);
             Assert.AreEqual(testFilter.checkForChanges.Length, testFilter.changedComponents.Count, "All components must have been changed at least once because of the new spawn");
-            //Checks that also partial ticks does not invalidate the filters
+            // 检查部分 Tick 同样不会使 Filter 失效
             testFilter.changedEntities.Clear();
             testFilter.changedComponents.Clear();
             const float dt = 1f / 60f / 3f;
@@ -154,7 +154,7 @@ namespace Unity.NetCode.Tests
             testWorld.ClientWorlds[0].EntityManager.CompleteAllTrackedJobs();
             if (testFilter.changedComponents.Count != 0)
             {
-                //report the changed components and the changed entities to help understand what happens
+                // 输出发生变更的组件和 Entity，帮助定位原因
                 var sb = new StringBuilder();
                 sb.Append($"Expecting no component changes when restoring from backup, but {testFilter.changedComponents.Count} components has their version bumped.\n");
                 sb.Append("\nChanged Components:\n");
@@ -165,8 +165,8 @@ namespace Unity.NetCode.Tests
                     sb.Append(entity.Key);
                 Assert.Fail(sb.ToString());
             }
-            //if data is modified by the server, only the change component should be reported as modified.
-            //Also the modified component should be reported has changed only once
+            // 服务端修改数据后，只应报告实际变化的组件
+            // 每个已修改组件应只报告一次变更
             ChangeComponentValue<EnableableComponent_1>(testWorld.ServerWorld);
             ChangeComponentValue<EnableableComponent_2>(testWorld.ServerWorld);
             ChangeBuffer<EnableableBuffer_0>(testWorld.ServerWorld);
@@ -184,13 +184,13 @@ namespace Unity.NetCode.Tests
             Assert.IsTrue(testFilter.changedComponents.ContainsKey(ComponentType.ReadOnly<EnableableComponent_2>()), "Expect EnableableComponent_2 changed");
             Assert.IsTrue(testFilter.changedComponents.ContainsKey(ComponentType.ReadOnly<EnableableBuffer_0>()), "Expect EnableableBuffer_0 changed");
             Assert.IsTrue(testFilter.changedComponents.ContainsKey(ComponentType.ReadOnly<EnableableBuffer_1>()), "Expect EnableableBuffer_1 changed");
-            //In presence of partial snapshot, all depends how the server send the data.
-            //We can check the == 1 when we use a very small number of entities.
+            // 存在部分 Snapshot 时，结果取决于服务端的数据发送方式
+            // Entity 数量很少时可进一步断言变更次数等于 1
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableComponent_1>()], 1, "The componnet should have been reported has changed at least once");
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableComponent_2>()], 1, "The componnet should have been reported has changed at least once");
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableBuffer_0>()], 1, "The componnet should have been reported has changed at least once");
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableBuffer_1>()], 1, "The componnet should have been reported has changed at least once");
-            //If nothing changes here, no changes should be reported
+            // 此后没有数据变化时，不应再报告变更
             testFilter.changedEntities.Clear();
             testFilter.changedComponents.Clear();
             for (int i = 0; i < 32; ++i)
@@ -199,7 +199,7 @@ namespace Unity.NetCode.Tests
 
             var ghostQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
             var rooGhosts = ghostQuery.ToEntityArray(Allocator.Temp);
-            //Changing parent only component does not change child.
+            // 仅修改父 Entity 组件不会影响子 Entity
             ChangeComponentValue<EnableableComponent_1>(testWorld.ServerWorld, FilterEntity.OnlyParent, iteration:1);
             testFilter.changedEntities.Clear();
             testFilter.changedComponents.Clear();
@@ -213,7 +213,7 @@ namespace Unity.NetCode.Tests
             Assert.IsTrue(testFilter.changedComponents.ContainsKey(ComponentType.ReadOnly<EnableableComponent_1>()));
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableComponent_1>()], 1);
 
-            //Changing component only on child entities does not invalidate the parent entity
+            // 仅修改子 Entity 组件不会使父 Entity 失效
             ChangeComponentValue<EnableableComponent_1>(testWorld.ServerWorld, FilterEntity.OnlyChildren, iteration:2);
             ChangeComponentValue<EnableableComponent_2>(testWorld.ServerWorld, FilterEntity.OnlyChildren, iteration:2);
             ChangeComponentValue<EnableableComponent_3>(testWorld.ServerWorld, FilterEntity.OnlyChildren, iteration:2);
@@ -239,7 +239,7 @@ namespace Unity.NetCode.Tests
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableBuffer_0>()], 1);
             Assert.GreaterOrEqual(testFilter.changedComponents[ComponentType.ReadOnly<EnableableBuffer_1>()], 1);
 
-            //Changing component on a specific entity, only affect the entities and components for that chunk.
+            // 修改指定 Entity 的组件时，只影响该 Chunk 中的 Entity 与组件
             var spawnMap = testWorld.GetSingleton<SpawnedGhostEntityMap>(testWorld.ClientWorlds[0]);
             for (var entIndex = 0; entIndex < serverEntities.Length; entIndex++)
             {
@@ -368,8 +368,8 @@ namespace Unity.NetCode.Tests
 
         private static Entity CreatePrefab(EntityManager entityManager)
         {
-            //This create a ghost with 5 child entites, of which 3 in the same chunk, and other 2 in distinct chunks
-            //for an an overall use of 4 archetypes per ghost.
+            // 创建包含 5 个子 Entity 的 Ghost，其中 3 个位于同一 Chunk，另 2 个分别位于不同 Chunk
+            // 因此每个 Ghost 总共使用 4 种 Archetype
             var prefab = entityManager.CreateEntity();
             entityManager.AddComponentData(prefab, new EnableableComponent_0{value = 1});
             entityManager.AddComponentData(prefab, new EnableableComponent_1{value = 2});

@@ -10,31 +10,32 @@ using Unity.Jobs;
 
 namespace Unity.NetCode
 {
-    // The header of prediction backup state
-    // The header is followed by:
-    // Entity[Capacity] the entity this history applies to (to prevent errors on structural changes)
-    // ulong[Capacity*enabledBits] each enabled bit is stored as a contiguous array of all entities, aligned to ulong
-    // int[root components + Capacity * num_child_component] chunk (and child chunk) version numbers.
-    // byte*[Capacity * sizeof(IComponentData)] the raw backup data for all replicated components in this ghost type. For buffers an uint pair (size, offset) is stored instead.
-    // [Opt]byte*[BuffersDataSize] the raw buffers element data present in the chunk if present. The total buffers size is computed at runtime and the
-    // backup state resized accordingly. All buffers contents start to a 16 bytes aligned offset: Align(b1Elem*b1ElemSize, 16), Align(b2Elem*b2ElemSize, 16) ...
+    // Prediction Backup State 的 Header
+    // Header 后依次存放以下数据
+    // Entity[Capacity]：此历史记录对应的实体，用于避免结构变更导致实体错配
+    // ulong[Capacity*enabledBits]：每个启用位按所有实体组成一个连续数组，并按 ulong 对齐
+    // int[root components + Capacity * num_child_component]：Chunk 及子 Chunk 的版本号
+    // byte*[Capacity * sizeof(IComponentData)]：此 Ghost 类型全部复制组件的原始备份数据，Buffer 则存储 uint 数对 length 和 offset
+    // [Opt]byte*[BuffersDataSize]：Chunk 中存在的 Buffer 元素原始数据
+    // Buffer 总大小在运行时计算并据此调整备份状态，每段 Buffer 内容从 16 字节对齐偏移量开始
+    // 布局示例：Align(b1Elem*b1ElemSize, 16), Align(b2Elem*b2ElemSize, 16) ...
 
     internal unsafe struct PredictionBackupState
     {
-        // If ghost type has changed the data must be discarded as the chunk is now used for something else
+        // Ghost 类型发生变化时必须丢弃数据，因为该 Chunk 已被用于其他内容
         public int ghostType;
         public int entityCapacity;
         public int entitiesOffset;
         public int enabledBitOffset;
         public int enabledBits;
         public int ghostOwnerOffset;
-        //the ghost component serialized size
+        // Ghost 组件的序列化大小
         public int dataOffset;
         public int dataSize;
-        //chunk versions
+        // Chunk 版本
         public int chunkVersionsOffset;
         public int chunkVersionsSize;
-        //the capacity for the dynamic data. Dynamic Buffers are store after the component backup
+        // 动态数据容量，Dynamic Buffer 存储在组件备份之后
         public int bufferDataCapacity;
         public int bufferDataOffset;
 
@@ -43,7 +44,7 @@ namespace Unity.NetCode
         {
             var entitiesSize = (ushort)GetEntitiesSize(entityCapacity, out var _);
             var headerSize = GetHeaderSize();
-            // each enabled bit is a unique array big enough to fit all entities
+            // 每个启用位都使用一个足以容纳所有实体的独立数组
             var enabledBitSize = (((entityCapacity+63)&(~63))/8 * enabledBits + 15) & (~15);
             var versionSize = (sizeof(int) * numComponents * entityCapacity + 15) & ~15;
             var state = (PredictionBackupState*)UnsafeUtility.Malloc(headerSize + enabledBitSize + entitiesSize + versionSize + dataSize + buffersDataCapacity, 16, Allocator.Persistent);
@@ -140,7 +141,7 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The last full tick for which a snapshot backup is avaiable. Only present on the client world
+    /// 存在 Snapshot 备份的最后一个完整 Tick，仅存在于客户端 World
     /// </summary>
     internal struct GhostSnapshotLastBackupTick : IComponentData
     {
@@ -154,15 +155,14 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A system used to make a backup of the current predicted state, right after the last full (not fractional)
-    /// tick in a prediction loop for a frame has been completed.
-    /// The backup does a memcopy of all ghost components (into a separate memory area connected to the chunk).
-    /// The backup is used to restore the last full tick, to continue prediction when no new data has arrived.
-    /// Note: When this happens, only the fields which are actually serialized as part of the snapshot are copied back,
-    /// not the full component. Thus, preserving any non-GhostField state.
-    /// The backup data is also used to:
-    /// - Detect errors in the prediction.
-    /// - To add smoothing of predicted values.
+    /// 在一帧预测循环的最后一个完整 Tick，而非分数 Tick，完成后备份当前预测状态的系统
+    /// 备份会将所有 Ghost 组件复制到与 Chunk 关联的独立内存区域
+    /// 没有新数据到达时，此备份用于恢复最后一个完整 Tick 并继续预测
+    /// 注意：恢复时只会写回实际作为 Snapshot 一部分序列化的字段，而不是整个组件
+    /// 因此可以保留所有非 GhostField 状态
+    /// 备份数据还用于以下用途
+    /// - 检测预测误差
+    /// - 对预测值进行平滑
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderLast = true)]
@@ -178,24 +178,22 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Data structure used to preserve the ability to retrieve or infer, even in case of structural changes,
-        /// the prediction history data for a given entity.
-        /// The struct store, at backup time, the chunk and index the
-        /// entity has been stored in history.
-        /// This information are used later, when we restore the entity state from the backup by the GhostUpdateSystem
+        /// 用于在发生结构变更后仍能检索或推导给定实体预测历史数据的数据结构
+        /// 此结构会在备份时记录实体历史数据所在的 Chunk 和索引
+        /// GhostUpdateSystem 后续从备份恢复实体状态时会使用这些信息
         /// </summary>
         internal struct PredictionBufferHistoryData
         {
             /// <summary>
-            /// The archetype chunk at the time of the last history backup
+            /// 上次历史备份时的 ArchetypeChunk
             /// </summary>
             public ArchetypeChunk lastChunk;
             /// <summary>
-            /// The index in chunk at the time of the last history backup
+            /// 上次历史备份时实体在 Chunk 中的索引
             /// </summary>
             public int LastIndexInChunk;
             /// <summary>
-            /// The capacity of the that chunk, that it used to correctly decode the history data.
+            /// 对应 Chunk 的容量，用于正确解码历史数据
             /// </summary>
             public int LastChunkCapacity;
         }
@@ -256,7 +254,7 @@ namespace Unity.NetCode
             var historySingleton = state.EntityManager.CreateEntity(state.EntityManager.CreateArchetype(atype));
             FixedString64Bytes singletonName = "GhostPredictionHistoryState-Singleton";
             state.EntityManager.SetName(historySingleton, singletonName);
-            // Declare that we are writing to GhostPredictionHistoryState, so we depend on all readers of this singleton during OnUpdate
+            // 声明本系统会写入 GhostPredictionHistoryState，使 OnUpdate 依赖此单例的所有读取者
             ref var predictionHistoryState = ref SystemAPI.GetSingletonRW<GhostPredictionHistoryState>().ValueRW;
             predictionHistoryState.PredictionState = m_PredictionState.AsReadOnly();
             predictionHistoryState.EntityData = m_EntityData.AsReadOnly();
@@ -363,7 +361,7 @@ namespace Unity.NetCode
                 {
                     if (!stillUsedPredictionState.TryGetValue(keys[i], out var temp))
                     {
-                        // Free the memory and remove the chunk from the lookup
+                        // 释放内存并从查找表移除 Chunk
                         predictionState.TryGetValue(keys[i], out var alloc);
                         UnsafeUtility.Free((void*)alloc, Allocator.Persistent);
                         predictionState.Remove(keys[i]);
@@ -373,11 +371,11 @@ namespace Unity.NetCode
                 {
                     if (!predictionState.TryAdd(newState.chunk, newState.data))
                     {
-                        // Remove the old value, free it and add the new one - this happens when a chunk is reused too quickly
+                        // 移除并释放旧值后添加新值，这会发生在 Chunk 被过快复用时
                         predictionState.TryGetValue(newState.chunk, out var alloc);
                         UnsafeUtility.Free((void*)alloc, Allocator.Persistent);
                         predictionState.Remove(newState.chunk);
-                        // And add it again
+                        // 重新添加新备份状态
                         predictionState.TryAdd(newState.chunk, newState.data);
                     }
                 }
@@ -417,7 +415,7 @@ namespace Unity.NetCode
             public NetDebug netDebug;
             const GhostSendType requiredSendMask = GhostSendType.OnlyPredictedClients;
 
-            //Sum up all the dynamic buffers raw data content size. Each buffer content size is aligned to 16 bytes
+            // 汇总所有 Dynamic Buffer 原始数据的大小，每段 Buffer 内容按 16 字节对齐
             private int GetChunkBuffersDataSize(GhostCollectionPrefabSerializer typeData, ArchetypeChunk chunk,
                 DynamicComponentTypeHandle* ghostChunkComponentTypesPtr, int ghostChunkComponentTypesLength, DynamicBuffer<GhostCollectionComponentIndex> GhostComponentIndex, DynamicBuffer<GhostComponentSerializer.State> GhostComponentCollection)
             {
@@ -487,7 +485,7 @@ namespace Unity.NetCode
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用组件类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 DynamicComponentTypeHandle* ghostChunkComponentTypesPtr = DynamicTypeList.GetData();
@@ -508,18 +506,18 @@ namespace Unity.NetCode
                     return;
                 }
 
-                //We need to resolve the type for prespawned ghost and predicted spawned ghost that hasn't received yet and update from the server
+                // 预生成 Ghost 和尚未收到服务器更新的预测生成 Ghost 需要先解析其类型
                 if (ghostTypeId < 0 || isPredictedSpawnedGhost)
                 {
-                    //We iterate over the GhostTypeCollection instead of the GhostPrefabCollection as counter because it is guarateed
-                    //that the GhostPrefabCollection length is always less or equal the GhostPrefabCollection size. But we assert this here.
+                    // 使用 GhostTypeCollection 而不是 GhostPrefabCollection 作为循环范围
+                    // 因为前者长度保证小于或等于后者长度，并在此通过断言验证
                     Assertions.Assert.IsTrue(GhostTypeCollection.Length <= GhostPrefabCollection.Length);
                     for (ghostTypeId = 0; ghostTypeId < GhostTypeCollection.Length; ++ghostTypeId)
                     {
                         if (GhostPrefabCollection[ghostTypeId].GhostType == ghostTypes[0])
                             break;
                     }
-                    //This is a valid condition in case the ghost collection prefab serializers hasn't been completely initialized
+                    // Ghost 集合的 Prefab Serializer 尚未完全初始化时，这是合法状态
                     if (ghostTypeId >= GhostTypeCollection.Length)
                         return;
                 }
@@ -537,11 +535,11 @@ namespace Unity.NetCode
                 {
                     int dataSize = 0;
                     int enabledBits = 0;
-                    // Sum up the size of all components rounded up
-                    // RULES:
-                    // - if the component/buffer send mask not match PredictedClient neither the data, nor the enable bits are present in the backup.
-                    // - if the component/buffer replicated enablebits, the bits are present in the backup
-                    // - if the component has no ghost fields the data not present in the backup
+                    // 汇总所有组件对齐后的大小
+                    // 规则
+                    // - 如果组件或 Buffer 的 SendMask 不匹配 PredictedClient，则备份中既不包含数据，也不包含启用位
+                    // - 如果组件或 Buffer 会复制启用位，则备份中包含这些位
+                    // - 如果组件没有 GhostField，则备份中不包含其数据
 
                     for (int comp = 0; comp < typeData.NumComponents; ++comp)
                     {
@@ -564,21 +562,21 @@ namespace Unity.NetCode
                         if (ghostSerializer.ComponentType.TypeIndex == ghostOwnerTypeIndex)
                             predictionOwnerOffset = dataSize;
 
-                        //for buffers we store a a pair of uint:
-                        // uint length: the num of elements
-                        // uint backupDataOffset: the start position in the backup buffer
+                        // Buffer 使用一对 uint 存储元数据
+                        // uint length：元素数量
+                        // uint backupDataOffset：数据在备份 Buffer 中的起始位置
                         if (!ghostSerializer.ComponentType.IsBuffer)
                             dataSize += PredictionBackupState.GetDataSize(ghostSerializer.ComponentSize, chunk.Capacity);
                         else
                             dataSize += PredictionBackupState.GetDataSize(GhostComponentSerializer.DynamicBufferComponentSnapshotSize, chunk.Capacity);
                     }
 
-                    //compute the space necessary to store the dynamic buffers data for the chunk
+                    // 计算存储该 Chunk Dynamic Buffer 数据所需的空间
                     int buffersDataCapacity = 0;
                     if (typeData.NumBuffers > 0)
                         buffersDataCapacity = GetChunkBuffersDataSize(typeData, chunk, ghostChunkComponentTypesPtr, ghostChunkComponentTypesLength, GhostComponentIndex, GhostComponentCollection);
 
-                    // Chunk does not exist in the history, or has changed ghost type in which case we need to create a new one
+                    // Chunk 尚不存在于历史记录中或其 Ghost 类型已变化，因此需要创建新的备份状态
                     state = PredictionBackupState.AllocNew(ghostTypeId, enabledBits, typeData.NumComponents, dataSize, chunk.Capacity, buffersDataCapacity, predictionOwnerOffset);
                     newPredictionState.Enqueue(new PredictionStateEntry{chunk = chunk, data = state});
                 }
@@ -587,7 +585,7 @@ namespace Unity.NetCode
                     stillUsedPredictionState.TryAdd(chunk, 1);
                     if (typeData.NumBuffers > 0)
                     {
-                        //resize the backup state to fit the dynamic buffers contents
+                        // 调整备份状态大小以容纳 Dynamic Buffer 内容
                         var buffersDataCapacity = GetChunkBuffersDataSize(typeData, chunk, ghostChunkComponentTypesPtr, ghostChunkComponentTypesLength, GhostComponentIndex, GhostComponentCollection);
                         int bufferBackupDataCapacity = PredictionBackupState.GetBufferDataCapacity(state);
                         if (bufferBackupDataCapacity < buffersDataCapacity)
@@ -639,8 +637,8 @@ namespace Unity.NetCode
                         ? GhostComponentSerializer.DynamicBufferComponentSnapshotSize
                         : ghostSerializer.ComponentSize;
 
-                    //store the change version for this component for the root entity. There is only one entry
-                    //per component for this chunk for root entities.
+                    // 存储根实体上此组件的 ChangeVersion
+                    // 对根实体而言，此 Chunk 中每种组件只有一个版本条目
                     changeVersionPtr[comp] = chunkVersion;
 
                     if (ghostSerializer.SerializesEnabledBit != 0)
@@ -652,17 +650,17 @@ namespace Unity.NetCode
                         enabledBitPtr = PredictionBackupState.GetNextEnabledBits(enabledBitPtr, chunk.Capacity);
                     }
 
-                    // Note that `HasGhostFields` reads the `SnapshotSize` of this type, BUT we're saving the entire component.
-                    // The reason we use this is: Why bother memcopy-ing the entire component state, if we're never actually going to be writing any data back?
-                    // I.e. Only the GhostFields will be written back anyway.
+                    // 注意，HasGhostFields 读取该类型的 SnapshotSize，但此处保存的是完整组件
+                    // 如果最终不会写回任何数据，就没有必要复制完整组件状态
+                    // 恢复时实际只会写回 GhostField
                     if (!ghostSerializer.HasGhostFields)
                         continue;
 
                     if (!chunk.Has(ref ghostChunkComponentTypesPtr[compIdx]))
                     {
                         UnsafeUtility.MemClear(dataPtr, chunk.Count * compSize);
-                        //reset the change version to 0. The component data is not present. And it case it will, it must
-                        //considered changed
+                        // 组件数据不存在时将 ChangeVersion 重置为 0
+                        // 如果组件之后出现，就必须将其视为已变化
                         changeVersionPtr[comp] = 0;
                     }
                     else if (!ghostSerializer.ComponentType.IsBuffer)
@@ -674,12 +672,12 @@ namespace Unity.NetCode
                     {
                         var bufferData = chunk.GetUntypedBufferAccessor(ref ghostChunkComponentTypesPtr[compIdx]);
                         var bufElemSize = ghostSerializer.ComponentSize;
-                        //Use local variable to iterate and set the buffer offset and length. The dataptr must be
-                        //advanced "per chunk" to the next correct position
+                        // 使用局部指针迭代并设置 Buffer 偏移量和长度
+                        // dataPtr 必须按 Chunk 推进到下一个正确位置
                         var tempDataPtr = dataPtr;
                         for (int i = 0; i < bufferData.Length; ++i)
                         {
-                            //Retrieve an copy each buffer data. Set size and offset in the backup buffer in the component backup
+                            // 获取并复制每段 Buffer 数据，在组件备份中记录其长度和备份 Buffer 偏移量
                             var bufferPtr = bufferData.GetUnsafeReadOnlyPtrAndLength(i, out var size);
                             ((int*) tempDataPtr)[0] = size;
                             ((int*) tempDataPtr)[1] = bufferBackupDataOffset;
@@ -696,9 +694,9 @@ namespace Unity.NetCode
                 if (typeData.NumChildComponents > 0)
                 {
                     var linkedEntityGroupAccessor = chunk.GetBufferAccessor(ref linkedEntityGroupType);
-                    //for child component we store a one version entry, per component type for each entity in the chunk
-                    //the layout looks like
-                    //ChildComp1     ChildComp2
+                    // 对于子组件，Chunk 中每个实体的每种组件类型都存储一个版本条目
+                    // 布局如下
+                    // 子组件1       子组件2
                     //e1, e2 .. en | e1, e2 .. en
                     var childChangeVersions = changeVersionPtr + numBaseComponents;
                     for (int comp = numBaseComponents; comp < typeData.NumComponents; ++comp)
@@ -745,8 +743,7 @@ namespace Unity.NetCode
 
                         if (!ghostSerializer.ComponentType.IsBuffer)
                         {
-                            //use a temporary for the iteration here. Otherwise when the dataptr is offset for the chunk, we
-                            //end up in the wrong position
+                            // 此处使用临时指针迭代，否则 dataPtr 按 Chunk 偏移后会落到错误位置
                             var tempDataPtr = dataPtr;
 
                             for (int rootEnt = 0, chunkEntityCount = chunk.Count; rootEnt < chunkEntityCount; ++rootEnt)
@@ -757,14 +754,14 @@ namespace Unity.NetCode
                                 {
                                     var compData = (byte*) childChunk.Chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize).GetUnsafeReadOnlyPtr();
                                     UnsafeUtility.MemCpy(tempDataPtr, compData + childChunk.IndexInChunk * compSize, compSize);
-                                    //store the change version for the component
+                                    // 存储组件的 ChangeVersion
                                     childChangeVersions[rootEnt] = childChunk.Chunk.GetChangeVersion(ref ghostChunkComponentTypesPtr[compIdx]);
                                 }
                                 else
                                 {
                                     UnsafeUtility.MemClear(tempDataPtr, compSize);
-                                    //reset the change version to 0. The component data is not present. And it case it will, it must
-                                    //considered changed
+                                    // 组件数据不存在时将 ChangeVersion 重置为 0
+                                    // 如果组件之后出现，就必须将其视为已变化
                                     childChangeVersions[rootEnt] = 0;
                                 }
                                 tempDataPtr += compSize;
@@ -782,23 +779,23 @@ namespace Unity.NetCode
                                 if (childEntityLookup.TryGetValue(childEnt, out var childChunk) && childChunk.Chunk.Has(ref ghostChunkComponentTypesPtr[compIdx]))
                                 {
                                     var bufferData = childChunk.Chunk.GetUntypedBufferAccessor(ref ghostChunkComponentTypesPtr[compIdx]);
-                                    //Retrieve an copy each buffer data. Set size and offset in the backup buffer in the component backup
+                                    // 获取并复制每段 Buffer 数据，在组件备份中记录其长度和备份 Buffer 偏移量
                                     var bufferPtr = bufferData.GetUnsafeReadOnlyPtrAndLength(childChunk.IndexInChunk, out var size);
                                     ((int*) tempDataPtr)[0] = size;
                                     ((int*) tempDataPtr)[1] = bufferBackupDataOffset;
                                     if (size > 0)
                                         UnsafeUtility.MemCpy(bufferBackupDataPtr + bufferBackupDataOffset, (byte*) bufferPtr, size * bufElemSize);
                                     bufferBackupDataOffset += size * bufElemSize;
-                                    //store the change version for the component. Will be used by GhostSendSystem when restoring
-                                    //components from the backup.
+                                    // 存储组件的 ChangeVersion
+                                    // GhostSendSystem 从备份恢复组件时会使用此值
                                     childChangeVersions[rootEnt] = childChunk.Chunk.GetChangeVersion(ref ghostChunkComponentTypesPtr[compIdx]);
                                 }
                                 else
                                 {
-                                    //reset the entry to 0. Don't use memcpy in this case (is faster this way)
+                                    // 将条目直接重置为 0，此处不使用 MemCpy 更快
                                     ((long*) tempDataPtr)[0] = 0;
-                                    //reset the change version to 0. The component data is not present. And it case it will, it must
-                                    //considered changed
+                                    // 组件数据不存在时将 ChangeVersion 重置为 0
+                                    // 如果组件之后出现，就必须将其视为已变化
                                     childChangeVersions[rootEnt] = 0;
                                 }
 

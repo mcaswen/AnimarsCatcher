@@ -27,7 +27,7 @@ namespace Unity.NetCode
             return (ghostId & PrespawnGhostIdBase) == 0;
         }
 
-        //return a valid index if a reserved range that contains the ghost id is present, otherwise 0
+        // 存在包含该 GhostId 的已保留范围时返回其索引，否则返回 -1
         static public int GhostIdRangeIndex(ref this DynamicBuffer<PrespawnGhostIdRange> ranges , long ghostId)
         {
             ghostId &= ~PrespawnHelper.PrespawnGhostIdBase;
@@ -46,7 +46,7 @@ namespace Unity.NetCode
             var e = entityManager.CreateEntity();
             entityManager.AddBuffer<PrespawnSceneLoaded>(e);
 
-            // Use predicted ghost mode, so we always get the latest received value instead of waiting for the interpolation delay
+            // 使用预测 Ghost 模式，以便始终取得最新接收值而无需等待插值延迟
             var config = new GhostPrefabCreation.Config
             {
                 Name = "PrespawnSceneList",
@@ -58,7 +58,7 @@ namespace Unity.NetCode
                 UsePreSerialization = false,
             };
 
-            //I need an unique identifier and should not clash with any loaded prefab.
+            // 需要使用不会与任何已加载 Prefab 冲突的唯一标识
             GhostPrefabCreation.ConvertToGhostPrefab(entityManager, e, config);
 
             return e;
@@ -74,7 +74,7 @@ namespace Unity.NetCode
                 Begin = begin;
                 End = end;
             }
-            //Simplified sorting for non overlapping intervals
+            // 对互不重叠的区间使用简化排序
             public int CompareTo(GhostIdInterval other)
             {
                 return Begin.CompareTo(other.Begin);
@@ -126,7 +126,7 @@ namespace Unity.NetCode
                 if (newMap.TryGetValue(prespawnSceneLoaded[i].SubSceneHash, out var present))
                 {
                     clientPrespawnSceneMap.TryAdd(prespawnSceneLoaded[i].SubSceneHash, 1);
-                    //Brand new
+                    // 这是首次确认的新场景
                     if(present == 1)
                     {
                         newLoadedRanges.Add(new GhostIdInterval(

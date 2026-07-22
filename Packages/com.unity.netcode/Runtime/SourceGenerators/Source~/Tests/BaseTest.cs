@@ -15,7 +15,7 @@ namespace Unity.NetCode.GeneratorTests
         {
             Generators.Debug.LastErrorLog = "";
             m_OriginalDirectory = Environment.CurrentDirectory;
-            //This will point to the com.unity.netcode directory
+            // 向上查找 com.unity.netcode 目录
             string? currentDir = m_OriginalDirectory;
             while (currentDir?.Length > 0 && !currentDir.EndsWith("com.unity.netcode", StringComparison.Ordinal))
                 currentDir = Path.GetDirectoryName(currentDir);
@@ -26,7 +26,7 @@ namespace Unity.NetCode.GeneratorTests
                 return;
             }
 
-            //Execute in Runtime/SourceGenerators/Source~/Temp
+            // 在 Runtime/SourceGenerators/Source~ 目录中执行测试
             Environment.CurrentDirectory = Path.Combine(currentDir, "Runtime", "SourceGenerators", "Source~");
             Generators.Profiler.Initialize();
         }
@@ -42,7 +42,7 @@ namespace Unity.NetCode.GeneratorTests
             Environment.CurrentDirectory = m_OriginalDirectory ?? string.Empty;
             if (Generators.Debug.LastErrorLog.Length > 0 && !ErrorLogMatchesExclusion())
             {
-                // can't use diagnostics here since there's some parts where it logs directly, bypassing it.
+                // 部分代码会绕过诊断系统直接写日志，因此这里不能只检查 Diagnostic
                 Assert.Fail("Unexpected error log: "+Generators.Debug.LastErrorLog);
             }
 

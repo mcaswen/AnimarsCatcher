@@ -10,7 +10,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// TemplateRegistry import all the netcode templates files, validate and provide them to the generation systems.
+    /// 导入并验证全部 NetCode Template 文件，再将其提供给代码生成系统
     /// </summary>
     internal class TemplateRegistry
     {
@@ -71,13 +71,13 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
-        /// Parse the additional files passed to the compilation and add any custom template to the
-        /// the internal map.
-        /// Valid template are considered files with `.netcode.additionalfile` extension and which have a first
-        /// line starting with `#templateid: TEMPLATE_ID
+        /// 解析传入 Compilation 的 Additional File，并将自定义 Template 加入内部 Map
+        /// 有效 Template 文件必须以 `.netcode.additionalfile` 为扩展名
+        /// 且首行必须以 `#templateid: TEMPLATE_ID` 开头
         /// </summary>
-        /// <param name="additionalFiles"></param>
-        /// <param name="typeRegistryEntries"></param>
+        /// <param name="additionalFiles">传入 Compilation 的 Additional File</param>
+        /// <param name="typeRegistryEntries">类型 Template 注册条目</param>
+        /// <param name="generatorTemplates">生成器内部必需的 Template 标识</param>
         public void AddAdditionalTemplates(ImmutableArray<AdditionalText> additionalFiles,
             List<TypeRegistryEntry> typeRegistryEntries, HashSet<string> generatorTemplates)
         {
@@ -128,7 +128,7 @@ namespace Unity.NetCode.Generators
                 }
             }
             var unusedTemplates = new Dictionary<string, AdditionalText>(templateIds);
-            // Ensure all of the `TypeRegistryEntry`s are linked to additional files templates
+            // 确保每个 TypeRegistryEntry 都能关联到 Additional File Template
             foreach (var typeRegistryEntry in typeRegistryEntries)
             {
                 if (!string.IsNullOrEmpty(typeRegistryEntry.Template))
@@ -158,7 +158,7 @@ namespace Unity.NetCode.Generators
                 }
             }
 
-            // Ensure there are no additional files not matched by any template. This is more a warning than an error.
+            // 确保没有 Additional File 无法匹配任何 Template 定义，这更接近警告而非错误
             foreach(var missingMatch in unusedTemplates)
                 diagnostic.LogError($"NetCode AdditionalFile '{missingMatch.Value.Path}' (named '{missingMatch.Key}') is a valid Template, but it cannot be matched with any Netcode package or UserDefinedTemplate template definition (probably a typo). Known user templates:[{GetKnownCustomUserTemplates()}].");
 
@@ -170,14 +170,14 @@ namespace Unity.NetCode.Generators
 
 
         /// <summary>
-        /// Get the template data for the given template identifier.
+        /// 获取指定 Template 标识对应的文本数据
         /// </summary>
-        /// <param name="resourcePath"></param>
+        /// <param name="resourcePath">Template 资源标识</param>
         /// <returns>
-        /// The System.IO.Stream from which reading the template content.
+        /// Template 文本内容
         /// </returns>
         /// <exception cref="FileNotFoundException">
-        /// If the template path/id cannot be resolved
+        /// 无法解析 Template 路径或标识时抛出
         /// </exception>
         public string GetTemplateData(string resourcePath)
         {
@@ -189,7 +189,7 @@ namespace Unity.NetCode.Generators
 
         private Stream LoadTemplateFromEmbeddedResources(string resourcePath)
         {
-            //The templates in the resources begin with the namespace
+            // 嵌入资源中的 Template 名称以命名空间开头
             var thisAssembly = Assembly.GetExecutingAssembly();
             return thisAssembly.GetManifestResourceStream(resourcePath);
         }

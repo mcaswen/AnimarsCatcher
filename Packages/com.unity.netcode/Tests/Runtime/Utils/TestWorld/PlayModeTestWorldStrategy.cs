@@ -63,26 +63,26 @@ namespace Unity.NetCode.Tests
             PlayerLoop.SetPlayerLoop(mainLoop);
         }
 
-        #region world management
+        #region World 管理
         public World CreateClientWorld(string name, bool thinClient, World world = null)
         {
             if (world == null)
             {
                 if (thinClient)
                 {
-                    TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ThinClientSystems); // Ensure CreationOrder is respected.
+                    TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ThinClientSystems); // 确保遵循 CreationOrder
                     world = ClientServerBootstrap.CreateThinClientWorld(ListToNativeList(NetCodeTestWorld.m_ThinClientSystems));
                 }
                 else
                 {
-                    TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ClientSystems); // Ensure CreationOrder is respected.
+                    TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ClientSystems); // 确保遵循 CreationOrder
                     world = ClientServerBootstrap.CreateClientWorld(name, ListToNativeList(NetCodeTestWorld.m_ClientSystems));
                 }
             }
             world.GetExistingSystemManaged<UpdateWorldTimeSystem>().Enabled = false;
 #if UNITY_EDITOR
             if (thinClient)
-                MultiplayerPlayModePreferences.RequestedNumThinClients += 1; // this way any code calls don't conflict with editor side settings and we won't randomly get our code side thin client worlds destroyed by the editor
+                MultiplayerPlayModePreferences.RequestedNumThinClients += 1; // 避免代码侧请求与 Editor 设置冲突，导致测试创建的 Thin Client World 被意外销毁
 #endif
             return world;
         }
@@ -91,7 +91,7 @@ namespace Unity.NetCode.Tests
         {
             if (world == null)
             {
-                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ServerSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ServerSystems); // 确保遵循 CreationOrder
                 world = ClientServerBootstrap.CreateServerWorld(name, ListToNativeList(NetCodeTestWorld.m_ServerSystems));
             }
             world.GetExistingSystemManaged<UpdateWorldTimeSystem>().Enabled = false;
@@ -102,7 +102,7 @@ namespace Unity.NetCode.Tests
         {
             if (world == null)
             {
-                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_HostSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_HostSystems); // 确保遵循 CreationOrder
                 world = ClientServerBootstrap.CreateSingleWorldHost(name, ListToNativeList(NetCodeTestWorld.m_HostSystems));
             }
             world.GetExistingSystemManaged<UpdateWorldTimeSystem>().Enabled = false;
@@ -132,7 +132,7 @@ namespace Unity.NetCode.Tests
         }
         #endregion
 
-        #region ticking
+        #region Tick 驱动
         public void TickNoAwait(float dt)
         {
             throw new NotSupportedException("Must yield in playmode");
@@ -144,7 +144,7 @@ namespace Unity.NetCode.Tests
             if (awaitInstruction == null)
             {
                 await Awaitable.NextFrameAsync();
-                // await Awaitable.EndOfFrameAsync(); // TODO this hangs forever when in batchmode, so hacking this for now with yield in tests that need it
+                // await Awaitable.EndOfFrameAsync(); // TODO：该调用在批处理模式下会永久挂起，暂时由需要它的测试自行 yield
             }
             else
                 await awaitInstruction;

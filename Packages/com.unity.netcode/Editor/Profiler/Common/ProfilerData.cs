@@ -5,9 +5,9 @@ using Unity.Collections;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// Struct to hold the data for a single frame in the Netcode profiler.
-    /// Created and filled whenever a frame is selected in the Netcode profiler.
-    /// Data is provided by the ProfilerMetricsCollector system.
+    /// 保存 NetCode Profiler 单帧数据的结构
+    /// 在 NetCode Profiler 中选择帧时创建并填充
+    /// 数据由 ProfilerMetricsCollector System 提供
     /// </summary>
     [Serializable]
     struct NetcodeFrameData
@@ -24,9 +24,9 @@ namespace Unity.NetCode.Editor
     }
 
     /// <summary>
-    /// Struct to hold the data for a single tick in the Netcode profiler.
-    /// Created and filled whenever a frame is selected in the Netcode profiler.
-    /// Data is provided by the ProfilerMetricsCollector system.
+    /// 保存 NetCode Profiler 单个 Tick 数据的结构
+    /// 在 NetCode Profiler 中选择帧时创建并填充
+    /// 数据由 ProfilerMetricsCollector System 提供
     /// </summary>
     [Serializable]
     struct TickData
@@ -50,9 +50,9 @@ namespace Unity.NetCode.Editor
     }
 
     /// <summary>
-    /// Struct to hold the data for a single Ghost Type or Ghost Component Type in the Netcode profiler.
-    /// Created and filled whenever a frame is selected in the Netcode profiler.
-    /// Data is provided by the ProfilerMetricsCollector system.
+    /// 保存 NetCode Profiler 单个 Ghost 类型或 Ghost 组件类型数据的结构
+    /// 在 NetCode Profiler 中选择帧时创建并填充
+    /// 数据由 ProfilerMetricsCollector System 提供
     /// </summary>
     [Serializable]
     struct ProfilerGhostTypeData

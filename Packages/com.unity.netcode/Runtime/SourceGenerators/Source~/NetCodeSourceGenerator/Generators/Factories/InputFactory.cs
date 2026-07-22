@@ -23,7 +23,7 @@ namespace Unity.NetCode.Generators
                 if (typeInfo == null)
                     continue;
                 NameUtils.UpdateNameAndNamespace(typeInfo,  ref codeGenContext, candidateSymbol);
-                // If the serializer type already exist we can just skip generation
+                // Input 包装类型已存在时可以跳过生成
                 if (codeGenContext.executionContext.Compilation.GetSymbolsWithName(GetSyncInputName(codeGenContext)).FirstOrDefault() != null)
                 {
                     codeGenContext.diagnostic.LogDebug($"Skipping code-gen for {codeGenContext.generatorName} because a command data wrapper for it exists already");

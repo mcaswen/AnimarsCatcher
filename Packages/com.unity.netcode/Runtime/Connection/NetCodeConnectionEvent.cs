@@ -5,44 +5,43 @@ using Unity.Networking.Transport;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     Contains a single, discrete 'NetworkConnection' connect / disconnect event.
-    ///     For more details, refer to <see cref="NetworkStreamDriver.ConnectionEventsForTick"/>.
+    ///     包含单个离散的 NetworkConnection 连接或断开事件
+    ///     更多信息请参阅 <see cref="NetworkStreamDriver.ConnectionEventsForTick"/>
     /// </summary>
     public struct NetCodeConnectionEvent
     {
         /// <summary>
-        ///     The <see cref="NetworkId" /> of the client whom this event was raised on the behalf of.
+        ///     触发此事件的客户端 <see cref="NetworkId" />
         /// </summary>
         public NetworkId Id;
 
         /// <summary>
-        ///     The <see cref="NetworkStreamConnection.Value"/> value of this connection entity.
+        ///     此连接 Entity 的 <see cref="NetworkStreamConnection.Value"/> 值
         /// </summary>
         public NetworkConnection ConnectionId;
 
         /// <summary>
-        ///     The current value of the <see cref="ConnectionState.State" />.
+        ///     <see cref="ConnectionState.State" /> 的当前值
         /// </summary>
         /// <remarks>
-        ///     This event is raised any time this state changes. A single connection may therefore have multiple state
-        ///     changes per frame.
+        ///     每当此状态变化时都会触发事件，因此单个连接每帧可能发生多次状态变化
         /// </remarks>
         public ConnectionState.State State;
 
         /// <summary>
-        ///     Only valid when <see cref="State" /> is <see cref="ConnectionState.State.Disconnected" />.
+        ///     仅当 <see cref="State" /> 为 <see cref="ConnectionState.State.Disconnected" /> 时有效
         /// </summary>
         public NetworkStreamDisconnectReason DisconnectReason;
 
         /// <summary>
-        ///     The entity containing the <see cref="NetworkStreamConnection"/> component.
+        ///     包含 <see cref="NetworkStreamConnection"/> 组件的 Entity
         /// </summary>
         public Entity ConnectionEntity;
 
         /// <summary>
-        /// Returns a human-readable print of values.
+        /// 返回便于阅读的值描述
         /// </summary>
-        /// <returns>Returns a human-readable print of values.</returns>
+        /// <returns>便于阅读的值描述</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString128Bytes ToFixedString()
         {

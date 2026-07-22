@@ -53,79 +53,78 @@ namespace Unity.NetCode
 #endif
 
     /// <summary>
-    /// Stores the internal state of the NetworkTimeSystem.
-    /// The component should be used for pure inspection or backup the data.
-    /// Please don't change the the state values direclty.
+    /// 存储 NetworkTimeSystem 的内部状态
+    /// 此组件只应用于检查或备份数据，请勿直接修改状态值
     /// </summary>
     public struct NetworkTimeSystemData : IComponentData
     {
         /// <summary>
-        /// The calculated intepolated tick, used to display interpolated ghosts.
+        /// 计算得到的插值 Tick，用于显示插值 Ghost
         /// </summary>
         public NetworkTick interpolateTargetTick;
         /// <summary>
-        /// The residual tick portion of the interpolateTargetTick.
+        /// interpolateTargetTick 的剩余 Tick 小数部分
         /// </summary>
         public float subInterpolateTargetTick;
         /// <summary>
-        /// The estimated tick at which the server will received the client commands.
+        /// 预计服务器收到客户端 Command 时所处的 Tick
         /// </summary>
         public NetworkTick predictTargetTick;
         /// <summary>
-        /// The number of ticks that we're deliberately ignoring local inputs for, before client predicting them.
+        /// 客户端预测本地输入前，有意忽略这些输入的 Tick 数量
         /// </summary>
         public uint effectiveForcedInputLatencyTicks;
         /// <summary>
-        /// The residual tick portion of the predictTargetTick.
+        /// predictTargetTick 的剩余 Tick 小数部分
         /// </summary>
         public float subPredictTargetTick;
         /// <summary>
-        /// The current interpolation delay ticks, used to offset the last estimated server tick in the past.
+        /// 当前插值延迟 Tick 数，用于将最近估计的服务器 Tick 向过去偏移
         /// </summary>
         public float currentInterpolationFrames;
         /// <summary>
-        /// The latest snapshot tick received from the server. Used to calculate the delta ticks in between snapshot.
+        /// 从服务器收到的最新 Snapshot Tick，用于计算 Snapshot 之间的 Tick 差值
         /// </summary>
         public NetworkTick latestSnapshot;
         /// <summary>
-        /// An internal estimate of the tick we are suppose to receive from server. PredictedTick and InterpolatedTick
-        /// are extrapolotated from that.
+        /// 内部估计的下一个应从服务器收到的 Tick
+        /// PredictedTick 和 InterpolatedTick 都由此推算
         /// </summary>
         public NetworkTick latestSnapshotEstimate;
         /// <summary>
-        /// the fixed point exponential average of the difference in between the estimated tick and the actual snapshot tick
-        /// received from the server. Used to adjust the <see cref="latestSnapshotEstimate"/>.
+        /// 估计 Tick 与服务器实际发来 Snapshot Tick 之间差值的定点指数平均值
+        /// 用于调整 <see cref="latestSnapshotEstimate"/>
         /// </summary>
         public int latestSnapshotAge;
         /// <summary>
-        /// The average of the delta ticks in between snapshot. Is the current perceived estimate of the SimulationTickRate/SnapshotTickRate. Ex:
-        /// If the server send at 30hz and the sim is 60hz the avg ratio should be 2
+        /// Snapshot 之间 Tick 差值的平均值，也是当前感知到的 SimulationTickRate/SnapshotTickRate 估计值
+        /// 例如服务器以 30Hz 发送而模拟频率为 60Hz 时，平均比值应为 2
         /// </summary>
         public float avgDeltaSimTicks;
         /// <summary>
-        ///The "std" deviation / jitter (actually an approximation of it) of the perceived netTickRate.
+        /// 感知 NetTickRate 的标准差或抖动，实际为近似值
         /// </summary>
         public float devDeltaSimTicks;
         /// <summary>
-        /// The local timestamp when received the last packet. Used to calculated the perceived packet arrival rate.
+        /// 收到上一数据包时的本地时间戳，用于计算感知到的数据包到达频率
         /// </summary>
         public uint lastTimeStamp;
         /// <summary>
-        /// The packet arrival rate exponential average
+        /// 数据包到达间隔的指数平均值
         /// </summary>
         public float avgPacketInterArrival;
 
         /// <summary>
-        /// Setup the internal state when the first snapshot data is received from the server.
+        /// 收到服务器第一份 Snapshot 数据时初始化内部状态
         /// </summary>
-        /// <param name="snapshot">The snapshot tick received by the server </param>
-        /// <param name="currentTs">The current local timestamp (in ms)</param>
-        /// <param name="commandSlack">The <see cref="ClientTickRate.TargetCommandSlack"/></param>
-        /// <param name="predictAheadByTicks">The number ticks the client should predict ahead - can be negative!</param>
-        /// <param name="devRtt">The current calculated round trip jitter</param>
-        /// <param name="interpolationDelay">The desired interpolation delay (in ticks)</param>
-        /// <param name="simTickRate">The <see cref="ClientServerTickRate.SimulationTickRate"/></param>
-        /// <param name="netTickRate">The packet arrival interval, in simulation ticks.</param>
+        /// <param name="snapshot">从服务器收到的 Snapshot Tick</param>
+        /// <param name="currentTs">当前本地时间戳，单位为毫秒</param>
+        /// <param name="commandSlack">目标命令裕量 <see cref="ClientTickRate.TargetCommandSlack"/></param>
+        /// <param name="predictAheadByTicks">客户端应提前预测的 Tick 数量，可以为负值</param>
+        /// <param name="devRtt">当前计算得到的往返抖动</param>
+        /// <param name="interpolationDelay">期望的插值延迟，单位为 Tick</param>
+        /// <param name="simTickRate">模拟 Tick 率 <see cref="ClientServerTickRate.SimulationTickRate"/></param>
+        /// <param name="netTickRate">以模拟 Tick 表示的数据包到达间隔</param>
         internal void InitWithFirstSnapshot(NetworkTick snapshot, uint currentTs, uint commandSlack,
             int predictAheadByTicks, float devRtt, float interpolationDelay, int simTickRate, int netTickRate)
         {
@@ -137,14 +136,13 @@ namespace Unity.NetCode
                 predictTargetTick.Add((uint) predictAheadByTicks);
             else predictTargetTick.Subtract((uint) -predictAheadByTicks);
 
-            //initial guess estimate for the interpolation frame. Uses the DeviationRTT as a measurement of the jitter in the snapshot rate
+            // 插值帧的初始估计值，使用 DeviationRTT 衡量 Snapshot 频率的抖动
             avgDeltaSimTicks = netTickRate;
             devDeltaSimTicks = (devRtt * netTickRate / 1000f);
             avgPacketInterArrival = ((float)1000)/(netTickRate*simTickRate);
-            //the interpolation delay (the wanted ticks) need to be multiplayer ratio NetworkRate/SimTickRate.
-            //i.e if the server send at 20hz but the sim is at 60hz, the delta in between ticks is 3.
-            //so if you want to be behind 3 snapshot (aka 3 ticks if sent at sim rate), you behind 9 ticks from the
-            //last received (more or less)
+            // 插值延迟，即期望落后的 Tick 数，需要乘以 NetworkRate 与 SimTickRate 的频率比
+            // 例如服务器以 20Hz 发送而模拟频率为 60Hz 时，两份 Snapshot 之间相隔 3 个模拟 Tick
+            // 因此若希望落后 3 份 Snapshot，约等于落后最近收到的 Snapshot 9 个模拟 Tick
             currentInterpolationFrames = interpolationDelay*netTickRate + 2f*devDeltaSimTicks;
             interpolateTargetTick = snapshot;
             interpolateTargetTick.Subtract((uint)currentInterpolationFrames);
@@ -153,7 +151,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Used to update the internal state when a new snapshot data is received from the server.
+        /// 从服务器收到新的 Snapshot 数据时更新内部状态
         /// </summary>
         internal void UpdateWithLastSnapshot(uint currentTimeTs, NetworkTick snapshotTick)
         {
@@ -163,10 +161,10 @@ namespace Unity.NetCode
             lastTimeStamp = currentTimeTs;
             latestSnapshotAge = (latestSnapshotAge * 7 + (snapshotAge << 8)) / 8;
             latestSnapshot = snapshotTick;
-            //The perceived tick rate moving average should react a little faster to changes than the snapshot age.
-            //This help avoiding the situation where the client 'consumes' snapshot packets at double the rate of the server
-            //in case the server run at low frame rate. We are using double the TCP spec (0.125) as factor for this.
-            //TODO: add peak detection to change how to react to delta changes (faster or slower)
+            // 感知 Tick Rate 的移动平均值应比 Snapshot Age 更快响应变化
+            // 这样可以避免服务器低帧率运行时，客户端以服务器两倍频率消耗 Snapshot 数据包
+            // 此处使用 TCP 规范系数 0.125 的两倍作为调整系数
+            // TODO：增加峰值检测，以便按差值变化选择更快或更慢的响应速度
             avgDeltaSimTicks = math.lerp(avgDeltaSimTicks, snapshotDeltaSimTicks, 0.25f);
             devDeltaSimTicks = math.lerp(devDeltaSimTicks, math.abs(snapshotDeltaSimTicks - avgDeltaSimTicks), 0.25f);
             avgPacketInterArrival = math.lerp(avgPacketInterArrival, deltaTimestamp, 0.25f);
@@ -174,17 +172,19 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// <para>System responsible for estimating the <see cref="NetworkTime.ServerTick"/> and <see cref="NetworkTime.InterpolationTick"/>
-    /// using the current round trip time (see <see cref="NetworkSnapshotAck"/>) and feedback from the server (see <see cref="NetworkSnapshotAck.ServerCommandAge"/>).</para>
-    /// <para>The system tries to keep the server tick (present on the client) ahead of the server, such that input commands (see <see cref="ICommandData"/> and <see cref="IInputComponentData"/>)
-    /// are received <i>before</i> the server needs them for the simulation.
-    /// The system speeds up and slows down the client simulation elapsed delta time to compensate for changes in the network condition, and makes the reported
-    /// <see cref="NetworkSnapshotAck.ServerCommandAge"/> close to the <see cref="ClientTickRate.TargetCommandSlack"/>.</para>
-    /// <para>This time synchronization start taking place as soon as the first snapshot is received by the client. Because of that,
-    /// until the client <see cref="NetworkStreamConnection"/> is not set in-game (see <see cref="NetworkStreamInGame"/>), the calculated
-    /// server tick and interpolated are always 0.</para>
-    /// <para>In the case where the client and server world are on the same process, and an IPC connection is used (see <see cref="TransportType.IPC"/>),
-    /// some special optimizations can be applied. E.g. In this case the client should always run 1 tick per frame (server and client update in tandem).</para>
+    /// <para>使用当前往返时间，参见 <see cref="NetworkSnapshotAck"/>，以及服务器反馈，
+    /// 参见 <see cref="NetworkSnapshotAck.ServerCommandAge"/>，估算 <see cref="NetworkTime.ServerTick"/>
+    /// 和 <see cref="NetworkTime.InterpolationTick"/> 的系统</para>
+    /// <para>此系统会尽量让客户端上的 Server Tick 领先真实服务器，
+    /// 使输入 Command，参见 <see cref="ICommandData"/> 和 <see cref="IInputComponentData"/>，
+    /// 能在服务器进行模拟所需时间<i>之前</i>到达
+    /// 系统会加快或减慢客户端模拟经过的 Delta Time，以补偿网络状况变化，
+    /// 并使服务器报告的 <see cref="NetworkSnapshotAck.ServerCommandAge"/> 接近 <see cref="ClientTickRate.TargetCommandSlack"/></para>
+    /// <para>客户端收到第一份 Snapshot 后立即开始时间同步
+    /// 因此在客户端 <see cref="NetworkStreamConnection"/> 进入游戏前，参见 <see cref="NetworkStreamInGame"/>，
+    /// 计算得到的服务器 Tick 和插值 Tick 始终为 0</para>
+    /// <para>当客户端与服务器 World 位于同一进程并使用 IPC 连接时，参见 <see cref="TransportType.IPC"/>，
+    /// 可以应用特殊优化，例如此时客户端应始终每帧运行 1 个 Tick，因为服务器和客户端同步更新</para>
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation|WorldSystemFilterFlags.ThinClientSimulation)]
@@ -193,20 +193,20 @@ namespace Unity.NetCode
     public partial struct NetworkTimeSystem : ISystem, ISystemStartStop
     {
         /// <summary>
-        /// Size of the array used to store the partial compensation for the
+        /// 用于存储部分补偿量的数组长度
         /// </summary>
         private const int CommandAgeAdjustmentLength = 64;
         /// <summary>
-        /// The current age adjustment slot
+        /// 当前 Command Age 调整槽位
         /// </summary>
         private int commandAgeAdjustmentSlot;
         /// <summary>
-        /// The partial adjustments did to the server tick prediction, ssed to avoid compensating for the delayed feedback from the server.
+        /// 已应用到服务器 Tick 预测的部分调整量，用于避免重复补偿服务器的延迟反馈
         /// </summary>
         private FixedList512Bytes<float> commandAgeAdjustment;
 
         /// <summary>
-        /// A new <see cref="ClientTickRate"/> instance initialized with good and sensible default values.
+        /// 使用合理默认值初始化的新 <see cref="ClientTickRate"/> 实例
         /// </summary>
         public static ClientTickRate DefaultClientTickRate => new ClientTickRate
         {
@@ -261,7 +261,9 @@ namespace Unity.NetCode
         private static readonly SharedStatic<FixedTime> s_FixedTime = SharedStatic<FixedTime>.GetOrCreate<FixedTime>();
 
 
-        /// <summary>Fixes any stray FixedTime values when domain reloads are disabled.</summary>
+        /// <summary>
+        /// 在禁用 Domain Reload 时清理残留的 FixedTime 值
+        /// </summary>
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
         public static void ResetFixedTime()
         {
@@ -271,24 +273,23 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Return a low precision real-time stamp that represents the number of milliseconds since the process started.
-        /// In Development build and Editor, the maximum reported delta in between two calls of the TimestampMS is capped
-        /// to 100 milliseconds.
+        /// 返回表示进程启动后经过毫秒数的低精度实时时间戳
+        /// 在 Development Build 和 Editor 中，两次调用 TimestampMS 报告的最大差值限制为 100 毫秒
         /// </summary>
         /// <remarks>
-        /// The TimestampMS is mostly used for sake of time synchronization (for calculting the RTT).
+        /// TimestampMS 主要用于时间同步，例如计算 RTT
         /// </remarks>
         public static uint TimestampMS
         {
             get
             {
-                // If fixed timestamp is set, use that
+                // 如果设置了固定时间戳，则使用该值
                 if (s_FixedTime.Data.FixedTimestampMS != 0)
                     return s_FixedTime.Data.FixedTimestampMS;
-                //FIXME If the stopwatch is not high resolution means that it is based on the system timer, witch have a precision of about 10ms
-                //This can be a little problematic for computing the right timestamp in general
+                // FIXME：如果 Stopwatch 不是高精度计时器，则它基于精度约为 10ms 的系统计时器
+                // 这可能影响时间戳计算的准确性
                 var cur = (uint)TimerHelpers.GetCurrentTimestampMS();
-                // If more than 100ms passed since last timestamp heck, increase the adjustment so the reported time delta is 100ms
+                // 距离上次时间戳检查超过 100ms 时增加调整量，使报告的时间差保持为 100ms
                 if (s_FixedTime.Data.PrevTimestampMS != 0 && (cur - s_FixedTime.Data.PrevTimestampMS) > 100)
                 {
                     s_FixedTime.Data.TimestampAdjustMS += (cur - s_FixedTime.Data.PrevTimestampMS) - 100;
@@ -299,12 +300,11 @@ namespace Unity.NetCode
         }
 #else
         /// <summary>
-        /// Return a low precision real-time stamp that represents the number of milliseconds since the process started.
-        /// In Development build and Editor, the maximum reported delta in between two calls of the TimestampMS is capped
-        /// to 100 milliseconds.
+        /// 返回表示进程启动后经过毫秒数的低精度实时时间戳
+        /// 在 Development Build 和 Editor 中，两次调用 TimestampMS 报告的最大差值限制为 100 毫秒
         /// </summary>
         /// <remarks>
-        /// The TimestampMS is mostly used for sake of time synchronization (for calculting the RTT).
+        /// TimestampMS 主要用于时间同步，例如计算 RTT
         /// </remarks>
         public static uint TimestampMS =>
             (uint)TimerHelpers.GetCurrentTimestampMS();
@@ -313,7 +313,7 @@ namespace Unity.NetCode
 
 
         /// <summary>
-        /// Create the <see cref="NetworkTimeSystemData"/> singleton and reset the initial system state.
+        /// 创建 <see cref="NetworkTimeSystemData"/> Singleton 并重置系统初始状态
         /// </summary>
         /// <inheritdoc/>
         [BurstCompile]
@@ -340,7 +340,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Empty method, implement the <see cref="ISystem"/> interface.
+        /// 实现 <see cref="ISystem"/> 接口的空方法
         /// </summary>
         /// <inheritdoc/>
         [BurstCompile]
@@ -349,7 +349,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Reset the <see cref="NetworkTimeSystemData"/> data and some internal variables.
+        /// 重置 <see cref="NetworkTimeSystemData"/> 数据和部分内部变量
         /// </summary>
         /// <inheritdoc/>
         [BurstCompile]
@@ -359,7 +359,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Implements all the time synchronization logic on the main thread.
+        /// 在主线程上执行全部时间同步逻辑
         /// </summary>
         /// <inheritdoc/>
         [BurstCompile]
@@ -373,7 +373,7 @@ namespace Unity.NetCode
 
             ValidateClientTickRate(clientTickRate, SystemAPI.GetSingleton<NetDebug>());
 
-            state.CompleteDependency(); // We complete the dependency. This is needed because NetworkSnapshotAck is written by a job in NetworkStreamReceiveSystem
+            state.CompleteDependency(); // 需要完成依赖，因为 NetworkSnapshotAck 由 NetworkStreamReceiveSystem 中的 Job 写入
 
             var ack = SystemAPI.GetSingleton<NetworkSnapshotAck>();
             bool isInGame = SystemAPI.HasSingleton<NetworkStreamInGame>();
@@ -386,53 +386,51 @@ namespace Unity.NetCode
                     deltaTime = (float) maxDeltaTicks / (float) tickRate.SimulationTickRate;
             }
             float deltaTicks = deltaTime * tickRate.SimulationTickRate;
-            //If the client is using an IPC connection within an inprocess server we know that
-            // latency is 0
-            // jitter is 0
-            // not packet loss
+            // 客户端通过 IPC 连接同一进程内的服务器时，可以确定
+            // 延迟为 0
+            // 抖动为 0
+            // 没有丢包
             //
-            // That imply the average/desired command slack is 0 (predict only the next tick)
-            // and the (ideal) output are
+            // 这意味着平均或期望 Command Slack 为 0，只预测下一 Tick
+            // 理想输出如下
             // predictTargetTick = latestSnapshot + 1
-            // interpolationTicks = max(SimulationRate/NetworkTickRate, clientTickRate.InterpolationTimeNetTicks) (or its equivalent ms version)
+            // interpolationTicks = max(SimulationRate/NetworkTickRate, clientTickRate.InterpolationTimeNetTicks)，也可使用等价的毫秒版本
             // interpolateTargetTick = latestSnapshot - interpolationTicks
             //
-            // However, because the client run at variable frame rate (it is not in sync with the server)
-            // - there will be partial ticks
-            // - the interpolation tick would vary a little bit (some fraction)
+            // 但客户端使用可变帧率运行，并未与服务器同步，因此
+            // - 会出现部分 Tick
+            // - 插值 Tick 会产生少量小数变化
             //
-            // We can probably force the InterpolationFrames to be constants but we preferred to have all the code path
-            // shared, instead of preferential logic, as much as possible.
-            // This can be a further optimasation that can be added later.
+            // 可以强制 InterpolationFrames 保持常量，但当前更倾向于尽可能共享全部代码路径，避免特殊逻辑
+            // 后续可进一步优化
 
             var driverType = SystemAPI.GetSingleton<NetworkStreamDriver>().DriverStore.GetDriverType(NetworkDriverStore.FirstDriverId);
             if (driverType == TransportType.IPC)
             {
-                //override this param with 1. The predicted target tick needs to the latest snapshot received + 1 (the next server tick)
-                //but because we send the partial tick, we need the server to always receive by the client the next partial.
-                //therefore, the command age should be near -1. This is controlled server side, by using the last full tick as guidance.
+                // 覆盖此参数，使预测目标 Tick 等于最近收到的 Snapshot Tick 加 1，即下一服务器 Tick
+                // 但由于客户端会发送部分 Tick，需要确保服务器始终收到客户端的下一个部分 Tick
+                // 因此 Command Age 应接近 -1，该行为由服务器使用最近完整 Tick 作为依据进行控制
                 clientTickRate.TargetCommandSlack = 0;
-                //these are 0 and we enforce that here
+                // 这些值理论上为 0，此处强制设置
                 ack.DeviationRTT = 0f;
                 ack.EstimatedRTT = 1000f/tickRate.SimulationTickRate;
             }
 
-            // Calculate how far ahead our client timeline needs to be (versus the servers timeline):
+            // 计算客户端时间线需要领先服务器时间线多少
             ref var netTimeData = ref SystemAPI.GetSingletonRW<NetworkTimeSystemData>().ValueRW;
             uint rttInTicks = ((uint)(ack.EstimatedRTT * tickRate.SimulationTickRate) + 999) / 1000;
             var inputTargetTicks = rttInTicks + clientTickRate.TargetCommandSlack;
-            // Note: `EstimatedRTT` hitting `MaxPredictAheadTimeMS` leads to forced input latency.
+            // 注意：`EstimatedRTT` 达到 `MaxPredictAheadTimeMS` 时会引入强制输入延迟
             uint maxAllowedPredictionTicks = ((uint)(clientTickRate.MaxPredictAheadTimeMS * tickRate.SimulationTickRate) + 999) / 1000;
             uint minForcedInputLatencyTicksFromMaxPredictAheadTime = (uint)math.max(0, (int)inputTargetTicks - (int)maxAllowedPredictionTicks);
             netTimeData.effectiveForcedInputLatencyTicks = math.max(minForcedInputLatencyTicksFromMaxPredictAheadTime, clientTickRate.ForcedInputLatencyTicks);
-            int predictAheadByTicks = (int)inputTargetTicks - (int)netTimeData.effectiveForcedInputLatencyTicks; // Can be negative!
+            int predictAheadByTicks = (int)inputTargetTicks - (int)netTimeData.effectiveForcedInputLatencyTicks; // 可以为负值
 
             var netTickRateInterval = tickRate.CalculateNetworkSendRateInterval();
-            // The desired number of interpolation frames depend on the ratio in between the simulation and the network tick rate
-            // ex: if the server run the sim at 60hz but send at 20hz we need to stay back at least 3 ticks, or
-            // any integer multiple of that
+            // 期望的插值帧数取决于模拟频率与网络 Tick Rate 的比值
+            // 例如服务器以 60Hz 模拟但以 20Hz 发送时，至少需要落后 3 个 Tick，或其任意整数倍
             var interpolationTimeTicks = clientTickRate.CalculateInterpolationBufferTimeInTicks(tickRate);
-            // Reset the latestSnapshotEstimate if not in game
+            // 未进入游戏时重置 latestSnapshotEstimate
 #if UNITY_EDITOR || NETCODE_DEBUG
             ref var  netTimeDataStats = ref SystemAPI.GetSingletonRW<NetworkTimeSystemStats>().ValueRW;
 #endif
@@ -458,16 +456,16 @@ namespace Unity.NetCode
             }
             else
             {
-                //If ack.LastReceivedSnapshotByLocal is 0, it mean that a desync has been detected.
-                //Updating the estimates using deltas in that case is completely wrong
+                // ack.LastReceivedSnapshotByLocal 为 0 表示检测到不同步
+                // 此时使用差值更新估计结果完全错误
                 if (netTimeData.latestSnapshot != ack.LastReceivedSnapshotByLocal && ack.LastReceivedSnapshotByLocal.IsValid)
                     netTimeData.UpdateWithLastSnapshot(TimestampMS, ack.LastReceivedSnapshotByLocal);
 
-                // Add number of ticks based on deltaTime
+                // 根据 Delta Time 增加 Tick 数量
                 // netTimeData.latestSnapshotEstimate.Add((uint) deltaTicks);
-                // The snapshot age should be usually negative and represent the fractional part of the latestSnapshotEstimate in principle.
-                // In reality, because the UpdateWithLastSnapshot update the `latestSnapshotAge` using the last calculate age
-                // using exponential moving average, it behave as both compensation for estimate and fractional part.
+                // 原则上 Snapshot Age 通常应为负值，并表示 latestSnapshotEstimate 的小数部分
+                // 实际上 UpdateWithLastSnapshot 会用上次计算的 Age 通过指数移动平均更新 `latestSnapshotAge`
+                // 因此它同时承担估计补偿量和小数部分的作用
                 netTimeData.latestSnapshotAge -= (int)(deltaTicks * 256f);
                 int delta = netTimeData.latestSnapshotAge / 256;
                 if (delta < 0)
@@ -477,10 +475,10 @@ namespace Unity.NetCode
                 }
                 else if (delta > 0)
                 {
-                    //i.e:
-                    //10 (estimate), 1.35 (age) delta = 1
-                    //10-1.35 = 8.65 => 8 (est), -0.65 (age)
-                    //incrementing the delta here is the same as applying the right math to the fractional part
+                    // 例如
+                    // 10（估计值），1.35（Age），delta = 1
+                    // 10 - 1.35 = 8.65 => 8（估计值），-0.65（Age）
+                    // 此处增加 delta 等同于对小数部分应用正确运算
                     ++delta;
                     netTimeData.latestSnapshotEstimate.Subtract((uint)delta);
                     netTimeData.latestSnapshotAge -= delta << 8;
@@ -488,9 +486,8 @@ namespace Unity.NetCode
             }
             float predictionTimeScale = 1f;
             float commandAge = ack.ServerCommandAge / 256.0f + clientTickRate.TargetCommandSlack;
-            // Check which slot in the circular buffer of command age adjustments the current data should go in
-            // use the latestSnapshot and not the LastReceivedSnapshotByLocal because the latter can be reset to 0, causing
-            // a wrong reset of the adjustments
+            // 检查当前数据应写入 Command Age 调整环形缓冲区的哪个槽位
+            // 使用 latestSnapshot 而不是 LastReceivedSnapshotByLocal，因为后者可能重置为 0，导致错误地重置调整量
             commandAge = AdjustCommandAge(netTimeData.latestSnapshot, commandAge, rttInTicks);
             if (math.abs(commandAge) < 10)
             {
@@ -509,8 +506,7 @@ namespace Unity.NetCode
                 float predictDelta = (float)(curPredict.TicksSince(netTimeData.predictTargetTick)) - deltaTicks;
                 if (math.abs(predictDelta) > 10)
                 {
-                    //Attention! this may rollback in case we have an high difference in estimate (about 10 ticks greater)
-                    //and predictDelta is negative (client is too far ahead)
+                    // 注意：当估计差值很大，约超过 10 个 Tick，且 predictDelta 为负，即客户端领先过多时，可能发生回滚
                     if (predictDelta < 0.0f)
                     {
                         SystemAPI.GetSingleton<NetDebug>().LogError($"Large serverTick prediction error encountered! The serverTick rolled back to {curPredict.ToFixedString()} (a delta of {predictDelta} ticks)! Common causes: a) Poor client and / or server performance, b) network instability, c) Application.runInBackground is not correctly set (to true).");
@@ -531,46 +527,45 @@ namespace Unity.NetCode
             }
 
             commandAgeAdjustment[commandAgeAdjustmentSlot] += deltaTicks * (predictionTimeScale - 1.0f);
-            //What is the frame we are going to receive next?
-            //Our current best estimate is the "latestSnapshotEstimate", that try to guess what is the next frame we are going receive from the server.
-            //The interpolation tick should be based on our latestSnapshotEstimate guess and delayed by the some interpolation frame.
-            //We use latestSnapshotEstimate as base for the interpolated tick instead of the predicted tick for the following reasons:
-            // - The fact the client increase the predicted tick faster, should not cause a faster increment of the interpolation
-            // - It more accurately reflect the latest received data, instead of trying to approximate the target from the prediction, that depend on other factors
+            // 下一份将收到的 Snapshot 对应哪个帧
+            // 当前最佳估计值是 latestSnapshotEstimate，它尝试预测下一份从服务器收到的 Snapshot
+            // 插值 Tick 应基于 latestSnapshotEstimate，并向后延迟若干插值帧
+            // 使用 latestSnapshotEstimate 而不是预测 Tick 作为插值 Tick 的基准，原因如下
+            // - 客户端加速推进预测 Tick 时，不应导致插值 Tick 同样加速
+            // - 它能更准确反映最近收到的数据，而不是从还受其他因素影响的预测结果近似目标
             //
-            // The interpolation frames are calculated as follow:
+            // 插值帧数按以下方式计算
             // frames = E[avgNetTickRate] + K*std[avgNetTickRate]
             // interpolationTick = latestSnapshotEstimate - frames
             //
-            // avgNetTickRate: is calculated based on the delta ticks in between the received snapshot and account for
-            //  - packet loss (the interpolation delay should increase)
-            //  - server network tick rate changes (the server run slower)
-            //  - multiple packets per frames (the interpolation delay should increase)
-            // latestSnapshotEstimate: account for latency changes, because it is adjusted based on the delta in between the current estimated and what has been received.
+            // avgNetTickRate：根据收到的 Snapshot 之间的 Tick 差值计算，并考虑以下因素
+            //  - 丢包，此时插值延迟应增加
+            //  - 服务器网络 Tick Rate 变化，例如服务器运行变慢
+            //  - 每帧收到多个数据包，此时插值延迟应增加
+            // latestSnapshotEstimate：通过当前估计值与实际接收值之间的差值进行调整，因此可以反映延迟变化
             //
-            // Together, latestSnapshotEstimate and avgNetTickRate compensate for the factors that affect the most the increase/decrease of the interpolation delay.
+            // latestSnapshotEstimate 与 avgNetTickRate 共同补偿最显著影响插值延迟增减的因素
             var delayChangeLimit = deltaTicks*clientTickRate.InterpolationDelayMaxDeltaTicksFraction;
             var deltaInBetweenSnapshotTicks = netTimeData.avgDeltaSimTicks + netTimeData.devDeltaSimTicks * clientTickRate.InterpolationDelayJitterScale;
-            //The perceived snapshot inter-arrival in simulation ticks.
+            // 以模拟 Tick 表示的感知 Snapshot 到达间隔
             var avgNetRate = (netTimeData.avgPacketInterArrival*tickRate.SimulationTickRate + 999)/1000;
-            //The number of interpolation frames is expressed as number of simulation ticks. This is why it is necessary to use the netTickRate/
+            // 插值帧数量以模拟 Tick 表示，因此需要乘以 netTickRateInterval
             float desiredInterpolationDelayTicks = interpolationTimeTicks*netTickRateInterval;
-            //Select the largest in between the average snapshot rate (in ticks) and the average snapshot tick delta.
+            // 在平均 Snapshot 到达间隔和平均 Snapshot Tick 差值之间选择较大值
             var clampedDelayTick = math.max(avgNetRate, deltaInBetweenSnapshotTicks);
-            //still clamp this as 6 times the desired netTickRate. It is reasonable assumption the server will try to go
-            //back to normal
+            // 仍将其限制为期望 netTickRate 的 6 倍，因为可以合理假设服务器会尝试恢复正常
             clampedDelayTick = math.min(clampedDelayTick, 6*netTickRateInterval);
-            //If you then have a desiredInterpolationDelayTicks larger that that, we will use your anyway.
+            // 如果配置的 desiredInterpolationDelayTicks 更大，则仍采用配置值
             var interpolationFrames = math.max(desiredInterpolationDelayTicks, clampedDelayTick);
 
             if (math.abs(interpolationFrames - netTimeData.currentInterpolationFrames) > 10f)
             {
-                //with large delta immediately just frame delay.
+                // 差值很大时立即调整帧延迟
                 netTimeData.currentInterpolationFrames = interpolationFrames;
             }
             else
             {
-                //move slowly toward the compute target frames
+                // 缓慢趋近计算得到的目标帧数
                 netTimeData.currentInterpolationFrames += math.clamp(
                     (interpolationFrames-netTimeData.currentInterpolationFrames)*deltaTime,
                     -delayChangeLimit, delayChangeLimit);
@@ -579,15 +574,15 @@ namespace Unity.NetCode
             var newInterpolationTargetTick = netTimeData.latestSnapshotEstimate;
             newInterpolationTargetTick.Subtract((uint)netTimeData.currentInterpolationFrames);
 
-            // When using Forced Input Latency, it's feasible that our target client prediction tick can fall behind
-            // the target interpolation tick, so we clamp it here, effectively lengthening the interpolation window dynamically.
+            // 使用 Forced Input Latency 时，客户端预测目标 Tick 可能落后于插值目标 Tick
+            // 因此在此限制范围，实际效果是动态延长插值窗口
             if (netTimeData.effectiveForcedInputLatencyTicks > 0 && netTimeData.predictTargetTick.TicksSince(newInterpolationTargetTick) < 0)
                 newInterpolationTargetTick = netTimeData.predictTargetTick;
 
             var targetTickDelta = newInterpolationTargetTick.TicksSince(netTimeData.interpolateTargetTick) - netTimeData.subInterpolateTargetTick - deltaTicks;
             float interpolationTimeScale = 1f;
-            //if we are behind (10 tick is quite a lot though, this require 100 frame to recover with 10% deltaTime scaling)
-            //We don't check the abs value because for negative delta (we want to move backward) we just scale down the interpolationTimeScale
+            // 如果当前落后，10 个 Tick 已经很多，使用 10% Delta Time 缩放需要 100 帧才能恢复
+            // 此处不检查绝对值，因为差值为负时需要向后移动，只需降低 interpolationTimeScale
             if (targetTickDelta < 10)
             {
                 interpolationTimeScale = math.clamp(1.0f + targetTickDelta*clientTickRate.InterpolationDelayCorrectionFraction,
@@ -600,7 +595,7 @@ namespace Unity.NetCode
             }
             else
             {
-                //jump up the scale so that it matches the interpolation tick
+                // 直接跳转，使其与插值 Tick 匹配
                 netTimeData.interpolateTargetTick = newInterpolationTargetTick;
                 netTimeData.subInterpolateTargetTick = 0f;
             }
@@ -610,8 +605,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Calculate an adjusted command age using by subtracting all the predicted tick compensations.
-        /// (because of the delay response from the server)
+        /// 减去全部预测 Tick 补偿量，计算调整后的 Command Age
+        /// 这些补偿量源于服务器反馈延迟
         /// </summary>
         /// <param name="lastSnapshot"></param>
         /// <param name="commandAge"></param>
@@ -620,7 +615,7 @@ namespace Unity.NetCode
         float AdjustCommandAge(in NetworkTick lastSnapshot, float commandAge, uint rttInTicks)
         {
             int curSlot = (int)(lastSnapshot.TickIndexForValidTick % CommandAgeAdjustmentLength);
-            // If we moved to a new slot, clear the data between previous and new
+            // 移到新槽位时，清除旧槽位与新槽位之间的数据
             if (curSlot != commandAgeAdjustmentSlot)
             {
                 for (int i = (commandAgeAdjustmentSlot + 1) % CommandAgeAdjustmentLength;
@@ -631,14 +626,12 @@ namespace Unity.NetCode
                 }
                 commandAgeAdjustmentSlot = curSlot;
             }
-            // round down to whole ticks performed in one rtt
+            // 向下取整为一个 RTT 内执行的完整 Tick 数量
             if (rttInTicks > CommandAgeAdjustmentLength)
                 rttInTicks = CommandAgeAdjustmentLength;
-            //The client adjust the command age by removing the already applied correction to avoid over or under compensating.
-            //Let's say the client receive tick X from the server, saying that command for that tick was late. The client needs
-            //to compensate by accelerating/decelarate the time.
-            //The received ack from the server is for the past, so the client may have already applied some compensation due to
-            //the previous reported command age.
+            // 客户端通过减去已经应用的修正来调整 Command Age，避免过度补偿或补偿不足
+            // 假设客户端收到服务器的 Tick X，反馈该 Tick 的 Command 到达过晚，客户端需要通过加速或减速时间进行补偿
+            // 服务器发来的 Ack 描述的是过去状态，因此客户端可能已根据先前报告的 Command Age 应用过部分补偿
             for (int i = 0; i < rttInTicks; ++i)
             {
                 var slot = (CommandAgeAdjustmentLength + commandAgeAdjustmentSlot - i) % CommandAgeAdjustmentLength;

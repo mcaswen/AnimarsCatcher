@@ -44,14 +44,14 @@ namespace Unity.NetCode
             {
                 var ageX = m_TargetTick.TicksSince(x);
                 var ageY = m_TargetTick.TicksSince(y);
-                // Sort by decreasing age, which gives increasing ticks with oldest tick first
+                // 按 Tick 年龄降序排列，使 Tick 值升序且最旧的 Tick 位于最前
                 return ageY - ageX;
             }
         }
 
         internal NetcodeClientPredictionRateManager(ComponentSystemGroup group)
         {
-            // Create the queries for singletons
+            // 创建单例查询
             m_NetworkTimeQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkTime>());
             m_ClientServerTickRateQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<ClientServerTickRate>());
             m_ClientTickRateQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<ClientTickRate>());
@@ -84,17 +84,17 @@ namespace Unity.NetCode
                 var uniqueInputTicks = m_UniqueInputTicksQuery.GetSingletonRW<UniqueInputTickMap>().ValueRW.TickMap;
 
 
-                // Nothing to predict yet, because the connection is not in game yet and no snapshot has
-                // being received so far (still waiting for the first snapshot)
+                // 连接尚未进入游戏且还未收到任何 Snapshot，因此当前没有可预测的内容
+                // 此时仍在等待首个 Snapshot
                 if (!m_CurrentTime.ServerTick.IsValid)
                     return false;
 
-                // If there is not predicted ghost (so no continuation or rollback to do)
+                // 没有预测 Ghost 时，不需要续算或回滚
                 if(appliedPredictedTicks.IsEmpty)
                 {
                     uniqueInputTicks.Clear();
                     appliedPredictedTicks.Clear();
-                    //early exit if the prediction mode require ghosts are present, thus the appliedPredictedTicks should be non empty.
+                    // 预测模式要求存在 Ghost 时提前退出，因为此模式下 AppliedPredictedTicks 不应为空
                     if (clientTickRate.PredictionLoopUpdateMode == PredictionLoopUpdateMode.RequirePredictedGhost)
                     {
                         m_LastFullPredictionTick = NetworkTick.Invalid;
@@ -112,9 +112,9 @@ namespace Unity.NetCode
                     m_TargetTick.Decrement();
                     m_ElapsedTime -= m_FixedTimeStep * networkTime.ServerTickFraction;
                 }
-                // We must simulate the last full tick since the history backup is applied there
+                // 必须模拟最后一个完整 Tick，因为历史备份会在该 Tick 应用
                 appliedPredictedTicks.TryAdd(m_TargetTick, m_TargetTick);
-                // We must simulate at the tick we used as last full tick last time since smoothing and error reporting is happening there
+                // 必须重新模拟上次使用的最后完整 Tick，因为平滑和误差报告会在该 Tick 执行
                 if (m_LastFullPredictionTick.IsValid && m_TargetTick.IsNewerThan(m_LastFullPredictionTick))
                     appliedPredictedTicks.TryAdd(m_LastFullPredictionTick, m_LastFullPredictionTick);
                 else if (!m_LastFullPredictionTick.IsValid)
@@ -131,8 +131,8 @@ namespace Unity.NetCode
                     if (!oldestTick.IsValid || oldestTick.IsNewerThan(appliedTick))
                         oldestTick = appliedTick;
                 }
-                //If this condition trigger (that is, removed pretty much where we should start predicting from)
-                //it is ok and correct to exit.
+                // 如果该条件成立，说明预测起点附近的 Tick 已被移除
+                // 此时直接退出是正确行为
                 if (!oldestTick.IsValid)
                 {
                     uniqueInputTicks.Clear();
@@ -157,10 +157,10 @@ namespace Unity.NetCode
                 m_AppliedPredictedTickArray.Sort(new TickComparer(m_CurrentTime.ServerTick));
 
                 m_NumAppliedPredictedTicks = m_AppliedPredictedTickArray.Length;
-                // remove everything newer than the target tick
+                // 移除所有比目标 Tick 更新的记录
                 while (m_NumAppliedPredictedTicks > 0 && m_AppliedPredictedTickArray[m_NumAppliedPredictedTicks-1].IsNewerThan(m_TargetTick))
                     --m_NumAppliedPredictedTicks;
-                // remove everything older than "server tick - max inputs"
+                // 移除所有早于“服务端 Tick 减去最大输入数”的记录
                 int toRemove = 0;
                 while (toRemove < m_NumAppliedPredictedTicks && (uint)m_CurrentTime.ServerTick.TicksSince(m_AppliedPredictedTickArray[toRemove]) > CommandDataUtility.k_CommandDataMaxSize)
                     ++toRemove;
@@ -211,7 +211,7 @@ namespace Unity.NetCode
                 }
                 uint tickAge = (uint)m_TargetTick.TicksSince(predictingTick);
 
-                // If we just reached the last full tick we predicted last time, switch to use the separate long step setting for new ticks
+                // 到达上次预测的最后完整 Tick 后，切换为新 Tick 专用的长步长设置
                 if (predictingTick == m_LastFullPredictionTick)
                     m_MaxBatchSize = m_MaxBatchSizeFirstTimeTick;
 
@@ -261,7 +261,7 @@ namespace Unity.NetCode
             if (math.abs(networkTime.ServerTickFraction-m_CurrentTime.ServerTickFraction) > 1e-6f)
                 throw new InvalidOperationException("ServerTickFraction should be equals to current tick fraction at the end of the prediction loop");
 #endif
-            // Reset all the prediction flags. They are not valid outside the prediction loop
+            // 重置全部预测标志，因为它们在预测循环之外无效
             networkTime.Flags &= ~(NetworkTimeFlags.IsInPredictionLoop |
                                    NetworkTimeFlags.IsFirstPredictionTick |
                                    NetworkTimeFlags.IsFinalPredictionTick |

@@ -3,9 +3,9 @@ using System;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Use this attribute to prevent a GhostComponent from supporting any kind of variants or PrefabType overrides.
-    /// Hides this component in the `GhostAuthoringInspectionComponent` window.
-    /// Mutually exclusive to <see cref="SupportsPrefabOverridesAttribute"/>.
+    /// 使用此特性可阻止 GhostComponent 支持任何变体或 PrefabType 覆盖
+    /// 同时会在 `GhostAuthoringInspectionComponent` 窗口中隐藏该组件
+    /// 与 <see cref="SupportsPrefabOverridesAttribute"/> 互斥
     /// </summary>
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public sealed class DontSupportPrefabOverridesAttribute : Attribute

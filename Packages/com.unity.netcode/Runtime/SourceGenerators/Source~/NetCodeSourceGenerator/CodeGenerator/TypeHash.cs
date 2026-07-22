@@ -1,12 +1,12 @@
 
 namespace Unity.NetCode.Generators.Utilities
 {
-    // A copy of the TypeHash in com.unity.entities, used to compute hashes for serializer and variants.
-    // This is due to the fact that it is not possible to share any dll and having dependencies (now) with packages dlls.
+    // 从 com.unity.entities 复制的 TypeHash，用于计算 Serializer 与 Variant Hash
+    // 当前无法与 Package DLL 共享程序集或建立相应依赖，因此在此保留副本
     internal static class TypeHash
     {
-        // http://www.isthe.com/chongo/src/fnv/hash_64a.c
-        // with basis and prime:
+        // 算法来源：http://www.isthe.com/chongo/src/fnv/hash_64a.c
+        // 使用以下偏移基数与质数
         const ulong kFNV1A64OffsetBasis = 14695981039346656037;
         const ulong kFNV1A64Prime = 1099511628211;
 

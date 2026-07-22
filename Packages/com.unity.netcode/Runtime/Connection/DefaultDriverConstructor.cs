@@ -15,8 +15,8 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Default helper method implementation for constructing <see cref="NetworkDriverStore.NetworkDriverInstance"/>,
-    /// default <see cref="NetworkSettings"/> and registering these on the <see cref="NetworkDriverStore"/>.
+    /// 用于构造 <see cref="NetworkDriverStore.NetworkDriverInstance"/> 和默认 <see cref="NetworkSettings"/>，
+    /// 并将其注册到 <see cref="NetworkDriverStore"/> 的默认辅助方法实现
     /// </summary>
     public static class DefaultDriverBuilder
     {
@@ -25,7 +25,7 @@ namespace Unity.NetCode
         const int DefaultWindowSize = 32;
 
         /// <summary>
-        /// Return an instance of the <see cref="IPCAndSocketDriverConstructor"/> constructor
+        /// 返回 <see cref="IPCAndSocketDriverConstructor"/> 构造器实例
         /// </summary>
         public static INetworkStreamDriverConstructor DefaultDriverConstructor => new IPCAndSocketDriverConstructor();
 
@@ -34,9 +34,9 @@ namespace Unity.NetCode
         public static NetworkSettings GetNetworkSettings() => GetNetworkClientSettings();
 
         /// <summary>
-        /// Return a set of default settings for the client world. This will use the NetworkSimulator parameters set by PlayMode Tools.
+        /// 返回一组 Client World 默认设置，其中会使用 PlayMode Tools 配置的 NetworkSimulator 参数
         /// </summary>
-        /// <returns>A new <see cref="NetworkSettings"/> instance.</returns>
+        /// <returns>新的 <see cref="NetworkSettings"/> 实例</returns>
         public static NetworkSettings GetNetworkClientSettings()
         {
             var settings = new NetworkSettings();
@@ -61,9 +61,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Return a set of internal default settings. This will use the NetworkSimulator parameters set by PlayMode Tools.
+        /// 返回一组内部默认设置，其中会使用 PlayMode Tools 配置的 NetworkSimulator 参数
         /// </summary>
-        /// <returns>Parameters that describe the network configuration.</returns>
+        /// <returns>描述网络配置的参数</returns>
         public static NetworkSettings GetNetworkServerSettings()
         {
             var settings = new NetworkSettings();
@@ -73,16 +73,16 @@ namespace Unity.NetCode
             return settings;
         }
 
-              /// <summary>
-        /// Helper: Adds all netcode-package specific <see cref="NetCodeConfig.Global"/> settings
-        /// for the <see cref="NetworkConfigParameter"/> struct.
+        /// <summary>
+        /// 辅助方法：把 NetCode 包专用的全部 <see cref="NetCodeConfig.Global"/> 设置
+        /// 添加到 <see cref="NetworkConfigParameter"/> 结构体
         /// </summary>
-        /// <param name="settings">The settings to inject into.</param>
-        /// <param name="isServer">Settings differ for server worlds.</param>
+        /// <param name="settings">要注入配置的设置</param>
+        /// <param name="isServer">是否使用 Server World 设置</param>
         public static void AddNetcodePackageNetworkConfigParameters(ref NetworkSettings settings, bool isServer)
         {
             var config = NetCodeConfig.Global;
-            //force retrieve the default if not already added
+            // 尚未添加配置时强制获取默认值
             if (!settings.TryGet(out NetworkConfigParameter ncp))
                 ncp = settings.GetNetworkConfigParameters();
             if (config)
@@ -97,8 +97,7 @@ namespace Unity.NetCode
                 ncp.sendQueueCapacity = isServer ? config.ServerSendQueueCapacity : config.ClientSendQueueCapacity;
             }
 
-            // We use this method instead of the raw struct option because - if UTP add new fields,
-            // this constructor will pick it up, a raw struct won't.
+            // 使用此方法而不是直接传入原始结构体，因为 UTP 新增字段后此构造方式会自动采用，而原始结构体不会
             settings.WithNetworkConfigParameters(
 #if UNITY_EDITOR || NETCODE_DEBUG
                 maxFrameTimeMS: MaxFrameTimeMS,
@@ -115,27 +114,26 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Helper method for creating NetworkDriver suitable for client.
-        /// The driver will use the the specified <paramref name="netIf"/> and is configured
-        /// using the internal defaults. See: <see cref="GetNetworkClientSettings"/>.
+        /// 创建适用于客户端的 NetworkDriver 的辅助方法
+        /// Driver 使用指定的 <paramref name="netIf"/>，并采用内部默认值配置
+        /// 参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <typeparam name="T">the <see cref="INetworkInterface"/> type ot use</typeparam>
-        /// <param name="netIf">the instance of a <see cref="INetworkInterface"/> to use to create the driver</param>
-        /// <returns>A new <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
+        /// <typeparam name="T">要使用的 <see cref="INetworkInterface"/> 类型</typeparam>
+        /// <param name="netIf">用于创建 Driver 的 <see cref="INetworkInterface"/> 实例</param>
+        /// <returns>新的 <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
         public static NetworkDriverStore.NetworkDriverInstance CreateClientNetworkDriver<T>(T netIf) where T : unmanaged, INetworkInterface
         {
             return CreateClientNetworkDriver(netIf, GetNetworkClientSettings());
         }
 
         /// <summary>
-        /// Helper method for creating NetworkDriver suitable for client.
-        /// The driver will use the specified <see cref="INetworkInterface"/> and is configured
-        /// using the provided <paramref name="settings"/>.
+        /// 创建适用于客户端的 NetworkDriver 的辅助方法
+        /// Driver 使用指定的 <see cref="INetworkInterface"/>，并采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <typeparam name="T">the <see cref="INetworkInterface"/> type ot use</typeparam>
-        /// <param name="netIf">the instance of a <see cref="INetworkInterface"/> to use to create the driver</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <returns>A new <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
+        /// <typeparam name="T">要使用的 <see cref="INetworkInterface"/> 类型</typeparam>
+        /// <param name="netIf">用于创建 Driver 的 <see cref="INetworkInterface"/> 实例</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <returns>新的 <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
         public static NetworkDriverStore.NetworkDriverInstance CreateClientNetworkDriver<T>(T netIf, NetworkSettings settings) where T : unmanaged, INetworkInterface
         {
             var driverInstance = new NetworkDriverStore.NetworkDriverInstance();
@@ -162,25 +160,25 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Helper method for creating server NetworkDriver given the specified <paramref name="netIf"/>.
-        /// The driver is configured with the internal defaults. See: <see cref="GetNetworkServerSettings"/>.
+        /// 使用指定 <paramref name="netIf"/> 创建 Server NetworkDriver 的辅助方法
+        /// Driver 采用内部默认值配置，参见 <see cref="GetNetworkServerSettings"/>
         /// </summary>
-        /// <typeparam name="T">the <see cref="INetworkInterface"/> type ot use</typeparam>
-        /// <param name="netIf">the instance of a <see cref="INetworkInterface"/> to use to create the driver</param>
-        /// <returns>A new <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
+        /// <typeparam name="T">要使用的 <see cref="INetworkInterface"/> 类型</typeparam>
+        /// <param name="netIf">用于创建 Driver 的 <see cref="INetworkInterface"/> 实例</param>
+        /// <returns>新的 <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
         public static NetworkDriverStore.NetworkDriverInstance CreateServerNetworkDriver<T>(T netIf) where T : unmanaged, INetworkInterface
         {
             return CreateServerNetworkDriver(netIf, GetNetworkServerSettings());
         }
 
         /// <summary>
-        /// Helper method for creating server NetworkDriver given the specified <paramref name="netIf"/>
-        /// The driver is configured using the <paramref name="settings"/>
+        /// 使用指定 <paramref name="netIf"/> 创建 Server NetworkDriver 的辅助方法
+        /// Driver 采用 <paramref name="settings"/> 配置
         /// </summary>
-        /// <typeparam name="T">The <see cref="INetworkInterface"/> type to use</typeparam>
-        /// <param name="netIf">the instance of a <see cref="INetworkInterface"/> to use to create the driver</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <returns>A new <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
+        /// <typeparam name="T">要使用的 <see cref="INetworkInterface"/> 类型</typeparam>
+        /// <param name="netIf">用于创建 Driver 的 <see cref="INetworkInterface"/> 实例</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <returns>新的 <see cref="NetworkDriverStore.NetworkDriverInstance"/></returns>
         public static NetworkDriverStore.NetworkDriverInstance CreateServerNetworkDriver<T>(T netIf, NetworkSettings settings) where T : unmanaged, INetworkInterface
         {
             var driverInstance = new NetworkDriverStore.NetworkDriverInstance
@@ -193,26 +191,26 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Helper method to determine if the client world should prefer using a socket-based network interface
-        /// (UDP or WebSocket) or the <see cref="IPCNetworkInterface"/>.
-        /// IPC connection type is preferred only in case the <see cref="ClientServerBootstrap.RequestedPlayType"/> is set to
-        /// client/server mode, a server world exist in the process and the <see cref="NetworkSimulatorSettings"/> are disable (in the editor or development build).
+        /// 判断 Client World 应优先使用基于 Socket 的网络接口（UDP 或 WebSocket），
+        /// 还是 <see cref="IPCNetworkInterface"/> 的辅助方法
+        /// 仅当 <see cref="ClientServerBootstrap.RequestedPlayType"/> 设为客户端/服务器模式、
+        /// 当前进程中存在 Server World，且编辑器或开发构建中的 <see cref="NetworkSimulatorSettings"/> 已禁用时，才优先使用 IPC 连接
         /// </summary>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <returns>True when a client world should use a network driver which implements a socket based interface.</returns>
-        /// <remarks>This method should not be used to configure server driver. Also, for server build, this method always return true.</remarks>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <returns>Client World 应使用实现 Socket 接口的 NetworkDriver 时返回 true</returns>
+        /// <remarks>不应使用此方法配置 Server Driver；在服务器构建中，此方法始终返回 true</remarks>
         public static bool ClientUseSocketDriver(NetDebug netDebug)
         {
 #if !UNITY_CLIENT
 #if UNITY_EDITOR || NETCODE_DEBUG
-            //if the emulator is enabled we always force to use sockets. It also work with IPC but this is preferred choice.
+            // 启用模拟器时始终强制使用 Socket，虽然 IPC 同样可用，但 Socket 是首选
             if (NetworkSimulatorSettings.Enabled)
             {
                 netDebug.DebugLog("[DefaultDriverConstructor.ClientUseSocketDriver] Network simulator enabled. Forcing client to use a socket network driver, rather than an IPC.");
                 return true;
             }
 #endif
-            //The client playmode is always set if UNITY_CLIENT define is present
+            // 定义 UNITY_CLIENT 时始终设置客户端 PlayMode
             if (ClientServerBootstrap.RequestedPlayType == ClientServerBootstrap.PlayType.Client)
             {
                 return true;
@@ -228,35 +226,35 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a NetworkDriver instance in the <paramref name="driverStore"/> that uses either:
+        /// 在 <paramref name="driverStore"/> 中注册使用以下任一种网络接口的 NetworkDriver 实例：
         /// <list type="bullet">
-        /// <item>a single IPCNetworkInterface NetworkDriver if both the client and server worlds are present in the same process.</item>
-        /// <item>a single UDPNetworkInterface driver if you are targeting a standalone platform.</item>
-        /// <item>a single WebSocketNetworkInterface if you are targeting WebGL.</item>
+        /// <item>客户端与 Server World 同处一个进程时，使用单个 IPCNetworkInterface NetworkDriver</item>
+        /// <item>目标为独立平台时，使用单个 UDPNetworkInterface Driver</item>
+        /// <item>目标为 WebGL 时，使用单个 WebSocketNetworkInterface</item>
         /// </list>
-        /// These are configured using internal defaults. See: <see cref="GetNetworkClientSettings"/>.
+        /// 这些 Driver 采用内部默认值配置，参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         public static void RegisterClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
         {
             RegisterClientDriver(world, ref driverStore, netDebug, GetNetworkClientSettings());
         }
 
         /// <summary>
-        /// Register a NetworkDriver instance in the <paramref name="driverStore"/> that uses either:
+        /// 在 <paramref name="driverStore"/> 中注册使用以下任一种网络接口的 NetworkDriver 实例：
         /// <list type="bullet">
-        /// <item>a single IPCNetworkInterface NetworkDriver if both the client and server worlds are present in the same process.</item>
-        /// <item>a single UDPNetworkInterface driver if you are targeting a standalone platform.</item>
-        /// <item>a single WebSocketNetworkInterface if you are targeting WebGL.</item>
+        /// <item>客户端与 Server World 同处一个进程时，使用单个 IPCNetworkInterface NetworkDriver</item>
+        /// <item>目标为独立平台时，使用单个 UDPNetworkInterface Driver</item>
+        /// <item>目标为 WebGL 时，使用单个 WebSocketNetworkInterface</item>
         /// </list>
-        /// These are configured using the <paramref name="settings"/> passed in.
+        /// 这些 Driver 采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
         public static void RegisterClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             if (ClientUseSocketDriver(netDebug))
@@ -275,13 +273,13 @@ namespace Unity.NetCode
 
 #if !UNITY_WEBGL || UNITY_EDITOR
         /// <summary>
-        /// Register a <see cref="UDPNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// This are configured using the <paramref name="settings"/> passed in.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="UDPNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
         public static void RegisterClientUdpDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             Assert.IsTrue(world.IsClient());
@@ -291,15 +289,15 @@ namespace Unity.NetCode
         }
 #endif
         /// <summary>
-        /// Register a <see cref="WebSocketNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// This are configured using the <paramref name="settings"/> passed in. The constructed driver
-        /// does not use a reliable pipeline stage (websocket are already reliable) and the <see cref="NetworkDriverStore.NetworkDriverInstance.reliablePipeline"/>
-        /// instance is a <see cref="NullPipelineStage"/>.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="WebSocketNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
+        /// 构造出的 Driver 不使用 Reliable Pipeline Stage，因为 WebSocket 本身已经可靠，
+        /// 且 <see cref="NetworkDriverStore.NetworkDriverInstance.reliablePipeline"/> 实例为 <see cref="NullPipelineStage"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
         public static void RegisterClientWebSocketDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug,
             NetworkSettings settings)
         {
@@ -309,28 +307,28 @@ namespace Unity.NetCode
             if (NetworkSimulatorSettings.Enabled)
             {
                 driverInstance.driver = NetworkDriver.Create(new WebSocketNetworkInterface(), settings);
-                // Web socket does not require reliable pipeline, nor technically the fragmented stage, but they need
-                // to be kept around for compatibility reasons for cross-platform connections to non-webgl players
+                // WebSocket 不需要 Reliable Pipeline，严格来说也不需要 Fragmented Stage
+                // 但为了兼容与非 WebGL Player 的跨平台连接，仍需保留它们
                 CreateClientSimulatorPipelines(ref driverInstance);
             }
             else
 #endif
             {
                 driverInstance.driver = NetworkDriver.Create(new WebSocketNetworkInterface(), settings);
-                // Web socket does not require reliable pipeline, nor technically the fragmented stage, but they need
-                // to be kept around for compatibility reasons for cross-platform connections to non-webgl players
+                // WebSocket 不需要 Reliable Pipeline，严格来说也不需要 Fragmented Stage
+                // 但为了兼容与非 WebGL Player 的跨平台连接，仍需保留它们
                 CreateClientPipelines(ref driverInstance);
             }
             driverStore.RegisterDriver(TransportType.Socket, driverInstance);
         }
         /// <summary>
-        /// Register an <see cref="IPCNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// This are configured using the <paramref name="settings"/> passed in.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="IPCNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
         public static void RegisterClientIpcDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             Assert.IsTrue(world.IsClient());
@@ -347,36 +345,36 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register multiple NetworkDriver instances to the <paramref name="driverStore"/> that uses different <see cref="INetworkInterface"/>:
+        /// 向 <paramref name="driverStore"/> 注册多个使用不同 <see cref="INetworkInterface"/> 的 NetworkDriver 实例：
         /// <list type="bullet">
-        /// <item>One driver that uses `IPCNetworkInterface` if the `ClientServerBootstrap.RequestedPlayType` is Client/Server.</item>
-        /// <item>One driver that uses `UDPNetworkInterface` if the current build target is a standalone platorm (no WebGL) or dedicated server.</item>
-        /// <item>One driver that uses `WebSocketNetworkInterface` if the current build target is WebGL.</item>
+        /// <item>`ClientServerBootstrap.RequestedPlayType` 为客户端/服务器模式时，注册一个使用 `IPCNetworkInterface` 的 Driver</item>
+        /// <item>当前构建目标是独立平台（非 WebGL）或 Dedicated Server 时，注册一个使用 `UDPNetworkInterface` 的 Driver</item>
+        /// <item>当前构建目标是 WebGL 时，注册一个使用 `WebSocketNetworkInterface` 的 Driver</item>
         /// </list>
-        /// These are configured using internal defaults. See: <see cref="GetNetworkClientSettings"/>.
+        /// 这些 Driver 采用内部默认值配置，参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         public static void RegisterServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
         {
             RegisterServerDriver(world, ref driverStore, netDebug, GetNetworkServerSettings());
         }
 
         /// <summary>
-        /// Register a multiple NetworkDriver instances to hte <paramref name="driverStore"/>: <br/>
+        /// 向 <paramref name="driverStore"/> 注册多个 NetworkDriver 实例：<br/>
         /// <list type="bullet">
-        /// <item>One driver that uses `IPCNetworkInterface` if the `ClientServerBootstrap.RequestedPlayType` is Client/Server.</item>
-        /// <item>One driver that uses `UDPNetworkInterface` if the current build target is a standalone platorm (no WebGL) or dedicated server.</item>
-        /// <item>One driver that uses `WebSocketNetworkInterface` if the current build target is WebGL.</item>
+        /// <item>`ClientServerBootstrap.RequestedPlayType` 为客户端/服务器模式时，注册一个使用 `IPCNetworkInterface` 的 Driver</item>
+        /// <item>当前构建目标是独立平台（非 WebGL）或 Dedicated Server 时，注册一个使用 `UDPNetworkInterface` 的 Driver</item>
+        /// <item>当前构建目标是 WebGL 时，注册一个使用 `WebSocketNetworkInterface` 的 Driver</item>
         /// </list>
-        /// These drivers are configured using the <paramref name="settings">NetworkSettings</paramref> passed in.
+        /// 这些 Driver 采用传入的 <paramref name="settings">NetworkSettings</paramref> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <remarks>Not available for WebGL builds. Always available in the Editor.</remarks>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             RegisterServerIpcDriver(world, ref driverStore, netDebug, settings);
@@ -388,14 +386,14 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a <see cref="IPCNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// This are configured using the <paramref name="settings"/> passed in.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="IPCNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <remarks>Not available for WebGL builds. Always available in the Editor.</remarks>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerIpcDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             Assert.IsTrue(world.IsServer());
@@ -406,14 +404,14 @@ namespace Unity.NetCode
 
 #if !UNITY_WEBGL || UNITY_EDITOR
         /// <summary>
-        /// Register a <see cref="UDPNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// These are configured using the <paramref name="settings"/> passed in.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="UDPNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <remarks>Not available for WebGL builds. Always available in the Editor.</remarks>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerUdpDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, NetworkSettings settings)
         {
             Assert.IsTrue(world.IsServer());
@@ -424,16 +422,16 @@ namespace Unity.NetCode
 #endif
 
         /// <summary>
-        /// Register a <see cref="WebSocketNetworkInterface"/> NetworkDriver instance in <paramref name="driverStore"/>.
-        /// This are configured using the <paramref name="settings"/> passed in. The constructed driver
-        /// does not use a reliable pipeline stage (websocket are already reliable) and the <see cref="NetworkDriverStore.NetworkDriverInstance.reliablePipeline"/>
-        /// instance is a <see cref="NullPipelineStage"/>.
+        /// 在 <paramref name="driverStore"/> 中注册 <see cref="WebSocketNetworkInterface"/> NetworkDriver 实例
+        /// 该实例采用传入的 <paramref name="settings"/> 配置
+        /// 构造出的 Driver 不使用 Reliable Pipeline Stage，因为 WebSocket 本身已经可靠，
+        /// 且 <see cref="NetworkDriverStore.NetworkDriverInstance.reliablePipeline"/> 实例为 <see cref="NullPipelineStage"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="settings">A list of the parameters that describe the network configuration.</param>
-        /// <remarks>Not available for WebGL build. Always available in the Editor.</remarks>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="settings">描述网络配置的参数列表</param>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerWebSocketDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug,
             NetworkSettings settings)
         {
@@ -444,16 +442,16 @@ namespace Unity.NetCode
             {
                 driver = NetworkDriver.Create(new WebSocketNetworkInterface(), settings)
             };
-            // Web socket does not require reliable pipeline, nor technically the fragmented stage, but they need
-            // to be kept around for compatibility reasons for cross-platform connections to non-webgl players
+            // WebSocket 不需要 Reliable Pipeline，严格来说也不需要 Fragmented Stage
+            // 但为了兼容与非 WebGL Player 的跨平台连接，仍需保留它们
             CreateServerPipelines(ref driverInstance);
             driverStore.RegisterDriver(TransportType.Socket, driverInstance);
         }
 
         /// <summary>
-        /// Create the default network pipelines (reliable, unreliable, unreliable fragmented) for the client.
+        /// 为客户端创建默认网络 Pipeline，包括 Reliable、Unreliable 和 Unreliable Fragmented
         /// </summary>
-        /// <param name="driverInstance">The <see cref="NetworkDriverStore.NetworkDriverInstance"/> instance to configure</param>
+        /// <param name="driverInstance">要配置的 <see cref="NetworkDriverStore.NetworkDriverInstance"/> 实例</param>
         public static void CreateClientPipelines(ref NetworkDriverStore.NetworkDriverInstance driverInstance)
         {
             driverInstance.unreliablePipeline = driverInstance.driver.CreatePipeline(typeof(NullPipelineStage));
@@ -462,9 +460,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Create the default network pipelines (reliable, unreliable, unreliable fragmented) for the server.
+        /// 为服务器创建默认网络 Pipeline，包括 Reliable、Unreliable 和 Unreliable Fragmented
         /// </summary>
-        /// <param name="driverInstance">The <see cref="NetworkDriverStore.NetworkDriverInstance"/> instance to configure</param>
+        /// <param name="driverInstance">要配置的 <see cref="NetworkDriverStore.NetworkDriverInstance"/> 实例</param>
         public static void CreateServerPipelines(ref NetworkDriverStore.NetworkDriverInstance driverInstance)
         {
             driverInstance.unreliablePipeline = driverInstance.driver.CreatePipeline(typeof(NullPipelineStage));
@@ -474,8 +472,8 @@ namespace Unity.NetCode
 
 #if UNITY_EDITOR || NETCODE_DEBUG || UNITY_INCLUDE_TESTS
         /// <summary>
-        /// Should be used only for configuring client drivers, create the network pipelines (reliable, unreliable, unreliable fragmented)
-        /// with network simulator support.
+        /// 仅用于配置 Client Driver，创建支持 Network Simulator 的网络 Pipeline，
+        /// 包括 Reliable、Unreliable 和 Unreliable Fragmented
         /// </summary>
         /// <param name="driverInstance"></param>
         public static void CreateClientSimulatorPipelines(ref NetworkDriverStore.NetworkDriverInstance driverInstance)
@@ -492,16 +490,16 @@ namespace Unity.NetCode
 #endif
 #if ENABLE_MANAGED_UNITYTLS
         /// <summary>
-        /// Register a NetworkDriver instance in and stores it in <paramref name="driverStore"/>:<br/>
-        ///     - a single <see cref="IPCNetworkInterface"/> NetworkDriver if the both client and server worlds are present in the same process.<br/>
-        ///     - a single <see cref="UDPNetworkInterface"/> driver in all other cases.<br/>
-        /// These are configured using the default settings. See <see cref="GetNetworkClientSettings"/>.
+        /// 注册 NetworkDriver 实例并保存到 <paramref name="driverStore"/>：<br/>
+        ///     - Client World 与 Server World 同处一个进程时，使用单个 <see cref="IPCNetworkInterface"/> NetworkDriver<br/>
+        ///     - 其他情况使用单个 <see cref="UDPNetworkInterface"/> Driver<br/>
+        /// 这些 Driver 采用默认设置配置，参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="caCertificate">Signed server certificate.</param>
-        /// <param name="serverName">Common name in the server certificate.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="caCertificate">已签名的服务器证书</param>
+        /// <param name="serverName">服务器证书中的通用名称</param>
         public static void RegisterClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, ref FixedString4096Bytes caCertificate, ref FixedString512Bytes serverName)
         {
             var settings = GetNetworkClientSettings();
@@ -518,20 +516,19 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a multiple NetworkDriver instances to hte <paramref name="driverStore"/>: <br/>
+        /// 向 <paramref name="driverStore"/> 注册多个 NetworkDriver 实例：<br/>
         /// <list type="bullet">
-        /// <item>One driver that uses IPCNetworkInterface if the ClientServerBootstrap.RequestedPlayType is Client/Server.</item>
-        /// <item>For all targets apart WebGL, one driver instance using a UDPNetworkInterface. For WebGL and in the Editor, one driver instance using the
-        /// WebSocketNetworkInterface.</item>
+        /// <item>ClientServerBootstrap.RequestedPlayType 为客户端/服务器模式时，注册一个使用 IPCNetworkInterface 的 Driver</item>
+        /// <item>除 WebGL 外的所有目标注册一个使用 UDPNetworkInterface 的 Driver；WebGL 和编辑器中注册一个使用 WebSocketNetworkInterface 的 Driver</item>
         /// </list>
-        /// These are configured using the default settings. See <see cref="GetNetworkServerSettings"/>.
+        /// 这些 Driver 采用默认设置配置，参见 <see cref="GetNetworkServerSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         /// <param name="certificate"></param>
         /// <param name="privateKey"></param>
-        /// <remarks>Not available for WebGL builds. Always available in the Editor.</remarks>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, ref FixedString4096Bytes certificate, ref FixedString4096Bytes privateKey)
         {
             var settings = GetNetworkServerSettings();
@@ -540,15 +537,15 @@ namespace Unity.NetCode
         }
 #endif
         /// <summary>
-        /// Register a NetworkDriver instance in and stores it in <paramref name="driverStore"/>:<br/>
-        ///     - a single <see cref="IPCNetworkInterface"/> NetworkDriver if the both client and server worlds are present in the same process.<br/>
-        ///     - a single <see cref="UDPNetworkInterface"/> driver in all other cases.<br/>
-        /// These are configured using the default settings. See <see cref="GetNetworkClientSettings"/>.
+        /// 注册 NetworkDriver 实例并保存到 <paramref name="driverStore"/>：<br/>
+        ///     - Client World 与 Server World 同处一个进程时，使用单个 <see cref="IPCNetworkInterface"/> NetworkDriver<br/>
+        ///     - 其他情况使用单个 <see cref="UDPNetworkInterface"/> Driver<br/>
+        /// 这些 Driver 采用默认设置配置，参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="relayData">Server information to make a connection using a relay server.</param>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="relayData">通过 Relay Server 建立连接所需的服务器信息</param>
         public static void RegisterClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, ref RelayServerData relayData)
         {
             var settings = GetNetworkClientSettings();
@@ -567,19 +564,19 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register multiple NetworkDriver instances to the <paramref name="driverStore"/> that uses different <see cref="INetworkInterface"/>:
+        /// 向 <paramref name="driverStore"/> 注册多个使用不同 <see cref="INetworkInterface"/> 的 NetworkDriver 实例：
         /// <list type="bullet">
-        /// <item>One driver that uses IPCNetworkInterface if the ClientServerBootstrap.RequestedPlayType is Client/Server.</item>
-        /// <item>One driver that uses UDPNetworkInterface if the current build target is a standalone platorm (no WebGL) or dedicated server.</item>
-        /// <item>One driver that uses WebSocketNetworkInterface if the current build target is WebGL.</item>
+        /// <item>ClientServerBootstrap.RequestedPlayType 为客户端/服务器模式时，注册一个使用 IPCNetworkInterface 的 Driver</item>
+        /// <item>当前构建目标是独立平台（非 WebGL）或 Dedicated Server 时，注册一个使用 UDPNetworkInterface 的 Driver</item>
+        /// <item>当前构建目标是 WebGL 时，注册一个使用 WebSocketNetworkInterface 的 Driver</item>
         /// </list>
-        /// These are configured using internal defaults. See: <see cref="GetNetworkClientSettings"/>.
+        /// 这些 Driver 采用内部默认值配置，参见 <see cref="GetNetworkClientSettings"/>
         /// </summary>
-        /// <param name="world">Used for determining whether we are running in a client or server world.</param>
-        /// <param name="driverStore">Store for NetworkDriver.</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
-        /// <param name="relayData">Server information to make a connection using a relay server.</param>
-        /// <remarks>Not available for WebGL builds. Always available in the Editor.</remarks>
+        /// <param name="world">用于判断当前运行在 Client World 还是 Server World</param>
+        /// <param name="driverStore">NetworkDriver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
+        /// <param name="relayData">通过 Relay Server 建立连接所需的服务器信息</param>
+        /// <remarks>WebGL 构建不可用，编辑器中始终可用</remarks>
         public static void RegisterServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug, ref RelayServerData relayData)
         {
             var settings = GetNetworkServerSettings();
@@ -592,44 +589,45 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The default NetCode driver constructor, initialise the server world to use multiple <see cref="INetworkInterface"/> and the client world using
-    /// a single <see cref="INetworkInterface"/>, depending on the current <see cref="ClientServerBootstrap.RequestedPlayType"/> and current platform.
-    /// In particular:
-    /// - On the server: both <see cref="IPCNetworkInterface"/> and <see cref="UDPNetworkInterface"/> NetworkDriver in the editor and only
-    ///   a single <see cref="UDPNetworkInterface"/> driver in the build.<br/>
-    /// - On the client:<br/>
-    ///     - a single <see cref="IPCNetworkInterface"/> NetworkDriver if the both client and server worlds are present in the same process.<br/>
-    ///     - a single <see cref="UDPNetworkInterface"/> driver in all other cases.<br/>
-    /// In the Editor and Development build, if the network simulator is enabled, force on the client to use the <see cref="UDPNetworkInterface"/> network driver.
-    /// <b>To let the client use the IPC network interface when in client and server mode, you must create the server world first (in other words; call `NetworkStreamDriver.Listen` on it before attempting to connect to it).</b>
+    /// 默认 NetCode Driver 构造器，根据当前 <see cref="ClientServerBootstrap.RequestedPlayType"/> 和平台，
+    /// 初始化 Server World 使用多个 <see cref="INetworkInterface"/>，Client World 使用单个 <see cref="INetworkInterface"/>
+    /// 具体规则如下：
+    /// - 服务器：编辑器中同时使用 <see cref="IPCNetworkInterface"/> 和 <see cref="UDPNetworkInterface"/> NetworkDriver，
+    ///   构建中仅使用单个 <see cref="UDPNetworkInterface"/> Driver<br/>
+    /// - 客户端：<br/>
+    ///     - Client World 与 Server World 同处一个进程时，使用单个 <see cref="IPCNetworkInterface"/> NetworkDriver<br/>
+    ///     - 其他情况使用单个 <see cref="UDPNetworkInterface"/> Driver<br/>
+    /// 在编辑器和开发构建中，如果启用 Network Simulator，则强制客户端使用 <see cref="UDPNetworkInterface"/> NetworkDriver
+    /// <b>要让客户端在客户端/服务器模式下使用 IPC 网络接口，必须先创建 Server World，
+    /// 即先对其调用 `NetworkStreamDriver.Listen`，再尝试连接</b>
     /// </summary>
     public struct IPCAndSocketDriverConstructor : INetworkStreamDriverConstructor
     {
         /// <summary>
-        /// Create and register a new <see cref="NetworkDriver"/> suitable for connecting client to server to the destination <see cref="NetworkDriverStore"/>.
-        /// The network driver instance will use socket or IPC network interfaces based on the <see cref="ClientServerBootstrap.RequestedPlayType"/> and the
-        /// presence of a server instance in the same process. <br/>
-        /// For WebGL builds, client use by default the <see cref="WebSocketNetworkInterface"/>.
+        /// 创建适用于客户端连接服务器的新 <see cref="NetworkDriver"/>，并注册到目标 <see cref="NetworkDriverStore"/>
+        /// NetworkDriver 实例会根据 <see cref="ClientServerBootstrap.RequestedPlayType"/> 以及同一进程中是否存在 Server 实例，
+        /// 选择使用 Socket 或 IPC 网络接口<br/>
+        /// WebGL 构建中的客户端默认使用 <see cref="WebSocketNetworkInterface"/>
         /// </summary>
-        /// <param name="world">The destination world in which the driver will be created</param>
-        /// <param name="driverStore">An instance of a <see cref="NetworkDriverStore"/> where the driver will be registered</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">创建 Driver 的目标 World</param>
+        /// <param name="driverStore">注册 Driver 的 <see cref="NetworkDriverStore"/> 实例</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         public void CreateClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
         {
             DefaultDriverBuilder.RegisterClientDriver(world, ref driverStore, netDebug, DefaultDriverBuilder.GetNetworkClientSettings());
         }
 
         /// <summary>
-        /// Create and register one or more network drivers that can be used to listen for incoming connection into the destination <see cref="NetworkDriverStore"/>.
-        /// By default, a <see cref="NetworkDriver"/> that uses a socket network interface is always created. For WebGL builds in particular,
-        /// the server use the <see cref="WebSocketNetworkInterface"/> for communicating with the clients. <br/>
-        /// In the Editor or in a Client/Server player build, if the <see cref="ClientServerBootstrap.RequestedPlayType"/> mode is set to
-        /// <see cref="ClientServerBootstrap.PlayType.ClientAndServer"/>, a second <see cref="NetworkDriver"/> that use an IPC network interface will be also created and
-        /// that will be used for minimizing the latency for the in-proc client connection.
+        /// 创建一个或多个可监听入站连接的 NetworkDriver，并注册到目标 <see cref="NetworkDriverStore"/>
+        /// 默认始终创建一个使用 Socket 网络接口的 <see cref="NetworkDriver"/>
+        /// 在 WebGL 构建中，服务器使用 <see cref="WebSocketNetworkInterface"/> 与客户端通信<br/>
+        /// 在编辑器或客户端/服务器 Player 构建中，如果 <see cref="ClientServerBootstrap.RequestedPlayType"/> 设为
+        /// <see cref="ClientServerBootstrap.PlayType.ClientAndServer"/>，还会创建第二个使用 IPC 网络接口的 <see cref="NetworkDriver"/>，
+        /// 用于尽量降低同一进程内客户端连接的延迟
         /// </summary>
-        /// <param name="world">The destination world in which the driver will be created</param>
-        /// <param name="driverStore">An instance of a <see cref="NetworkDriverStore"/> where the driver will be registered</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">创建 Driver 的目标 World</param>
+        /// <param name="driverStore">注册 Driver 的 <see cref="NetworkDriverStore"/> 实例</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         public void CreateServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
         {
 #if UNITY_EDITOR || !UNITY_WEBGL

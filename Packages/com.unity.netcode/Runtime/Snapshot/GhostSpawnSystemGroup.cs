@@ -3,9 +3,9 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Parent group of all systems that need to process ghost entities after they are spawned.
-    /// The group execute before <see cref="NetworkReceiveSystemGroup"/> to guarantee that when a new snasphot is received
-    /// from server, all new ghosts has been spawned and ready to receive new data.
+    /// 所有需要在 Ghost 实体生成后处理它们的系统父组
+    /// 此组在 <see cref="NetworkReceiveSystemGroup"/> 之前执行
+    /// 确保收到服务器的新 Snapshot 时，所有新 Ghost 均已生成并准备接收新数据
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation|WorldSystemFilterFlags.ThinClientSimulation, WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst=true)]

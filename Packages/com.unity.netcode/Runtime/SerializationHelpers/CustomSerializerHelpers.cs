@@ -10,25 +10,23 @@ using UnityEngine.Assertions;
 namespace Unity.NetCode.LowLevel.Unsafe
 {
     /// <summary>
-    /// Contains helper methods to write custom chunk serializers.
-    /// See <see cref="GhostPrefabCustomSerializer"/> for more information about what a custom
-    /// chunk serializer function pointer should be used for.
+    /// 包含编写自定义 Chunk Serializer 所需的辅助方法
+    /// 关于自定义 Chunk Serializer 函数指针的用途，请参阅 <see cref="GhostPrefabCustomSerializer"/>
     /// </summary>
     public static unsafe class CustomGhostSerializerHelpers
     {
         /// <summary>
-        /// Copy the component data to the snapshot buffer for the whole chunk starting from
-        /// index <see cref="GhostPrefabCustomSerializer.Context.startIndex"/> to
-        /// <see cref="GhostPrefabCustomSerializer.Context.endIndex"/>.
+        /// 将整个 Chunk 中从 <see cref="GhostPrefabCustomSerializer.Context.startIndex"/> 开始，
+        /// 到 <see cref="GhostPrefabCustomSerializer.Context.endIndex"/> 结束的 Component Data 复制到 Snapshot Buffer
         /// </summary>
-        /// <param name="chunk">the chunk</param>
-        /// <param name="context">the serialization context</param>
-        /// <param name="typeHandles">the component typehandles</param>
-        /// <param name="index">the <see cref="GhostCollectionComponentIndex"/> buffer</param>
-        /// <param name="snapshotData">the snapshot buffer data store</param>
-        /// <param name="snapshotOffset">the offset in bytes where the component data should be stored</param>
-        /// <param name="serializer">the current serializer to use</param>
-        /// <typeparam name="T">the unmanaged component type</typeparam>
+        /// <param name="chunk">源 Chunk</param>
+        /// <param name="context">序列化上下文</param>
+        /// <param name="typeHandles">Component TypeHandle 集合</param>
+        /// <param name="index">对应的 <see cref="GhostCollectionComponentIndex"/> Buffer</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据存储区</param>
+        /// <param name="snapshotOffset">Component Data 存储位置的字节 Offset</param>
+        /// <param name="serializer">当前使用的 Serializer</param>
+        /// <typeparam name="T">Unmanaged Component 类型</typeparam>
         public static void CopyComponentToSnapshot<T>(
             this T serializer,
             ArchetypeChunk chunk,
@@ -52,17 +50,17 @@ namespace Unity.NetCode.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Copy a single component data for a child component to the snapshot buffer.
+        /// 将 Child Component 的单份 Component Data 复制到 Snapshot Buffer
         /// </summary>
-        /// <param name="serializer">the serializer to use</param>
-        /// <param name="chunk">the chunk to copy</param>
-        /// <param name="indexInChunk">the index in the chunk</param>
-        /// <param name="context">the serialization context</param>
-        /// <param name="typeHandles">the component type handles</param>
-        /// <param name="index">the <see cref="GhostCollectionComponentIndex>"/> collection</param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the start offset from the beginning of the snapshot buffer</param>
-        /// <typeparam name="T">the component type</typeparam>
+        /// <param name="serializer">要使用的 Serializer</param>
+        /// <param name="chunk">要复制的 Chunk</param>
+        /// <param name="indexInChunk">Chunk 中的索引</param>
+        /// <param name="context">序列化上下文</param>
+        /// <param name="typeHandles">Component TypeHandle 集合</param>
+        /// <param name="index"><see cref="GhostCollectionComponentIndex>"/> 集合</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">相对 Snapshot Buffer 起始位置的 Offset</param>
+        /// <typeparam name="T">Component 类型</typeparam>
         public static void CopyChildComponentToSnapshot<T>(
             this T serializer,
             ArchetypeChunk chunk,
@@ -81,19 +79,19 @@ namespace Unity.NetCode.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Copy all buffers in the chunk for a given <see cref="DynamicComponentTypeHandle"/> to the snapshot buffer,
-        /// starting from index <see cref="GhostPrefabCustomSerializer.Context.startIndex"/> to
-        /// <see cref="GhostPrefabCustomSerializer.Context.endIndex"/>.
+        /// 将 Chunk 中指定 <see cref="DynamicComponentTypeHandle"/> 的所有 Buffer 复制到 Snapshot Buffer，
+        /// 范围从 <see cref="GhostPrefabCustomSerializer.Context.startIndex"/> 开始，
+        /// 到 <see cref="GhostPrefabCustomSerializer.Context.endIndex"/> 结束
         /// </summary>
-        /// <param name="serializer">the serializer to use</param>
-        /// <param name="chunk">the chunk to copy</param>
-        /// <param name="context">the serialization context</param>
-        /// <param name="typeHandles">the component type handles</param>
-        /// <param name="index">the <see cref="GhostCollectionComponentIndex>"/> collection</param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the start offset from the beginning of the snapshot buffer</param>
-        /// <param name="dynamicSnapshotDataOffset">the offset in the dynamic snapshot data buffer where the buffer data is stored</param>
-        /// <typeparam name="T">the buffer type</typeparam>
+        /// <param name="serializer">要使用的 Serializer</param>
+        /// <param name="chunk">要复制的 Chunk</param>
+        /// <param name="context">序列化上下文</param>
+        /// <param name="typeHandles">Component TypeHandle 集合</param>
+        /// <param name="index"><see cref="GhostCollectionComponentIndex>"/> 集合</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">相对 Snapshot Buffer 起始位置的 Offset</param>
+        /// <param name="dynamicSnapshotDataOffset">Buffer Data 在动态 Snapshot Data Buffer 中的 Offset</param>
+        /// <typeparam name="T">Buffer 类型</typeparam>
         public static void CopyBufferToSnapshot<T>(
             this T serializer,
             ArchetypeChunk chunk, ref GhostPrefabCustomSerializer.Context context,
@@ -118,18 +116,18 @@ namespace Unity.NetCode.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Copy a single buffer on a child entity for a given <see cref="DynamicComponentTypeHandle"/> to the snapshot buffer.
+        /// 将 Child Entity 上指定 <see cref="DynamicComponentTypeHandle"/> 的单个 Buffer 复制到 Snapshot Buffer
         /// </summary>
-        /// <param name="serializer">the serializer to use</param>
-        /// <param name="chunk">the chunk to copy</param>
-        /// <param name="indexInChunk">the index in the chunk</param>
-        /// <param name="context">the serialization context</param>
-        /// <param name="typeHandles">the component type handles</param>
-        /// <param name="index">the <see cref="GhostCollectionComponentIndex>"/> collection</param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the start offset from the beginning of the snapshot buffer</param>
-        /// <param name="dynamicSnapshotOffset">the offset in the dynamic snapshot data buffer where the buffer data is stored</param>
-        /// <typeparam name="T">the buffer type</typeparam>
+        /// <param name="serializer">要使用的 Serializer</param>
+        /// <param name="chunk">要复制的 Chunk</param>
+        /// <param name="indexInChunk">Chunk 中的索引</param>
+        /// <param name="context">序列化上下文</param>
+        /// <param name="typeHandles">Component TypeHandle 集合</param>
+        /// <param name="index"><see cref="GhostCollectionComponentIndex>"/> 集合</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">相对 Snapshot Buffer 起始位置的 Offset</param>
+        /// <param name="dynamicSnapshotOffset">Buffer Data 在动态 Snapshot Data Buffer 中的 Offset</param>
+        /// <typeparam name="T">Buffer 类型</typeparam>
         public static void CopyChildBufferToSnapshot<T>(
             this T serializer,
             ArchetypeChunk chunk, int indexInChunk,
@@ -158,12 +156,12 @@ namespace Unity.NetCode.LowLevel.Unsafe
             if(Burst.CompilerServices.Hint.Unlikely(!serializer.HasGhostFields))
                 return;
             var dynamicSnapshot = context.snapshotDynamicDataPtr + dynamicSnapshotOffset;
-            //Set the elements count and the buffer content offset inside the dynamic data history buffer
+            // 设置元素数量和 Buffer 内容在动态数据历史缓冲区中的 Offset
             *(uint*)snapshot = (uint)bufLen;
             *(uint*)(snapshot + 4) = (uint)dynamicSnapshotOffset;
             if (bufLen > 0)
             {
-                //Copy the buffer contents. Skip the change mask (later)
+                // 复制 Buffer 内容，暂时跳过稍后处理的 ChangeMask
                 var maskSize = SnapshotDynamicBuffersHelper.GetDynamicDataChangeMaskSize(serializer.ChangeMaskSizeInBits, bufLen);
                 dynamicSnapshot += maskSize;
                 for (int el = 0; el < bufLen; ++el)
@@ -179,16 +177,15 @@ namespace Unity.NetCode.LowLevel.Unsafe
 
 
         /// <summary>
-        /// Copy all the enable bits state for the given <see cref="DynamicComponentTypeHandle"/> to
-        /// the snapshot buffer.
+        /// 将指定 <see cref="DynamicComponentTypeHandle"/> 的全部 Enable Bit 状态复制到 Snapshot Buffer
         /// </summary>
-        /// <param name="chunk">the chunk</param>
-        /// <param name="startIndex">the start entity index</param>
-        /// <param name="endIndex">the end entity index (not inclusive)</param>
-        /// <param name="snapshotStride">the stride in bytes (the size) of the snapshot data for the given archretype</param>
-        /// <param name="componentTypeHandle">the component type handle to extrac</param>
-        /// <param name="enableMasks">the snapshot enable bit mask array </param>
-        /// <param name="maskOffset">the offset in bits in the array</param>
+        /// <param name="chunk">源 Chunk</param>
+        /// <param name="startIndex">起始 Entity 索引</param>
+        /// <param name="endIndex">结束 Entity 索引，不包含该索引</param>
+        /// <param name="snapshotStride">指定 Archetype 的 Snapshot Data 字节 Stride，即大小</param>
+        /// <param name="componentTypeHandle">要提取的 Component TypeHandle</param>
+        /// <param name="enableMasks">Snapshot Enable Bit Mask 数组</param>
+        /// <param name="maskOffset">数组中的位 Offset</param>
         public static void CopyEnableBits(ArchetypeChunk chunk, int startIndex, int endIndex,
             int snapshotStride, ref DynamicComponentTypeHandle componentTypeHandle, byte* enableMasks,
             ref int maskOffset)
@@ -212,25 +209,24 @@ namespace Unity.NetCode.LowLevel.Unsafe
     }
 
     /// <summary>
-    /// Extension methods for all unmanaged types implementing the
-    /// <see cref="IGhostSerializer"/> interface.
+    /// 所有实现 <see cref="IGhostSerializer"/> 接口的 Unmanaged 类型所使用的扩展方法
     /// </summary>
     static public class GhostCustomSerializerExtensions
     {
         /// <summary>
-        /// Serialize the given component into the data stream by using a single baseline.
+        /// 使用单个 Baseline 将指定 Component 序列化到 Data Stream
         /// </summary>
-        /// <param name="serializer">the serializer instance</param>
-        /// <param name="snapshot">the snapshot buffer</param>
-        /// <param name="baseline">the baseline to diff against. Can be a zere baseline</param>
-        /// <param name="changeMaskData">the change mask bits buffer</param>
-        /// <param name="startOffset">the bitmask start offset</param>
-        /// <param name="snapshotOffset">the data start offset</param>
-        /// <param name="writer">the data writer</param>
-        /// <param name="compressionModel">the compression model</param>
-        /// <param name="sendComponent">instruct if the component should be sent or not</param>
-        /// <typeparam name="TSerializer">the seralizer type</typeparam>
-        /// <returns>the number of bits written in the stream</returns>
+        /// <param name="serializer">Serializer 实例</param>
+        /// <param name="snapshot">Snapshot Buffer 数据</param>
+        /// <param name="baseline">用于计算差值的 Baseline，可以是零 Baseline</param>
+        /// <param name="changeMaskData">ChangeMask 位 Buffer</param>
+        /// <param name="startOffset">BitMask 起始 Offset</param>
+        /// <param name="snapshotOffset">数据起始 Offset</param>
+        /// <param name="writer">数据写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="sendComponent">是否应发送此 Component</param>
+        /// <typeparam name="TSerializer">Serializer 类型</typeparam>
+        /// <returns>写入数据流的位数</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static public int SerializeComponentSingleBaseline<TSerializer>(
             this TSerializer serializer,
@@ -269,24 +265,23 @@ namespace Unity.NetCode.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Serialize the given component into the data stream by using three baselines.
-        /// The <see cref="GhostDeltaPredictor"/> will calculate new predicted baseline that
-        /// will be used for delta compression.
+        /// 使用三个 Baseline 将指定 Component 序列化到 Data Stream
+        /// <see cref="GhostDeltaPredictor"/> 会计算用于 Delta Compression 的新预测 Baseline
         /// </summary>
-        /// <param name="serializer">the serializer instance</param>
-        /// <param name="snapshot">the snapshot buffer</param>
-        /// <param name="baseline0">the first baseline to diff against.</param>
-        /// <param name="baseline1">the second baseline to diff against.</param>
-        /// <param name="baseline2">the third baseline to diff against.</param>
-        /// <param name="changeMaskData">the change mask bits buffer</param>
-        /// <param name="startOffset">the bitmask start offset</param>
-        /// <param name="snapshotOffset">the data start offset</param>
-        /// <param name="predictor">the delta predictor instance</param>
-        /// <param name="writer">the data writer</param>
-        /// <param name="compressionModel">the compression model</param>
-        /// <param name="sendComponent">denote if the component should be replicated or not.</param>
-        /// <typeparam name="TSerializer">the seralizer type</typeparam>
-        /// <returns>the number of bits written in the stream</returns>
+        /// <param name="serializer">Serializer 实例</param>
+        /// <param name="snapshot">Snapshot Buffer 数据</param>
+        /// <param name="baseline0">用于计算差值的第一个 Baseline</param>
+        /// <param name="baseline1">用于计算差值的第二个 Baseline</param>
+        /// <param name="baseline2">用于计算差值的第三个 Baseline</param>
+        /// <param name="changeMaskData">ChangeMask 位 Buffer</param>
+        /// <param name="startOffset">BitMask 起始 Offset</param>
+        /// <param name="snapshotOffset">数据起始 Offset</param>
+        /// <param name="predictor">Delta Predictor 实例</param>
+        /// <param name="writer">数据写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="sendComponent">是否应复制此 Component</param>
+        /// <typeparam name="TSerializer">Serializer 类型</typeparam>
+        /// <returns>写入数据流的位数</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static public int SerializeComponentThreeBaseline<TSerializer>(
             this TSerializer serializer,
@@ -326,23 +321,22 @@ namespace Unity.NetCode.LowLevel.Unsafe
         }
 
         /// <summary>
-        /// Serialize a single buffer to the datastream using the default buffer serialisation
-        /// strategy.
+        /// 使用默认 Buffer 序列化策略将单个 Buffer 序列化到 Data Stream
         /// </summary>
-        /// <param name="serializer">the serializer instance</param>
-        /// <param name="snapshot">the snapshot buffer</param>
-        /// <param name="baseline">the baseline to diff against. Can be a zere baseline</param>
-        /// <param name="snapshotDynamicData">the dynamic snapshot data buffer</param>
-        /// <param name="baselineDynamicData">the dynamic snapshot data buffer baseline</param>
-        /// <param name="changeMaskData">the change mask bits buffer</param>
-        /// <param name="startOffset">the bitmask start offset</param>
-        /// <param name="snapshotOffset">the data start offset</param>
-        /// <param name="dynamicSize">the writtern data size in bytes in the dynamic snapshot buffer</param>
-        /// <param name="writer">the data writer</param>
-        /// <param name="compressionModel">the compression model</param>
-        /// <param name="sendBuffer">denote if the buffer should be sent or not</param>
-        /// <typeparam name="TSerializer">the seralizer type</typeparam>
-        /// <returns>the number of bits written in the stream</returns>
+        /// <param name="serializer">Serializer 实例</param>
+        /// <param name="snapshot">Snapshot Buffer 数据</param>
+        /// <param name="baseline">用于计算差值的 Baseline，可以是零 Baseline</param>
+        /// <param name="snapshotDynamicData">动态 Snapshot Data Buffer</param>
+        /// <param name="baselineDynamicData">动态 Snapshot Data Buffer Baseline</param>
+        /// <param name="changeMaskData">ChangeMask 位 Buffer</param>
+        /// <param name="startOffset">BitMask 起始 Offset</param>
+        /// <param name="snapshotOffset">数据起始 Offset</param>
+        /// <param name="dynamicSize">动态 Snapshot Buffer 中已写入数据的大小，单位为字节</param>
+        /// <param name="writer">数据写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="sendBuffer">是否应发送此 Buffer</param>
+        /// <typeparam name="TSerializer">Serializer 类型</typeparam>
+        /// <returns>写入数据流的位数</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static public int SerializeBuffer<TSerializer>(
             this TSerializer serializer,

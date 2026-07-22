@@ -20,7 +20,7 @@ namespace Unity.NetCode.PrespawnTests
     {
         private static void CheckPrespawnArePresent(int numObjects, NetCodeTestWorld testWorld)
         {
-            //Before going in game there should N prespawned objects
+            // 进入游戏前应存在指定数量的预生成对象
             using var serverGhosts = testWorld.ServerWorld.EntityManager.CreateEntityQuery(new EntityQueryDesc
             {
                 All = new [] { ComponentType.ReadOnly(typeof(PreSpawnedGhostIndex))},
@@ -66,7 +66,7 @@ namespace Unity.NetCode.PrespawnTests
 
         private void CheckBaselineAreCreated(World world)
         {
-            //Before going in game there should N prespawned objects
+            // 进入游戏前应已创建预生成 Ghost 的 Baseline
             var baselines = world.EntityManager.CreateEntityQuery(typeof(PrespawnGhostBaseline));
             Assert.IsFalse(baselines.IsEmptyIgnoreFilter);
             var entities = baselines.ToEntityArray(Allocator.Temp);
@@ -80,16 +80,16 @@ namespace Unity.NetCode.PrespawnTests
             {
                 var buffer = world.EntityManager.GetBuffer<PrespawnGhostBaseline>(ent);
                 Assert.AreNotEqual(0, buffer.Length);
-                //Check that the baseline contains what we expect
+                // 检查 Baseline 内容符合预期
                 unsafe
                 {
                     var ghost = world.EntityManager.GetComponentData<GhostInstance>(ent);
                     if (world.IsClient())
-                        Assert.AreEqual(-1, ghost.ghostType); // not set yet
+                        Assert.AreEqual(-1, ghost.ghostType); // 客户端此时尚未设置 Ghost 类型
                     var ghostType = world.EntityManager.GetComponentData<GhostType>(ent);
                     var idx = FindGhostType(ghostPrefabs, ghostType);
                     Assert.AreNotEqual(-1, idx);
-                    //Need to lookup who is it
+                    // 根据 GhostType 查找集合索引
                     var typeData = ghostCollection[idx];
                     byte* snapshotPtr = (byte*) buffer.GetUnsafeReadOnlyPtr();
                     int changeMaskUints = GhostComponentSerializer.ChangeMaskArraySizeInUInts(typeData.ChangeMaskBits);
@@ -145,7 +145,7 @@ namespace Unity.NetCode.PrespawnTests
                     snapshotPtr += snapshotSize * snapshotData.LatestIndex;
                     uint* changeMask = (uint*)(snapshotPtr+4);
 
-                    //Check that all the masks are zero
+                    // 检查全部 ChangeMask 均为零
                     for (int cm = 0; cm < changeMaskUints; ++cm)
                         Assert.AreEqual(0, changeMask[cm]);
 
@@ -184,17 +184,17 @@ namespace Unity.NetCode.PrespawnTests
             var numReceived = new uint[numClients];
             using (var testWorld = new NetCodeTestWorld())
             {
-                //Create a scene with a subscene and a bunch of objects in it
+                // 创建包含多个对象的 SubScene
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, numClients);
                 var mode = enableFallbackBaseline ? "WithBaseline" : "NoBaseline";
 
-                //Stream the sub scene in
+                // 流式加载 SubScene
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
                 CheckPrespawnArePresent(numObjects, testWorld);
                 CheckComponents(numObjects, testWorld);
-                //To Disable the prespawn optimization, just remove the baselines
+                // 移除 Baseline 以禁用预生成优化
                 if (!enableFallbackBaseline)
                 {
                     var builder = new EntityQueryBuilder(Allocator.Temp).WithPresent<PrespawnGhostBaseline>().WithOptions(EntityQueryOptions.IncludeDisabledEntities);
@@ -227,9 +227,7 @@ namespace Unity.NetCode.PrespawnTests
                     if (allSceneAcked)
                         break;
                 }
-                // ----------------------------------------------------------------
-                // From heere one the server will start sending some ghosts.
-                // ----------------------------------------------------------------
+                // 从这里开始服务器会发送预生成 Ghost
                 uint newObjects = 0;
                 uint totalSceneData = 0;
                 for(int tick=0;tick<32;++tick)
@@ -239,7 +237,7 @@ namespace Unity.NetCode.PrespawnTests
                     {
                         var netStats = testWorld.ClientWorlds[i].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(testWorld.TryGetSingletonEntity<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[i])).MainStatsWrite;
                         totalSceneData += netStats.PerGhostTypeStatsListRefRW.ElementAt(0).SizeInBits;
-                        for (int gtype = 0; gtype < numPrefabs; ++gtype) // numPrefabs doesn't match with PerGhostTypeStats length, since the ghost stats list also contains the extra netcode owned prespawn ghost (first index)
+                        for (int gtype = 0; gtype < numPrefabs; ++gtype) // 统计列表首项是 NetCode 自有的预生成场景列表 Ghost，因此长度比 numPrefabs 多一
                         {
                             numReceived[i] += netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).EntityCount;
                             totalDataReceived[i] += netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).SizeInBits;
@@ -248,8 +246,8 @@ namespace Unity.NetCode.PrespawnTests
                         if(enableFallbackBaseline)
                             ValidateReceivedSnapshotData(testWorld.ClientWorlds[i]);
 
-                        //When the total uncompressed object equals 0 means no new ghosts is received
-                        //This is always true for enableFallbackBaseline is true
+                        // 未压缩对象总数为零表示没有收到新的 Ghost
+                        // 启用 Fallback Baseline 时该值应始终为零
                         newObjects = 0;
                         for (int gtype = 0; gtype < numPrefabs; ++gtype)
                             newObjects += netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).UncompressedCount;
@@ -259,18 +257,18 @@ namespace Unity.NetCode.PrespawnTests
                         break;
                 }
 
-                //Without late join opt, the received data is more or equals than the totalCompressedDataBits for sure
+                // 记录各客户端初次加入时的接收数据量
                 for (int i = 0; i < testWorld.ClientWorlds.Length; ++i)
                 {
-                    //Store the "join" data size
+                    // 保存初次加入的数据量和每实体平均位数
                     initialAvgBitsPerEntity[i] = totalDataReceived[i] / numReceived[i];
                     initialDataSize[i] = totalDataReceived[i];
                     Debug.Log($"{mode} Client {i} Initial Join: {numReceived[i]} - {totalDataReceived[i]} - {initialAvgBitsPerEntity[i]}");
                 }
 
-                //For the subsequent ticks the expectation is to reach the 0 bits for the entity data (everything is stationary).
-                //Only header, masks, ghost ids, and baselines will be sent. The size should remain almost constant. It can still
-                //change a bit because of the baselines and tick encoding)
+                // 后续 Tick 中所有实体保持静止，因此实体字段数据应降为零位
+                // 只发送 Header、ChangeMask、Ghost ID 和 Baseline，大小应基本稳定
+                // Baseline 与 Tick 编码仍可能造成少量波动
                 for (int tick = 0; tick < 32; ++tick)
                 {
                     testWorld.Tick();
@@ -280,7 +278,7 @@ namespace Unity.NetCode.PrespawnTests
 
                         for (int gtype = 0; gtype < numPrefabs; ++gtype)
                         {
-                            Assert.AreEqual(0, netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).UncompressedCount); //No new object
+                            Assert.AreEqual(0, netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).UncompressedCount); // 没有新对象
                             numReceived[i] += netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).EntityCount;
                             totalDataReceived[i] += netStats.PerGhostTypeStatsListRefRW.ElementAt(gtype + 1).SizeInBits;
                         }
@@ -303,7 +301,7 @@ namespace Unity.NetCode.PrespawnTests
             const int numClients = 1;
             const int numPrefabs = 4;
 
-            //Set the scene with multiple prefab types
+            // 创建包含多种 Prefab 类型的场景
             var prefab1 = SubSceneHelper.CreateSimplePrefab(ScenePath, "Simple", typeof(GhostAuthoringComponent));
             var prefab2 = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData", typeof(GhostAuthoringComponent),
                 typeof(SomeDataAuthoring));
@@ -337,7 +335,7 @@ namespace Unity.NetCode.PrespawnTests
             {
                 Assert.LessOrEqual(initialDataSizeWithFallback[i], initialDataSize[i]);
                 Assert.LessOrEqual(initialAvgBitsPerEntityWithFallback[i], initialAvgBitsPerEntity[i]);
-                //The average initial size should be less or equals to the one without opt
+                // 优化后的初始平均大小不应高于未优化结果
                 Assert.LessOrEqual(initialAvgBitsPerEntityWithFallback[i], averageEntityBits[i]);
                 Assert.LessOrEqual(averageEntityBitsWithFallback[i], averageEntityBits[i]);
             }
@@ -347,7 +345,7 @@ namespace Unity.NetCode.PrespawnTests
         [Test]
         public void Test_BaselineAreCreated()
         {
-            //Set the scene with multiple prefab types
+            // 创建包含多种 Prefab 类型的场景
             const int numObjects = 10;
             var prefab1 = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData", typeof(GhostAuthoringComponent),
                 typeof(SomeDataAuthoring));
@@ -364,13 +362,13 @@ namespace Unity.NetCode.PrespawnTests
             {
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1);
-                //Stream the sub scene in
+                // 流式加载 SubScene
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
                 CheckPrespawnArePresent(numObjects*2, testWorld);
                 CheckComponents(numObjects*2, testWorld);
                 testWorld.GoInGame();
-                //Run some another tick to retrieve and process the prefabs and initialize the baselines
+                // 再推进若干 Tick 以接收和处理 Prefab 并初始化 Baseline
                 for(int i=0;i<2;++i)
                     testWorld.Tick();
                 CheckBaselineAreCreated(testWorld.ServerWorld);
@@ -382,15 +380,15 @@ namespace Unity.NetCode.PrespawnTests
         }
 
         /// <param name="keepSnapshotHistoryOnStructuralChange">
-        /// Ensures all <see cref="GhostChunkSerializer.UpdateChunkHistory"/> nuances are accounted for.
-        /// Also note: Adding a DynamicBuffer to this ghost ALSO forces <see cref="keepSnapshotHistoryOnStructuralChange"/> to false.
+        /// 确保覆盖 <see cref="GhostChunkSerializer.UpdateChunkHistory"/> 的全部细节
+        /// 为该 Ghost 添加 DynamicBuffer 也会强制将 <see cref="keepSnapshotHistoryOnStructuralChange"/> 设为 false
         /// </param>
-        /// <param name="latencyProfile">Static-optimization should be tested under various conditions.</param>
+        /// <param name="latencyProfile">用于在不同网络条件下验证静态优化</param>
         [Test(Description = "Tests only the common set of static-optimized, prespawn ghost replication cases.")]
         public unsafe void UsingStaticOptimizationServerDoesNotSendData([Values]bool keepSnapshotHistoryOnStructuralChange, [Values] NetCodeTestLatencyProfile latencyProfile)
         {
             const int numObjects = 10;
-            //Set the scene with multiple prefab types
+            // 创建静态优化的预生成 Ghost 场景
             var prefab = SubSceneHelper.CreateSimplePrefab(ScenePath, "WithData", typeof(GhostAuthoringComponent),
                 typeof(SomeDataAuthoring));
             prefab.GetComponent<GhostAuthoringComponent>().OptimizationMode = GhostOptimizationMode.Static;
@@ -404,13 +402,13 @@ namespace Unity.NetCode.PrespawnTests
 
             using (var testWorld = new NetCodeTestWorld())
             {
-                //Create a scene with a subscene and a bunch of objects in it
+                // 创建包含多个对象的 SubScene
                 testWorld.Bootstrap(true);
                 testWorld.SetTestLatencyProfile(latencyProfile);
                 testWorld.CreateWorlds(true, 1);
                 testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld).ValueRW.KeepSnapshotHistoryOnStructuralChange = keepSnapshotHistoryOnStructuralChange;
 
-                //Stream the sub scene in
+                // 流式加载 SubScene
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect(maxSteps:16);
                 CheckPrespawnArePresent(numObjects, testWorld);
@@ -425,7 +423,7 @@ namespace Unity.NetCode.PrespawnTests
                     testWorld.Tick();
                     var netStats = testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(testWorld.TryGetSingletonEntity<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[0])).MainStatsWrite;
 
-                    //Skip the first ghost type (is be the subscene list)
+                    // 跳过首个 Ghost 类型，它对应 SubScene 列表
                     if (netStats.PerGhostTypeStatsListRefRW.Length > 1)
                     {
                         numReceived += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount;
@@ -478,18 +476,18 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.TryLogPacket("\nTEST-CASE: Make a structural change and verify that entities are STILL not sent (no changes in respect to the 0 baselines)\n");
                 for (int i = 8; i < 10; ++i)
                 {
-                    //I will add a tag. This should cause changes on the server side but NOT on the client, that still see the entities
-                    //as unchanged
+                    // 添加仅服务器存在的 Tag 会造成服务器结构变化
+                    // 客户端仍应将这些实体视为未变化
                     testWorld.ServerWorld.EntityManager.AddComponent<ServerOnlyTag>(serverEntities[i]);
                 }
 
-                //We have now two chunks with like this
-                // Chunk 1    Entities
+                // 此时实体分布在以下两个 Chunk
+                // Chunk 1    实体
                 //              0 1 2 3 4 5 6 7
-                // changed:     n n n n n n n n
-                // Chunk 2:
+                // 已变化:      否 否 否 否 否 否 否 否
+                // 第二个 Chunk
                 //              8 9
-                // changed:     n n
+                // 已变化:      否 否
 
                 for (int i = 0; i < 16; ++i)
                 {
@@ -520,7 +518,7 @@ namespace Unity.NetCode.PrespawnTests
                     }
                 }
 
-                // The change is sent on this tick:
+                // 从后续 Tick 开始发送真实字段变化
                 for (int i = 0; i < 32; ++i)
                 {
                     testWorld.Tick();
@@ -534,7 +532,7 @@ namespace Unity.NetCode.PrespawnTests
                     }
                 }
 
-                //Even if I change 3 entities, I still receive the full chunk (8 now) delta compressed, but only once.
+                // 即使只修改三个实体，客户端仍会接收整个八实体 Chunk 的增量压缩数据，但只接收一次
                 if(latencyProfile == NetCodeTestLatencyProfile.None)
                     Assert.AreEqual(8, numReceived);
                 else Assert.IsTrue(numReceived >= 8 && numReceived % 8 == 0, $"numReceived:{numReceived}");
@@ -544,7 +542,7 @@ namespace Unity.NetCode.PrespawnTests
 
                 {
                     var ghostCollection = testWorld.ClientWorlds[0].EntityManager.GetBuffer<GhostCollectionPrefabSerializer>(ghostCollectionEntity);
-                    //Check that the change masks for the other entities are still 0
+                    // 检查同一 Chunk 中其他实体的 ChangeMask 仍为零
                     for (int i = 3; i < 8; ++i)
                     {
                         var ghost = new SpawnedGhost {ghostId = serverGhosts[i].ghostId, spawnTick = serverGhosts[i].spawnTick};
@@ -566,7 +564,7 @@ namespace Unity.NetCode.PrespawnTests
                         }
                     }
                 }
-                //Entities 8,9 are still not received
+                // 实体 8 和 9 仍未收到 Ghost 类型初始化数据
                 for (int i = 8; i < 10; ++i)
                 {
                     var ghost = new SpawnedGhost {ghostId = serverGhosts[i].ghostId, spawnTick = serverGhosts[i].spawnTick};
@@ -596,23 +594,23 @@ namespace Unity.NetCode.PrespawnTests
                 }
 
                 testWorld.TryLogPacket("\nTEST-CASE: Now make a structural change WITHOUT any GhostField changes,\n");
-                // and verify that entities are NOT sent again (as we're still ZeroChange in respect to GhostField
-                // data vs its baseline) UNLESS we don't correctly copy over said data (via `keepSnapshotHistoryOnStructuralChange:false`).
+                // 验证结构变化后实体不会再次发送，因为 GhostField 相对 Baseline 仍为 ZeroChange
+                // 若 keepSnapshotHistoryOnStructuralChange 为 false 导致历史未正确复制则例外
                 for (int i = 3; i < 6; ++i)
                 {
                     testWorld.ServerWorld.EntityManager.AddComponent<ServerOnlyTag>(serverEntities[i]);
                 }
 
-                //We have now two chunks with like this
-                // Chunk 1    Entitites
+                // 此时实体重新分布在以下两个 Chunk
+                // Chunk 1    实体
                 //              0 1 2 6 7
-                // changed:     y y y n n
-                // Chunk 2:
+                // 已变化:      是 是 是 否 否
+                // 第二个 Chunk
                 //              3 4 5 8 9
-                // changed:     n n n n n
+                // 已变化:      否 否 否 否 否
                 //
-                // Will will not receive the 2nd chunk, even though the 3,4,5 version has been changed since they were in the first chunk.
-                // Since we detect that all change are actually zero, and we are using all fallback baseline and nothing has changed
+                // 即使实体 3、4、5 从第一个 Chunk 移出后版本发生变化，也不应接收第二个 Chunk
+                // 因为相对 Fallback Baseline 的实际字段变化均为零
                 numReceived = 0;
                 totalDataReceived = 0;
                 uncompressed = 0;
@@ -648,7 +646,7 @@ namespace Unity.NetCode.PrespawnTests
                     Assert.AreNotEqual(0, totalDataReceived);
                 }
 
-                //Still entities 8,9 are not received yet
+                // 实体 8 和 9 仍未收到 Ghost 类型初始化数据
                 for (int i = 8; i < 10; ++i)
                 {
                     var ghost = new SpawnedGhost {ghostId = serverGhosts[i].ghostId, spawnTick = serverGhosts[i].spawnTick};
@@ -669,7 +667,7 @@ namespace Unity.NetCode.PrespawnTests
                 numReceived = 0;
                 totalDataReceived = 0;
                 uncompressed = 0;
-                // Again, this change will be sent on the next tick, so expect it:
+                // 该字段变化会从下一 Tick 开始发送
                 for(int i = 0; i < 8; i++)
                 {
                     testWorld.Tick();
@@ -682,7 +680,7 @@ namespace Unity.NetCode.PrespawnTests
                         uncompressed += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount;
                     }
                 }
-                // Chunk 1 contains 5 entities:
+                // 变化所在 Chunk 包含五个实体
                 if(latencyProfile == NetCodeTestLatencyProfile.None)
                     Assert.AreEqual(5, numReceived);
                 else Assert.IsTrue(numReceived >= 5 && numReceived % 5 == 0, $"numReceived:{numReceived}");

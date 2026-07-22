@@ -10,12 +10,14 @@ using UnityEngine.UIElements;
 
 namespace Unity.NetCode.Editor
 {
-    // TODO: Undo/redo is broken in the Editor.
-    // TODO: Support copy/paste individual meta datas + main components.
-    // TODO: Support multi-object-edit.
-    // TODO: Support light-mode.
+    // TODO 修复 Editor 中无法正常撤销和重做的问题
+    // TODO 支持复制粘贴单项元数据与主组件
+    // TODO 支持多对象编辑
+    // TODO 支持浅色模式
 
-    /// <summary>UIToolkit drawer for <see cref="GhostAuthoringInspectionComponent"/>.</summary>
+    /// <summary>
+    /// <see cref="GhostAuthoringInspectionComponent"/> 的 UI Toolkit Drawer
+    /// </summary>
     [CustomEditor(typeof(GhostAuthoringInspectionComponent))]
     class GhostAuthoringInspectionComponentEditor : UnityEditor.Editor
     {
@@ -23,7 +25,7 @@ namespace Unity.NetCode.Editor
         const string k_PackageId = "Packages/com.unity.netcode";
         const string k_AutoBakeKey = "AutoBake";
 
-        // TODO - Manually loaded prefabs as uss is not working.
+        // TODO USS 无法正常工作，因此暂时手动加载 Prefab 图标
         static Texture2D PrefabEntityIcon => AssetDatabase.LoadAssetAtPath<Texture2D>("Packages/com.unity.entities/Editor Default Resources/icons/dark/Entity/EntityPrefab.png");
         static Texture2D ComponentIcon => AssetDatabase.LoadAssetAtPath<Texture2D>("Packages/com.unity.entities/Editor Default Resources/icons/dark/Components/Component.png");
 
@@ -65,7 +67,6 @@ namespace Unity.NetCode.Editor
             if (m_AutoBakeToggle == null || !inspection)
                 return;
 
-            // Check for changes:
             if (TryGetEntitiesAssociatedWithAuthoringGameObject(out var bakedGameObjectResult))
             {
                 var hasChanged = bakedGameObjectResult.NumComponents != m_NumComponentsOnThisInspection;
@@ -129,7 +130,7 @@ namespace Unity.NetCode.Editor
         {
             var ghostAuthoring = FindRootGhostAuthoringComponent();
 
-            // These allow interop with GhostAuthoringInspectionComponentEditor.
+            // 用于与 GhostAuthoringInspectionComponentEditor 互操作
             prefabPreview = new EntityPrefabComponentsPreview();
 
             try
@@ -189,8 +190,8 @@ namespace Unity.NetCode.Editor
             m_NoEntityHelpBox = new HelpBox($"This GameObject does not create any Entities during baking.", HelpBoxMessageType.Info);
             m_Root.Add(m_NoEntityHelpBox);
 
-            // TODO - Support edge-case where user adds an override to a type and then disables it in code.
-            // TODO - Explicitly support changing variant but not anything else if the user does not add the `[SupportPrefabOverrides]` attribute.
+            // TODO 支持用户先为类型添加 Override、随后在代码中禁用该类型的边界情况
+            // TODO 用户未添加 SupportPrefabOverrides 特性时，明确只允许修改 Variant 而不允许修改其他设置
 
             m_ResultsPane = new VisualElement();
             m_ResultsPane.name = "ResultsPane";
@@ -273,7 +274,7 @@ namespace Unity.NetCode.Editor
                     "ReplicatedLabel", "Meta-data for GhostComponents", "Lists all netcode meta-data for replicated (i.e. synced) component types.",
                     GhostAuthoringComponentEditor.netcodeColor, true, toggleKey);
 
-                // Prefer default variants:
+                // 优先使用默认 Variant
                 if (bakedEntityResult.GoParent.SourceInspection.ComponentOverrides.Length > 0)
                 {
                     replicatedContainer.contentContainer.Add(
@@ -287,7 +288,7 @@ namespace Unity.NetCode.Editor
                         new HelpBox($"Note that this Inspection Component is optional. As you haven't made any overrides, you can safely remove this component.", HelpBoxMessageType.Info));
                 }
 
-                // Warn about replicating child components:
+                // 提醒用户复制子 Entity 组件的性能开销
                 if (!bakedEntityResult.IsRoot)
                 {
                     if (replicated.Any(x => x.serializationStrategy.IsSerialized != 0))
@@ -302,16 +303,14 @@ namespace Unity.NetCode.Editor
                     Color.white, false, toggleKey);
             }
 
-            // Display invalid overrides:
+            // 显示无效 Override
             if (inspection.ComponentOverrides.Any(x => !x.DidCorrectlyMap))
             {
-                //.
                 var title = new HelpBox("Detected duplicated or otherwise invalid serialized 'Component Overrides'! You can remove them by pressing the buttons below.", HelpBoxMessageType.Error);
                 title.style.unityFontStyleAndWeight = new StyleEnum<FontStyle>(FontStyle.Bold);
                 title.style.overflow = new StyleEnum<Overflow>(Overflow.Visible);
                 m_ResultsPane.Add(title);
 
-                //.
                 for (var i = 0; i < inspection.ComponentOverrides.Length; i++)
                 {
                     var @override = inspection.ComponentOverrides[i];
@@ -405,13 +404,13 @@ namespace Unity.NetCode.Editor
 
                 var toggle = componentMetaDataFoldout.Q<Toggle>();
                 toggle.style.flexShrink = 1;
-                toggle.style.marginLeft = 0; // Don't -12px.
-                var foldoutLabel = toggle.Q<Label>(className: UssClasses.UIToolkit.Toggle.Text); // TODO - DropdownField should expose!
+                toggle.style.marginLeft = 0; // 避免使用默认的 -12px
+                var foldoutLabel = toggle.Q<Label>(className: UssClasses.UIToolkit.Toggle.Text); // TODO DropdownField 应公开该元素
                 LabelStyle(foldoutLabel);
                 var checkmark = toggle.Q<VisualElement>(className: UssClasses.UIToolkit.Toggle.Checkmark);
                 checkmark.style.display = new StyleEnum<DisplayStyle>(DisplayStyle.None);
 
-                var toggleChild = toggle.Q<VisualElement>(className: UssClasses.UIToolkit.BaseField.Input); // TODO - DropdownField should expose!;
+                var toggleChild = toggle.Q<VisualElement>(className: UssClasses.UIToolkit.BaseField.Input); // TODO DropdownField 应公开该元素
                 InsertGhostModeToggles(bakedComponent, toggleChild);
 
                 var sendToOwnerDropdown = CreateSentToOwnerDropdown(bakedComponent);
@@ -443,7 +442,7 @@ namespace Unity.NetCode.Editor
             componentMetaDataLabel.text = bakedComponent.managedType.Name;
             componentMetaDataLabel.style.alignSelf = new StyleEnum<Align>(Align.Stretch);
             componentMetaDataLabel.style.unityTextAlign = new StyleEnum<TextAnchor>(TextAnchor.MiddleLeft);
-            // TODO - The text here doesn't clip properly because the buttons are CHILDREN of the label. I.e. The buttons are INSIDE the labels rect.
+            // TODO 此处文本无法正确裁剪，因为按钮是 Label 的子元素，位于 Label 的矩形区域内
             LabelStyle(componentMetaDataLabel);
 
             return CreateOverrideTracking(bakedComponent, componentMetaDataLabel);
@@ -486,7 +485,7 @@ Note that:
                 dropdown.choices.Add(bakedComponent.availableSerializationStrategyDisplayNames[i]);
             }
 
-            // Set current value:
+            // 设置当前值
             {
                 var index = Array.FindIndex(bakedComponent.availableSerializationStrategies, x => x.Hash == bakedComponent.serializationStrategy.Hash);
                 if (index >= 0)
@@ -501,7 +500,7 @@ Note that:
                 }
             }
 
-            // Handle value changed.
+            // 处理值变更
             dropdown.RegisterValueChangedCallback(evt =>
             {
                 var indexOf = Array.IndexOf(bakedComponent.availableSerializationStrategyDisplayNames, evt.newValue);
@@ -522,20 +521,28 @@ Note that:
             return overrideTracking;
         }
 
-        /// <summary>Visualizes prefab overrides for custom controls attached to this.</summary>
+        /// <summary>
+        /// 为挂接到此处的自定义控件显示 Prefab Override 状态
+        /// </summary>
         class OverrideTracking : VisualElement
         {
-            /// <summary>The UI element wrapping the <see cref="ChildRenderingElement"/>, allowing flex-direction:Horizontal.</summary>
+            /// <summary>
+            /// 包装 <see cref="ChildRenderingElement"/> 的 UI 元素，用于支持横向 Flex 布局
+            /// </summary>
             public VisualElement ChildContainer;
-            /// <summary>The custom, unknown UI element that we're wrapping this override tracking around.</summary>
+            /// <summary>
+            /// Override Tracking 所包装的自定义 UI 元素
+            /// </summary>
             public VisualElement ChildRenderingElement;
-            /// <summary>The override widget itself.</summary>
+            /// <summary>
+            /// Override 标记控件本身
+            /// </summary>
             public VisualElement Override;
 
             public OverrideTracking(string prefabType, VisualElement mainField, bool defaultOverride, string rightClickResetTitle, Action<DropdownMenuAction> rightClickResetAction, bool shrink)
             {
                 name = $"{prefabType}OverrideTracking";
-                style.flexDirection = new StyleEnum<FlexDirection>(FlexDirection.Column); // Ensure the override is BELOW the ChildRenderingElement widget.
+                style.flexDirection = new StyleEnum<FlexDirection>(FlexDirection.Column); // 确保 Override 标记位于 ChildRenderingElement 控件下方
                 style.alignSelf = new StyleEnum<Align>(Align.Stretch);
                 style.alignItems = new StyleEnum<Align>(Align.Center);
                 style.flexGrow = 0;
@@ -602,7 +609,7 @@ Note that:
 
             UpdateUi(GetNameForGhostSendType(bakedComponent.SendTypeOptimization));
 
-            // Handle value changed.
+            // 处理值变更
             void OnSendToChanged(ChangeEvent<string> evt)
             {
                 var flag = GetFlagForGhostSendTypeOptimization(evt.newValue);
@@ -648,12 +655,12 @@ Note that:
 
         static void DropdownStyle(DropdownField dropdownRoot)
         {
-            // Root:
+            // 根元素
             dropdownRoot.style.alignSelf = new StyleEnum<Align>(Align.Stretch);
             dropdownRoot.style.flexGrow = 0;
             dropdownRoot.style.flexShrink = 1;
 
-            // Label:
+            // Label 元素
             var label = dropdownRoot.Q<Label>();
             label.style.alignSelf = new StyleEnum<Align>(Align.Stretch);
             label.style.flexGrow = 0;
@@ -661,8 +668,8 @@ Note that:
             label.style.minWidth = 75;
             label.style.width = 110;
 
-            // Dropdown widget:
-            var dropdownWidget = dropdownRoot.Q<VisualElement>(className: UssClasses.UIToolkit.BaseField.Input); // TODO - DropdownField should expose!
+            // Dropdown 控件
+            var dropdownWidget = dropdownRoot.Q<VisualElement>(className: UssClasses.UIToolkit.BaseField.Input); // TODO DropdownField 应公开该元素
             dropdownWidget.style.flexGrow = 1;
             dropdownWidget.style.flexShrink = 1;
             dropdownWidget.style.minWidth = 75;

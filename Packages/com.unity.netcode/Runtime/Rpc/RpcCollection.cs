@@ -7,10 +7,9 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The RpcCollection is the set of all available RPCs. It is created by the RpcSystem.
-    /// It is used to register RPCs and to get queues for sending RPCs. In most cases you
-    /// do not need to use it directly, the generated code will use it to setup the RPC
-    /// components.
+    /// RpcCollection 是全部可用 RPC 的集合，由 RpcSystem 创建
+    /// 它用于注册 RPC 并获取 RPC 发送队列
+    /// 大多数情况下无需直接使用，生成的代码会通过它配置 RPC Component
     /// </summary>
     public struct RpcCollection : IComponentData
     {
@@ -45,21 +44,19 @@ namespace Unity.NetCode
         }
         /// <summary>
         /// <para>
-        /// Allows the set assemblies loaded on the client and server to differ. This is useful during development when
-        /// assemblies containing ghost component serializers or RPCs are removed when building standalone.
-        /// This usually happens during development when you are connecting a standalone player to the Editor.
-        /// For example, tests are usually not included in a standalone build, but they are still compiled and
-        /// registered in the Editor, which causes a mismatch in the set of assemblies.
+        /// 允许客户端和服务器加载不同的程序集集合
+        /// 开发期间构建 Standalone 时，包含 Ghost Component Serializer 或 RPC 的程序集可能被移除，此选项很有用
+        /// 这种情况通常发生在开发阶段将 Standalone Player 连接到 Editor 时
+        /// 例如测试通常不会包含在 Standalone Build 中，但仍会在 Editor 中编译和注册，导致程序集集合不匹配
         /// </para>
         /// <para>
-        /// If set to false (default), the RPC system triggers an RPC version error when connecting to a server with
-        /// a different set of assemblies. This is more strict and acts as a validation step during handshake.
+        /// 设为 false，即默认值时，连接到程序集集合不同的服务器会使 RPC 系统触发 RPC 版本错误
+        /// 此模式更严格，并会作为 Handshake 期间的一项校验
         /// </para>
         /// <para>
-        /// If set to true, six bytes is added to the header of each RPC.
-        /// The RPC system doesn't trigger an RPC version error when connecting to
-        /// a server with a different set of assemblies. Instead, an error will be triggered if an invalid RPC or serialized component is
-        /// received.
+        /// 设为 true 时，每个 RPC 的 Header 会增加 6 字节
+        /// 连接到程序集集合不同的服务器时，RPC 系统不会触发 RPC 版本错误
+        /// 但收到无效 RPC 或序列化 Component 时会触发错误
         /// </para>
         /// </summary>
         public bool DynamicAssemblyList
@@ -76,39 +73,38 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The RPC "common header" format is 9 bytes:
-        /// - Message Type: byte
-        /// - LocalTime: int (a.k.a. `remoteTime` on the receiver)
+        /// RPC 的 Common Header 格式为 9 字节
+        /// - 消息类型：byte
+        /// - LocalTime：int，在接收端也称为 `remoteTime`
         ///
-        /// And then, for each RPC, the header is:
-        /// - RpcHash: [short|long] (based on DynamicAssemblyList)
-        /// - Size: ushort
-        /// - Payload : x bytes
+        /// 每个 RPC 随后的 Header 如下
+        /// - RpcHash：[short|long]，取决于 DynamicAssemblyList
+        /// - 大小：ushort
+        /// - Payload：x 字节
         ///
-        /// So for a single message we have:
-        /// - 9 (common header) + 4 => 13 bytes (no DynamicAssemblyList)
-        /// - 9 (common header) + 10 => 19 bytes (with DynamicAssemblyList)
+        /// 因此单条消息的大小如下
+        /// - 9（Common Header）+ 4 => 13 字节，不使用 DynamicAssemblyList
+        /// - 9（Common Header）+ 10 => 19 字节，使用 DynamicAssemblyList
         /// </summary>
-        /// <param name="dynamicAssemblyList">Whether or not your project is using <see cref="DynamicAssemblyList"/>.</param>
-        /// <returns>If <see cref="DynamicAssemblyList"/>, 15 bytes, otherwise 9 bytes.</returns>
+        /// <param name="dynamicAssemblyList">项目是否使用 <see cref="DynamicAssemblyList"/></param>
+        /// <returns>使用 <see cref="DynamicAssemblyList"/> 时为 15 字节，否则为 9 字节</returns>
         public static int GetRpcHeaderLength(bool dynamicAssemblyList) => k_RpcCommonHeaderLengthBytes + GetInnerRpcMessageHeaderLength(dynamicAssemblyList);
 
         /// <inheritdoc cref="GetRpcHeaderLength"/>>
         internal const int k_RpcCommonHeaderLengthBytes = 5;
 
         /// <summary>
-        /// If <see cref="DynamicAssemblyList"/>, 10 bytes, otherwise 4 bytes.
+        /// 使用 <see cref="DynamicAssemblyList"/> 时为 10 字节，否则为 4 字节
         /// </summary>
-        /// <param name="dynamicAssemblyList">Whether or not your project is using <see cref="DynamicAssemblyList"/>.</param>
-        /// <returns>If <see cref="DynamicAssemblyList"/>, 10 bytes, otherwise 4 bytes.</returns>
+        /// <param name="dynamicAssemblyList">项目是否使用 <see cref="DynamicAssemblyList"/></param>
+        /// <returns>使用 <see cref="DynamicAssemblyList"/> 时为 10 字节，否则为 4 字节</returns>
         internal static int GetInnerRpcMessageHeaderLength(bool dynamicAssemblyList) => dynamicAssemblyList ? 10 : 4;
 
         /// <summary>
-        /// Register a new RPC type which can be sent over the network. This must be called before
-        /// any connections are established.
+        /// 注册可通过网络发送的新 RPC 类型，必须在建立任何连接前调用
         /// </summary>
-        /// <typeparam name="TActionSerializer">A struct of type IRpcCommandSerializer.</typeparam>
-        /// <typeparam name="TActionRequest">A struct of type IComponent.</typeparam>
+        /// <typeparam name="TActionSerializer">IRpcCommandSerializer 类型的结构体</typeparam>
+        /// <typeparam name="TActionRequest">IComponent 类型的结构体</typeparam>
         public void RegisterRpc<TActionSerializer, TActionRequest>()
             where TActionRequest : struct, IComponentData
             where TActionSerializer : struct, IRpcCommandSerializer<TActionRequest>
@@ -117,10 +113,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a new RPC type which can be sent over the network. This must be called before
-        /// any connections are established.
+        /// 注册可通过网络发送的新 RPC 类型，必须在建立任何连接前调用
         /// </summary>
-        /// <typeparam name="TActionRequestAndSerializer">A struct of type IComponentData, with IRpcCommandSerializer too.</typeparam>
+        /// <typeparam name="TActionRequestAndSerializer">同时实现 IRpcCommandSerializer 的 IComponentData 结构体</typeparam>
         public void RegisterRpc<TActionRequestAndSerializer>()
             where TActionRequestAndSerializer : struct, IComponentData, IRpcCommandSerializer<TActionRequestAndSerializer>
         {
@@ -128,11 +123,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a new RPC type which can be sent over the network. This must be called before
-        /// any connections are established.
+        /// 注册可通过网络发送的新 RPC 类型，必须在建立任何连接前调用
         /// </summary>
-        /// <param name="type">Type to register.</param>
-        /// <param name="exec">Callback for RPC to execute.</param>
+        /// <param name="type">要注册的类型</param>
+        /// <param name="exec">执行 RPC 的回调</param>
         public void RegisterRpc(ComponentType type, PortableFunctionPointer<RpcExecutor.ExecuteDelegate> exec)
         {
             if (m_IsFinal == 1)
@@ -188,16 +182,16 @@ namespace Unity.NetCode
 
         internal static bool IsApprovalRpcType(ComponentType type)
         {
-            // TODO - Infer via code-gen, rather than runtime reflection!
+            // TODO：改为通过代码生成推断，避免运行时反射
             return typeof(IApprovalRpcCommand).IsAssignableFrom(type.GetManagedType());
         }
 
         /// <summary>
-        /// Get an RpcQueue which can be used to send RPCs.
+        /// 获取可用于发送 RPC 的 RpcQueue
         /// </summary>
-        /// <typeparam name="TActionRequestAndSerializer">Struct of type <see cref="TActionRequestAndSerializer"/>
-        /// implementing <see cref="IRpcCommandSerializer{TActionRequestAndSerializer}"/>.</typeparam>
-        /// <returns><see cref="RpcQueue{TActionRequestAndSerializer,TActionRequestAndSerializer}"/> to be used to send RPCs.</returns>
+        /// <typeparam name="TActionRequestAndSerializer">实现 <see cref="IRpcCommandSerializer{TActionRequestAndSerializer}"/>
+        /// 的 <see cref="TActionRequestAndSerializer"/> 类型结构体</typeparam>
+        /// <returns>用于发送 RPC 的 <see cref="RpcQueue{TActionRequestAndSerializer,TActionRequestAndSerializer}"/></returns>
         public RpcQueue<TActionRequestAndSerializer, TActionRequestAndSerializer> GetRpcQueue<TActionRequestAndSerializer>()
             where TActionRequestAndSerializer : struct, IComponentData, IRpcCommandSerializer<TActionRequestAndSerializer>
         {
@@ -205,11 +199,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Get an RpcQueue which can be used to send RPCs.
+        /// 获取可用于发送 RPC 的 RpcQueue
         /// </summary>
-        /// <typeparam name="TActionSerializer">Struct of type <see cref="IRpcCommandSerializer{TActionRequest}"/></typeparam>
-        /// <typeparam name="TActionRequest">Struct of type <see cref="IComponentData"/></typeparam>
-        /// <returns><see cref="RpcQueue{TActionSerializer,TActionRequest}"/> to be used to send RPCs.</returns>
+        /// <typeparam name="TActionSerializer"><see cref="IRpcCommandSerializer{TActionRequest}"/> 类型的结构体</typeparam>
+        /// <typeparam name="TActionRequest"><see cref="IComponentData"/> 类型的结构体</typeparam>
+        /// <returns>用于发送 RPC 的 <see cref="RpcQueue{TActionSerializer,TActionRequest}"/></returns>
         public RpcQueue<TActionSerializer, TActionRequest> GetRpcQueue<TActionSerializer, TActionRequest>()
             where TActionRequest : struct, IComponentData
             where TActionSerializer : struct, IRpcCommandSerializer<TActionRequest>
@@ -239,8 +233,8 @@ namespace Unity.NetCode
             };
         }
         /// <summary>
-        /// Internal method to calculate the hash of all types when sending version. When calling this you
-        /// must have write access to the singleton since it changes internal state.
+        /// 发送版本时计算所有类型 Hash 的内部方法
+        /// 此方法会改变内部状态，因此调用方必须拥有 Singleton 的写权限
         /// </summary>
         internal ulong CalculateVersionHash()
         {

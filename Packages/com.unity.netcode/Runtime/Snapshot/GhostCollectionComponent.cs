@@ -10,7 +10,7 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// A BlobAsset containing all the meta data required for ghosts.
+    /// 包含 Ghost 所需全部元数据的 BlobAsset
     /// </summary>
     internal struct GhostPrefabBlobMetaData
     {
@@ -24,12 +24,18 @@ namespace Unity.NetCode
         [StructLayout(LayoutKind.Sequential)]
         public struct ComponentInfo
         {
-            ///<summary>The Component StableTypeHash.</summary>
+            /// <summary>
+            /// Component 的 StableTypeHash
+            /// </summary>
             public ulong StableHash;
-            //<summary>Serializer variant to use. If 0, the default for that type is used.
-            //Note: This also denotes if we should send to child.</summary>
+            /// <summary>
+            /// 要使用的 Serializer Variant，为 0 时使用该类型的默认 Variant
+            /// 注意：此值也表示是否应发送给 Child
+            /// </summary>
             public ulong Variant;
-            //<summary>The SendMask override for the component if different than -1.</summary>
+            /// <summary>
+            /// 不等于 -1 时用于覆盖 Component SendMask
+            /// </summary>
             public int SendMaskOverride;
         }
 
@@ -41,9 +47,13 @@ namespace Unity.NetCode
                 EntityIndex = index;
                 StableHash = hash;
             }
-            ///<summary>The entity index in the linkedEntityGroup</summary>
+            /// <summary>
+            /// LinkedEntityGroup 中的 Entity 索引
+            /// </summary>
             public int EntityIndex;
-            ///<summary>The component stable hash.</summary>
+            /// <summary>
+            /// Component 的稳定 Hash
+            /// </summary>
             public ulong StableHash;
         }
 
@@ -56,35 +66,43 @@ namespace Unity.NetCode
         public bool RollbackPredictionOnStructuralChanges;
         public bool UseSingleBaseline;
         public BlobString Name;
-        ///<summary>Array of components for each child in the hierarchy.</summary>
+        /// <summary>
+        /// 层级中每个 Child 的 Component 数组
+        /// </summary>
         public BlobArray<ComponentInfo> ServerComponentList;
         public BlobArray<int> NumServerComponentsPerEntity;
         /// <summary>
-        /// A list of (child index, components) pairs which should be removed from the prefab when using it on server-only worlds (binary worlds). The main use-case is to support ClientAndServer data.
+        /// 在仅服务器 World，即 Binary World，中使用 Prefab 时应移除的 Child Index 与 Component 对列表
+        /// 主要用于支持 ClientAndServer 数据
         /// </summary>
         public BlobArray<ComponentReference> RemoveOnServerOnlyWorld;
 
         /// <summary>
-        /// Common set of components, used by both single world host and binary world servers. Single World Host should use this directly, while binary world servers should augment this with other components. You can't strip all components on a single world host as it is a server as well.
+        /// Single World Host 和 Binary World Server 共用的 Component 集合
+        /// Single World Host 应直接使用，Binary World Server 则应在其基础上补充其他 Component
+        /// Single World Host 同时也是服务器，因此不能剥离全部 Component
         /// </summary>
         internal BlobArray<ComponentReference> RemoveOnAllServerWorldsSharedList;
 
         /// <summary>
-        /// A list of (child index, components) pairs which should be removed from the prefab when using it on the client. The main use-case is to support ClientAndServer data.
+        /// 在客户端上使用 Prefab 时应移除的 Child Index 与 Component 对列表
+        /// 主要用于支持 ClientAndServer 数据
         /// </summary>
         public BlobArray<ComponentReference> RemoveOnClientWorlds;
         /// <summary>
-        /// A list of (child index, components) pairs which should be disabled when the prefab is used to instantiate a predicted ghost. This is used so we can have a single client prefab.
+        /// 使用 Prefab 实例化 Predicted Ghost 时应禁用的 Child Index 与 Component 对列表
+        /// 用于让客户端只需维护一个 Prefab
         /// </summary>
         public BlobArray<ComponentReference> DisableOnPredictedClient;
         /// <summary>
-        /// A list of (child index, components) pairs which should be disabled when the prefab is used to instantiate an interpolated ghost. This is used so we can have a single client prefab.
+        /// 使用 Prefab 实例化 Interpolated Ghost 时应禁用的 Child Index 与 Component 对列表
+        /// 用于让客户端只需维护一个 Prefab
         /// </summary>
         public BlobArray<ComponentReference> DisableOnInterpolatedClient;
     }
 
     /// <summary>
-    /// A component added to all ghost prefabs. It contains the meta-data required to use the prefab as a ghost.
+    /// 添加到所有 Ghost Prefab 的 Component，包含将 Prefab 用作 Ghost 所需的元数据
     /// </summary>
     [DontSupportPrefabOverrides]
     [GhostComponent(SendDataForChildEntity = false)]
@@ -94,172 +112,171 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A component added to ghost prefabs which require runtime stripping of components before they can be used.
-    /// The component is removed when the runtime stripping is performed.
+    /// 添加到使用前需要在运行时剥离 Component 的 Ghost Prefab
+    /// 完成运行时剥离后会移除此 Component
     /// </summary>
     internal struct GhostPrefabRuntimeStrip : IComponentData
     {}
 
     /// <summary>
-    /// Internal component used to track new ghost prefabs after they have been loaded or created.
+    /// 用于跟踪已加载或创建的新 Ghost Prefab 的内部 Component
     /// </summary>
     internal struct GhostPrefabTracking : ICleanupComponentData
     {
         /// <summary>
-        /// The index inside the GhostCollectionPrefab list.
+        /// GhostCollectionPrefab 列表中的索引
         /// </summary>
         public int GhostCollectionPrefabIndex;
         /// <summary>
-        /// The <see cref="GhostType"/> associated with the prefab.
+        /// 与该 Prefab 关联的 <see cref="GhostType"/>
         /// </summary>
         public GhostType GhostType;
     }
     /// <summary>
-    /// A component used to identify the singleton which owns the ghost collection lists and data.
-    /// The singleton contains buffers for GhostCollectionPrefab, GhostCollectionPrefabSerializer,
-    /// GhostCollectionComponentIndex and GhostComponentSerializer.State
+    /// 用于标识持有 Ghost Collection 列表与数据的 Singleton 的 Component
+    /// 该 Singleton 包含 GhostCollectionPrefab、GhostCollectionPrefabSerializer、
+    /// GhostCollectionComponentIndex 和 GhostComponentSerializer.State Buffer
     /// </summary>
     public struct GhostCollection : IComponentData
     {
         /// <summary>
         /// <para>
-        /// The number of prefabs that have been loaded into the <see cref="GhostCollectionPrefab"/> collection.
-        /// Use to determine which ghosts types the server can stream to the clients.
+        /// 已加载到 <see cref="GhostCollectionPrefab"/> 集合中的 Prefab 数量
+        /// 用于确定服务器可以向客户端流式传输哪些 Ghost 类型
         /// </para>
         /// <para>
-        /// The server reports (to the client) the list of loaded prefabs (with their see <see cref="GhostTypeComponent"/> guid)
-        /// as part of the snapshot protocol.
-        /// The list is dynamic; new prefabs can be added/loaded at runtime (on the server), and the new ones will be reported to the client.
+        /// 服务器通过 Snapshot Protocol 向客户端报告已加载 Prefab 列表及其 <see cref="GhostTypeComponent"/> GUID
+        /// 该列表是动态的，服务器可以在运行时添加或加载新 Prefab，并将新增项报告给客户端
         /// </para>
         /// <para>
-        /// Clients report (to the server) the number of loaded prefabs, as part of the command protocol.
-        /// When the client receives a ghost snapshot, the ghost prefab list is processed, and the <see cref="GhostCollectionPrefab"/> collection
-        /// is updated with any new ghost types not already present in the collection.
+        /// 客户端通过 Command Protocol 向服务器报告已加载 Prefab 数量
+        /// 客户端收到 Ghost Snapshot 时会处理 Ghost Prefab 列表，
+        /// 并将集合中尚不存在的新 Ghost 类型加入 <see cref="GhostCollectionPrefab"/>
         /// </para>
         /// <para>
-        /// The client does not need to have loaded ALL prefab types in the <see cref="GhostCollectionPrefab"/> to initialize the world. I.e. They can
-        /// be loaded/added dynamically into the world (i.e when streaming a sub-scene), and the <see cref="GhostCollectionPrefab.Loading"/> state
-        /// should be used in that case (to inform the <see cref="GhostCollection"/> that the specified prefabs are currently being loaded into the world).
+        /// 客户端初始化 World 时无需加载 <see cref="GhostCollectionPrefab"/> 中的全部 Prefab 类型
+        /// 它们可以动态加载或加入 World，例如流式加载 SubScene 时
+        /// 此时应使用 <see cref="GhostCollectionPrefab.Loading"/> 状态，
+        /// 告知 <see cref="GhostCollection"/> 指定 Prefab 正在加载到 World
         /// </para>
         /// </summary>
         public int NumLoadedPrefabs;
         #if UNITY_EDITOR || NETCODE_DEBUG
         /// <summary>
-        /// Only for debug, the current length of the predicted error names list. Used by the <see cref="GhostPredictionDebugSystem"/>.
+        /// 仅供调试使用，表示预测错误名称列表的当前长度，由 <see cref="GhostPredictionDebugSystem"/> 使用
         /// </summary>
         internal int NumPredictionErrors;
         #endif
         /// <summary>
-        /// The index in the <see cref="GhostCollectionPrefab"/> list where the prefab with the given <see cref="GhostType"/>.
-        /// It is populated by the <see cref="GhostReceiveSystem"/> when new prefabs hash are received from the server and it used to track what prefabs need to be mapped/loaded.
+        /// 指定 <see cref="GhostType"/> 对应 Prefab 在 <see cref="GhostCollectionPrefab"/> 列表中的索引
+        /// <see cref="GhostReceiveSystem"/> 从服务器收到新 Prefab Hash 时填充此映射，
+        /// 用于跟踪哪些 Prefab 需要映射或加载
         /// </summary>
         /// <remarks>
-        /// Should be used only by the client. For server the map is always empty. It also contains a special key for the default(GhostType) that indicate if the list has been changed since the
-        /// last time has been processed.
+        /// 仅应由客户端使用，服务器上的映射始终为空
+        /// 还包含一个 default(GhostType) 特殊 Key，用于表示列表自上次处理后是否发生变化
         /// </remarks>
         public NativeHashMap<GhostType, int> PendingGhostPrefabAssignment;
         /// <summary>
-        /// The index in the <see cref="GhostCollectionPrefab"/> list for given <see cref="GhostType"/>.
+        /// 指定 <see cref="GhostType"/> 在 <see cref="GhostCollectionPrefab"/> 列表中的索引
         /// </summary>
         public NativeHashMap<GhostType, int>.ReadOnly GhostTypeToColletionIndex;
         /// <summary>
-        /// Flag set when there is at least one <see cref="NetworkStreamConnection"/> that is game.
+        /// 至少存在一条已进入游戏的 <see cref="NetworkStreamConnection"/> 时设置的标志
         /// </summary>
         public bool IsInGame;
     }
 
     /// <summary>
-    /// A list of all prefabs which can be used for ghosts. This is populated with all ghost prefabs on the server
-    /// and that list is sent for clients. Having a prefab in this list does not guarantee that there is a serializer
-    /// for it yet.
-    /// Added to the GhostCollection singleton entity.
+    /// 可用作 Ghost 的全部 Prefab 列表
+    /// 服务器会用全部 Ghost Prefab 填充该列表并将其发送给客户端
+    /// Prefab 出现在列表中并不保证已经存在对应 Serializer
+    /// 此 Buffer 添加到 GhostCollection Singleton Entity
     /// </summary>
     /// <remarks>
-    /// The list is sorted by the value of the <see cref="GhostType"/> guid.
+    /// 列表按 <see cref="GhostType"/> GUID 值排序
     /// </remarks>
     [InternalBufferCapacity(0)]
     public struct GhostCollectionPrefab : IBufferElementData
     {
         /// <summary>
-        /// Ghost prefabs can be added dynamically to the ghost collection as soon as they are loaded from either a
-        /// sub-scene, or created dynamically at runtime.
-        /// This enum is used on the clients, to signal the ghost collection system that the <see cref="GhostCollectionPrefab"/>
-        /// type is being loaded into the world
+        /// Ghost Prefab 从 SubScene 加载或在运行时动态创建后，可以立即动态加入 Ghost Collection
+        /// 客户端使用此枚举通知 Ghost Collection System，
+        /// <see cref="GhostCollectionPrefab"/> 类型正在加载到 World
         /// </summary>
         public enum LoadingState
         {
             /// <summary>
-            /// The default state. Prefab not loaded or present (i.e. the <see cref="GhostCollectionPrefab.GhostPrefab"/> reference is <see cref="Entity.Null"/>).
+            /// 默认状态，Prefab 尚未加载或不存在，即 <see cref="GhostCollectionPrefab.GhostPrefab"/> 引用为 <see cref="Entity.Null"/>
             /// </summary>
             NotLoading = 0,
             /// <summary>
-            /// Denotes that the client has started loading the Entity Prefab (i.e the client is streaming the sub-scene content).
-            /// The <see cref="GhostCollectionSystem"/> will start monitoring the state of the resource (see <see cref="GhostCollectionPrefab.GhostPrefab"/>).
+            /// 表示客户端已开始加载 Entity Prefab，例如客户端正在流式加载 SubScene 内容
+            /// <see cref="GhostCollectionSystem"/> 将开始监控该资源状态，参见 <see cref="GhostCollectionPrefab.GhostPrefab"/>
             /// </summary>
             LoadingActive,
             /// <summary>
-            /// The prefab is currently being loaded, but either a) the prefab entity does not exist or b) the prefab has been not processed yet.
-            /// This state should only be set via the <see cref="GhostCollectionSystem"/>, and only when the <see cref="GhostCollectionPrefab.Loading"/> state
-            /// is currently set to <see cref="LoadingActive"/>.
+            /// Prefab 当前正在加载，但可能是 Prefab Entity 不存在，或 Prefab 尚未处理
+            /// 此状态只能由 <see cref="GhostCollectionSystem"/> 设置，
+            /// 并且仅当 <see cref="GhostCollectionPrefab.Loading"/> 当前为 <see cref="LoadingActive"/> 时设置
             /// </summary>
             LoadingNotActive
         }
         /// <inheritdoc cref="NetCode.GhostType"/>
         public GhostType GhostType;
         /// <summary>
-        /// A reference to the prefab entity. The reference is initially equals to <see cref="Entity.Null"/> and assigned by
-        /// the <see cref="GhostCollectionSystem"/> when prefabs are processed.
+        /// 对 Prefab Entity 的引用，初始值为 <see cref="Entity.Null"/>
+        /// <see cref="GhostCollectionSystem"/> 处理 Prefab 时为其赋值
         /// </summary>
         public Entity GhostPrefab;
         /// <summary>
-        /// Calculated at runtime by the <see cref="GhostCollectionSystem"/> and used to for consistency check. In particular,
-        /// the hash to verify the ghost is serialized and deserialized in the same way.
+        /// 由 <see cref="GhostCollectionSystem"/> 在运行时计算并用于一致性检查
+        /// 特别用于验证 Ghost 的序列化与反序列化方式一致
         /// </summary>
         internal ulong Hash;
         /// <summary>
-        /// Game code should set this to LoadingActive if the prefab is currently being loaded. The collection system
-        /// will set it to LoadingNotActive every frame, so game code must reset it to LoadingActive every frame the
-        /// prefab is still loading.
+        /// Prefab 正在加载时，游戏代码应将此值设为 LoadingActive
+        /// Collection System 每帧都会将其设为 LoadingNotActive，
+        /// 因此 Prefab 仍在加载期间，游戏代码必须每帧重新设为 LoadingActive
         /// </summary>
         public LoadingState Loading;
     }
     /// <summary>
-    /// A list of all serializer data for the prefabs in GhostCollectionPrefab. This list can be shorter if not all
-    /// serializers are created yet.
-    /// Added to the GhostCollection singleton entity.
+    /// GhostCollectionPrefab 中各 Prefab 的全部 Serializer Data 列表
+    /// 如果部分 Serializer 尚未创建，此列表可能更短
+    /// 此 Buffer 添加到 GhostCollection Singleton Entity
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct GhostCollectionPrefabSerializer : IBufferElementData
     {
         /// <summary>
-        /// The stable type hash of the prefab. Used to retrieve GhostCollectionPrefabSerializer instance. The hash is composed by
-        /// the name and the hash of all the component serializers.
+        /// Prefab 的 Stable Type Hash，用于获取 GhostCollectionPrefabSerializer 实例
+        /// 该 Hash 由名称和全部 Component Serializer 的 Hash 组合而成
         /// </summary>
         public ulong TypeHash;
         /// <summary>
-        /// The index of the first component serialization rule to use inside the <see cref="GhostCollectionComponentIndex"/>.
+        /// <see cref="GhostCollectionComponentIndex"/> 中第一个待用 Component 序列化规则的索引
         /// </summary>
         public int FirstComponent;
         /// <summary>
-        /// The total number of serialized components. Include both root and child entities.
+        /// 已序列化 Component 总数，包括 Root Entity 和 Child Entity
         /// </summary>
         public int NumComponents;
         /// <summary>
-        /// The total number of serialized components present only in the child entities.
+        /// 仅存在于 Child Entity 中的已序列化 Component 总数
         /// </summary>
         public int NumChildComponents;
         /// <summary>
-        /// The total size in bytes of the entire ghost type, including space for enable bits and change masks.
+        /// 整个 Ghost 类型的总字节大小，包括 Enable Bit 和 ChangeMask 所需空间
         /// </summary>
         public int SnapshotSize;
         /// <summary>
-        /// The number of bits used by change mask bitarray for this entire ghost type.
+        /// 整个 Ghost 类型的 ChangeMask BitArray 使用的位数
         /// </summary>
         public int ChangeMaskBits;
         /// <summary>
-        /// <para>Only set if the <see cref="GhostOwner"/> is present on the entity prefab,
-        /// is the offset in bytes, from the beginning of the snapshot data, in which the network id of the of client
-        /// owning the entity can be retrieved.
+        /// <para>仅当 Entity Prefab 上存在 <see cref="GhostOwner"/> 时设置
+        /// 表示相对 Snapshot Data 起始位置的字节 Offset，可从该位置获取拥有此 Entity 的客户端 Network ID
         /// </para>
         /// <code>
         /// var ghostOwner = *(uint*)(snapshotDataPtr + PredictionOwnerOffset)
@@ -267,135 +284,151 @@ namespace Unity.NetCode
         /// </summary>
         public int PredictionOwnerOffset;
         /// <summary>
-        /// Flag stating if the ghost replication mode is set to owner predicted.
+        /// 表示 Ghost 复制模式是否设为 Owner Predicted 的标志
         /// </summary>
         public int OwnerPredicted;
         /// <summary>
-        /// Set to 1 when the ghost contains components with different <see cref="GhostComponentSerializer.SendMask"/>.
-        /// Based on the ghost replication mode (interpolated or predicted), some of these component should be not replicated,
-        /// and the decision must be made by the <see cref="GhostSendSystem"/> at runtime, when entities are serialized.
+        /// Ghost 包含具有不同 <see cref="GhostComponentSerializer.SendMask"/> 的 Component 时设为 1
+        /// 根据 Ghost 复制模式是 Interpolated 还是 Predicted，部分 Component 不应复制，
+        /// 该决策必须由 <see cref="GhostSendSystem"/> 在运行时序列化 Entity 时作出
         /// </summary>
         public byte PartialComponents;
         /// <summary>
-        /// Set to 1 if the ghost has some components for which the <see cref="GhostComponentAttribute.OwnerSendType"/>
-        /// is different than <see cref="SendToOwnerType.All"/>. When the flag is set, the <see cref="GhostSendSystem"/>
-        /// will peform the necessary ghost owner checks.
+        /// Ghost 中部分 Component 的 <see cref="GhostComponentAttribute.OwnerSendType"/>
+        /// 不等于 <see cref="SendToOwnerType.All"/> 时设为 1
+        /// 设置后，<see cref="GhostSendSystem"/> 会执行必要的 Ghost Owner 检查
         /// </summary>
         public byte PartialSendToOwner;
         /// <summary>
-        /// True if the <see cref="GhostOptimizationMode"/> is set to <see cref="GhostOptimizationMode.Static"/> in the
-        /// <see cref="GhostAuthoringComponent"/>.
+        /// <see cref="GhostAuthoringComponent"/> 中的 <see cref="GhostOptimizationMode"/>
+        /// 设为 <see cref="GhostOptimizationMode.Static"/> 时为 true
         /// </summary>
         public byte StaticOptimization;
         /// <summary>
-        /// Enable predicted spawned ghost to rollback their initial spawn state and re-predict until the authoritative spawn has been received from the server.
+        /// 允许 Predicted Spawned Ghost 回滚其初始 Spawn 状态并重新预测，直至收到服务器的权威 Spawn
         /// </summary>
         public byte PredictedSpawnedGhostRollbackToSpawnTick;
         /// <summary>
-        /// Client CPU optimization. Force predicted ghost to always try to continue from the last prediction in case of structural changes. True by default (because may introduce some issue when replicated component are removed).
+        /// 客户端 CPU 优化，发生结构性变更时强制 Predicted Ghost 始终尝试从上次预测继续
+        /// 默认为 true，因为移除已复制 Component 时可能引入问题
         /// </summary>
         public byte RollbackPredictionOnStructuralChanges;
         /// <summary>
-        /// Instruct the <see cref="GhostSendSystem"/> to always use a single baseline for this ghost archetype.
+        /// 指示 <see cref="GhostSendSystem"/> 始终为此 Ghost Archetype 使用单个 Baseline
         /// </summary>
         public byte UseSingleBaseline;
         /// <inheritdoc cref="GhostPrefabCreation.Config.Importance"/>
         public int BaseImportance;
-        /// <summary><see cref="GhostPrefabCreation.Config.MaxSendRate"/> expressed as a <see cref="ClientServerTickRate.SimulationTickRate"/> interval
-        /// (i.e. the number of ticks until we can send again).</summary>
+        /// <summary>
+        /// 以 <see cref="ClientServerTickRate.SimulationTickRate"/> 间隔表示的
+        /// <see cref="GhostPrefabCreation.Config.MaxSendRate"/>，即距离下次允许发送的 Tick 数
+        /// </summary>
         /// <seealso cref="GhostPrefabCreation.Config.MaxSendRate"/>
         public byte MaxSendRateAsSimTickInterval;
         /// <summary>
-        /// Used by the <see cref="GhostSpawnClassificationSystem"/> to assign the type of <see cref="GhostSpawnBuffer.Type"/> to use for this ghost,
-        /// if no other user-defined system has classified how the new ghost should be spawned.
+        /// 没有其他用户定义系统对新 Ghost 的生成方式进行分类时，
+        /// 由 <see cref="GhostSpawnClassificationSystem"/> 用于分配该 Ghost 使用的 <see cref="GhostSpawnBuffer.Type"/>
         /// </summary>
         public GhostSpawnBuffer.Type FallbackPredictionMode;
         /// <summary>
-        /// Flag that indicates if the ghost prefab contains a <see cref="GhostGroup"/> component and can be used as root
-        /// of the group.
+        /// 表示 Ghost Prefab 是否包含 <see cref="GhostGroup"/> Component，且能否作为 Group Root 的标志
         /// </summary>
         /// <seealso cref="GhostChildEntity"/>
         public int IsGhostGroup;
         /// <summary>
-        /// The number of bits necessary to store the enabled state of all the enableable ghost components (that are flagged with <see cref="GhostEnabledBitAttribute"/>).
+        /// 存储全部 Enableable Ghost Component 启用状态所需的位数，这些 Component 由 <see cref="GhostEnabledBitAttribute"/> 标记
         /// </summary>
         public int EnableableBits;
         /// <summary>
-        /// The size of the largest replicated <see cref="IBufferElementData"/> for this ghost. It is used to calculate the
-        /// necessary <see cref="SnapshotDynamicDataBuffer"/> capacity to hold the replicated buffer data.
+        /// 此 Ghost 中最大已复制 <see cref="IBufferElementData"/> 的大小
+        /// 用于计算容纳已复制 Buffer Data 所需的 <see cref="SnapshotDynamicDataBuffer"/> 容量
         /// </summary>
         public int MaxBufferSnapshotSize;
         /// <summary>
-        /// The total number of replicated <see cref="IBufferElementData"/> for this ghost.
+        /// 此 Ghost 中已复制 <see cref="IBufferElementData"/> 的总数
         /// </summary>
         public int NumBuffers;
         /// <summary>
-        /// A profile marker used to track serialization performance.
+        /// 用于跟踪序列化性能的 Profiler Marker
         /// </summary>
         public Profiling.ProfilerMarker profilerMarker;
         /// <summary>
-        /// A custom serializer function to serializer the chunk (only for server).
+        /// 用于序列化 Chunk 的自定义 Serializer 函数，仅限服务器
         /// </summary>
         public PortableFunctionPointer<GhostPrefabCustomSerializer.ChunkSerializerDelegate> CustomSerializer;
         /// <summary>
-        /// The function pointer to invoke for pre-serializing the chunk (only for server).
+        /// 用于预序列化 Chunk 的函数指针，仅限服务器
         /// </summary>
         public PortableFunctionPointer<GhostPrefabCustomSerializer.ChunkPreserializeDelegate> CustomPreSerializer;
         /// <summary>
-        /// Static-optimization does not support iterating over multiple chunks, which excludes:
-        /// - GhostGroups.
-        /// - Ghosts with replicated children.
+        /// 静态优化不支持遍历多个 Chunk，因此排除以下情况
+        /// - GhostGroup
+        /// - 带已复制 Child 的 Ghost
         /// </summary>
-        /// <returns>`true` if the entity satisfies the conditions for static optimization.</returns>
+        /// <returns>Entity 满足静态优化条件时为 `true`</returns>
         public readonly bool CanBeStaticOptimized() => StaticOptimization != 0 && IsGhostGroup == 0 && NumChildComponents == 0;
     }
 
     /// <summary>
-    /// This list contains the set of uniques components which support serialization. Used to map the DynamicComponentTypeHandle
-    /// to a concrete ComponentType in jobs.
-    /// Added to the GhostCollection singleton entity.
+    /// 包含支持序列化的唯一 Component 集合，用于在 Job 中将 DynamicComponentTypeHandle 映射到具体 ComponentType
+    /// 此 Buffer 添加到 GhostCollection Singleton Entity
     /// </summary>
     [InternalBufferCapacity(0)]
     internal struct GhostCollectionComponentType : IBufferElementData
     {
         /// <summary>
-        /// The type of the component. Must be either a <see cref="IComponentData"/> or a <see cref="IBufferElementData"/>.
+        /// Component 类型，必须是 <see cref="IComponentData"/> 或 <see cref="IBufferElementData"/>
         /// </summary>
         public ComponentType Type;
         /// <summary>
-        /// The index of the first serializer for this component type inside the <see cref="GhostComponentSerializer"/> collection
+        /// 此 Component 类型在 <see cref="GhostComponentSerializer"/> 集合中的第一个 Serializer 索引
         /// </summary>
         public int FirstSerializer;
         /// <summary>
-        /// The index of the last (included) serializer for this component type inside the <see cref="GhostComponentSerializer"/> collection
+        /// 此 Component 类型在 <see cref="GhostComponentSerializer"/> 集合中的最后一个 Serializer 索引，包含该索引
         /// </summary>
         public int LastSerializer;
     }
 
     /// <summary>
-    /// This list contains the set of entity + component for all serialization rules in GhostCollectionPrefabSerializer.
-    /// GhostCollectionPrefabSerializer contains a FirstComponent and NumComponents which identifies the set of components
-    /// to use from this array.
-    /// Added to the GhostCollection singleton entity.
+    /// 包含 GhostCollectionPrefabSerializer 全部序列化规则对应的 Entity 与 Component 集合
+    /// GhostCollectionPrefabSerializer 通过 FirstComponent 和 NumComponents 标识此数组中要使用的 Component 集合
+    /// 此 Buffer 添加到 GhostCollection Singleton Entity
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct GhostCollectionComponentIndex : IBufferElementData
     {
-        /// <summary>Index of ghost entity the rule applies to.</summary>
+        /// <summary>
+        /// 此规则适用的 Ghost Entity 索引
+        /// </summary>
         public int EntityIndex;
-        /// <summary>Index in the <see cref="GhostCollectionComponentIndex"/>, used to retrieve the component type from the DynamicTypeHandle.</summary>
+        /// <summary>
+        /// <see cref="GhostCollectionComponentIndex"/> 中的索引，用于从 DynamicTypeHandle 获取 Component 类型
+        /// </summary>
         public int ComponentIndex;
-        /// <summary>Index in the <see cref="GhostComponentSerializer.State"/> collection, used to get the type of serializer to use.</summary>
+        /// <summary>
+        /// <see cref="GhostComponentSerializer.State"/> 集合中的索引，用于获取要使用的 Serializer 类型
+        /// </summary>
         public int SerializerIndex;
-        /// <summary>The <see cref="Unity.Entities.TypeIndex"/> the component.</summary>
+        /// <summary>
+        /// Component 的 <see cref="Unity.Entities.TypeIndex"/>
+        /// </summary>
         public int TypeIndex;
-        /// <summary>Size of the component or buffer element</summary>
+        /// <summary>
+        /// Component 或 Buffer Element 的大小
+        /// </summary>
         public int ComponentSize;
-        /// <summary>Size of the component in the snapshot buffer. 0 if not ghost fields are serialized </summary>
+        /// <summary>
+        /// Component 在 Snapshot Buffer 中的大小，没有序列化 Ghost Field 时为 0
+        /// </summary>
         public int SnapshotSize;
-        /// <summary>Current send mask for that component, used to not send/receive components in some configuration.</summary>
+        /// <summary>
+        /// 此 Component 的当前 Send Mask，用于在部分配置下禁止收发 Component
+        /// </summary>
         public GhostSendType SendMask;
-        /// <summary>Current owner mask for that component, used to not send/receive components in some configuration.</summary>
+        /// <summary>
+        /// 此 Component 的当前 Owner Mask，用于在部分配置下禁止收发 Component
+        /// </summary>
         public SendToOwnerType SendToOwner;
 #if UNITY_EDITOR || NETCODE_DEBUG
         internal int PredictionErrorBaseIndex;
@@ -403,171 +436,159 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Allow to associate for a given ghost prefab a custom made (hand written) serialization function.
-    /// The method allow to serialize on per "archetype", allowing for better vectorization and optimisation in general.
-    /// However, writing the serialization code is not trivial and require deep knowledge of the underlying
-    /// <see cref="GhostChunkSerializer"/> implementation, data and wire format.
+    /// 允许为指定 Ghost Prefab 关联手写的自定义序列化函数
+    /// 此方法支持按 Archetype 序列化，通常可以获得更好的向量化与优化效果
+    /// 但编写序列化代码并不简单，需要深入理解底层 <see cref="GhostChunkSerializer"/> 实现、数据和 Wire Format
     /// </summary>
     public struct GhostPrefabCustomSerializer
     {
         /// <summary>
-        /// Contains all the necessary data to perform the chunk serialization.
+        /// 包含执行 Chunk 序列化所需的全部数据
         /// </summary>
         public struct Context
         {
             /// <summary>
-            /// The pointer to the buffer that contains the snapshot data. The size of the buffer is fixed
-            /// by archetype, being the component set immutable after the prefab has been registered and pre-processed
-            /// by the <see cref="GhostCollectionSystem"/>.
+            /// 指向包含 Snapshot Data 的 Buffer
+            /// Buffer 大小由 Archetype 固定，因为 Prefab 经 <see cref="GhostCollectionSystem"/> 注册和预处理后，Component 集合不可变
             /// </summary>
             [NoAlias]public IntPtr snapshotDataPtr;
             /// <summary>
-            /// The pointer to the buffer that contains the dynamic buffer snapshot data. This is a
-            /// variable size buffer.
+            /// 指向包含动态 Buffer Snapshot Data 的 Buffer，这是可变大小 Buffer
             /// </summary>
             [NoAlias]public IntPtr snapshotDynamicDataPtr;
             /// <summary>
-            /// The index inside the <see cref="GhostCollectionPrefabSerializer"/> buffer.
+            /// <see cref="GhostCollectionPrefabSerializer"/> Buffer 中的索引
             /// </summary>
             public int ghostType;
             /// <summary>
-            /// The offset from the start of the <see cref="snapshotDataPtr"/> from which the component data
-            /// are stored. The offset depends on the number of component, their change masks and the presence or
-            /// not of enable bits to replicate.
+            /// Component Data 存储位置相对 <see cref="snapshotDataPtr"/> 起点的 Offset
+            /// 该 Offset 取决于 Component 数量、其 ChangeMask，以及是否存在需要复制的 Enable Bit
             /// </summary>
             public int snapshotOffset;
             /// <summary>
-            /// The offsets in bytes from the beginning of the <see cref="snapshotDataPtr"/> buffer where the
-            /// component change mask bits bits are stored.
+            /// Component ChangeMask Bit 存储位置相对 <see cref="snapshotDataPtr"/> Buffer 起点的字节 Offset
             /// </summary>
             public int changeMaskOffset;
             /// <summary>
-            /// The offsets in bytes from the beginning of the <see cref="snapshotDataPtr"/> buffer where the
-            /// state of the component enable bits are stored.
+            /// Component Enable Bit 状态存储位置相对 <see cref="snapshotDataPtr"/> Buffer 起点的字节 Offset
             /// </summary>
             public int enablebBitsOffset;
             /// <summary>
-            /// The offset from the beginning of the <see cref="snapshotDynamicDataPtr"/> from which the dynamic buffer
-            /// data are going to be stored.
+            /// 动态 Buffer Data 存储位置相对 <see cref="snapshotDynamicDataPtr"/> 起点的 Offset
             /// </summary>
             public int dynamicDataOffset;
             /// <summary>
-            /// The size (in bytes) of the snasphot data. Entitiy component data are stored strided by the snapshotSize
-            /// and the snapshot buffer format is something like:
+            /// Snapshot Data 的字节大小
+            /// Entity Component Data 按 snapshotSize 作为 Stride 存储，Snapshot Buffer 格式大致如下
             /// |ent1       | ... |ent n|
             /// |c1, c2.. cn| ... |c1, c2.. cn|
             /// </summary>
             public int snapshotStride;
             /// <summary>
-            /// The capacity (in bytes) of the dynamic snasphot data. This is pre-computed and it is used mostly for
-            /// boundary checks.
+            /// 动态 Snapshot Data 的字节容量，预先计算并主要用于边界检查
             /// </summary>
             public int dynamicDataCapacity;
             /// <summary>
-            /// The dynamic type handle of all the registered serializable component types currently in use.
+            /// 当前使用的全部已注册可序列化 Component 类型的 Dynamic TypeHandle
             /// </summary>
             [NoAlias][ReadOnly] public IntPtr ghostChunkComponentTypesPtr;
             /// <summary>
-            /// The <see cref="ghostChunkComponentTypesPtr"/> list length.
+            /// <see cref="ghostChunkComponentTypesPtr"/> 列表长度
             /// </summary>
             public int ghostChunkComponentTypesPtrLen;
             /// <summary>
-            /// A lookup used to retrieve the chunk information (chunk and indices) when serializing
-            /// child components.
+            /// 序列化 Child Component 时用于获取 Chunk 信息，包括 Chunk 和索引的 Lookup
             /// </summary>
             [ReadOnly] public EntityStorageInfoLookup childEntityLookup;
             /// <summary>
-            /// Type handled used to retrieve the <see cref="LinkedEntityGroup"/> buffer from the chunk.
+            /// 用于从 Chunk 获取 <see cref="LinkedEntityGroup"/> Buffer 的 TypeHandle
             /// </summary>
             [ReadOnly] public BufferTypeHandle<LinkedEntityGroup> linkedEntityGroupTypeHandle;
             /// <summary>
-            /// The <see cref="GhostSerializerState"/> data used to convert component data to snapshot data.
+            /// 用于将 Component Data 转换为 Snapshot Data 的 <see cref="GhostSerializerState"/> 数据
             /// </summary>
             public GhostSerializerState serializerState;
             /// <summary>
-            /// The index of the first relevant entity in the chunk.
+            /// Chunk 中第一个 Relevant Entity 的索引
             /// </summary>
             public int startIndex;
             /// <summary>
-            /// The index of the last relevant entity in the chunk. This should be used to iterate over
-            /// the chunk entities. Don't use chunk.Count.
+            /// Chunk 中最后一个 Relevant Entity 的结束索引
+            /// 遍历 Chunk Entity 时应使用此值，不要使用 chunk.Count
             /// </summary>
             public int endIndex;
             /// <summary>
-            /// The connection <see cref="NetworkId"/>
+            /// 连接的 <see cref="NetworkId"/>
             /// </summary>
             public int networkId;
             /// <summary>
-            /// instruct the custom serializer to not copy the data to the snapsnot, because has been already
-            /// pre-serialized
+            /// 指示自定义 Serializer 不要将数据复制到 Snapshot，因为数据已经预序列化
             /// </summary>
             public int hasPreserializedData;
             /// <summary>
-            /// instruct the custom serializer to use always a single baseline for this ghost archetype.
+            /// 指示自定义 Serializer 始终为此 Ghost Archetype 使用单个 Baseline
             /// </summary>
             public int useSingleBaseline;
             /// <summary>
-            /// [Output] the buffer where to store the ghost data compressed size and start bit inside the
-            /// temporary data stream.
-            /// Stores 2 ints per component, per entity.
-            /// [1st] Writer bit offset to the start of this components writes.
-            /// [2nd] Num bits written for this component.
+            /// [输出] 存储 Ghost Data 压缩大小及其在临时 Data Stream 中起始位的 Buffer
+            /// 每个 Entity 的每个 Component 存储两个 int
+            /// [第 1 个] Writer 中该 Component 写入起点的位 Offset
+            /// [第 2 个] 该 Component 写入的位数
             /// </summary>
             [NoAlias]public IntPtr entityStartBit;
             /// <summary>
-            /// The list of readonly <see cref="DynamicComponentTypeHandle"/> that must be used to retrieve the component
-            /// data from the chunk
+            /// 从 Chunk 获取 Component Data 时必须使用的只读 <see cref="DynamicComponentTypeHandle"/> 列表
             /// </summary>
             [NoAlias]public IntPtr ghostChunkComponentTypes;
             /// <summary>
-            /// The baselines to use to serialize the entities. It contains 4 baselines per entity:
-            /// Index 0-2 the snapshot baseline, Index 3 the dynamic buffer baseline.
+            /// 序列化 Entity 时使用的 Baseline，每个 Entity 包含 4 个
+            /// 索引 0 到 2 为 Snapshot Baseline，索引 3 为动态 Buffer Baseline
             /// </summary>
             [NoAlias]public IntPtr baselinePerEntityPtr;
             /// <summary>
-            /// Contains a run-length encoded baseline indices to use for each entities runs. Can be used
-            /// to determine if an entity is irrelevant.
+            /// 包含每个 Entity 连续区段要使用的 Run-Length Encoded Baseline 索引
+            /// 可用于判断 Entity 是否为 Irrelevant
             /// </summary>
             [NoAlias]public IntPtr sameBaselinePerEntityPtr;
             /// <summary>
-            /// [Output] a buffer that store the total size of the dynamic buffer data for each entity in the chunk.
+            /// [输出] 存储 Chunk 中每个 Entity 动态 Buffer Data 总大小的 Buffer
             /// </summary>
             [NoAlias]public IntPtr dynamicDataSizePerEntityPtr;
             /// <summary>
-            /// a readonly buffer that contains all zero bytes  (up to 8kb)
+            /// 包含全零字节的只读 Buffer，最大 8KB
             /// </summary>
             [NoAlias]public IntPtr zeroBaseline;
             /// <summary>
-            /// the pointer of the <see cref="GhostInstance"/> data in the chunk.
+            /// 指向 Chunk 中 <see cref="GhostInstance"/> 数据的指针
             /// </summary>
             [NoAlias]public IntPtr ghostInstances;
         }
 
         /// <summary>
-        /// The function pointer to invoke for serializing the chunk.
+        /// 序列化 Chunk 时调用的函数指针
         /// </summary>
         public PortableFunctionPointer<ChunkSerializerDelegate> SerializeChunk;
         /// <summary>
-        /// A custom serializer function to serializer the chunk (only for server)
+        /// 用于序列化 Chunk 的自定义 Serializer 函数，仅限服务器
         /// </summary>
         public PortableFunctionPointer<ChunkPreserializeDelegate> PreSerializeChunk;
         ///<summary>
-        /// Delegate to specify a custom order for the serialised components.
+        /// 用于指定已序列化 Component 自定义顺序的委托
         /// </summary>
-        /// <param name="componentTypes">Serialized component types</param>
-        /// <param name="componentCount">Number of components</param>
+        /// <param name="componentTypes">已序列化 Component 类型</param>
+        /// <param name="componentCount">Component 数量</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void CollectComponentDelegate(IntPtr componentTypes, IntPtr componentCount);
         ///<summary>
-        /// Delegate for the custom chunk serializer.
+        /// 自定义 Chunk Serializer 的委托
         /// </summary>
-        /// <param name="chunk">Chunk</param>
-        /// <param name="typeData">Type data</param>
-        /// <param name="componentIndices">Component indices</param>
-        /// <param name="context">Context</param>
-        /// <param name="tempWriter">Datastream writer</param>
-        /// <param name="compressionModel">Compression model</param>
-        /// <param name="lastSerializedEntity">Last serialized entity</param>
+        /// <param name="chunk">目标 Chunk</param>
+        /// <param name="typeData">类型数据</param>
+        /// <param name="componentIndices">Component 索引</param>
+        /// <param name="context">上下文</param>
+        /// <param name="tempWriter">临时 Data Stream Writer</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="lastSerializedEntity">最后一个已序列化 Entity</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void ChunkSerializerDelegate(
             ref ArchetypeChunk chunk,
@@ -578,12 +599,12 @@ namespace Unity.NetCode
             in StreamCompressionModel compressionModel,
             ref int lastSerializedEntity);
         ///<summary>
-        /// Delegate for the custom chunk pre-serialization function.
+        /// 自定义 Chunk 预序列化函数的委托
         /// </summary>
-        /// <param name="chunk">Chunk</param>
-        /// <param name="typeData">Type data</param>
-        /// <param name="componentIndices">Component indices</param>
-        /// <param name="context">Context</param>
+        /// <param name="chunk">目标 Chunk</param>
+        /// <param name="typeData">类型数据</param>
+        /// <param name="componentIndices">Component 索引</param>
+        /// <param name="context">上下文</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void ChunkPreserializeDelegate(
             in ArchetypeChunk chunk,
@@ -593,13 +614,13 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Singleton component that holds the list of custom chunk serializers.
+    /// 保存自定义 Chunk Serializer 列表的 Singleton Component
     /// </summary>
     public struct GhostCollectionCustomSerializers : IComponentData
     {
         /// <summary>
-        /// Associate a <see cref="GhostPrefabCustomSerializer"/> for a specific prefab guid (or <see cref="GhostType"/>)
-        /// The Hash128 can be derived from the <see cref="GhostType"/> via the explicit cast operator.
+        /// 为指定 Prefab GUID 或 <see cref="GhostType"/> 关联 <see cref="GhostPrefabCustomSerializer"/>
+        /// 可通过显式转换运算符从 <see cref="GhostType"/> 得到 Hash128
         /// </summary>
         public NativeHashMap<Hash128, GhostPrefabCustomSerializer> Serializers;
     }

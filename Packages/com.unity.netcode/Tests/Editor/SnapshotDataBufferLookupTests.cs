@@ -120,7 +120,7 @@ namespace Unity.NetCode.Tests.Editor
                     testWorld.Tick();
                 Assert.AreEqual(testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld).Length,1);
                 Assert.AreEqual(testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ClientWorlds[0]).Length,1);
-                //Predict the spawning on the client. And match the one coming from server
+                // 客户端先预测生成实体，再与服务器发送的 Ghost 匹配
                 var clientGhost = testWorld.ClientWorlds[0].EntityManager.Instantiate(clientPrefab);
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientGhost));
                 SetComponentsData(testWorld.ClientWorlds[0], clientGhost);
@@ -159,7 +159,7 @@ namespace Unity.NetCode.Tests.Editor
                     testWorld.Tick();
                 Assert.AreEqual(clientGhostPrefabs.Length, testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ServerWorld).Length);
                 Assert.AreEqual(clientGhostPrefabs.Length, testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ClientWorlds[0]).Length);
-                //Predict the spawning on the client. And match the one coming from server
+                // 客户端先预测生成实体，再与服务器发送的 Ghost 匹配
                 for (int i = 0; i < clientGhostPrefabs.Length; ++i)
                 {
                     var clientGhost = testWorld.ClientWorlds[0].EntityManager.Instantiate(clientGhostPrefabs[i]);

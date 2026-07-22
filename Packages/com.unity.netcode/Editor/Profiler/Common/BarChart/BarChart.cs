@@ -7,10 +7,10 @@ namespace Unity.NetCode.Editor
 {
     class BarChart : VisualElement
     {
-        // Graph with headline and legend
+        // 包含标题与图例的完整图表
         const string k_USSBaseClass = "barchart";
 
-        // Just the graph itself
+        // 仅图表本体
         internal const string ussClassBarGraph = "bargraph";
 
         VisualElement m_BarContainer = new();
@@ -43,7 +43,7 @@ namespace Unity.NetCode.Editor
 
             foreach (var barChartCategory in categories)
             {
-                // m_BarContainer.Add(barChartCategory.mainBarElement); // TODO: Add bar graph once we have RPC and Command data
+                // m_BarContainer.Add(barChartCategory.mainBarElement); // TODO 取得 RPC 和 Command 数据后添加柱状图
                 Add(barChartCategory.legendListViewContainer);
             }
         }

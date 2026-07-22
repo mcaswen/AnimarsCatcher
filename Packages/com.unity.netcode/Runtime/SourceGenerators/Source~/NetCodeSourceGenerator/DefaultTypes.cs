@@ -1,9 +1,9 @@
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// Contains the serialization rule declarations for all the basic/default types supported by netcode.
-    /// In particular
-    /// Primitive type:
+    /// 包含 NetCode 支持的全部基础与默认类型的序列化规则声明
+    /// 具体包括：
+    /// 基础类型：
     ///   - int
     ///   - uint
     ///   - byte
@@ -12,15 +12,15 @@ namespace Unity.NetCode.Generators
     ///   - long
     ///   - ulong
     ///   - enum
-    /// Mathematics:
+    /// Mathematics 类型：
     ///   - float2
     ///   - float3
     ///   - float4
     ///   - quaternion
-    /// Fixed strings (32,64,128, 512,4096)
-    /// Entity reference
+    /// FixedString（32、64、128、512、4096）
+    /// Entity 引用
     /// NetworkEndPoint
-    /// FixedList (32,64,128, 512, 4096)
+    /// FixedList（32、64、128、512、4096）
     /// </summary>
     class DefaultTypes
     {

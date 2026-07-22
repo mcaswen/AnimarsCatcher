@@ -6,10 +6,10 @@ namespace Unity.NetCode.Generators;
 
 public static class FixedListUtils
 {
-    //Fixed element require to be unmanaged (this is already ensured) and that the layout is sequential.
-    //we don't allow for auto layout.
-    //Notice that there is sometime some little weirdness with bool, that cause auto-layout problem.
-    //However, for sake of sizeof() the struct alignment should be the same (and we can consider bool as byte aligned)
+    // FixedList 元素必须是 unmanaged 类型且使用顺序布局，前一个条件已由外部保证
+    // 此处不允许自动布局
+    // bool 有时会导致自动布局异常，但从 sizeof() 计算角度看结构体对齐应保持一致
+    // 可以将 bool 视为按字节对齐
     public static Diagnostic VerifyFixedListStructRequirement(ITypeSymbol fixedListType)
     {
         var structLayoutAttribute = Roslyn.Extensions.GetAttribute(fixedListType, "System.Runtime.InteropServices", "StructLayoutAttribute");
@@ -18,7 +18,7 @@ public static class FixedListUtils
         if (structLayoutAttribute.ConstructorArguments.Length == 0 ||
             structLayoutAttribute.ConstructorArguments[0].Type.Name != "LayoutKind")
             return null;
-        //We require
+        // 只支持顺序布局
         var layoutKind = (structLayoutAttribute.ConstructorArguments[0]).ToCSharpString();
         if (layoutKind != "System.Runtime.InteropServices.LayoutKind.Sequential")
         {
@@ -37,9 +37,8 @@ public static class FixedListUtils
     {
         var sizeAndAlignment = CalculateStructSizeOf_Recursive(((INamedTypeSymbol)fixedListSymbol).TypeArguments[0]);
         var byteSize = fixedListSymbol.Name.Substring(9, fixedListSymbol.Name.IndexOf('B')-9);
-        //-2 because the first 2 bytes are reserved for the list length.
-        //Then there is the padding to align the element. I could avoid that honestly but for sake of complete
-        //"compatibility" (same calculation) I added here as well.
+        // 减去 2 是因为前两个字节保留给列表长度
+        // 之后还需减去元素对齐填充；虽然可以省略，但为保证计算方式完全兼容仍在此计入
         var storageSize = int.Parse(byteSize) - 2 - PaddingBytes(sizeAndAlignment.Item2);
         int numElements = storageSize / sizeAndAlignment.Item1;
         return numElements;
@@ -83,7 +82,7 @@ public static class FixedListUtils
             {
                 (fieldSize, fieldAlignment) = CalculateStructSizeOf_Recursive(((IPropertySymbol)f).Type);
             }
-            //else nothing will add size to the struct
+            // 其他成员不会增加结构体大小
             if ((structSize % fieldAlignment) != 0)
             {
                 structSize = (structSize + fieldAlignment - 1) & ~(fieldAlignment - 1);

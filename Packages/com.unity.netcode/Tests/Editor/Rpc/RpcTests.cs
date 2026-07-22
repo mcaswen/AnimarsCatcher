@@ -27,7 +27,7 @@ namespace Unity.NetCode.Tests
                 ClientRcpSendSystem.SendCount = SendCount;
                 ServerRpcReceiveSystem.ReceivedCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 12; ++i)
@@ -52,7 +52,7 @@ namespace Unity.NetCode.Tests
                 ClientRcpSendSystem.SendCount = SendCount;
                 ServerRpcReceiveSystem.ReceivedCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 var remote = testWorld.TryGetSingletonEntity<NetworkStreamConnection>(testWorld.ClientWorlds[0]);
@@ -84,7 +84,7 @@ namespace Unity.NetCode.Tests
 
                 SerializedServerRpcReceiveSystem.ReceivedCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 4; ++i)
@@ -111,7 +111,7 @@ namespace Unity.NetCode.Tests
                 MultipleClientBroadcastRpcReceiveSystem.ReceivedCount[0] = 0;
                 MultipleClientBroadcastRpcReceiveSystem.ReceivedCount[1] = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 int SendCount = 5;
@@ -127,7 +127,9 @@ namespace Unity.NetCode.Tests
 
         public static readonly SharedStatic<int> VariableSizedResultCnt = SharedStatic<int>.GetOrCreate<VariableSizedRpc>();
 
-        /// <summary>Officially supported in 1.3.x.</summary>
+        /// <summary>
+        /// 从 1.3.x 起正式支持
+        /// </summary>
         [Test]
         public void Rpc_VariableSizedCompression_Works([Values] bool useDynamicAssemblyList)
         {
@@ -140,7 +142,7 @@ namespace Unity.NetCode.Tests
                 testWorld.GetSingletonRW<RpcCollection>(testWorld.ClientWorlds[0]).ValueRW.RegisterRpc<VariableSizedRpc, VariableSizedRpc>();
                 testWorld.Connect();
 
-                // Send them without Entities:
+                // 不创建 RPC 实体，直接通过队列发送
                 const int sendCount = 35;
                 var rpcQueue = testWorld.GetSingletonRW<RpcCollection>(testWorld.ClientWorlds[0]).ValueRW.GetRpcQueue<VariableSizedRpc>();
                 var outBuf = testWorld.GetSingletonBuffer<OutgoingRpcDataStreamBuffer>(testWorld.ClientWorlds[0]);
@@ -157,12 +159,12 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Assert happens inside the VariableSizedRpc.Execute.
+                // 具体数据断言在 VariableSizedRpc.Execute 中执行
                 Assert.AreEqual(sendCount, VariableSizedResultCnt.Data);
             }
         }
 
-        // TODO: With rpc changes with approval rpcs this no longer is the case
+        // TODO 引入连接审批 RPC 后该行为已不再成立
         // [Test]
         // public void Rpc_SendingBeforeGettingNetworkId_LogWarning()
         // {
@@ -178,7 +180,7 @@ namespace Unity.NetCode.Tests
         //         ServerRpcReceiveSystem.ReceivedCount = 0;
         //         FlawedClientRcpSendSystem.SendCount = SendCount;
         //
-        //         // Connect and make sure the connection could be established
+        //         // 建立连接并确认连接成功
         //         testWorld.Connect();
         //
         //         LogAssert.Expect(LogType.Warning, new Regex("Cannot send RPC with no remote connection."));
@@ -192,16 +194,16 @@ namespace Unity.NetCode.Tests
 
         [Test]
         [Ignore("Need significant package hardening to make guarantees about what happens when fuzzing packets!. Tracked as MTT-11334")]
-        // TODO - Fuzzy test with ghosts + inputs too.
-        // TODO - Fuzzy test gameplay sample to be reasonably sure we don't break the server and/or other clients.
-        // TODO - Fuzzy test to ensure the bad client eventually gets DC'd.
-        // TODO - Fuzzy test the server to ensure the client is also acceptably tolerant of issues.
+        // TODO 对 Ghost 和输入执行模糊测试
+        // TODO 对玩法样例执行模糊测试，确认不会破坏服务器或其他客户端
+        // TODO 验证异常客户端最终会被断开
+        // TODO 对服务器数据包执行模糊测试，确认客户端具备合理容错能力
         public void Rpc_MalformedPackets_ThrowsAndLogError()
         {
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.DriverRandomSeed = 0xbadc0de;
-                testWorld.DriverFuzzOffset = 1; // TODO - Should be zero.
+                testWorld.DriverFuzzOffset = 1; // TODO 理想值应为零
                 testWorld.DriverFuzzFactor = new int[2];
                 testWorld.DriverFuzzFactor[0] = 10;
                 testWorld.Bootstrap(true,
@@ -219,26 +221,20 @@ namespace Unity.NetCode.Tests
                 ServerMultipleRpcReceiveSystem.ReceivedCount[0] = 0;
                 ServerMultipleRpcReceiveSystem.ReceivedCount[1] = 0;
 
-                // Note that packet fuzzing can have thousands of implications in our implementation:
-                // - Error, warning, and trace logs.
-                // - Exceptions in any serialization code dealing with ticks or sizes.
-                // - No visible error at all.
-
-                // E.g. After a recent change to the size of the RPC header,
-                // this test silently succeeded, because it fuzzed the packet index to look like a different RPC
-                // with an identical serialization layout. Thus, no serialization errors, but we did infer that we were
-                // counting it incorrectly.
+                // 数据包模糊测试可能产生错误、警告、跟踪日志或 Tick 与大小序列化异常
+                // 某些损坏也可能完全没有可见错误
+                // 例如 RPC Header 大小变化后，损坏的包索引可能恰好指向序列化布局相同的另一种 RPC
+                // 此时测试会静默成功且没有序列化错误，只能从计数异常推断问题
                 LogAssert.ignoreFailingMessages = true;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // TODO - Both of these checks are invalid, because we could have fuzzed the ClientIdRpcCommand.Id
-                // from index 0 to 1 (or vice versa), leading to unexpected counts in both of these.
-                // We may also throw (or worse) in these kinds of situations due to a lack of hardening.
+                // TODO 以下两项检查无效，因为模糊测试可能将 ClientIdRpcCommand.Id 从零改为一或反向修改
+                // 这会使双方计数都超出预期，且当前健壮性不足时还可能抛出异常
                 Debug.Log($"Received: [0]={ServerMultipleRpcReceiveSystem.ReceivedCount[0]}, [1]={ServerMultipleRpcReceiveSystem.ReceivedCount[0]}");
                 //Assert.Less(ServerMultipleRpcReceiveSystem.ReceivedCount[0], SendCount);
                 //Assert.AreEqual(SendCount, ServerMultipleRpcReceiveSystem.ReceivedCount[1]);
@@ -297,7 +293,7 @@ namespace Unity.NetCode.Tests
                 if (incorrectDeserializationMode == IncorrectDeserializationCommand.IncorrectMode.DeserializeTooManyBytes)
                     LogAssert.Expect(LogType.Error, new Regex(@"Trying to read \d bytes from a stream where only \d are available"));
                 LogAssert.Expect(LogType.Error, new Regex(@"\[ServerTest(.*)\](.*)RpcSystem failed to deserialize RPC(.*)as bits read(.*)did not match expected"));
-                // Note: When failing to deserialize, the received RPC will still be created!
+                // 即使反序列化失败，系统仍会创建收到的 RPC 实体
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
@@ -330,7 +326,7 @@ namespace Unity.NetCode.Tests
                 SerializedServerLargeRpcReceiveSystem.ReceivedLargeCount = 0;
                 SerializedServerLargeRpcReceiveSystem.ReceivedSmallCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 var numTicks = Mathf.Max(2, sendCount * .1f);
@@ -359,7 +355,7 @@ namespace Unity.NetCode.Tests
 
                 var client = testWorld.ClientWorlds[0];
 
-                // Send RPC from client to server
+                // 从客户端向服务器发送 RPC
                 var rpcData = new SerializedRpcCommand
                     {intValue = 12345, shortValue = 12345, floatValue = 123.45f};
                 var rpcEntity = client.EntityManager.CreateEntity();
@@ -369,16 +365,16 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // No RPC entity yet on server
+                // 服务器此时尚未创建 RPC 实体
                 var rpcReqQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<ReceiveRpcCommandRequest>(), ComponentType.ReadOnly<SerializedRpcCommand>());
                 Assert.AreEqual(0, rpcReqQuery.CalculateEntityCount());
 
                 testWorld.Tick();
 
-                // Server sees RPC now
+                // 服务器此时已经收到 RPC
                 Assert.AreEqual(1, rpcReqQuery.CalculateEntityCount());
 
-                // Directly disconnect the client on the server side
+                // 在服务器端直接断开客户端
                 var clientConnectionOnServer = testWorld.GetSingletonRW<NetworkStreamConnection>(testWorld.ServerWorld);
                 testWorld.GetSingleton<NetworkStreamDriver>(testWorld.ServerWorld).DriverStore.Disconnect(clientConnectionOnServer.ValueRO);
 
@@ -387,7 +383,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Tick();
 
-                // RPC has now been cleaned up as the source connection was deleted
+                // 源连接删除后 RPC 实体也应完成清理
                 Assert.AreEqual(0, rpcReqQuery.CalculateEntityCount());
             }
         }
@@ -408,12 +404,12 @@ namespace Unity.NetCode.Tests
                 ClientRcpSendSystem.SendCount = 1;
                 ServerRpcReceiveSystem.ReceivedCount = 0;
 
-                // Client sends RPC inside ClientRcpSendSystem
+                // 客户端在 ClientRcpSendSystem 内发送 RPC
                 testWorld.Tick();
                 Assert.AreEqual(0, ClientRcpSendSystem.SendCount);
 
-                // Client triggers disconnect
-                // The RPC would be processed on server without cleanup in NetworkGroupCommandBufferSystem.PatchConnectionEvents
+                // 客户端触发断开
+                // 若 NetworkGroupCommandBufferSystem.PatchConnectionEvents 未执行清理，服务器会继续处理该 RPC
                 testWorld.ClientWorlds[0].EntityManager.CompleteAllTrackedJobs();
                 var clientConnection = testWorld.GetSingletonRW<NetworkStreamConnection>(testWorld.ClientWorlds[0]);
                 testWorld.GetSingleton<NetworkStreamDriver>(testWorld.ClientWorlds[0]).DriverStore.Disconnect(clientConnection.ValueRO);
@@ -421,16 +417,16 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Client is disconnected
+                // 验证客户端已经断开
                 var clientConnectionQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                 Assert.AreEqual(0, clientConnectionQuery.CalculateEntityCount());
 
-                // RPC was never received
+                // 验证服务器从未收到该 RPC
                 Assert.AreEqual(0, ServerRpcReceiveSystem.ReceivedCount);
             }
         }
 
-        // Where RPCs are received and processed on the server
+        // RPC 在服务器上的接收和处理位置
         internal enum SystemSetup
         {
             UpdateBeforeNetworkECB,
@@ -438,27 +434,23 @@ namespace Unity.NetCode.Tests
             UpdateInSimulation
         }
 
-        // Where we'll trigger connect from a system
+        // 系统触发连接的位置
         internal enum ConnectSetup
         {
             BeforeNetworkECB,
             AfterNetworkECB
         }
 
-        // Where we'll trigger disconnect from a system
+        // 系统触发断开的位置
         internal enum DisconnectSetup
         {
             BeforeNetworkECB,
             AfterNetworkECB
         }
 
-        // This test will trigger connect/disconnect directly in the test itself while the one below will do these
-        // from systems in specific locations.
-        // Some expected warnings will print, like
-        //   "Attempting to complete a connection with state '1'" - transport called CompleteConnecting on a
-        //     connection which was no longer in the Connecting state. We disconnected before connection was completed.
-        //   "Cannot send RPC 'Unity.NetCode.Tests.FastReconnectRpc' with no remote connection." - The SendRpcData job
-        //     ran when the connection was disconnected. We sent an RPC and immediately disconnected in the same frame.
+        // 本测试直接触发连接和断开，下一项测试则由特定更新位置的系统触发
+        // 预期可能出现连接尚未完成就断开，以及连接断开后 SendRpcData Job 仍运行的警告
+        // 这些情况来自同一帧发送 RPC 后立即断开或快速重连
         [Test]
         public void Rpc_IsCleanedUpWithFastReconnectManual(
             [Values] bool useApproval,
@@ -477,12 +469,12 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1, true);
 
-                // Connect + Disconnect + Connect etc with variable amounts of ticks between and do the connect/disconnect in different places
+                // 使用不同 Tick 间隔和执行位置反复连接、断开并重连
                 var ep = NetworkEndpoint.LoopbackIpv4.WithPort(7979);
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
                 for (int ticksBeforeDisconnecting = 0; ticksBeforeDisconnecting < 8; ticksBeforeDisconnecting++)
                 {
-                    // There must be at least 1 tick between a disconnect+connect or we'll complain about trying to connect while already connected
+                    // 断开与重连之间至少间隔一个 Tick，否则会被视为在已连接状态再次连接
                     for (int ticksBeforeReconnecting = 1; ticksBeforeReconnecting < 8; ticksBeforeReconnecting++)
                     {
                         testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ClientWorlds[0]).ValueRW.Connect(testWorld.ClientWorlds[0].EntityManager, ep);
@@ -526,7 +518,7 @@ namespace Unity.NetCode.Tests
                     typeof(SendFastReconnectRpc), typeof(SendFastReconnectApprovalRpc), typeof(ReceiveFastReconnectApprovalRpc),
                     updateSystem, connectSystem, disconnectSystem);
 
-                // Don't even tick once after world creation, so we can also test our instant connect flows.
+                // 创建 World 后不预先推进 Tick，以覆盖立即连接流程
                 testWorld.CreateWorlds(true, 1, false);
 
                 var ep = NetworkEndpoint.LoopbackIpv4.WithPort(7979);
@@ -536,16 +528,15 @@ namespace Unity.NetCode.Tests
                 {
                     for (int ticksBeforeDisconnecting = 0; ticksBeforeDisconnecting < 7; ticksBeforeDisconnecting++)
                     {
-                        // Connect immediately:
+                        // 立即连接
                         FastReconnectRpcConnectAfterSystem.ConnectNow = true;
                         FastReconnectRpcConnectBeforeSystem.ConnectNow = true;
 
-                        // Wait a specific number of frames, starting from 0.
-                        // Reasoning: You can call Disconnect on the same frame you call Connect.
+                        // 从零帧开始测试不同等待时间，因为 Connect 与 Disconnect 可以在同一帧调用
                         FastReconnectRpcDisconnectAfterSystem.DisconnectDelay = ticksBeforeDisconnecting;
                         FastReconnectRpcDisconnectBeforeSystem.DisconnectDelay = ticksBeforeDisconnecting;
 
-                        // Run those ticks:
+                        // 推进对应数量的 Tick
                         for (int i = 0; i < ticksBeforeDisconnecting + ticksBeforeReconnecting; i++) testWorld.Tick();
                     }
                 }
@@ -571,7 +562,7 @@ namespace Unity.NetCode.Tests
 
                 SerializedServerLargeRpcReceiveSystem.ReceivedLargeCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 4; ++i)
@@ -620,21 +611,21 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
 
                 testWorld.Connect();
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
-                //Wait some frame so it is spawned also on the client
+                // 推进若干帧以便客户端也生成 Ghost
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
                 var recvGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ClientWorlds[0]);
-                // Retrieve the client entity
+                // 取得对应的客户端实体
                 var ghost = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEntity);
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value
                     .TryGetValue(new SpawnedGhost { ghostId = ghost.ghostId, spawnTick = ghost.spawnTick }, out var clientEntity));
 
-                //Send the rpc to the server
+                // 向服务器发送 RPC
                 SendRpc(testWorld.ClientWorlds[0], clientEntity);
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
@@ -642,7 +633,7 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(rpcReceived.entity != Entity.Null);
                 Assert.IsTrue(rpcReceived.entity == serverEntity);
 
-                // Server send the rpc to the client
+                // 服务器向客户端发送 RPC
                 SendRpc(testWorld.ServerWorld, serverEntity);
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
@@ -650,8 +641,8 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(rpcReceived.entity != Entity.Null);
                 Assert.IsTrue(rpcReceived.entity == clientEntity);
 
-                // Client try to send a client-only entity -> result in a Entity.Null reference
-                //Send the rpc to the server
+                // 客户端发送仅本地存在的实体引用，服务器应解析为 Entity.Null
+                // 向服务器发送 RPC
                 var clientOnlyEntity = testWorld.ClientWorlds[0].EntityManager.CreateEntity();
                 SendRpc(testWorld.ClientWorlds[0], clientOnlyEntity);
                 for (int i = 0; i < 8; ++i)
@@ -659,27 +650,26 @@ namespace Unity.NetCode.Tests
                 rpcReceived = RecvRpc(testWorld.ServerWorld);
                 Assert.IsTrue(rpcReceived.entity == Entity.Null);
 
-                // Some Edge cases:
-                // 1 - Entity has been or going to be despawned on the client. Expected: server will receive an Entity.Null in the rpc
-                // 2 - Entity has been despawn on the server but the client. Server will not be able to resolve the entity correctly
-                //     in that window, since the ghost mapping is reset
+                // 以下覆盖实体正处于 Despawn 过程的边界情况
+                // 客户端实体已销毁或即将销毁时，服务器应在 RPC 中收到 Entity.Null
+                // 服务器已销毁但客户端尚未销毁时，Ghost 映射重置窗口内服务器也无法解析实体
 
-                //Destroy the entity on the server
+                // 在服务器销毁实体
                 testWorld.ServerWorld.EntityManager.DestroyEntity(serverEntity);
-                //Let the client try to send an rpc for it (this mimic sort of latency)
+                // 让客户端继续为该实体发送 RPC，以模拟网络延迟
                 SendRpc(testWorld.ClientWorlds[0], clientEntity);
-                //Entity is destroyed on the server (so no GhostComponent). If server try to send an rpc, the entity will be translated to null
+                // 服务器实体已失去 GhostInstance，此时发送 RPC 会将引用转换为 Entity.Null
                 SendRpc(testWorld.ServerWorld, serverEntity);
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
-                //Server should not be able to resolve the reference
+                // 服务器不应解析出实体引用
                 rpcReceived = RecvRpc(testWorld.ServerWorld);
                 Assert.IsTrue(rpcReceived.entity == Entity.Null);
-                //On the client must but null
+                // 客户端收到的引用也必须为 Entity.Null
                 rpcReceived = RecvRpc(testWorld.ClientWorlds[0]);
                 Assert.IsTrue(rpcReceived.entity == Entity.Null);
                 var sendGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ServerWorld);
-                //If client send the rpc now (the entity should not exists anymore and the mapping should be reset on both client and server now)
+                // 此时实体已不存在，客户端和服务器的映射都应完成重置
                 Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.GetComponentData<SpawnedGhostEntityMap>(recvGhostMapSingleton).Value
                     .TryGetValue(new SpawnedGhost { ghostId = ghost.ghostId, spawnTick = ghost.spawnTick }, out var _));
                 Assert.IsFalse(testWorld.ServerWorld.EntityManager.GetComponentData<SpawnedGhostEntityMap>(sendGhostMapSingleton).Value
@@ -687,7 +677,7 @@ namespace Unity.NetCode.Tests
                 SendRpc(testWorld.ClientWorlds[0], clientEntity);
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
-                //The received entity must be null
+                // 收到的实体引用必须为 Entity.Null
                 rpcReceived = RecvRpc(testWorld.ServerWorld);
                 Assert.IsTrue(rpcReceived.entity == Entity.Null);
             }
@@ -717,15 +707,15 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /* Testing various invalid RPC sending scenarios.
-         * Without connection approval:
-         *   - Can't send after connection has been started but not yet finished (no NetworkId)
-         *   - It's invalid to send an IApprovalRpc when approval is disabled
-         * With connection approval:
-         *   - Can't send a normal RPC before connection approval has finished (no NetworkId)
-         * Both:
-         *   - Can't send before any connection has been set up
-         *   - Can't send to a target connection which has no outgoing RPC buffer
+        /* 测试各种非法 RPC 发送场景
+         * 未启用连接审批时
+         *   - 连接已开始但尚未完成且没有 NetworkId 时不能发送
+         *   - 禁用审批时不能发送 IApprovalRpc
+         * 启用连接审批时
+         *   - 审批完成前没有 NetworkId，不能发送普通 RPC
+         * 两种模式均适用
+         *   - 尚未建立任何连接时不能发送
+         *   - 目标连接没有 RPC 发送缓冲时不能发送
          */
         [Test]
         public void Rpc_WarnIfSendingBeforeConnectionEstablished([Values]bool useApprovalRpc)
@@ -738,7 +728,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.RequireConnectionApproval = useApprovalRpc;
 
-                // Send RPC from client to server
+                // 从客户端向服务器发送 RPC
                 var rpcData = new SerializedRpcCommand
                     {intValue = 12345, shortValue = 12345, floatValue = 123.45f};
                 var client = testWorld.ClientWorlds[0];
@@ -748,7 +738,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Tick();
                 LogAssert.Expect(LogType.Warning, new Regex(@"\[ClientTest0(.*)\] Cannot send RPC '(.*)' to the server as not connected"));
-                // Start connection setup for next phase of tests
+                // 开始建立连接以执行下一阶段测试
                 var ep = NetworkEndpoint.LoopbackIpv4.WithPort(7979);
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
                 var connectionEntity = testWorld.GetSingletonRW<NetworkStreamDriver>(client).ValueRW.Connect(client.EntityManager, ep);
@@ -758,12 +748,12 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < 2; ++i)
                         testWorld.Tick();
 
-                    // Verify we're now in Handshake state
+                    // 验证连接当前处于 Handshake 状态
                     client.EntityManager.CompleteAllTrackedJobs();
                     var clientConnectionOnClient = testWorld.GetSingleton<NetworkStreamConnection>(client);
                     Assert.AreEqual(ConnectionState.State.Handshake, clientConnectionOnClient.CurrentState);
 
-                    // Try sending again before connection approval is finished
+                    // 在连接审批完成前再次尝试发送
                     rpcEntity = client.EntityManager.CreateEntity();
                     client.EntityManager.AddComponentData(rpcEntity, rpcData);
                     client.EntityManager.AddComponent<SendRpcCommandRequest>(rpcEntity);
@@ -771,7 +761,7 @@ namespace Unity.NetCode.Tests
                     LogAssert.Expect(LogType.Error, new Regex(@"\[ClientTest0(.*)\] Cannot send RPC '(.*)' to the server as it is not an Approval RPC, and its NetworkConnection(.*) - on Entity(.*) - is in state `Handshake`"));
                     testWorld.Tick();
 
-                    // Now with a target connection instead of broadcast
+                    // 改为指定目标连接而非广播
                     var clientConnectionToServer = testWorld.TryGetSingletonEntity<NetworkStreamConnection>(client);
                     Assert.AreNotEqual(Entity.Null, clientConnectionToServer);
                     rpcEntity = client.EntityManager.CreateEntity();
@@ -781,7 +771,7 @@ namespace Unity.NetCode.Tests
                     LogAssert.Expect(LogType.Error, new Regex(@"\[ClientTest0(.*)\] Cannot send RPC '(.*)' to the server as it is not an Approval RPC, and its NetworkConnection(.*) - on Entity(.*) - is in state `Handshake`"));
                     testWorld.Tick();
 
-                    // Disconnect to invalidate the connection entity
+                    // 断开连接以使连接实体失效
                     client.EntityManager.AddComponent<NetworkStreamRequestDisconnect>(connectionEntity);
                     for (int i = 0; i < 4; ++i)
                         testWorld.Tick();
@@ -796,12 +786,12 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < 5; ++i)
                         testWorld.Tick();
 
-                    // Connection attempt is ongoing but NetworkId not received yet
+                    // 连接仍在建立中且尚未收到 NetworkId
                     LogAssert.Expect(LogType.Error, new Regex(@"\[ClientTest0(.*)\] Cannot send RPC '(.*)' to the server as its NetworkConnection(.*) - on Entity(.*) - is in state `Connecting`"));
-                    // Verify the connection did finish
+                    // 验证连接随后成功建立
                     Assert.AreNotEqual(Entity.Null, testWorld.TryGetSingletonEntity<NetworkId>(client));
 
-                    // Disconnect and test again with broadcast RPC
+                    // 断开后使用广播 RPC 再次测试
                     client.EntityManager.AddComponent<NetworkStreamRequestDisconnect>(connectionEntity);
 
                     for (int i = 0; i < 5; ++i)
@@ -820,7 +810,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreNotEqual(Entity.Null, testWorld.TryGetSingletonEntity<NetworkId>(client));
                 }
 
-                // Try to send to an invalid connection entity
+                // 尝试向无效连接实体发送 RPC
                 rpcEntity = client.EntityManager.CreateEntity();
                 client.EntityManager.AddComponentData(rpcEntity, rpcData);
                 client.EntityManager.AddComponentData(rpcEntity, new SendRpcCommandRequest(){TargetConnection = connectionEntity});
@@ -842,16 +832,16 @@ namespace Unity.NetCode.Tests
 
                 Application.runInBackground = false;
                 testWorld.Connect();
-                // Warning is suppressed by default.
+                // 默认抑制该警告
                 testWorld.Tick();
-                // Un-suppress it.
+                // 取消警告抑制
                 Assert.IsTrue(testWorld.TrySuppressNetDebug(false, true), "Failed to un-suppress!");
-                // Expect two logs, one per world:
+                // 客户端和服务器 World 应各记录一次错误
                 var regex = new Regex(@"Netcode detected that you don't have Application\.runInBackground enabled.*Project Settings > Player > Resolution and Presentation > Run in Background");
                 LogAssert.Expect(LogType.Error, regex);
                 LogAssert.Expect(LogType.Error, regex);
                 testWorld.Tick();
-                // When the client is DC'd, it should not warn.
+                // 客户端断开后不应继续警告
                 testWorld.DisposeServerWorld();
                 testWorld.Tick();
             }
@@ -894,7 +884,7 @@ namespace Unity.NetCode.Tests
 
                 VeryLargeRpcReceiveSystem.ReceivedCount = 0;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 33; ++i)
@@ -913,7 +903,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1);
 
-                // Create a dud RPC on client and server. Ideally this test would test a full RPC flow, but trying to isolate dependencies:
+                // 在客户端和服务器直接创建未消费的 RPC，以隔离完整 RPC 流程的其他依赖
                 var clientWorld = testWorld.ClientWorlds[0];
                 var clientNetDebug = clientWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetDebug>()).GetSingleton<NetDebug>();
                 clientNetDebug.LogLevel = NetDebug.LogLevelType.Warning;
@@ -926,18 +916,18 @@ namespace Unity.NetCode.Tests
                 testWorld.GetSingletonRW<NetDebug>(serverWorld).ValueRW.MaxRpcAgeFrames = (ushort) (enabled ? 4 : 0);
                 serverWorld.EntityManager.CreateEntity(ComponentType.ReadWrite<ReceiveRpcCommandRequest>());
 
-                // 3 ticks before our expected one:
+                // 先推进三个 Tick，尚未达到警告阈值
                 testWorld.Tick();
                 testWorld.Tick();
                 testWorld.Tick();
 
-                // Now assert the final tick logs warning on both client and server (server is 1 frame behind):
+                // 随后验证客户端和服务器达到阈值时分别记录警告，服务器晚一帧
                 var regex = new Regex(@"NetCode RPC Entity\(\d*\:\d*\) has not been consumed or destroyed for '4'");
                 if(enabled) LogAssert.Expect(LogType.Warning, regex);
                 testWorld.Tick();
                 if(enabled) LogAssert.Expect(LogType.Warning, regex);
                 testWorld.Tick();
-                // Only once!
+                // 每个 RPC 只警告一次
                 testWorld.Tick();
                 testWorld.Tick();
             }

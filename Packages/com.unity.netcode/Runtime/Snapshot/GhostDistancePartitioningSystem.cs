@@ -10,52 +10,50 @@ using UnityEngine.Assertions;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Index information per entity used for distance based Importance scaling.
+    /// 基于距离缩放 Importance 时使用的实体级索引信息
     /// </summary>
     public struct GhostDistancePartitionShared : ISharedComponentData
     {
         /// <summary>
-        /// Determines which tile index the entity belongs to.
+        /// 确定实体所属的 Tile 索引
         /// </summary>
         public int3 Index;
     }
 
     /// <summary>
-    ///     Automatically adds the <see cref="GhostDistancePartitionShared" /> shared component to each ghost instance on the
-    ///     server (a structural change), and then updates said component - for each ghost instance - if its <see cref="LocalTransform.Position" />
-    ///     changes to a new tile (which is also a structural change, as it needs to update a shared component value).
-    ///     It does this every tick.
+    /// 每个 Tick 自动为服务器上的每个 Ghost 实例添加 <see cref="GhostDistancePartitionShared"/> Shared Component
+    /// 此操作会产生结构变更，之后如果某个 Ghost 实例的 <see cref="LocalTransform.Position"/> 移动到新的 Tile
+    /// 则更新该组件，由于需要修改 Shared Component 值，这同样会产生结构变更
     /// </summary>
     /// <remarks>
     ///     <para>
-    ///         This system only operates if it detects the existence of the <see cref="GhostDistanceData" /> configuration
-    ///         singleton component within a ServerWorld.
+    /// 此系统仅在 ServerWorld 中检测到 <see cref="GhostDistanceData"/> 配置单例组件时运行
     ///     </para>
     ///     <para>
-    ///         Note that adding the <see cref="GhostDistancePartitionShared" /> shared component to each ghost instance will
-    ///         almost certainly exacerbate <see cref="ArchetypeChunk"/> entity fragmentation, as we're using the <see cref="ArchetypeChunk" />
-    ///         system to spatially partition ghost instances. I.e. If there are (for example) just two ghosts of the same
-    ///         archetype within a specific tile, the maximum utilization of their chunk will by 2.
+    /// 注意，为每个 Ghost 实例添加 <see cref="GhostDistancePartitionShared"/> Shared Component
+    /// 几乎必然会加剧 <see cref="ArchetypeChunk"/> 的实体碎片化，因为系统利用 <see cref="ArchetypeChunk"/>
+    /// 对 Ghost 实例进行空间分区，例如某个 Tile 内只有两个相同 Archetype 的 Ghost 时
+    /// 它们所在 Chunk 最多只会包含两个实体
     ///     </para>
     ///     <para>
-    ///         Note that, due to; a) the number of changed positions this system needs to check; b) the frequency of
-    ///         structural changes created by this system; and c) the fragmentation caused by the shared component itself,
-    ///         the impact of enabling importance scaling should be measured, and benchmarked against other possible solutions.
+    /// 启用 Importance 缩放前应测量其影响并与其他可选方案进行基准比较
+    /// 成本来源包括系统需要检查的位置变化数量、系统产生结构变更的频率
+    /// 以及 Shared Component 本身造成的碎片化
     ///     </para>
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    // Update before almost everything to make sure there is no DestroyEntity pending in the command buffer
+    // 在绝大多数系统之前更新，确保 Command Buffer 中没有等待执行的 DestroyEntity
     [UpdateInGroup(typeof(GhostSimulationSystemGroup), OrderFirst = true)]
     [BurstCompile]
     public partial struct GhostDistancePartitioningSystem : ISystem, ISystemStartStop
     {
         /// <summary>
-        /// If true (the default), this system will add the <see cref="GhostDistancePartitionShared"/> shared component
-        /// to all server ghost instances that meet filtering criteria (<see cref="LocalTransform"/> etc).
+        /// 为 true 时，此系统会为所有满足 <see cref="LocalTransform"/> 等筛选条件的服务器 Ghost 实例
+        /// 添加 <see cref="GhostDistancePartitionShared"/> Shared Component，默认值为 true
         /// </summary>
         /// <remarks>
-        /// Set to false if you want to use the shared component as a filter, allowing you to only enable importance scaling
-        /// on a subset of ghost instances. You must therefore add the component yourself.
+        /// 如果希望将 Shared Component 用作筛选器，仅对部分 Ghost 实例启用 Importance 缩放，则设为 false
+        /// 在这种情况下必须自行添加该组件
         /// </remarks>
         public static bool AutomaticallyAddGhostDistancePartitionSharedComponent
         {
@@ -76,7 +74,7 @@ namespace Unity.NetCode
 
         [BurstCompile]
         [WithChangeFilter(typeof(LocalTransform), typeof(GhostDistancePartitionShared))]
-        // WithChangeFilter optimization; there is no need to re-calculate the tile index of each entity within this chunk if none of them have moved.
+        // WithChangeFilter 优化：如果 Chunk 内没有实体移动，则无需重新计算其中每个实体的 Tile 索引
         struct UpdateTileIndexJob : IJobChunk
         {
             [ReadOnly] public SharedComponentTypeHandle<GhostDistancePartitionShared> TileTypeHandle;
@@ -130,11 +128,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Calculates the tile value for the specified position.
+        /// 计算指定位置对应的 Tile 值
         /// </summary>
-        /// <param name="ghostDistanceData"> The ghost distance data</param>
-        /// <param name="position">The positon</param>
-        /// <returns>The tile value for the specified position</returns>
+        /// <param name="ghostDistanceData">Ghost 距离数据</param>
+        /// <param name="position">位置</param>
+        /// <returns>指定位置对应的 Tile 值</returns>
         public static int3 CalculateTile(in GhostDistanceData ghostDistanceData, in float3 position)
         {
             return ((int3) position - ghostDistanceData.TileCenter) / ghostDistanceData.TileSize;
@@ -146,7 +144,7 @@ namespace Unity.NetCode
         {
             var config = SystemAPI.GetSingleton<GhostDistanceData>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || NETCODE_DEBUG
-            //Validate that the DistanceData contains valid ranges and values
+            // 验证 DistanceData 包含有效的范围和值
             if (config.TileSize.Equals(int3.zero))
             {
                 var netDebug = SystemAPI.GetSingleton<NetDebug>();
@@ -168,9 +166,9 @@ namespace Unity.NetCode
                     ConcurrentCommandBuffer = barrier.CreateCommandBuffer(state.WorldUnmanaged).AsParallelWriter(),
                     Config = config,
                 }.Schedule(state.Dependency);
-                // Using ScheduleParallel here reduces wall time - on ticks where hundreds of new ghosts spawn - by more than half.
-                // However, it increases the mean time by ~7% due to scheduling overhead, seen also through worsening UpdateTileIndexJob timings.
-                // Therefore, it is likely not worth it.
+                // 在单个 Tick 生成数百个新 Ghost 时，此处使用 ScheduleParallel 可将实际耗时降低一半以上
+                // 但调度开销会使平均耗时增加约 7%，UpdateTileIndexJob 耗时也会变差
+                // 因此通常不值得并行调度
             }
 
             m_EntityTypeHandle.Update(ref state);
@@ -208,8 +206,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Clean up any/all GhostDistancePartitionShared components that we've added.
-        /// Note: This will not de-frag fragmented chunks automatically.
+        /// 清理系统添加的所有 GhostDistancePartitionShared 组件
+        /// 注意，此操作不会自动整理已经碎片化的 Chunk
         /// </summary>
         /// <inheritdoc/>
         [BurstCompile]

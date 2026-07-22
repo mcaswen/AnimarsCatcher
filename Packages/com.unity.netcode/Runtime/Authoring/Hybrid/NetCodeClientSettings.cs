@@ -21,9 +21,9 @@ namespace Unity.NetCode.Hybrid
     }
 
     /// <summary>
-    /// The <see cref="IEntitiesPlayerSettings"/> baking settings to use for client only builds. You can assign the <see cref="GUID"/>
-    /// to the <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/> to instrument the asset import worker to bake the
-    /// scene using this setting.
+    /// 用于纯客户端构建的 <see cref="IEntitiesPlayerSettings"/> 烘焙设置
+    /// 可以将 <see cref="GUID"/> 分配给 <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/>，
+    /// 指示 Asset 导入工作进程使用此设置烘焙场景
     /// </summary>
     [FilePath("ProjectSettings/NetCodeClientSettings.asset", FilePathAttribute.Location.ProjectFolder)]
     public class NetCodeClientSettings : ScriptableSingleton<NetCodeClientSettings>, IEntitiesPlayerSettings, INetCodeConversionTarget
@@ -115,11 +115,10 @@ namespace Unity.NetCode.Hybrid
 #if !UNITY_2023_2_OR_NEWER
             Save();
 #else
-            //But the depedency is going to be update when the scriptable is re-enabled.
+            // 重新启用 ScriptableObject 时会更新依赖
             if (AssetDatabase.IsAssetImportWorkerProcess())
                 return;
-            //This safeguard is necessary because the RegisterCustomDependency throw exceptions
-            //if this is called when the editor is refreshing the database.
+            // 此保护必不可少，因为在编辑器刷新数据库时调用 RegisterCustomDependency 会抛出异常
             if(!EditorApplication.isUpdating)
             {
                 ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
@@ -165,8 +164,8 @@ namespace Unity.NetCode.Hybrid
 
         static void OnAttachToPanel(AttachToPanelEvent evt)
         {
-            // The ScriptableSingleton<T> is not directly editable by default.
-            // Change the hideFlags to make the SerializedObject editable.
+            // ScriptableSingleton<T> 默认不能直接编辑
+            // 修改 hideFlags 使 SerializedObject 可编辑
             NetCodeClientSettings.instance.hideFlags = HideFlags.HideInHierarchy | HideFlags.DontSave;
             NetCodeClientAndServerSettings.instance.hideFlags = HideFlags.HideInHierarchy | HideFlags.DontSave;
         }
@@ -195,7 +194,7 @@ namespace Unity.NetCode.Hybrid
             var targetS = new VisualElement();
             targetS.AddToClassList("target-Settings");
 
-            // PropertyField didn't seem to work here.
+            // PropertyField 在这里似乎无法正常工作
             var field = new EnumField("NetCode Client Target", NetCodeClientSettings.instance.ClientTarget);
             field.tooltip = "Denotes whether or not Server data and logic is included in a client build (when making a client build). Doing so allows the client executable to self-host (i.e. \"Client Host\") a multiplayer game.";
             targetS.Add(field);

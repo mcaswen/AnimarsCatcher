@@ -8,11 +8,10 @@ namespace Unity.NetCode.Generators
     internal class RpcFactory
     {
         /// <summary>
-        /// Collect and generate rpcs serialization.
+        /// 收集 RPC 候选类型并生成序列化代码
         /// </summary>
-        /// <param name="rpcCandidates"></param>
-        /// <param name="compilation"></param>
-        /// <param name="codeGenContext"></param>
+        /// <param name="rpcCandidates">RPC 候选语法节点</param>
+        /// <param name="codeGenContext">代码生成 Context</param>
         public static void Generate(IReadOnlyList<SyntaxNode> rpcCandidates, CodeGenerator.Context codeGenContext)
         {
             var typeBuilder = new TypeInformationBuilder(codeGenContext.diagnostic, codeGenContext.executionContext, TypeInformationBuilder.SerializationMode.Commands);
@@ -39,7 +38,7 @@ namespace Unity.NetCode.Generators
                     continue;
                 codeGenContext.ResetState();
                 NameUtils.UpdateNameAndNamespace(typeInfo, ref codeGenContext, candidateSymbol);
-                // If the serializer type already exist we can just skip generation
+                // Serializer 类型已存在时可以跳过生成
                 if (codeGenContext.executionContext.Compilation.GetSymbolsWithName(GetRpcSerializerName(codeGenContext)).FirstOrDefault() != null)
                 {
                     codeGenContext.diagnostic.LogInfo($"Skipping code-gen for {codeGenContext.generatorName} because an rpc serializer for it already exists");

@@ -173,7 +173,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true, typeof(HybridComponentWeWillOverrideDefaultVariantSystem));
 
                 var gameObject0 = new GameObject();
-                // SupportedGhostModes=All DefaultGhostMode=Interpolated
+                // 支持全部 Ghost 模式，默认使用插值模式
                 var ghostComponent = gameObject0.AddComponent<GhostAuthoringComponent>();
                 ghostComponent.SupportedGhostModes = GhostModeMask.All;
                 gameObject0.AddComponent<HybridComponentWeWillOverride>();
@@ -191,7 +191,7 @@ namespace Unity.NetCode.Tests
                 gameObject0.name = "TestConversionGOAll";
 
                 var gameObject1 = new GameObject();
-                // SupportedGhostModes=Predicted DefaultGhostMode=Interpolated
+                // 只支持预测模式，默认模式配置为插值模式
                 ghostComponent = gameObject1.AddComponent<GhostAuthoringComponent>();
                 ghostComponent.SupportedGhostModes = GhostModeMask.Predicted;
                 gameObject1.AddComponent<ClientHybridComponent>();
@@ -207,7 +207,7 @@ namespace Unity.NetCode.Tests
                 gameObject1.name = "TestConversionGOPredicted";
 
                 var gameObject2 = new GameObject();
-                // SupportedGhostModes=Interpolated DefaultGhostMode=Interpolated
+                // 只支持插值模式，默认使用插值模式
                 ghostComponent = gameObject2.AddComponent<GhostAuthoringComponent>();
                 ghostComponent.SupportedGhostModes = GhostModeMask.Interpolated;
                 gameObject2.AddComponent<ClientHybridComponent>();
@@ -232,11 +232,11 @@ namespace Unity.NetCode.Tests
                 testWorld.SpawnOnServer(gameObject2);
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                // HybridComponent which was configured as server but override changes it to client only
+                // HybridComponent 原本配置为服务端组件，但 Variant 覆盖规则将其改为仅客户端组件
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<HybridComponentWeWillOverride>(), 0);
 #endif
 
-                // Server never has client type ghost components
+                // 服务端不会保留客户端类型的 Ghost 组件
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<ClientComponentData>(), 0);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<ClientHybridComponent>(), 0);
@@ -244,7 +244,7 @@ namespace Unity.NetCode.Tests
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<InterpolatedClientComponentData>(), 0);
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<PredictedClientComponentData>(), 0);
 
-                // Server always has all+server type ghosts components
+                // 服务端始终保留 All 和 Server 类型的 Ghost 组件
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<ServerComponentData>(), 3);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 CheckComponent(testWorld.ServerWorld, ComponentType.ReadOnly<ServerHybridComponent>(), 3);
@@ -261,20 +261,20 @@ namespace Unity.NetCode.Tests
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<HybridComponentWeWillOverride>(), 1);
 #endif
 
-                // On client, ghost never has server type components
+                // 客户端 Ghost 不会保留服务端类型的组件
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<ServerComponentData>(), 0);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<ServerHybridComponent>(), 0);
 #endif
 
-                // On client, ghost with Predicted SupportedGhostModes get the predicted components, DefaultGhostMode is Interpolated on the All type ghost
+                // 客户端中，支持预测模式的 Ghost 会获得预测组件，而支持全部模式的 Ghost 默认仍为插值模式
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<PredictedClientComponentData>(), 1);
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<AllPredictedComponentData>(), 1);
 
-                // On client, ghosts with All and Interpolated SupportedGhostModes get interpolated components
+                // 客户端中，支持全部模式或插值模式的 Ghost 会获得插值组件
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<InterpolatedClientComponentData>(), 2);
 
-                // All ghosts get the other type components
+                // 所有客户端 Ghost 都会获得其余客户端通用组件
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<ClientComponentData>(), 3);
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 CheckComponent(testWorld.ClientWorlds[0], ComponentType.ReadOnly<ClientHybridComponent>(), 3);

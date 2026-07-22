@@ -1,34 +1,31 @@
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Hold a list of constant int that can be used across the project to specify
-    /// subtype in <see cref="GhostFieldAttribute"/>.
-    /// User can expand that list by using an AssemblyDefinitionReference to Unity.NetCode.Gen and adding a partial
-    /// class that extend and add new constant literals to that class.
+    /// 保存一组可在整个项目中使用的 int 常量，用于指定 <see cref="GhostFieldAttribute"/> 的子类型
+    /// 用户可以通过指向 Unity.NetCode.Gen 的 AssemblyDefinitionReference 扩展此列表，
+    /// 添加一个扩展该类型的 partial 类，并在其中加入新的常量字面量
     /// </summary>
     /// <remarks>
-    /// Why GhostFieldSubType is not an enum: The reason is that there are unfortunately caveats, some due
-    /// to our compilation pipeline and others due to the limitation of the SourceGenerator api.
-    /// First: MS SourceGenerator are additive only. That means we cannot modify the syntaxtree, removing or adding nodes
-    /// to it (not the way Analyzers does).
-    /// To overcome that limitation, a possible solution to inject the enums literals into the assembly is to use a small
-    /// IL post processor instead. Because NetCode runtime assembly is re-imported every time a sub-type is added or removed,
-    /// the assumption was that the IL post-processing will then correctly modify the dll before any dependent dll is compiled.
-    /// Although it does, and Unity.NetCode.dll contains the correct metadata, the ILPostProcessorRunner run at a later time
-    /// and some dlls are not compile correctly (depend on timing). With further investigation it might be possible to address
-    /// that problem, however it seems like fighting against the compilation process again, **something we wanted to avoid**.
-    /// Because all of that, a partial class to hold the integral constants it uses instead and users can add new const literals.
+    /// GhostFieldSubType 不使用 enum 是因为存在一些限制，部分来自编译管线，部分来自 SourceGenerator API
+    /// 首先，Microsoft SourceGenerator 只能追加内容，这意味着无法像 Analyzer 那样修改语法树、移除或添加节点
+    /// 为绕过该限制，一种可能的方案是使用小型 IL 后处理器，将枚举字面量注入程序集
+    /// 每次添加或移除子类型时都会重新导入 NetCode 运行时程序集，
+    /// 因而原先假设 IL 后处理会在编译任何依赖 DLL 前正确修改该 DLL
+    /// 实际上 Unity.NetCode.dll 确实包含正确的元数据，但 ILPostProcessorRunner 运行得更晚，
+    /// 导致部分 DLL 因时序问题无法正确编译
+    /// 进一步调查也许可以解决此问题，但这意味着再次与编译流程对抗，而这正是我们希望避免的
+    /// 因此改用 partial 类保存整数常量，用户也可以添加新的 const 字面量
     ///
-    /// Why the AssemblyDefinitionReference? Using source generator to add a partial class directly to NetCode.dll works fine
-    /// but unfortunately will miss the IDE auto-completion functionality. No IDE at the moment provide support for that
-    /// out of the box. VS has some workaround for normal C# projects (removing the original file from the solution etc) or
-    /// by restarting the IDE, but Rider or VSCode does not work the same way. By using the Assembly Definition Reference, we
-    /// are actually doing in principle the same job and completion works, making the user experience a little more pleasant.
+    /// 为什么使用 AssemblyDefinitionReference：通过源码生成器直接向 NetCode.dll 添加 partial 类可以正常工作，
+    /// 但会失去 IDE 自动补全功能，目前没有 IDE 原生支持这种情况
+    /// Visual Studio 对普通 C# 项目存在一些规避方式，例如从解决方案中移除原始文件或重启 IDE，
+    /// 但 Rider 和 VSCode 的行为不同
+    /// 使用 Assembly Definition Reference 原理上完成了相同工作，同时可以正常使用补全，改善用户体验
     /// </remarks>
     public static partial class GhostFieldSubType
     {
         /// <summary>
-        /// The default value for the <see cref="GhostFieldAttribute.SubType"/>.
+        /// <see cref="GhostFieldAttribute.SubType"/> 的默认值
         /// </summary>
         public const int None = 0;
     }

@@ -6,7 +6,7 @@ namespace Unity.NetCode.Tests
 {
     internal class VerifyLogLinks
     {
-        // Simple test to verify calling the log link to 'OpenPlayodeTools' works as expected.
+        // 验证调用 OpenPlayModeTools 日志链接后能按预期打开窗口
         [Test]
         public void VerifyOpenPlayModeTools()
         {
@@ -17,11 +17,11 @@ namespace Unity.NetCode.Tests
                 UnityEditor.EditorWindow.GetWindow<MultiplayerPlayModeWindow>().Close();
             }
 
-            // Call the hyperlink method
+            // 调用超链接处理方法
             var args = new Dictionary<string,string>{{"href",NetCodeHyperLinkArguments.s_OpenPlayModeTools.ToString()}};
             MultiplayerPlayModeWindow.HandleHyperLinkArgs( args );
 
-            // we probably need to wait a sec
+            // 验证窗口已立即打开
             Assert.True(UnityEditor.EditorWindow.HasOpenInstances<MultiplayerPlayModeWindow>());
 
             if (!openBeforeTest)

@@ -10,33 +10,33 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// RPCs to control the prespawn streaming. Sent by the client to the server when a scene is loaded/unloaded.
-    /// Server react by sending new snapshot udpdates for the pre-spawned ghosts that belong to the scenes for
-    /// which streaming is enabled.
+    /// 控制 Prespawn 流式传输的 RPC，在场景加载时由客户端发送给服务器
+    /// 服务器收到后会为启用流式传输的场景发送其中预生成 Ghost 的新 Snapshot 更新
     /// </summary>
     internal struct StartStreamingSceneGhosts : IRpcCommand
     {
         /// <summary>
-        /// Deterministic unique Hash for each sub-scene that contains pre-spawned ghost. See <see cref="SubSceneWithPrespawnGhosts"/>
+        /// 每个包含预生成 Ghost 的 SubScene 所对应的确定性唯一 Hash
+        /// 参见 <see cref="SubSceneWithPrespawnGhosts"/>
         /// </summary>
         public ulong SceneHash;
     }
 
     /// <summary>
-    /// RPCs to control the prespawn streaming. Sent by the client to the server when a scene is unloaded.
-    /// Server react by not sending any new snapshot udpdate for the pre-spawned ghosts that belong to the scenes for
-    /// which streaming is disabled.
+    /// 控制 Prespawn 流式传输的 RPC，在场景卸载时由客户端发送给服务器
+    /// 服务器收到后不再发送已禁用流式传输场景中预生成 Ghost 的 Snapshot 更新
     /// </summary>
     internal struct StopStreamingSceneGhosts : IRpcCommand
     {
         /// <summary>
-        /// Deterministic unique Hash for each sub-scene that contains pre-spawned ghost. See <see cref="SubSceneWithPrespawnGhosts"/>
+        /// 每个包含预生成 Ghost 的 SubScene 所对应的确定性唯一 Hash
+        /// 参见 <see cref="SubSceneWithPrespawnGhosts"/>
         /// </summary>
         public ulong SceneHash;
     }
 
     /// <summary>
-    /// Track prespawn section load/unload events and send rpc to server to ack the loaded scene for that client
+    /// 跟踪 Prespawn Section 的加载与卸载事件，并向服务器发送 RPC 上报该客户端已加载的场景
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(PrespawnGhostSystemGroup))]
@@ -130,8 +130,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Handle the StartStreaming/StopStreaming rpcs from the client and update the list of streamin/acked scenes.
-    /// It is possible to add user-defined behaviors by consuming or reading the rpc before that system runs.
+    /// 处理客户端发来的 StartStreaming 与 StopStreaming RPC，并更新正在流式传输或已确认的场景列表
+    /// 可以在该 System 运行前消费或读取 RPC，以添加用户自定义行为
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PrespawnGhostSystemGroup))]

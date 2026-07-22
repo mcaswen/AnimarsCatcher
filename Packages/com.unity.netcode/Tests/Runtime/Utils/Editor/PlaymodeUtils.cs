@@ -4,13 +4,13 @@ using Unity.NetCode.Hybrid;
 namespace Unity.NetCode.Tests
 {
     /// <summary>
-    /// Helper functions that helps building playmode tests.
+    /// 用于构建 PlayMode 测试的辅助方法
     /// </summary>
     internal static class PlaymodeUtils
     {
         /// <summary>
-        /// Helper function to set the current build-target to client-only.
-        /// Can be executed before a build by passing "-executeMethod Unity.NetCode.Tests.PlaymodeUtils.SetClientBuild" when launching the editor through command line.
+        /// 将当前构建目标设置为纯客户端
+        /// 可在命令行启动 Editor 时传入 "-executeMethod Unity.NetCode.Tests.PlaymodeUtils.SetClientBuild" 并于构建前执行
         /// </summary>
         public static void SetClientBuild()
         {

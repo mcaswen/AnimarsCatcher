@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis;
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// Generic interface for reporting diagnostic issues
+    /// 报告诊断问题的通用接口
     /// </summary>
     internal interface IDiagnosticReporter
     {

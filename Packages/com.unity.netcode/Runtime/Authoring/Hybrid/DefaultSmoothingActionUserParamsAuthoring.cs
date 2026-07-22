@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Authoring component which adds the maxDist component to the Entity.
+    /// 向 Entity 添加 maxDist 组件的 Authoring 组件
     /// </summary>
     [DisallowMultipleComponent]
     [HelpURL(Authoring.HelpURLs.DefaultSmoothingActionUserParamsAuthoring)]

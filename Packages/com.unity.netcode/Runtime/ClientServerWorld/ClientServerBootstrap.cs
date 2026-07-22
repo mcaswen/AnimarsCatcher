@@ -11,58 +11,55 @@ using UnityEngine.SceneManagement;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// ClientServerBootstrap is responsible for configuring and creating the server and client worlds at runtime when
-    /// the game starts (or when entering Play Mode in the Editor).
-    /// ClientServerBootstrap is intended as a base class for your own custom bootstrap code and provides utility methods
-    /// for creating the client and server worlds.
-    /// It also supports connecting the client to the server automatically, using the <see cref="AutoConnectPort"/> port and
-    /// <see cref="DefaultConnectAddress"/>.
-    /// For the server, ClientServerBootstrap allows binding the server transport to a specific listening port and address (especially useful
-    /// when running the server on cloud providers) via <see cref="DefaultListenAddress"/>.
+    /// ClientServerBootstrap 负责在游戏启动时，或编辑器进入 Play Mode 时，于运行时配置并创建服务器和客户端 World
+    /// ClientServerBootstrap 旨在作为自定义 Bootstrap 代码的基类，并提供创建客户端和服务器 World 的工具方法
+    /// 它还支持使用 <see cref="AutoConnectPort"/> 端口和 <see cref="DefaultConnectAddress"/> 自动连接客户端与服务器
+    /// 对于服务器，ClientServerBootstrap 允许通过 <see cref="DefaultListenAddress"/>，
+    /// 将服务器 Transport 绑定到指定监听端口和地址，这在云服务商上运行服务器时尤其有用
     /// </summary>
     /// <remarks>
-    /// We strongly recommend setting `Application.runInBackground = true;` (or project-wide via Project Settings) once you intend to connect to the server (or accept connections on said server).
-    /// If you don't, your multiplayer game will stall (and likely disconnect) if and when the application loses focus (such as by the player tabbing out), as netcode will be unable to tick (due to the application pausing).
-    /// In fact, a Dedicated Server Build should probably always have `Run in Background` enabled.
-    /// We provide suppressible error warnings for this case via `WarnAboutApplicationRunInBackground`.
+    /// 准备连接服务器或让服务器接受连接后，强烈建议设置 `Application.runInBackground = true;`，也可以通过 Project Settings 全局设置
+    /// 否则应用失去焦点时，例如玩家切换到其他窗口，应用会暂停，NetCode 无法推进 Tick，导致多人游戏停滞并很可能断开连接
+    /// Dedicated Server Build 通常应始终启用 `Run in Background`
+    /// 对此情况可通过 `WarnAboutApplicationRunInBackground` 提供可抑制的错误警告
     /// </remarks>
     [UnityEngine.Scripting.Preserve]
     public class ClientServerBootstrap : ICustomBootstrap
     {
         /// <summary>
-        /// The maximum number of thin clients that can be created in the Editor.
-        /// Created to avoid self-inflicted long editor hangs,
-        /// although removed as users should be able to test large player counts (e.g. for UTP reasons).
+        /// 编辑器中可创建的 Thin Client 最大数量
+        /// 此限制最初用于避免用户操作导致编辑器长时间卡顿，
+        /// 但用户应能测试大量玩家，例如满足 UTP 测试需求，因此实际上已取消该限制
         /// </summary>
         public const int k_MaxNumThinClients = 1000;
 
         /// <summary>
-        /// A reference to the server world, assigned during the default server world creation. If there
-        /// were multiple worlds created this will be the first one.
+        /// 服务器 World 的引用，在默认服务器 World 创建期间分配
+        /// 如果创建了多个 World，则引用第一个
         /// </summary>
         public static World ServerWorld => ServerWorlds != null && ServerWorlds.Count > 0 && ServerWorlds[0].IsCreated ? ServerWorlds[0] : null;
 
         /// <summary>
-        /// A reference to the client world, assigned during the default client world creation. If there
-        /// were multiple worlds created this will be the first one.
+        /// 客户端 World 的引用，在默认客户端 World 创建期间分配
+        /// 如果创建了多个 World，则引用第一个
         /// </summary>
         public static World ClientWorld => ClientWorlds != null && ClientWorlds.Count > 0 && ClientWorlds[0].IsCreated ? ClientWorlds[0] : null;
 
         /// <summary>
-        /// A list of all server worlds created during the default creation flow. If this type of world
-        /// is created manually (i.e. not via the bootstrap APIs), then this list needs to be manually populated.
+        /// 默认创建流程中创建的全部服务器 World 列表
+        /// 如果手动创建此类 World，即未通过 Bootstrap API 创建，则需要手动填充此列表
         /// </summary>
         public static List<World> ServerWorlds => ClientServerTracker.ServerWorlds;
 
         /// <summary>
-        /// A list of all client worlds (excluding thin client worlds!) created during the default creation flow. If this type of world
-        /// is created manually (i.e. not via the bootstrap APIs), then this list needs to be manually populated.
+        /// 默认创建流程中创建的全部客户端 World 列表，不包括 Thin Client World
+        /// 如果手动创建此类 World，即未通过 Bootstrap API 创建，则需要手动填充此列表
         /// </summary>
         public static List<World> ClientWorlds => ClientServerTracker.ClientWorlds;
 
         /// <summary>
-        /// A list of all thin client worlds created during the default creation flow. If this type of world
-        /// is created manually  (i.e. not via the bootstrap APIs), then this list needs to be manually populated.
+        /// 默认创建流程中创建的全部 Thin Client World 列表
+        /// 如果手动创建此类 World，即未通过 Bootstrap API 创建，则需要手动填充此列表
         /// </summary>
         public static List<World> ThinClientWorlds => ClientServerTracker.ThinClientWorlds;
 
@@ -72,7 +69,7 @@ namespace Unity.NetCode
         private static bool s_OverrideCacheHasResult;
 
         /// <summary>
-        /// Initialize the bootstrap class and reset the static data everytime a new instance is created.
+        /// 每次创建新实例时初始化 Bootstrap 类并重置静态数据
         /// </summary>
 
         public ClientServerBootstrap()
@@ -86,15 +83,14 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating a local world without any netcode systems.
+        /// 创建不包含任何 NetCode 系统的本地 World 的工具方法
         /// </summary>
-        /// <param name="defaultWorldName">The name to use for the default world.</param>
-        /// <returns>World with default systems added, set to run as the main local world.
-        /// See <see cref="WorldFlags"/>.</returns>
+        /// <param name="defaultWorldName">默认 World 使用的名称</param>
+        /// <returns>已添加默认系统并设为主本地 World 运行的 World，参见 <see cref="WorldFlags"/></returns>
         public static World CreateLocalWorld(string defaultWorldName)
         {
-            // The default world must be created before generating the system list in order to have a valid TypeManager instance.
-            // The TypeManager is initialized the first time any world is created.
+            // 必须在生成系统列表前创建默认 World，才能获得有效的 TypeManager 实例
+            // 第一次创建任意 World 时会初始化 TypeManager
             var world = new World(defaultWorldName, WorldFlags.Game);
             if (World.DefaultGameObjectInjectionWorld == null)
                 World.DefaultGameObjectInjectionWorld = world;
@@ -106,16 +102,15 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Implement the ICustomBootstrap interface. Create the default client and server worlds
-        /// based on the <see cref="RequestedPlayType"/>.
-        /// In the Editor, it also creates thin client worlds, if <see cref="RequestedNumThinClients"/> is not 0.
+        /// 实现 ICustomBootstrap 接口，根据 <see cref="RequestedPlayType"/> 创建默认客户端和服务器 World
+        /// 在编辑器中，如果 <see cref="RequestedNumThinClients"/> 不为 0，还会创建 Thin Client World
         /// </summary>
-        /// <param name="defaultWorldName">The name to use for the default world. Unused, can be null or empty.</param>
+        /// <param name="defaultWorldName">默认 World 使用的名称，此处未使用，可以为 null 或空字符串</param>
         /// <inheritdoc cref="ICustomBootstrap.Initialize"/>
         public virtual bool Initialize(string defaultWorldName)
         {
-            // If the user added an OverrideDefaultNetcodeBootstrap MonoBehaviour to their active scene,
-            // or disabled Bootstrapping project-wide, this is respected here.
+            // 如果用户在活动场景中添加了 OverrideDefaultNetcodeBootstrap MonoBehaviour，
+            // 或在整个项目中禁用了 Bootstrap，则在此处遵循该设置
             if (!DetermineIfBootstrappingEnabled())
                 return false;
 
@@ -124,20 +119,20 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Returns the first <see cref="OverrideAutomaticNetcodeBootstrap"/> in the active scene. Overrides added to any non-active scenes will report as errors.
+        /// 返回活动场景中的第一个 <see cref="OverrideAutomaticNetcodeBootstrap"/>，添加到非活动场景的覆盖设置会报告错误
         /// </summary>
-        /// <remarks>This code includes an expensive FindObjectsOfType call, for validation purposes.</remarks>
-        /// <param name="logNonErrors">If true, more details are logged, enabling debugging of flows.</param>
-        /// <returns>The first override in the active scene.</returns>
+        /// <remarks>出于验证需要，此代码包含一次开销较高的 FindObjectsOfType 调用</remarks>
+        /// <param name="logNonErrors">如果为 true，则记录更多细节以便调试流程</param>
+        /// <returns>活动场景中的第一个覆盖设置</returns>
         public static OverrideAutomaticNetcodeBootstrap DiscoverAutomaticNetcodeBootstrap(bool logNonErrors = false)
         {
             if (s_OverrideCacheHasResult)
                 return s_OverrideCache;
             s_OverrideCacheHasResult = true;
 
-            // Note that GetActiveScene will return invalid when domain reloads are ENABLED.
+            // 请注意，启用 Domain Reload 时 GetActiveScene 会返回无效场景
             var activeScene = SceneManager.GetActiveScene();
-            // We must use `FindObjectsInactive.Include` here, otherwise we'll get zero results.
+            // 此处必须使用 `FindObjectsInactive.Include`，否则结果数量为零
             var sceneConfigurations = UnityEngine.Object.FindObjectsByType<OverrideAutomaticNetcodeBootstrap>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             if (sceneConfigurations.Length <= 0)
             {
@@ -145,14 +140,14 @@ namespace Unity.NetCode
                     UnityEngine.Debug.Log($"[DiscoverAutomaticNetcodeBootstrap] Did not find any instances of `OverrideAutomaticNetcodeBootstrap`.");
                 return s_OverrideCache;
             }
-            Array.Sort(sceneConfigurations); // Attempt to make the results somewhat deterministic and reliable via sorting by `name`, then `InstanceId`.
+            Array.Sort(sceneConfigurations); // 先按 `name` 再按 `InstanceId` 排序，使结果尽量具有确定性和可靠性
             for (int i = 0; i < sceneConfigurations.Length; i++)
             {
                 var config = sceneConfigurations[i];
-                // A scene comparison here DOES NOT WORK in builds, as - in a build - the GameObject has not yet been attached to its scene.
-                // Update 08/24: Also true when domain reloads are enabled!
-                // Thus, Active Scene Validation is only performed when available (Editor && UnityEditor.EditorSettings.enterPlayModeOptions == None).
-                // Note: Double-click on a scene to set it as the Active scene.
+                // 场景比较在构建版本中不起作用，因为此时 GameObject 尚未附加到场景
+                // 2024 年 8 月更新：启用 Domain Reload 时同样如此
+                // 因此，仅在条件允许时执行活动场景验证，即 Editor && UnityEditor.EditorSettings.enterPlayModeOptions == None
+                // 注意：双击场景可将其设为活动场景
                 var activeSceneIsValid = activeScene.IsValid() || SceneManager.loadedSceneCount == 1;
                 var isConfigInActiveScene = !activeSceneIsValid || !config.gameObject.scene.IsValid() || config.gameObject.scene == activeScene;
                 if (s_OverrideCache)
@@ -196,11 +191,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Automatically discovers whether or not there is an <see cref="OverrideAutomaticNetcodeBootstrap" /> present
-        /// in the active scene, and if there is, uses its value to clobber the default.
+        /// 自动检测活动场景中是否存在 <see cref="OverrideAutomaticNetcodeBootstrap" />
+        /// 如果存在，则使用其值覆盖默认值
         /// </summary>
-        /// <param name="logNonErrors">If true, more details are logged, enabling debugging of flows.</param>
-        /// <returns>Whether there is an <see cref="OverrideAutomaticNetcodeBootstrap"/>. Otherwise false.</returns>
+        /// <param name="logNonErrors">如果为 true，则记录更多细节以便调试流程</param>
+        /// <returns>是否存在 <see cref="OverrideAutomaticNetcodeBootstrap"/>，否则返回 false</returns>
         public static bool DetermineIfBootstrappingEnabled(bool logNonErrors = false)
         {
             var automaticNetcodeBootstrap = DiscoverAutomaticNetcodeBootstrap(logNonErrors);
@@ -211,9 +206,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating the default client and server worlds based on the settings
-        /// in the PlayMode tools in the Editor or client/server defined in a player.
-        /// Should be used in custom implementations of `Initialize`.
+        /// 根据编辑器 PlayMode 工具中的设置，或 Player 中定义的客户端与服务器设置，创建默认客户端和服务器 World 的工具方法
+        /// 应在 `Initialize` 的自定义实现中使用
         /// </summary>
         protected virtual void CreateDefaultClientServerWorlds()
         {
@@ -240,18 +234,17 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating thin clients worlds.
-        /// Can be used in custom implementations of `Initialize` as well as at runtime
-        /// to add new clients dynamically.
+        /// 创建 Thin Client World 的工具方法
+        /// 可在 `Initialize` 的自定义实现中使用，也可以在运行时动态添加新客户端
         /// </summary>
-        /// <returns>Thin client world instance.</returns>
+        /// <returns>Thin Client World 实例</returns>
         public static World CreateThinClientWorld()
         {
             var systems = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.ThinClientSimulation);
             return CreateThinClientWorld(systems);
         }
 
-        /// <param name="systems">List of systems to be included.</param>
+        /// <param name="systems">要包含的系统列表</param>
         /// <inheritdoc cref="CreateThinClientWorld()"/>
         public static World CreateThinClientWorld(NativeList<SystemTypeIndex> systems)
         {
@@ -281,9 +274,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating combined client and server world (a single world "host")
-        /// Can be used in custom implementations of `Initialize` as well as at runtime,
-        /// to add new clients dynamically.
+        /// 创建客户端与服务器合并 World，即单 World Host 的工具方法
+        /// 可在 `Initialize` 的自定义实现中使用，也可以在运行时动态添加新客户端
         /// </summary>
         /// <returns></returns>
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
@@ -307,20 +299,20 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating new clients worlds.
-        /// Can be used in custom implementations of `Initialize`, as well as at runtime (to add new clients dynamically),
-        /// or when you need to create a client programmatically (for example; frontends that allow selecting "Create Game" vs "Join Game", or similar).
+        /// 创建新客户端 World 的工具方法
+        /// 可在 `Initialize` 的自定义实现或运行时使用，以动态添加新客户端，
+        /// 也适用于需要通过代码创建客户端的情况，例如允许选择创建游戏或加入游戏的前端
         /// </summary>
-        /// <param name="name">The client world name</param>
-        /// <returns>Client world instance.</returns>
+        /// <param name="name">客户端 World 名称</param>
+        /// <returns>客户端 World 实例</returns>
         public static World CreateClientWorld(string name)
         {
             var systems = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.Presentation);
             return CreateClientWorld(name, systems);
         }
 
-        /// <param name="name">The client world name</param>
-        /// <param name="systems">List of systems to be included.</param>
+        /// <param name="name">客户端 World 名称</param>
+        /// <param name="systems">要包含的系统列表</param>
         /// <inheritdoc cref="CreateClientWorld(string)"/>
         public static World CreateClientWorld(string name, NativeList<SystemTypeIndex> systems)
         {
@@ -342,12 +334,12 @@ namespace Unity.NetCode
 
 
         /// <summary>
-        /// Optional client bootstrap helper method, so your custom bootstrap flows can copy this subset of auto-connect logic.
-        /// Reads <see cref="RequestedPlayType"/>, and checks for default AutoConnect arguments if valid.
+        /// 可选的客户端 Bootstrap 辅助方法，使自定义 Bootstrap 流程可以复用这部分自动连接逻辑
+        /// 读取 <see cref="RequestedPlayType"/>，并在有效时检查默认 AutoConnect 参数
         /// </summary>
-        /// <param name="autoConnectEp">A valid endpoint for auto-connection.</param>
-        /// <returns>True if the auto-connect Endpoint is specified for this given <see cref="RequestedPlayType"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if the RequestedPlayType enum has an unknown value.</exception>
+        /// <param name="autoConnectEp">用于自动连接的有效 Endpoint</param>
+        /// <returns>如果为指定 <see cref="RequestedPlayType"/> 配置了自动连接 Endpoint，则返回 true</returns>
+        /// <exception cref="ArgumentOutOfRangeException">RequestedPlayType 枚举值未知时抛出</exception>
         public static bool TryFindAutoConnectEndPoint(out NetworkEndpoint autoConnectEp)
         {
             autoConnectEp = default;
@@ -357,7 +349,7 @@ namespace Unity.NetCode
                 case PlayType.Server:
                 case PlayType.ClientAndServer:
                 {
-                    // Allow loopback + AutoConnectPort:
+                    // 允许使用回环地址和 AutoConnectPort
                     if (HasDefaultAddressAndPortSet(out autoConnectEp))
                     {
                         if (!DefaultConnectAddress.IsLoopback)
@@ -369,22 +361,22 @@ namespace Unity.NetCode
                         return true;
                     }
 
-                    // Otherwise do nothing.
+                    // 否则不执行任何操作
                     return false;
                 }
                 case PlayType.Client:
                 {
 #if UNITY_EDITOR
-                    // In the editor, the 'editor window specified' endpoint takes precedence, assuming it's a valid address:
+                    // 在编辑器中，如果编辑器窗口指定的 Endpoint 地址有效，则优先使用该地址
                     if (AutoConnectPort != 0 && MultiplayerPlayModePreferences.IsEditorInputtedAddressValidForConnect(out autoConnectEp))
                         return true;
 #endif
 
-                    // Fallback to AutoConnectPort + DefaultConnectAddress.
+                    // 回退到 AutoConnectPort 与 DefaultConnectAddress 的组合
                     if (HasDefaultAddressAndPortSet(out autoConnectEp))
                         return true;
 
-                    // Otherwise do nothing.
+                    // 否则不执行任何操作
                     return false;
                 }
                 default:
@@ -393,10 +385,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Returns true if user code has specified both an <see cref="AutoConnectPort"/> and <see cref="DefaultConnectAddress"/> set.
+        /// 如果用户代码同时指定了 <see cref="AutoConnectPort"/> 和 <see cref="DefaultConnectAddress"/>，则返回 true
         /// </summary>
-        /// <param name="autoConnectEp">The resulting combined <see cref="NetworkEndpoint"/>.</param>
-        /// <returns>True if user code has specified both an <see cref="AutoConnectPort"/> and <see cref="DefaultConnectAddress"/>.</returns>
+        /// <param name="autoConnectEp">组合得到的 <see cref="NetworkEndpoint"/></param>
+        /// <returns>如果用户代码同时指定了 <see cref="AutoConnectPort"/> 和 <see cref="DefaultConnectAddress"/>，则返回 true</returns>
         public static bool HasDefaultAddressAndPortSet(out NetworkEndpoint autoConnectEp)
         {
             if (AutoConnectPort != 0 && DefaultConnectAddress != NetworkEndpoint.AnyIpv4)
@@ -410,19 +402,19 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method for creating a new server world.
-        /// Can be used in custom implementations of `Initialize` as well as in your game logic (in particular client/server build)
-        /// when you need to create the server programmatically (for example, a frontend that allows selecting the role or other logic).
+        /// 创建新服务器 World 的工具方法
+        /// 需要通过代码创建服务器时，可在 `Initialize` 的自定义实现或游戏逻辑中使用，尤其适用于客户端/服务器构建，
+        /// 例如允许选择角色或执行其他逻辑的前端
         /// </summary>
-        /// <param name="name">The server world name.</param>
-        /// <returns>Server world instance.</returns>
+        /// <param name="name">服务器 World 名称</param>
+        /// <returns>服务器 World 实例</returns>
         public static World CreateServerWorld(string name)
         {
             var systems = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.ServerSimulation);
             return CreateServerWorld(name, systems);
         }
 
-        /// <param name="systems">List of systems to be included.</param>
+        /// <param name="systems">要包含的系统列表</param>
         /// <inheritdoc cref="CreateServerWorld(string)"/>
         public static World CreateServerWorld(string name, NativeList<SystemTypeIndex> systems)
         {
@@ -444,70 +436,66 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The default port to use for auto connection. The default value is zero, which means do not auto connect.
-        /// If this is set to a valid port, any call to `CreateClientWorld` - including `CreateDefaultWorlds` and `Initialize` -
-        /// will try to connect to the specified port and address, assuming `DefaultConnectAddress` is valid.
-        /// Any call to `CreateServerWorld` - including `CreateDefaultWorlds` and `Initialize` - will listen on the specified
-        /// port and listen address.
+        /// 自动连接使用的默认端口，默认值为 0，表示不自动连接
+        /// 如果将其设为有效端口，则在 `DefaultConnectAddress` 有效时，
+        /// 调用 `CreateClientWorld`，包括通过 `CreateDefaultWorlds` 和 `Initialize` 调用，都会尝试连接指定地址和端口
+        /// 调用 `CreateServerWorld`，包括通过 `CreateDefaultWorlds` 和 `Initialize` 调用，都会监听指定端口和监听地址
         /// </summary>
         public static ushort AutoConnectPort = 0;
         /// <summary>
-        /// <para>The default address to connect to when using auto connect (`AutoConnectPort` is not zero).
-        /// If this value is `NetworkEndPoint.AnyIpv4` auto connect will not be used, even if the port is specified.
-        /// This is to allow auto listen without auto connect.</para>
-        /// <para>The address specified in the `PlayMode Tools` window takes precedence over this when running in the Editor (in `PlayType.Client`).
-        /// If that address is not valid or you are running in a player, then `DefaultConnectAddress` will be used instead.</para>
+        /// <para>使用自动连接时的默认连接地址，此时 `AutoConnectPort` 不为 0
+        /// 如果此值为 `NetworkEndPoint.AnyIpv4`，即使指定了端口也不会使用自动连接
+        /// 这样可以只启用自动监听而不启用自动连接</para>
+        /// <para>在编辑器中以 `PlayType.Client` 运行时，`PlayMode Tools` 窗口指定的地址优先级更高
+        /// 如果该地址无效或正在 Player 中运行，则改用 `DefaultConnectAddress`</para>
         /// </summary>
-        /// <remarks>Note that the `DefaultConnectAddress.Port` will be clobbered by the `AutoConnectPort` if it's set.</remarks>
+        /// <remarks>请注意，如果设置了 `AutoConnectPort`，它会覆盖 `DefaultConnectAddress.Port`</remarks>
         public static NetworkEndpoint DefaultConnectAddress = NetworkEndpoint.LoopbackIpv4;
         /// <summary>
-        /// The default address to listen on when using auto connect (`AutoConnectPort` is not zero).
+        /// 使用自动连接时的默认监听地址，此时 `AutoConnectPort` 不为 0
         /// </summary>
         public static NetworkEndpoint DefaultListenAddress = NetworkEndpoint.AnyIpv4;
         /// <summary>
-        /// <para>Denotes if the server should start listening for incoming connection automatically after the world has been created.</para>
+        /// <para>表示创建 World 后服务器是否应自动开始监听传入连接</para>
         /// <para>
-        /// If the <see cref="AutoConnectPort"/> is set, the server should start listening for connection using the <see cref="DefaultConnectAddress"/>
-        /// and <see cref="AutoConnectPort"/>.
+        /// 如果设置了 <see cref="AutoConnectPort"/>，服务器应使用 <see cref="DefaultConnectAddress"/>
+        /// 和 <see cref="AutoConnectPort"/> 开始监听连接
         /// </para>
         /// </summary>
         public static bool WillServerAutoListen => AutoConnectPort != 0;
 
         /// <summary>
-        /// The current modality.
+        /// 当前运行模式
         /// </summary>
         /// <seealso cref="ClientServerBootstrap.RequestedPlayType"/>
         public enum PlayType
         {
             /// <summary>
-            /// <para>The application can run as client, server, or both. By default, both client and server worlds are created
-            /// and the application can host and play as client at the same time.</para>
+            /// <para>应用可以作为客户端、服务器或同时作为两者运行
+            /// 默认会同时创建客户端和服务器 World，使应用可以在托管游戏的同时作为客户端游玩</para>
             /// <para>
-            /// This is the default modality when playing in the Editor, unless changed by using the PlayMode tool.
+            /// 除非通过 PlayMode 工具修改，否则这是编辑器中运行时的默认模式
             /// </para>
             /// </summary>
             ClientAndServer = 0,
             /// <summary>
-            /// The application runs as a client. Only client worlds are created and the application should connect to
-            /// a server.
+            /// 应用作为客户端运行，只创建客户端 World，应用应连接到服务器
             /// </summary>
             Client = 1,
             /// <summary>
-            /// The application runs as a server. Usually only the server world is created and the application can only
-            /// listen for incoming connections.
+            /// 应用作为服务器运行，通常只创建服务器 World，应用只能监听传入连接
             /// </summary>
             Server = 2,
         }
 
         /// <summary>
-        /// The current play mode, used to configure drivers and worlds.
-        /// <br/> - In editor, this is determined by the PlayMode tools window.
-        /// <br/> - In builds, this is determined by the platform (and thus UNITY_SERVER and UNITY_CLIENT defines),
-        /// which in turn are controlled by the Project Settings.
+        /// 当前 Play Mode，用于配置 Driver 和 World
+        /// <br/> - 在编辑器中由 PlayMode 工具窗口决定
+        /// <br/> - 在构建版本中由平台决定，即由 UNITY_SERVER 和 UNITY_CLIENT 定义决定，
+        /// 而这些定义又受 Project Settings 控制
         /// </summary>
         /// <remarks>
-        /// In builds, use this flag to determine whether your build supports running as a client,
-        /// a server, or both.
+        /// 在构建版本中，使用此标志确定构建是否支持作为客户端、服务器或同时作为两者运行
         /// </remarks>
         public static PlayType RequestedPlayType
         {
@@ -527,11 +515,11 @@ namespace Unity.NetCode
 
 #if UNITY_EDITOR
         /// <summary>
-        /// The number of thin clients to create. Only available in the Editor.
+        /// 要创建的 Thin Client 数量，仅在编辑器中可用
         /// </summary>
         public static int RequestedNumThinClients => MultiplayerPlayModePreferences.RequestedNumThinClients;
 #endif
-        //Burst compatible counters that be used in job or ISystem to check when clients or server worlds are present
+        // 兼容 Burst 的计数器，可在 Job 或 ISystem 中用于检查是否存在客户端或服务器 World
         internal struct ServerClientCount
         {
             public int serverWorlds;
@@ -540,14 +528,14 @@ namespace Unity.NetCode
         internal static readonly SharedStatic<ServerClientCount> WorldCounts = SharedStatic<ServerClientCount>.GetOrCreate<ClientServerBootstrap>();
 
         /// <summary>
-        /// Check if a world with a <see cref="WorldFlags.GameServer"/> is present.
+        /// 检查是否存在带有 <see cref="WorldFlags.GameServer"/> 的 World
         /// </summary>
-        /// <value>If at least one world with <see cref="WorldFlags.GameServer"/> flags has been created.</value>
+        /// <value>是否已创建至少一个带有 <see cref="WorldFlags.GameServer"/> 标志的 World</value>
         public static bool HasServerWorld => WorldCounts.Data.serverWorlds > 0;
         /// <summary>
-        /// Check if a world with a <see cref="WorldFlags.GameClient"/> is present.
+        /// 检查是否存在带有 <see cref="WorldFlags.GameClient"/> 的 World
         /// </summary>
-        /// <value>If at least one world with <see cref="WorldFlags.GameClient"/> flags has been created.</value>
+        /// <value>是否已创建至少一个带有 <see cref="WorldFlags.GameClient"/> 标志的 World</value>
         public static bool HasClientWorlds => WorldCounts.Data.clientWorlds > 0;
 
         static class ClientServerTracker
@@ -564,11 +552,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Helper; returns an IEnumerable iterating over all <see cref="ServerWorld"/>'s,
-        /// then all <see cref="AllClientWorldsEnumerator"/> worlds (which itself iterates over all <see cref="ClientWorlds"/>,
-        /// then all <see cref="ThinClientWorlds"/>).
+        /// 辅助方法，返回一个 IEnumerable，依次遍历所有 <see cref="ServerWorld"/>，
+        /// 再遍历 <see cref="AllClientWorldsEnumerator"/> 返回的所有 World，
+        /// 后者会先遍历所有 <see cref="ClientWorlds"/>，再遍历所有 <see cref="ThinClientWorlds"/>
         /// </summary>
-        /// <returns>An IEnumerable.</returns>
+        /// <returns>一个 IEnumerable</returns>
         public static IEnumerable<World> AllNetCodeWorldsEnumerator()
         {
             foreach (var server in ServerWorlds)
@@ -577,10 +565,9 @@ namespace Unity.NetCode
                 yield return clientOrThinClient;
         }
         /// <summary>
-        /// Helper; returns an IEnumerable iterating over all <see cref="ClientWorlds"/>,
-        /// then all <see cref="ThinClientWorlds"/>.
+        /// 辅助方法，返回一个 IEnumerable，先遍历所有 <see cref="ClientWorlds"/>，再遍历所有 <see cref="ThinClientWorlds"/>
         /// </summary>
-        /// <returns>An IEnumerable.</returns>
+        /// <returns>一个 IEnumerable</returns>
         public static IEnumerable<World> AllClientWorldsEnumerator()
         {
             foreach (var client in ClientWorlds)
@@ -590,8 +577,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Conditionally assign the given world to both the DefaultGameObjectInjectionWorld and/or CurrentlyActiveGameObjectWorld
-        /// if the respective value is either null or the current worlds are not created.
+        /// 如果对应值为 null 或当前 World 尚未创建，则按条件将指定 World 分配给
+        /// DefaultGameObjectInjectionWorld 和/或 CurrentlyActiveGameObjectWorld
         /// </summary>
         /// <param name="world"></param>
         internal static void AssignCurrentActiveWorldIfNotSet(World world)
@@ -604,70 +591,70 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Netcode-specific extension methods for worlds.
+    /// NetCode 专用的 World 扩展方法
     /// </summary>
     public static class ClientServerWorldExtensions
     {
         /// <summary>
-        /// Check if a world is a thin client.
+        /// 检查 World 是否为 Thin Client
         /// </summary>
-        /// <param name="world">A <see cref="World"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a thin client world.</returns>
+        /// <param name="world"><see cref="World"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为 Thin Client World</returns>
         public static bool IsThinClient(this World world)
         {
             return (world.Flags&WorldFlags.GameThinClient) == WorldFlags.GameThinClient;
         }
         /// <summary>
-        /// Check if an unmanaged world is a thin client.
+        /// 检查非托管 World 是否为 Thin Client
         /// </summary>
-        /// <param name="world">A <see cref="WorldUnmanaged"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a thin client world.</returns>
+        /// <param name="world"><see cref="WorldUnmanaged"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为 Thin Client World</returns>
         public static bool IsThinClient(this WorldUnmanaged world)
         {
             return (world.Flags&WorldFlags.GameThinClient) == WorldFlags.GameThinClient;
         }
         /// <summary>
-        /// Check if a world is a client, will also return true for thin clients.
+        /// 检查 World 是否为客户端，Thin Client 也会返回 true
         /// </summary>
-        /// <param name="world">A <see cref="World"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a client or a thin client world.</returns>
+        /// <param name="world"><see cref="World"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为客户端或 Thin Client World</returns>
         public static bool IsClient(this World world)
         {
             return ((world.Flags&WorldFlags.GameClient) == WorldFlags.GameClient) || world.IsThinClient();
         }
         /// <summary>
-        /// Check if an unmanaged world is a client, will also return true for thin clients.
+        /// 检查非托管 World 是否为客户端，Thin Client 也会返回 true
         /// </summary>
-        /// <param name="world">A <see cref="WorldUnmanaged"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a client or a thin client world.</returns>
+        /// <param name="world"><see cref="WorldUnmanaged"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为客户端或 Thin Client World</returns>
         public static bool IsClient(this WorldUnmanaged world)
         {
             return ((world.Flags&WorldFlags.GameClient) == WorldFlags.GameClient) || world.IsThinClient();
         }
         /// <summary>
-        /// Check if a world is a server.
+        /// 检查 World 是否为服务器
         /// </summary>
-        /// <param name="world">A <see cref="World"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a server world.</returns>
+        /// <param name="world"><see cref="World"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为服务器 World</returns>
         public static bool IsServer(this World world)
         {
             return (world.Flags&WorldFlags.GameServer) == WorldFlags.GameServer;
         }
         /// <summary>
-        /// Check if an unmanaged world is a server.
+        /// 检查非托管 World 是否为服务器
         /// </summary>
-        /// <param name="world">A <see cref="WorldUnmanaged"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a server world.</returns>
+        /// <param name="world"><see cref="WorldUnmanaged"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为服务器 World</returns>
         public static bool IsServer(this WorldUnmanaged world)
         {
             return (world.Flags&WorldFlags.GameServer) == WorldFlags.GameServer;
         }
 
         /// <summary>
-        /// Check if a world is a single world host (both client and server role).
+        /// 检查 World 是否为单 World Host，即同时承担客户端和服务器角色
         /// </summary>
-        /// <param name="world">A <see cref="World"/> instance</param>
-        /// <returns>Whether <paramref name="world"/> is a client+server world.</returns>
+        /// <param name="world"><see cref="World"/> 实例</param>
+        /// <returns><paramref name="world"/> 是否为客户端与服务器合并 World</returns>
         public static bool IsHost(this World world)
         {
             return IsClient(world) && IsServer(world);
@@ -816,8 +803,8 @@ namespace Unity.NetCode
             {
                 SystemAPI.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(state.EntityManager, autoConnectEp);
             }
-            // Thin client has no auto connect endpoint configured to connect to. Check if the client has connected to
-            // something already (so it has manually connected), if so then connect to the same address
+            // Thin Client 没有配置自动连接 Endpoint
+            // 检查客户端是否已经手动连接到某个目标，如果是，则连接到同一地址
             else if (ClientServerBootstrap.ClientWorld != null && ClientServerBootstrap.ClientWorld.IsCreated)
             {
                 using var driver = ClientServerBootstrap.ClientWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamDriver>());
@@ -859,8 +846,8 @@ namespace Unity.NetCode
             simulationGroup.SetRateManagerCreateAllocator(simulationRateManager);
 
             var predictionGroup = state.World.GetExistingSystemManaged<PredictedSimulationSystemGroup>();
-            // On a Host, we only want the prediction loop to be fixed, we want to keep normal frame rate for rest of SimulationSystemGroup
-            //Input gathering happens outside the prediction loop, to make sure we don't miss inputs
+            // 在 Host 上只希望预测循环采用固定频率，SimulationSystemGroup 的其余部分仍保持正常帧率
+            // 输入收集发生在预测循环之外，以确保不会遗漏输入
             predictionGroup.RateManager = new NetcodeHostPredictionRateManager(predictionGroup, simulationRateManager.TimeTracker);
 
             ++ClientServerBootstrap.WorldCounts.Data.serverWorlds;

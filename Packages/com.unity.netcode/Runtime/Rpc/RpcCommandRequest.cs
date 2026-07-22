@@ -14,35 +14,35 @@ using Unity.Jobs;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新 Component 类型的临时类型，应在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("SendRpcCommandRequestComponent has been deprecated. Use SendRpcCommandRequest instead (UnityUpgradable) -> SendRpcCommandRequest", true)]
     public struct SendRpcCommandRequestComponent : IComponentData
     {}
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新 Component 类型的临时类型，应在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("ReceiveRpcCommandRequestComponent has been deprecated. Use ReceiveRpcCommandRequest instead (UnityUpgradable) -> ReceiveRpcCommandRequest", true)]
     public struct ReceiveRpcCommandRequestComponent : IComponentData
     {}
 
     /// <summary>
-    /// A component used to signal that an RPC is supposed to be sent to a remote connection and should *not* be processed.
+    /// 表示 RPC 应发送到远端连接且不应在本地处理的 Component
     /// </summary>
     public struct SendRpcCommandRequest : IComponentData
     {
         /// <summary>
-        /// The "NetworkConnection" entity that this RPC should be sent specifically to, or Entity.Null to broadcast to all connections.
+        /// 此 RPC 要定向发送到的 NetworkConnection Entity，设为 Entity.Null 时广播到全部连接
         /// </summary>
         public Entity TargetConnection;
     }
     /// <summary>
-    /// A component used to signal that an RPC has been received from a remote connection and should be processed.
+    /// 表示已从远端连接收到 RPC 且应进行处理的 Component
     /// </summary>
     public struct ReceiveRpcCommandRequest : IComponentData
     {
         /// <summary>
-        /// The connection which sent the RPC being processed.
+        /// 发送当前待处理 RPC 的连接
         /// </summary>
         public Entity SourceConnection;
 
@@ -65,9 +65,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        ///     <see cref="ReceiveRpcCommandRequest"/> has a <see cref="WarnAboutStaleRpcSystem"/> which will log a warning if this <see cref="Age"/> value exceeds <see cref="NetDebug.MaxRpcAgeFrames"/>.
-        ///     Counts simulation frames.
-        ///     0 is the simulation frame it is received on.
+        /// <see cref="ReceiveRpcCommandRequest"/> 由 <see cref="WarnAboutStaleRpcSystem"/> 监控，
+        /// 当此 <see cref="Age"/> 值超过 <see cref="NetDebug.MaxRpcAgeFrames"/> 时记录警告
+        /// 该值以模拟帧计数，收到 RPC 的模拟帧记为 0
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Consume()
@@ -79,8 +79,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A group used to make sure all processing on command request entities happens in the correct place.
-    /// This is used by code-gen and should only be used directly when implementing custom command request processors.
+    /// 确保对 Command Request Entity 的全部处理都在正确位置执行的 Group
+    /// 此 Group 供代码生成使用，仅在实现自定义 Command Request Processor 时才应直接使用
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation,
         WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
@@ -103,18 +103,18 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Helper struct for implementing systems to process RPC command request entities.
-    /// This is generally used by code-gen, and should only be used directly in special cases.
+    /// 用于实现 RPC Command Request Entity 处理系统的辅助结构体
+    /// 通常由代码生成使用，仅在特殊情况下才应直接使用
     /// </summary>
-    /// <typeparam name="TActionSerializer">Unmanaged type of <see cref="IRpcCommandSerializer{TActionRequest}"/></typeparam>
-    /// <typeparam name="TActionRequest">Unmanaged type of <see cref="IComponentData"/></typeparam>
+    /// <typeparam name="TActionSerializer"><see cref="IRpcCommandSerializer{TActionRequest}"/> 的 Unmanaged 类型</typeparam>
+    /// <typeparam name="TActionRequest"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
     public struct RpcCommandRequest<TActionSerializer, TActionRequest>
         where TActionRequest : unmanaged, IComponentData
         where TActionSerializer : unmanaged, IRpcCommandSerializer<TActionRequest>
     {
         /// <summary>
-        /// <para>A struct that can be embedded into your system job, and should be used to delegate the rpc handling.
-        /// Example of use:</para>
+        /// <para>可嵌入 System Job 中并用于委托 RPC 处理的结构体
+        /// 使用示例</para>
         /// <code>
         /// [BurstCompile]
         /// struct SendRpc : IJobChunk
@@ -126,12 +126,11 @@ namespace Unity.NetCode
         ///     }
         /// }
         /// </code>
-        /// <para>Always use the <see cref="RpcCommandRequest{TActionSerializer,TActionRequest}.InitJobData"/> method to construct
-        /// a valid instance.</para>
+        /// <para>始终使用 <see cref="RpcCommandRequest{TActionSerializer,TActionRequest}.InitJobData"/> 方法构建有效实例</para>
         /// </summary>
         public struct SendRpcData
         {
-            internal EntityCommandBuffer.ParallelWriter commandBuffer; // begin simulation
+            internal EntityCommandBuffer.ParallelWriter commandBuffer; // 模拟开始阶段使用
             [ReadOnly] internal EntityTypeHandle entitiesType;
             [ReadOnly] internal ComponentTypeHandle<SendRpcCommandRequest> rpcRequestType;
             [ReadOnly] internal ComponentTypeHandle<TActionRequest> actionRequestType;
@@ -152,7 +151,7 @@ namespace Unity.NetCode
             internal FixedString128Bytes worldName;
             internal NativeArray<NetCodeConnectionEvent>.ReadOnly connectionEventsForTick;
 
-            // Process all send requests
+            // 处理全部发送请求
             void LambdaMethod(Entity entity, int orderIndex, in SendRpcCommandRequest dest, in TActionRequest action)
             {
                 commandBuffer.DestroyEntity(orderIndex, entity);
@@ -193,14 +192,14 @@ namespace Unity.NetCode
 
             private void ValidateAndQueueRpc(Entity connectionEntity, bool isBroadcast, TActionRequest action, int orderIndex)
             {
-                // We want the action parameter to be passed by copy, to reduce risk with unsafe operations below which copies by pointer. (this line actionDataOverridePtr = (IntPtr)UnsafeUtility.AddressOf(ref action),)
+                // action 参数需要按值传递，以降低下方通过指针复制的不安全操作所带来的风险
 
-                // TODO-release come back to this with new approval flows and fix above flows too with no connections
-                // TODO-release MTT-13314 handle users calling Schedule (see schedule call below) directly and bypassing the update of the RPC entity. This should work for single world host as well
+                // TODO-release：引入新审批流程后回头处理此处，并修复上方没有连接时的流程
+                // TODO-release MTT-13314：处理用户直接调用 Schedule 并绕过 RPC Entity 更新的情况，Single World Host 也应支持
                 if (isHost == 1 && localConnectionLookup.HasComponent(connectionEntity))
                 {
-                    // Single world host passthrough: if there is an entity with an RPC buffer but is the local connection for the host
-                    // immediately create the entity here as if was received by the server.
+                    // Single World Host 直通：如果带 RPC Buffer 的 Entity 是 Host 本地连接，
+                    // 则立即在此创建 Entity，效果等同于服务器已收到该 RPC
                     unsafe
                     {
                         RpcExecutor.Parameters parameters = new RpcExecutor.Parameters()
@@ -217,16 +216,16 @@ namespace Unity.NetCode
 
                         var rpcHash = TypeManager.GetTypeInfo<TActionRequest>().StableTypeHash;
                         hashToIndex.TryGetValue(rpcHash, out var rpcIndex);
-                        // If users have their own custom RPC serialization/execution, we need to call it too. Since this triggers normal flows, this also handles Remotes
-                        // triggering the appropriate callback.
-                        // In ExecuteCreateRequestComponent there should be an edge case handling serializing or not and create the appropriate action component
+                        // 如果用户实现了自定义 RPC 序列化或执行逻辑，也必须进行调用
+                        // 这会触发常规流程，因此也能处理远端触发相应回调的情况
+                        // ExecuteCreateRequestComponent 应处理是否序列化的边界情况，并创建相应 Action Component
                         execute[rpcIndex].Execute.Ptr.Invoke(ref parameters);
                         return;
                     }
                 }
 
-                // TODO - If cleanup components are removed (and/or structural changes disallowed),
-                // add error if you assign an incorrect Entity to the TargetConnection by checking entityExists.
+                // TODO：如果 Cleanup Component 已移除或不允许结构性变更，
+                // 应通过检查 Entity 是否存在，在 TargetConnection 被赋予错误 Entity 时报告错误
                 if (!networkStreamConnectionLookup.TryGetComponent(connectionEntity, out var networkStreamConnection)
                     || !rpcFromEntity.TryGetBuffer(connectionEntity, out var buffer))
                 {
@@ -312,10 +311,10 @@ namespace Unity.NetCode
 #endif
 
             /// <summary>
-            /// Call this from a <see cref="IJobChunk.Execute"/> method to handle the rpc requests.
+            /// 从 <see cref="IJobChunk.Execute"/> 方法调用此方法以处理 RPC 请求
             /// </summary>
-            /// <param name="chunk">Chunk</param>
-            /// <param name="orderIndex">Order index</param>
+            /// <param name="chunk">当前 Chunk</param>
+            /// <param name="orderIndex">顺序索引</param>
             public void Execute(ArchetypeChunk chunk, int orderIndex)
             {
                 var entities = chunk.GetNativeArray(entitiesType);
@@ -345,7 +344,7 @@ namespace Unity.NetCode
         private EntityQuery m_NetDebugQuery;
         private EntityQuery m_NetworkStreamDriver;
         /// <summary>
-        /// The query to use when scheduling the processing job.
+        /// 调度处理 Job 时使用的查询
         /// </summary>
         public EntityQuery Query;
 
@@ -361,7 +360,7 @@ namespace Unity.NetCode
         bool m_IsApprovalRpc;
 
         /// <summary>
-        /// Initialize the helper struct, should be called from OnCreate in an ISystem.
+        /// 初始化辅助结构体，应从 ISystem 的 OnCreate 中调用
         /// </summary>
         /// <param name="state"><see cref="SystemState"/></param>
         public void OnCreate(ref SystemState state)
@@ -405,10 +404,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Initialize the internal state of a processing job. Should be called from OnUpdate of an ISystem.
+        /// 初始化处理 Job 的内部状态，应从 ISystem 的 OnUpdate 中调用
         /// </summary>
-        /// <param name="state">Raw entity system state.</param>
-        /// <returns><see cref="SendRpcData"/> initialized using <paramref name="state"/></returns>
+        /// <param name="state">原始 Entity System 状态</param>
+        /// <returns>使用 <paramref name="state"/> 初始化的 <see cref="SendRpcData"/></returns>
         public SendRpcData InitJobData(ref SystemState state)
         {
             var connections = m_ConnectionsQuery.ToEntityListAsync(state.WorldUpdateAllocator,

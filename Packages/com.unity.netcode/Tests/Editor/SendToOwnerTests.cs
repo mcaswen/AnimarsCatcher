@@ -76,17 +76,17 @@ namespace Unity.NetCode.Tests
                 var ghostConfig = ghostGameObject.AddComponent<GhostAuthoringComponent>();
                 ghostConfig.SupportedGhostModes = modeMask;
                 ghostConfig.DefaultGhostMode = mode;
-                //Some context about where owner make sense:
-                //interpolated ghost: does even make sense that a ghost has an owner? Yes, it does and it is usually the server.
-                //                    Can be a player ??? Yes it can. In that case, the player can still control the ghost via command but it will not predict the
-                //                    ghost movement. Only the server will compute the correct position. The client will always see a delayed and interpolated replica.
-                //Predicted ghost: owner make absolutely sense.
-                //OwnerPredicted: by definition
+                // 以下说明不同 Ghost 模式中 Owner 的含义
+                // 插值 Ghost 也可以有 Owner，通常由服务器持有，但也可以归属于玩家
+                // 玩家仍可通过 Command 控制它，但客户端不会预测其移动
+                // 只有服务器计算权威位置，客户端始终看到延迟且经过插值的副本
+                // 预测 Ghost 使用 Owner 具有明确意义
+                // OwnerPredicted 模式则按定义依赖 Owner
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
                 testWorld.CreateWorlds(true, 2);
-                //Here I do a trick: I will wait until the CollectionSystem is run and the component collection built.
-                //Then I will change the serializer flags a little to make them behave the way I want.
-                //This is a temporary hack, can be remove whe override per prefab will be available.
+                // 等待 CollectionSystem 运行并完成组件集合构建
+                // 随后修改序列化器标志以构造测试所需的发送行为
+                // 这是临时处理，支持按 Prefab 覆盖配置后即可移除
                 using var queryServer = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
                 using var queryClient0 = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
                 using var queryClient1 = testWorld.ClientWorlds[1].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
@@ -99,11 +99,11 @@ namespace Unity.NetCode.Tests
                         testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(queryServer.GetSingletonEntity()).Length == 0 ||
                         testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(queryServer.GetSingletonEntity()).Length == 0)
                         continue;
-                    //intStruct -> to owner
-                    //GhostTypeIndex -> to non-owner
-                    //GhostPredictedOnly -> to owner
-                    //GhostInterpolatedOnly -> to non owner
-                    //GhostGenBuffer_ByteBuffer -> to non owner
+                    // intStruct 仅发送给 Owner
+                    // GhostTypeIndex 仅发送给 NonOwner
+                    // GhostPredictedOnly 仅发送给 Owner
+                    // GhostInterpolatedOnly 仅发送给 NonOwner
+                    // GhostGenBuffer_ByteBuffer 仅发送给 NonOwner
                     ChangeSendToOwnerOption(testWorld.ServerWorld);
                     ChangeSendToOwnerOption(testWorld.ClientWorlds[0]);
                     ChangeSendToOwnerOption(testWorld.ClientWorlds[1]);
@@ -163,7 +163,7 @@ namespace Unity.NetCode.Tests
                         Assert.AreEqual(ent/5==i,serverComp1.IntValue == clientComp1_ToOwner.IntValue,$"Client {i}");
                         Assert.AreEqual(ent/5!=i,serverComp2.Value == clientComp2_NonOwner.Value,$"Client {i}");
 
-                        //The component are sent to all the clients and only the SendToOwner matter
+                        // 这些组件由 SendToOwner 决定每个客户端是否接收有效数据
                         if (mode == GhostMode.Predicted)
                         {
                             Assert.AreEqual(ent/5==i,predictedOnly.Value == clientPredOnly_ToOwner.Value, $"Client {i}");
@@ -208,9 +208,9 @@ namespace Unity.NetCode.Tests
                 ghostConfig.DefaultGhostMode = mode;
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
                 testWorld.CreateWorlds(true, 2);
-                //Here I do a trick: I will wait until the CollectionSystem is run and the component collection built.
-                //Then I will change the serializer flags a little to make them behave the way I want.
-                //This is a temporary hack, can be remove whe override per prefab will be available.
+                // 等待 CollectionSystem 运行并完成组件集合构建
+                // 随后修改序列化器标志以构造测试所需的发送行为
+                // 这是临时处理，支持按 Prefab 覆盖配置后即可移除
                 using var queryServer = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
                 using var queryClient0 = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
                 using var queryClient1 = testWorld.ClientWorlds[1].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
@@ -223,11 +223,11 @@ namespace Unity.NetCode.Tests
                         testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(queryServer.GetSingletonEntity()).Length == 0 ||
                         testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(queryServer.GetSingletonEntity()).Length == 0)
                         continue;
-                    //intStruct -> to owner
-                    //GhostTypeIndex -> to non-owner
-                    //GhostPredictedOnly -> to owner
-                    //GhostInterpolatedOnly -> to non owner
-                    //GhostGenBuffer_ByteBuffer -> to non owner
+                    // intStruct 仅发送给 Owner
+                    // GhostTypeIndex 仅发送给 NonOwner
+                    // GhostPredictedOnly 仅发送给 Owner
+                    // GhostInterpolatedOnly 仅发送给 NonOwner
+                    // GhostGenBuffer_ByteBuffer 仅发送给 NonOwner
                     ChangeSendToOwnerOption(testWorld.ServerWorld);
                     ChangeSendToOwnerOption(testWorld.ClientWorlds[0]);
                     ChangeSendToOwnerOption(testWorld.ClientWorlds[1]);
@@ -257,25 +257,21 @@ namespace Unity.NetCode.Tests
                         serverBuffer2.Add(new GhostGenTest_Buffer());
                 }
 
-                //spawn the entities
+                // 生成测试实体
                 for(int i=0;i<8;++i)
                     testWorld.Tick();
 
-                //Run a partial tick here to ensure the last predicted tick was partial and so the successive tick
-                //will forcible try to restore from the backup.
-                //Otherwise, the because we are modifying values outside the prediction loop, the ghost update system
-                //will not try to restore from backup, if the last predicted tick was a full one
-                //(assuming nothing changed component values)
-                //That may be seen as incorrect and wrong (and indeed is confusing behavior)
+                // 执行部分 Tick，确保最近一次预测 Tick 不完整，从而强制后续 Tick 尝试从备份恢复
+                // 如果最近一次预测 Tick 完整，且假定组件值没有变化，那么由于这里在预测循环外修改数据
+                // Ghost 更新系统不会尝试从备份恢复，这种行为容易造成误解
                 testWorld.Tick((1f/60)/2f);
 
-                //verify we are sync and that the owner flag has been respected (so value for certain components are not
-                //overwritten by server authority
+                // 验证数据已经同步且 Owner 标志生效，从而避免不应同步的组件被服务器权威值覆盖
                 for (int tick = 0; tick < 4; ++tick)
                 {
-                    //overwrite the values for all the components for partial ticks and verify that:
-                    // - replicated data are actually reset to the authoritative value if they match owner / non-owner
-                    // - replicated data for owner are reset to the authoritative value
+                    // 在部分 Tick 前覆盖所有组件值并验证以下行为
+                    // 符合 Owner 或 NonOwner 发送条件的数据会恢复为权威值
+                    // 发送给 Owner 的预测数据同样会恢复为权威值
                     for (int i = 0; i < 2; ++i)
                     {
                         var spawnMap = testWorld.GetSingletonRW<SpawnedGhostEntityMap>(testWorld.ClientWorlds[i]);
@@ -299,17 +295,15 @@ namespace Unity.NetCode.Tests
                             });
                         }
                     }
-                    //Modify owner and not owner data for component that aren't synced and verify that for partial ticks they
-                    //aren't rollback
+                    // 修改未同步给对应 Owner 或 NonOwner 的组件数据，并验证部分 Tick 不会回滚这些数据
                     testWorld.Tick((1f/60)/4f);
-                    //What are the expectation in this case?
-                    //We expect that:
-                    //data that should be replicated only for onwers/non-owner, are not backup for the respective objects, thus they are unaffected by the partial tick restored
+                    // 仅向 Owner 或 NonOwner 同步的数据不会为不符合发送条件的实体建立备份
+                    // 因此这些数据不受部分 Tick 恢复影响
                     for (int i = 0; i < 2; ++i)
                     {
                         var spawnMap = testWorld.GetSingletonRW<SpawnedGhostEntityMap>(testWorld.ClientWorlds[i]);
-                        //entities 0-5 owned by client 1
-                        //entities 5-9 owned by client 2
+                        // 实体 0-4 归客户端 1 所有
+                        // 实体 5-9 归客户端 2 所有
                         for (int ent = i*5; ent < (i+1)*5; ++ent)
                         {
                             var serverEnt = serverEntities[ent];

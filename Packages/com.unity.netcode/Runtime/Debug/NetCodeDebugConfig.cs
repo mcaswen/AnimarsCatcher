@@ -8,25 +8,25 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Add this component to a singleton entity to configure the NetCode package logging level and to enable/disable packet dumps.
+    /// 把此组件添加到 Singleton Entity，以配置 NetCode 包日志级别并启用或禁用数据包转储
     /// </summary>
     public struct NetCodeDebugConfig : IComponentData
     {
         /// <summary>
-        /// The logging level used by netcode. The default is <see cref="NetDebug.LogLevelType.Notify"/>.
+        /// NetCode 使用的日志级别，默认值为 <see cref="NetDebug.LogLevelType.Notify"/>
         /// </summary>
         public NetDebug.LogLevelType LogLevel;
         /// <summary>
-        /// Enable/disable packet dumps. Packet dumps are meant to be enabled mostly for debugging purpose,
-        /// being very expensive in both CPU and memory.
+        /// 启用或禁用数据包转储
+        /// 数据包转储主要用于调试，CPU 和内存开销都很高
         /// </summary>
         public bool DumpPackets;
     }
 
 #if NETCODE_DEBUG
     /// <summary>
-    /// System that copy the <see cref="NetCodeDebugConfig"/> to the <see cref="NetDebug"/> singleton.
-    /// When the <see cref="NetCodeDebugConfig.DumpPackets"/> is set to true, a <see cref="EnablePacketLogging"/> component is added to all connection.
+    /// 把 <see cref="NetCodeDebugConfig"/> 复制到 <see cref="NetDebug"/> Singleton 的系统
+    /// <see cref="NetCodeDebugConfig.DumpPackets"/> 设为 true 时，向所有连接添加 <see cref="EnablePacketLogging"/> 组件
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
@@ -51,7 +51,7 @@ namespace Unity.NetCode
             var netDbg = SystemAPI.GetSingletonRW<NetDebug>();
             if (!SystemAPI.TryGetSingleton<NetCodeDebugConfig>(out var debugConfig))
             {
-                // No user-defined config, so take the NetDebug defaults:
+                // 没有用户自定义配置，使用 NetDebug 默认值
                 debugConfig.LogLevel = NetDebug.DefaultLogLevel;
                 debugConfig.DumpPackets = false;
             }

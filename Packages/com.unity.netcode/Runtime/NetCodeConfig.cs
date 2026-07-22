@@ -8,30 +8,36 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     Config file, allowing the package user to tweak netcode variables without having to write code.
-    ///     Create as many instances as you like.
+    /// NetCode 配置文件，使包使用者无需编写代码即可调整 NetCode 参数
+    /// 可按需创建多个实例
     /// </summary>
     [CreateAssetMenu(menuName = "Multiplayer/NetCodeConfig Asset", fileName = "NetCodeConfig", order = 1)]
     public class NetCodeConfig : ScriptableObject, IComparable<NetCodeConfig>
     {
         /// <summary>
-        ///     The Default NetcodeConfig asset, selected in ProjectSettings via the NetCode tab,
-        ///     and fetched at runtime via the PreloadedAssets. Set via <see cref="RuntimeInitializeOnLoadMethodAttribute"/>.
+        /// 在 ProjectSettings 的 NetCode 页签中选择的默认 NetCodeConfig 资源
+        /// 运行时通过 PreloadedAssets 获取，并由 <see cref="RuntimeInitializeOnLoadMethodAttribute"/> 设置
         /// </summary>
         public static NetCodeConfig Global { get; internal set; }
 
-        /// <summary> <see cref="ClientServerBootstrap"/> to either be <see cref="EnableAutomaticBootstrap"/> or <see cref="DisableAutomaticBootstrap"/>.</summary>
+        /// <summary>
+        /// 配置 <see cref="ClientServerBootstrap"/> 使用 <see cref="EnableAutomaticBootstrap"/> 或 <see cref="DisableAutomaticBootstrap"/>
+        /// </summary>
         public enum AutomaticBootstrapSetting
         {
-            /// <summary>ENABLES the default <see cref="Unity.Entities.ICustomBootstrap"/> Entities bootstrap.</summary>
+            /// <summary>
+            /// 启用默认的 <see cref="Unity.Entities.ICustomBootstrap"/> Entities Bootstrap
+            /// </summary>
             EnableAutomaticBootstrap = 1,
-            /// <summary>DISABLES the default <see cref="Unity.Entities.ICustomBootstrap"/> Entities bootstrap.</summary>
-            /// <remarks>Only the Local world will be created, as if you called <see cref="ClientServerBootstrap.CreateLocalWorld"/>.</remarks>
+            /// <summary>
+            /// 禁用默认的 <see cref="Unity.Entities.ICustomBootstrap"/> Entities Bootstrap
+            /// </summary>
+            /// <remarks>只创建 Local World，效果等同于调用 <see cref="ClientServerBootstrap.CreateLocalWorld"/></remarks>
             DisableAutomaticBootstrap = 0,
         }
 
         /// <summary>
-        /// Which client-hosted mode to use.
+        /// 使用哪一种客户端托管模式
         /// </summary>
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
         public enum HostWorldMode
@@ -40,25 +46,25 @@ namespace Unity.NetCode
 #endif
         {
             /// <summary>
-            /// A local client and server world are used to host a server on a client. A local IPC connection is used for communication between the two.
+            /// 在客户端上使用本地 Client World 和 Server World 托管服务器，二者通过本地 IPC 连接通信
             /// </summary>
-            BinaryWorlds = 0, // TODO change this so SingleWorld is default in N4E 2.0.
-            // TODO start host methods in Unified Netcode should have single world as the default
+            BinaryWorlds = 0, // TODO 在 N4E 2.0 中改为默认使用 SingleWorld
+            // TODO Unified Netcode 的 Host 启动方法应默认使用 Single World
 
             /// <summary>
-            /// This world acts as both client and server. There's no client to server connection, only a listening driver. A fake connection entity is generated for convenience.
+            /// 该 World 同时充当客户端和服务端，不创建客户端到服务端的连接，只保留监听 Driver，并为使用方便生成一个虚拟连接实体
             /// </summary>
             SingleWorld = 1,
         }
 
         /// <summary>
-        /// Netcode helper: Allows you to add multiple configs to the PreloadedAssets list. There can only be one global one.
+        /// NetCode 辅助设置，允许向 PreloadedAssets 列表添加多个配置，但全局配置只能有一个
         /// </summary>
         public bool IsGlobalConfig;
 
         /// <summary>
-        ///     Denotes if the ClientServerBootstrap (or any derived version of it) should be triggered on game boot. Project-wide
-        ///     setting, overridable via the OverrideAutomaticNetCodeBootstrap MonoBehaviour.
+        /// 指定游戏启动时是否触发 ClientServerBootstrap 或其派生类型
+        /// 这是项目级设置，可由 OverrideAutomaticNetCodeBootstrap MonoBehaviour 覆盖
         /// </summary>
         [Header("NetCode")]
         [Tooltip("Denotes if the ClientServerBootstrap (or any derived version of it) should be triggered on game boot. Project-wide setting (when this config is applied in the Netcode tab), overridable via the OverrideAutomaticNetCodeBootstrap MonoBehaviour.")] [SerializeField]
@@ -66,10 +72,10 @@ namespace Unity.NetCode
 
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
         /// <summary>
-        /// Denotes which client-hosted server world mode to use. Single world mode will create a world that acts as both client and server. Binary world mode will create a client and a server world, connected together through intra-process communication (IPC).
+        /// 指定客户端托管服务器使用的 World 模式，Single World 模式创建同时充当客户端和服务端的 World，Binary World 模式创建通过进程内通信 IPC 连接的 Client World 与 Server World
         /// </summary>
         /// <remarks>
-        /// Once this is set, the expectation is that users will create their whole project with this assumption. This shouldn't be something you change lightly once in a while to test things. This should be commited to your project's source control.
+        /// 设置后应以该模式为前提开发整个项目，不应仅为临时测试而随意切换，并应提交到项目版本控制
         /// </remarks>
         [Tooltip("Denotes which client-hosted server world mode to use. Single world mode will create a world that acts as both client and server. Binary world mode will create a client and a server world, connected together through intra-process communication (IPC).")]
         [SerializeField]
@@ -78,19 +84,19 @@ namespace Unity.NetCode
         internal HostWorldMode HostWorldModeSelection;
 #endif
 
-        // TODO - Add a helper link to open the NetDbg when viewing the NetConfig asset.
+        // TODO 查看 NetConfig 资源时提供打开 NetDbg 的快捷链接
         /// <inheritdoc cref="Unity.NetCode.ClientServerTickRate" path="/summary"/>
         public ClientServerTickRate ClientServerTickRate;
         /// <inheritdoc cref="Unity.NetCode.ClientTickRate"/>
         public ClientTickRate ClientTickRate;
-        // TODO - World creation options.
-        // TODO - Thin Client options.
+        // TODO World 创建选项
+        // TODO Thin Client 选项
         /// <inheritdoc cref="Unity.NetCode.GhostSendSystemData"/>
         public GhostSendSystemData GhostSendSystemData;
-        // TODO - Importance.
-        // TODO - Relevancy.
+        // TODO Importance 配置
+        // TODO Relevancy 配置
 
-        // Transport:
+        // Transport 配置
         /// <inheritdoc cref="NetworkConfigParameter.connectTimeoutMS"/>
         [Tooltip("Time between connection attempts, in milliseconds.")]
         [Min(1)]
@@ -117,9 +123,9 @@ namespace Unity.NetCode
         public int ReconnectionTimeoutMS;
 
         /// <summary>
-        ///     Capacity of the send queue (per pipeline-stage) on the client.
-        ///     This should be the maximum number of packets expected to be sent by the client in a single update (i.e. each render frame).
-        ///     Broad recommendation: 8 If not memory constrained, else use minimum, as it can affect Reliable and Fragmentation pipeline throughput.
+        /// 客户端每个 Pipeline Stage 的发送队列容量
+        /// 应设为客户端单次更新，即每个渲染帧，预计发送的数据包最大数量
+        /// 一般建议内存充足时设为 8，否则使用满足需求的最小值，因为该值会影响 Reliable 和 Fragmentation Pipeline 吞吐量
         /// </summary>
         /// <seealso cref="NetworkConfigParameter.sendQueueCapacity"/>
         [Tooltip(@"Capacity of the send queue (per pipeline-stage) on the client.
@@ -131,10 +137,9 @@ Default value: 512 i.e. <b>NetworkParameterConstants.SendQueueCapacity</b>")]
         public int ClientSendQueueCapacity;
 
         /// <summary>
-        ///     Capacity of the receive queue (per pipeline-stage) on the client.
-        ///     This should be the maximum number of in-flight packets expected to be received by the client - from the
-        ///     server - during a worst-case frame (like if the client executable stalls).
-        ///     Broad recommendation: 64.
+        /// 客户端每个 Pipeline Stage 的接收队列容量
+        /// 应设为最坏帧情况下，例如客户端进程卡顿时，客户端预计从服务端接收的在途数据包最大数量
+        /// 一般建议设为 64
         /// </summary>
         /// <seealso cref="NetworkConfigParameter.receiveQueueCapacity"/>
         [Tooltip(@"Capacity of the receive queue (per pipeline-stage) on the client.
@@ -147,12 +152,11 @@ Default value: 512 i.e. <b>NetworkParameterConstants.ReceiveQueueCapacity</b>")]
         public int ClientReceiveQueueCapacity;
 
         /// <summary>
-        ///     Capacity of the send queue (per pipeline-stage) on the server.
-        ///     This should be a multiple (likely 1) of the maximum number of packets expected to be sent by the server, across all
-        ///     connections, on a per pipeline-stage basis, in a single update (i.e. each render frame).
-        ///     Broad recommendations: For 2 players, ~64. For 100 players, ~100. For 1k players, ~1k.
+        /// 服务端每个 Pipeline Stage 的发送队列容量
+        /// 应按一定倍数，通常为 1，覆盖服务端单次更新即每个渲染帧中，跨所有连接且按每个 Pipeline Stage 计算的预计发送数据包最大数量
+        /// 一般建议 2 名玩家约为 64，100 名玩家约为 100，1000 名玩家约为 1000
         /// </summary>
-        /// <example><c>1 packet per pipeline-stage, per connection, for a game supporting, at most, 512 players per server.</c></example>
+        /// <example>若每台服务器最多支持 512 名玩家，且每个连接的每个 Pipeline Stage 发送 1 个数据包</example>
         /// <seealso cref="NetworkConfigParameter.sendQueueCapacity"/>
         [Tooltip(@"Capacity of the send queue (per pipeline-stage) on the server.
 This should be a multiple of the maximum number of packets expected to be sent by the server, across all connections, on a per pipeline-stage basis, in a single update (i.e. each render frame).
@@ -164,10 +168,9 @@ Default value: 512 i.e. <b>NetworkParameterConstants.SendQueueCapacity</b>")]
         public int ServerSendQueueCapacity;
 
         /// <summary>
-        ///     Capacity of the receive queue (per pipeline-stage) on the server.
-        ///     This should be the maximum number of in-flight packets - expected to be sent across by the maximum supported
-        ///     number of connected clients - to the server - arriving within a worst-case server game loop update.
-        ///     Broad recommendations: For 2 players, ~64. For 100 players, ~512. For 1k players, ~1.2k.
+        /// 服务端每个 Pipeline Stage 的接收队列容量
+        /// 应设为最坏服务端游戏循环更新中，最大支持连接数的客户端预计发往服务端并到达的在途数据包最大数量
+        /// 一般建议 2 名玩家约为 64，100 名玩家约为 512，1000 名玩家约为 1200
         /// </summary>
         /// <seealso cref="NetworkConfigParameter.receiveQueueCapacity"/>
         [Tooltip(@"Capacity of the receive queue (per pipeline-stage) on the server.
@@ -186,16 +189,18 @@ Default value: 512 i.e. <b>NetworkParameterConstants.ReceiveQueueCapacity</b>")]
 
         internal NetCodeConfig()
         {
-            // Note that these will be clobbered by any ScriptableObject in-place deserialization.
+            // 注意，ScriptableObject 原地反序列化会覆盖这些值
             Reset();
         }
 
-        /// <summary>Setup default values.</summary>
+        /// <summary>
+        /// 设置默认值
+        /// </summary>
         public void Reset()
         {
             ClientServerTickRate = default;
             ClientServerTickRate.ResolveDefaults();
-            ClientServerTickRate.NetworkTickRate = 0; // Special case: For the config, let this be "dynamic" i.e. zero.
+            ClientServerTickRate.NetworkTickRate = 0; // 特殊情况：配置中允许该值为动态值，即 0
 
             ClientTickRate = NetworkTimeSystem.DefaultClientTickRate;
             GhostSendSystemData = default;
@@ -221,9 +226,9 @@ Default value: 512 i.e. <b>NetworkParameterConstants.ReceiveQueueCapacity</b>")]
         }
 
         /// <summary>
-        ///     Fetch the existing NetCodeConfig (from Resources), or, if not found, create one.
+        /// 从 Resources 获取现有 NetCodeConfig，若不存在则创建一个
         /// </summary>
-        /// <remarks><see cref="RuntimeInitializeLoadType.AfterAssembliesLoaded"/> guarantees that this is called BEFORE Entities initialization.</remarks>
+        /// <remarks><see cref="RuntimeInitializeLoadType.AfterAssembliesLoaded"/> 保证该方法在 Entities 初始化前调用</remarks>
         /// <returns></returns>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         internal static void RuntimeTryFindSettings()
@@ -233,7 +238,7 @@ Default value: 512 i.e. <b>NetworkParameterConstants.ReceiveQueueCapacity</b>")]
                 void OnQuit()
                 {
                     Application.quitting -= OnQuit;
-                    Global = default; // resetting for convenience, to make sure we don't carry over settings with no domain reloads. Normally this should get reset next time we enter playmode, but that doesn't happen for editor tests when running them after having tested a project which changes settings at runtime
+                    Global = default; // 主动重置以防关闭 Domain Reload 时沿用设置；通常下次进入 Play Mode 会重置，但若先测试运行时修改设置的项目，再运行 Editor 测试，则不会自动重置
                 }
 
                 Application.quitting += OnQuit;
@@ -261,18 +266,18 @@ Default value: 512 i.e. <b>NetworkParameterConstants.ReceiveQueueCapacity</b>")]
                 if (erringConfig)
                 {
                     errSb.Append("\nImplies an error during ProjectSettings selection! Please open the ProjectSettings and re-apply the NetCodeConfig!");
-                    Debug.LogError(errSb, erringConfig); // Support the ping, allowing quick-jump to error.
+                    Debug.LogError(errSb, erringConfig); // 支持 Ping 资源，便于快速跳转到错误位置
                 }
             }
-            // It is valid to NOT have a Global config, but to have multiple NetCodeConfigs in your build.
+            // 构建中可以没有全局配置，也可以包含多个 NetCodeConfig
             Global = configs.Length > 0 ? configs[0] : null;
         }
 
         /// <summary>
-        ///     Makes Find deterministic.
+        /// 让查找结果保持确定性
         /// </summary>
-        /// <param name="other">Instance of <see cref="NetCodeConfig"/></param>
-        /// <returns>Whether the config and names match.</returns>
+        /// <param name="other"><see cref="NetCodeConfig"/> 实例</param>
+        /// <returns>配置和名称的排序比较结果</returns>
         public int CompareTo(NetCodeConfig other)
         {
             if (IsGlobalConfig != other.IsGlobalConfig)

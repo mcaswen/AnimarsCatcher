@@ -66,19 +66,19 @@ namespace Unity.NetCode.Tests
 
                 Assert.IsTrue(scenarioWorld.CreateGhostCollection(scenario.GhostPrefabs));
 
-                // create worlds, spawn and connect
+                // 创建 World 并建立连接
                 scenarioWorld.CreateWorlds(true, parameters.NumClients, parameters.UseThinClients);
 
                 scenarioWorld.Connect(frameTime);
 
                 var ghostSendProxy = scenarioWorld.ServerWorld.GetOrCreateSystemManaged<GhostSendSystemProxy>();
-                // ForcePreSerialize must be set before going in-game or it will not be applied
+                // ForcePreSerialize 必须在进入游戏前设置，否则不会生效
                 ghostSendProxy.ConfigureSendSystem(parameters);
 
-                // start simulation
+                // 开始模拟
                 scenarioWorld.GoInGame();
 
-                // instantiate
+                // 实例化 Ghost
 
                 var type = ComponentType.ReadOnly<NetworkId>();
                 var connections = scenarioWorld.ServerWorld.EntityManager.CreateEntityQuery(type).ToEntityArray(Allocator.Temp);
@@ -114,11 +114,11 @@ namespace Unity.NetCode.Tests
                 }
                 connections.Dispose();
 
-                // warmup
+                // 执行预热帧
                 for (int i = 0; i < parameters.WarmupFrames; ++i)
                     scenarioWorld.Tick(frameTime);
 
-                // run simulation
+                // 运行正式模拟并采集统计数据
                 ghostSendProxy.SetupStats(scenario.GhostPrefabs.Length, parameters);
 
                 for (int i = 0; i < parameters.DurationInFrames; ++i)

@@ -274,7 +274,7 @@ namespace Unity.NetCode.Tests
 
                 UnionValue = new GhostValueSerializer.Union
                 {
-                    // Don't write union State1 or State2.
+                    // 不直接写入 Union 的 State1 或 State2
                     State3 =
                     {
                         A = baseValue * 11.5,
@@ -305,7 +305,7 @@ namespace Unity.NetCode.Tests
         [Category(NetcodeTestCategories.Foundational)]
         public void ChangeMaskUtilitiesWorks()
         {
-            //256 bit mask, the extra bits are for checking any overflow
+            // 使用 256 位有效 Mask，额外分配的位用于检查是否发生越界写入
             NativeArray<uint> mask = new NativeArray<uint>(9, Allocator.Temp);
             IntPtr maskPtr;
             unsafe { maskPtr = (IntPtr)mask.GetUnsafePtr(); }
@@ -315,24 +315,23 @@ namespace Unity.NetCode.Tests
             Assert.Catch<UnityEngine.Assertions.AssertionException>(() => { GhostComponentSerializer.CopyFromChangeMask(maskPtr, 0, -1);});
             Assert.Catch<UnityEngine.Assertions.AssertionException>(() => { GhostComponentSerializer.CopyToChangeMask(maskPtr, 10, -1, 0);});
             Assert.Catch<UnityEngine.Assertions.AssertionException>(() => { GhostComponentSerializer.CopyToChangeMask(maskPtr, 10, 0, -1);});
-            //This will cross the 32 bits boundary and set mulitple bits at the same time
-            //There are some annoyince with these methods and in particular the fact the src must have exaclty the
-            //required bits set, otherwise the mask is clubbered.
-            //That is working fine at the moment given the current use case of them but we would probably make them more
-            //robust (at some slighly more cpu cost) if necessary.
+            // 以下操作会跨越 32 位边界并一次设置多个位
+            // 这些方法要求源值只设置目标范围所需的位，否则会覆盖 Mask 中的相邻位
+            // 当前调用方式满足该前提，因此能够正常工作
+            // 如后续需要接受更宽松的输入，可用少量 CPU 开销换取更健壮的边界屏蔽
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 0x1, 10, 1);
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 0x7, 14, 3);
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 0x1ff, 20, 9);
-            //Expecting to see 0b0001_1111_1111_0001_1100_0100_0000_0000
+            // 预期结果为 0b0001_1111_1111_0001_1100_0100_0000_0000
             var maskValue = GhostComponentSerializer.CopyFromChangeMask(maskPtr, 0, 31);
             Assert.AreEqual(0b0001_1111_1111_0001_1100_0100_0000_0000, maskValue);
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 1023, 60, 10);
             maskValue = GhostComponentSerializer.CopyFromChangeMask(maskPtr, 60, 10);
             Assert.AreEqual(1023, maskValue);
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 0x1, 255, 1);
-            //Should not overflow
+            // 不应写入有效 Mask 之外的额外空间
             Assert.AreEqual(0, mask[8]);
-            //fill with all ones
+            // 将有效 Mask 全部填充为 1
             for (int i = 0; i < 8; ++i)
                 mask[i] = ~0u;
             GhostComponentSerializer.CopyToChangeMask(maskPtr, 0, 60, 9);
@@ -346,7 +345,7 @@ namespace Unity.NetCode.Tests
             mask[1] = ~0u;
             mask[2] = ~0u;
             GhostComponentSerializer.ResetChangeMask(maskPtr, 10, 73);
-            //verify the mask content. we should have 73 zeros
+            // 验证 Mask 内容，目标范围内应有 73 个连续的 0
             Assert.AreEqual((1<<10) -1, mask[0]);
             Assert.AreEqual(0, mask[1]);
             Assert.AreEqual((~((1u << 19)-1)), mask[2]);
@@ -375,7 +374,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Assert that replicated version is correct
+                // 验证复制后的数据正确
                 VerifyGhostValues(testWorld);
             }
         }
@@ -387,8 +386,8 @@ namespace Unity.NetCode.Tests
         }
 
 #if !NETCODE_SNAPSHOT_HISTORY_SIZE_6
-        // TODO: Really we should add test coverage to ensure we're actually hitting the MaxSendRate condition of `GhostSendSystem.GatherGhostChunks`,
-        // but that requires better analytics.
+        // TODO：应补充测试以确认确实命中 GhostSendSystem.GatherGhostChunks 的 MaxSendRate 分支
+        // 这需要更完善的统计信息支持
         [Test]
         public void GhostValuesAreSerialized_RespectsMaxSendRate([Values]SetMode setMode, [Values]GhostOptimizationMode optMode,
             [Values(1, 20, 100, 0)]int maxSendRate)
@@ -401,7 +400,7 @@ namespace Unity.NetCode.Tests
             var ghostGameObject = new GameObject($"Ghost_MaxSendRate_{maxSendRate}");
             var config = ghostGameObject.AddComponent<GhostAuthoringComponent>();
             config.MaxSendRate = (byte)maxSendRate;
-            // Use predicted to always get latest values:
+            // 使用预测模式，确保客户端始终应用最新数据
             config.SupportedGhostModes = GhostModeMask.Predicted;
             config.OptimizationMode = optMode;
             config.HasOwner = true;
@@ -416,7 +415,7 @@ namespace Unity.NetCode.Tests
             testWorld.TickUntilClientsHaveAllGhosts();
             var firstSpawn = NetCodeTestWorld.TickIndex;
 
-            // Replicate changes over N frames.
+            // 在多个 Tick 中持续复制变更
             var serverValues = new NativeList<(int tick, GhostValueSerializer val)>(64, Allocator.Temp);
             var clientValues = new NativeList<(int tick, GhostValueSerializer val)>(64, Allocator.Temp);
             var clientEnt = testWorld.TryGetSingletonEntity<GhostValueSerializer>(testWorld.ClientWorlds[0]);
@@ -425,7 +424,7 @@ namespace Unity.NetCode.Tests
             const int numTicksInTest = 25;
             for (int tick = 0; tick < numTicksInTest; ++tick)
             {
-                if(setMode == SetMode.ConstantChanges || tick == 0) // Make 1 change in the OneChange case.
+                if(setMode == SetMode.ConstantChanges || tick == 0) // OnlyOneChange 用例只在首个 Tick 修改一次
                     SetGhostValuesOnServer(testWorld, tick);
                 testWorld.Tick();
                 AddIfChanged(serverValues, tick, testWorld.ServerWorld);
@@ -453,11 +452,11 @@ namespace Unity.NetCode.Tests
                 _ => throw new ArgumentOutOfRangeException(nameof(maxSendRate), maxSendRate, null),
             };
 
-            // The number of snapshots the receives (for this ghost) is slightly variable, as static optimization takes
-            // a couple ticks to ack, so it'll try to resend (which itself is rate-limited by MaxSendRate).
+            // 此 Ghost 收到的 Snapshot 数量允许小幅波动
+            // 静态优化需要等待数个 Tick 才能收到 ACK，等待期间会按 MaxSendRate 限制继续尝试重发
             var (expectedMinSnapshots, expectedMaxSnapshots) = setMode == SetMode.ConstantChanges || optMode == GhostOptimizationMode.Dynamic
                 ? (expectedNumChanges, expectedNumChanges)
-                : (1, 3); // It can be as high as 3 here as the server is STILL waiting for the ack of the SPAWN of the ghost.
+                : (1, 3); // 服务端仍在等待 Ghost Spawn 的 ACK，因此最多可能收到 3 份 Snapshot
             Assert.That(numSnapshotsArrivedForGhost, Is.InRange(expectedMinSnapshots, expectedMaxSnapshots), nameof(numSnapshotsArrivedForGhost));
 
             var (expectedMinNumDistinct, expectedMaxNumDistinct) = (setMode, optMode, sendRate: maxSendRate) switch
@@ -469,7 +468,7 @@ namespace Unity.NetCode.Tests
             var numClientValues = clientValues.Length;
             Assert.That(numClientValues, Is.InRange(expectedMinNumDistinct, expectedMaxNumDistinct));
 
-            // Verify each entry:
+            // 逐项验证客户端实际观察到的变更
             for (int i = 0; i < clientValues.Length; i++)
             {
                 var (tick, val) = clientValues[i];
@@ -515,7 +514,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Assert that replicated version is correct
+                // 验证复制后的数据正确
                 VerifyGhostValues(testWorld);
             }
         }
@@ -536,10 +535,10 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
                 for (int i = 0; i < 4; ++i)
                 {
@@ -550,7 +549,7 @@ namespace Unity.NetCode.Tests
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostValueSerializer{EntityValue = serverRefEntity});
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 8; ++i)
                 {
                     testWorld.Tick();
@@ -558,11 +557,11 @@ namespace Unity.NetCode.Tests
                     var clientEntity = testWorld.TryGetSingletonEntity<GhostValueSerializer>(testWorld.ClientWorlds[0]);
                     if (clientEntity != Entity.Null)
                     {
-                        // Make sure the reference always exist if the ghost exists
+                        // 只要引用方 Ghost 已存在，其 Entity 引用就必须有效
                         Assert.AreEqual(clientRefEntity, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostValueSerializer>(clientEntity).EntityValue);
                     }
                 }
-                // Verify that we did get the referenced entity at some point
+                // 验证客户端最终确实收到被引用实体
                 Assert.AreNotEqual(Entity.Null, testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]));
             }
         }
@@ -584,11 +583,11 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
                 ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
                 for (int i = 0; i < 4; ++i)
                 {
@@ -608,10 +607,10 @@ namespace Unity.NetCode.Tests
                 var serverGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEnt).ghostId;
                 var serverRefGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverRefEntity).ghostId;
 
-                // only mark the entity with the ref as relevant so that arrived before the referenced entity exists
+                // 先只将引用方实体设为相关，使其在被引用实体之前到达客户端
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverGhostId), 1);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让引用方 Ghost 在客户端生成
                 for (int i = 0; i < 8; ++i)
                 {
                     testWorld.Tick();
@@ -619,11 +618,11 @@ namespace Unity.NetCode.Tests
                     var clientEntity = testWorld.TryGetSingletonEntity<GhostValueSerializer>(testWorld.ClientWorlds[0]);
                     if (clientEntity != Entity.Null)
                     {
-                        // Make sure the reference always exist if the ghost exists
+                        // 被引用 Ghost 尚未生成时，引用应保持为 Entity.Null
                         Assert.AreEqual(clientRefEntity, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostValueSerializer>(clientEntity).EntityValue);
                     }
                 }
-                // Verify that we did not the referenced entity since it is irrelevant
+                // 被引用实体仍不相关，因此客户端不应收到它
                 Assert.AreEqual(Entity.Null, testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]));
 
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverRefGhostId), 1);
@@ -634,13 +633,13 @@ namespace Unity.NetCode.Tests
                     var clientEntity = testWorld.TryGetSingletonEntity<GhostValueSerializer>(testWorld.ClientWorlds[0]);
                     if (clientEntity != Entity.Null)
                     {
-                        // Make sure the reference always exist if the ghost exists
+                        // 被引用 Ghost 到达后，引用应解析为对应客户端实体
                         Assert.AreEqual(clientRefEntity, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostValueSerializer>(clientEntity).EntityValue);
                     }
                 }
                 Assert.AreNotEqual(Entity.Null, testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]));
 
-                // Delete the referenced entity and make sure the ref is updated
+                // 删除被引用实体，并验证 Entity 引用随之更新
                 testWorld.ServerWorld.EntityManager.DestroyEntity(serverRefEntity);
                 int mismatchFrames = 0;
                 for (int i = 0; i < 8; ++i)
@@ -650,8 +649,8 @@ namespace Unity.NetCode.Tests
                     var clientEntity = testWorld.TryGetSingletonEntity<GhostValueSerializer>(testWorld.ClientWorlds[0]);
                     if (clientEntity != Entity.Null)
                     {
-                        // The desapwn order might not be the same between client and server, if the server has despawned the entity there will be no reference,
-                        // but the client despawns at the end of the frame it was destroyed so it might still exist for one frame
+                        // 客户端与服务端的 Despawn 顺序可能不同
+                        // 服务端销毁后引用会立即失效，而客户端在帧末销毁实体，因此最多允许一帧状态不一致
                         Assert.IsFalse(clientRefEntity == Entity.Null && testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostValueSerializer>(clientEntity).EntityValue != Entity.Null);
                         if (clientRefEntity != testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostValueSerializer>(clientEntity).EntityValue)
                             ++mismatchFrames;
@@ -683,7 +682,7 @@ namespace Unity.NetCode.Tests
                     testWorld.Connect(maxSteps:32);
                     testWorld.GoInGame();
 
-                    // Let the game run for a bit so the ghosts are spawned on the client:
+                    // 运行若干 Tick，让全部 Ghost 在客户端生成
                     for (int i = 0; i < 200; ++i)
                         testWorld.Tick();
 
@@ -696,7 +695,7 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < 12; ++i)
                         testWorld.Tick();
 
-                    // Assert that replicated version is correct
+                    // 验证同一 Tick 批量销毁的结果已正确复制
                     Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
                     Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);
                 }
@@ -721,20 +720,20 @@ namespace Unity.NetCode.Tests
                 uint currentMask = 0x1;
                 for (int i = 0; i < 64; ++i)
                 {
-                    //Need to do this after two ticks because the server is receiving data for the last client tick.
-                    //first tick  (5) it sent the first snapshot (client receive and ack, but still not send it back)
-                    //second tick (6) client update network time (current tick:9). Receive tick 6 (ack), send command for tick 9
-                    //third tick  (7) server start seeing command from the client
+                    // 需要至少推进两个 Tick，服务端收到的始终是客户端上一 Tick 发出的数据
+                    // 第一个 Tick（5）：服务端发送首个 Snapshot，客户端接收并更新本地 ACK，但尚未回传
+                    // 第二个 Tick（6）：客户端更新时间至 Tick 9，接收 Tick 6 的 Snapshot，并发送 Tick 9 的 Command
+                    // 第三个 Tick（7）：服务端开始观察到客户端发来的 Command 和 ACK
                     if (i > 2)
                     {
                         var currentServerTick = testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick;
                         var lastTickClientAck = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ClientWorlds[0]);
                         var serverAck = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ServerWorld);
                         Assert.That(serverAck.LastReceivedSnapshotByLocal.TickIndexForValidTick, Is.GreaterThanOrEqualTo(currentServerTick.TickIndexForValidTick + 2));
-                        //if the client has received some data from the server
+                        // 客户端已经从服务端收到 Snapshot 时
                         if (lastTickClientAck.LastReceivedSnapshotByLocal.IsValid)
                         {
-                            //and the server has received some new data from the client
+                            // 同时检查服务端是否收到客户端返回的新 ACK 数据
                             if (!lastReceivedFromClient.IsValid || !lastReceivedFromClient.IsNewerThan(serverAck.LastReceivedSnapshotByLocal))
                                 currentServerTick.Decrement();
                             var tickSince = currentServerTick.TicksSince(serverAck.LastReceivedSnapshotByRemote);
@@ -749,9 +748,8 @@ namespace Unity.NetCode.Tests
                     }
                     testWorld.Tick();
                     {
-                        //There is one frame delay first the first received tick before we communicate the ack.
-                        //So when i==0 the expectation is that the client actually ack the received messages but the server didn't received them yet,
-                        //nor the client
+                        // 客户端记录首个已接收 Tick 后，还要延迟一帧才会把 ACK 回传给服务端
+                        // 因此 i == 0 时客户端本地 ACK 已更新，但服务端尚未收到该 ACK
                         var currentServerTick = testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick;
                         var clientAck = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ClientWorlds[0]);
                         if (i == 0)
@@ -769,18 +767,15 @@ namespace Unity.NetCode.Tests
                         }
                     }
                 }
-                //If packet are lost (either because of a reorder or if a real packet loss) there should be holes
-                //and the holes should match the expected bits.
-                //How to test this?
-
-                //If I receive multiple valid packet in the same frame (increasing ids), there is still an hole, because
-                //only the last one is processed
-                //Current mask is 1111 1111 1111 1111 1111 1111 1111 1111  1111 1111 1111 1111  1111 1111 1111 1111
+                // 包乱序或丢失时 ACK Mask 中应出现空洞，并与缺失 Tick 对应
+                // 以下通过让客户端在同一帧收到多个递增 ID 的有效包来构造空洞
+                // 同一帧只处理最后一个包，因此中间包不会被标记为已接收
+                // 当前 Mask 为 1111 1111 1111 1111 1111 1111 1111 1111  1111 1111 1111 1111  1111 1111 1111 1111
                 testWorld.TickServerWorld();
                 testWorld.TickServerWorld();
                 testWorld.TickClientWorld();
-                //client should now clobber the last snapshot and report the ack only for the last one.
-                //the mask will looks like:  1111 1111 1111 1111 1111 1111 1111 1111  1111 1111 1111 1111  1111 1111 1111 1101
+                // 客户端此时会用最新 Snapshot 覆盖上一份，并只报告最新一份的 ACK
+                // Mask 应变为 1111 1111 1111 1111 1111 1111 1111 1111  1111 1111 1111 1111  1111 1111 1111 1101
                 currentMask <<= 2;
                 currentMask |= 0x1;
                 var mask = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ClientWorlds[0]).ReceivedSnapshotByLocalMask;
@@ -797,13 +792,13 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(ack.IsReceivedByRemote(cur));
                 cur.Subtract(1);
                 Assert.IsTrue(ack.IsReceivedByRemote(cur));
-                //Verify that the oldest packet are still considered acked
+                // 验证 Mask 范围内最早的包仍被视为已确认
                 for (int i = 4; i < 66; ++i)
                 {
                     cur.Subtract(1);
                     Assert.IsTrue(ack.IsReceivedByRemote(cur));
                 }
-                //And that even older are all 0s
+                // 验证更早且超出 Mask 范围的包均视为未确认
                 for (int i = 66; i < 256; ++i)
                 {
                     cur.Subtract(1);
@@ -818,7 +813,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 4; i < 256; ++i)
                 {
                     testWorld.Tick();
-                    //verify the oldest packets
+                    // 验证最早几份包的 ACK 状态随窗口推进仍然正确
                     ack = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ServerWorld);
                     Assert.IsTrue(ack.IsReceivedByRemote(cur));
                     cur.Subtract(1);
@@ -836,7 +831,7 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                testWorld.LogLevel = NetDebug.LogLevelType.Debug; // PERFORMANCE warnings need this.
+                testWorld.LogLevel = NetDebug.LogLevelType.Debug; // 需要此日志等级才能输出 PERFORMANCE 警告
                 testWorld.DriverMaxMessageSize = 548;
                 testWorld.Bootstrap(true);
 
@@ -850,13 +845,13 @@ namespace Unity.NetCode.Tests
                 testWorld.SpawnOnServer(ghostGameObject);
                 SetLargeGhostValues(testWorld, "a", testWorld.DriverMaxMessageSize * 2);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
@@ -866,7 +861,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Assert that replicated version is correct
+                // 验证超出单包大小的数据仍能正确复制
                 VerifyGhostValues(testWorld);
 
                 LogAssert.Expect(LogType.Warning, new Regex(@"PERFORMANCE(.*)NID\[1\](.*)fit even one ghost"));
@@ -878,7 +873,7 @@ namespace Unity.NetCode.Tests
         public void TooSmall_SnapshotPacketSize_FailsGracefully_ViaMaxSnapshotSendAttempts([Values]bool useNetworkStreamSnapshotTargetSize)
         {
             using var testWorld = new NetCodeTestWorld();
-            testWorld.LogLevel = NetDebug.LogLevelType.Debug; // PERFORMANCE warnings need this.
+            testWorld.LogLevel = NetDebug.LogLevelType.Debug; // 需要此日志等级才能输出 PERFORMANCE 警告
             testWorld.Bootstrap(true);
             var ghostGameObject = new GameObject();
             ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new GhostValueSerializerConverter();
@@ -887,15 +882,15 @@ namespace Unity.NetCode.Tests
 
             const int maxMessageSize = GhostSystemConstants.MinSnapshotPacketSize;
             testWorld.SpawnOnServer(ghostGameObject);
-            var maxTheoreticalSizeGhostSendSystemCanSend = (int)(maxMessageSize * math.pow(2, GhostSystemConstants.MaxSnapshotSendAttempts-1)); // Ignoring headers etc.
-            SetGhostValuesOnServer(testWorld, 43, (int) (maxTheoreticalSizeGhostSendSystemCanSend * 0.01f)); // It's a huge struct inside the buffer.
+            var maxTheoreticalSizeGhostSendSystemCanSend = (int)(maxMessageSize * math.pow(2, GhostSystemConstants.MaxSnapshotSendAttempts-1)); // 忽略包头等额外开销
+            SetGhostValuesOnServer(testWorld, 43, (int) (maxTheoreticalSizeGhostSendSystemCanSend * 0.01f)); // Buffer 内包含体积很大的结构
 
             testWorld.Connect();
             testWorld.GoInGame();
 
-            // Configure Snapshot Packet Size limit:
+            // 配置 Snapshot 包大小上限
             ref var ghostSendSystemData = ref testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld).ValueRW;
-            ghostSendSystemData.TempStreamInitialSize *= 32; // Prevents the other overflow error regarding temp stream size!
+            ghostSendSystemData.TempStreamInitialSize *= 32; // 避免临时 Stream 容量不足触发另一类溢出错误
             if (useNetworkStreamSnapshotTargetSize)
             {
                 var ent = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
@@ -922,8 +917,8 @@ namespace Unity.NetCode.Tests
         public void SnapshotHistorySize6_TriggersHistoryBufferSaturation_Gracefully()
         {
             using var testWorld = new NetCodeTestWorld();
-            testWorld.DriverSimulatedDelay = 100; // Causes snapshots to remain 'in-flight' for more ticks.
-            testWorld.LogLevel = NetDebug.LogLevelType.Debug; // PERFORMANCE warnings need this.
+            testWorld.DriverSimulatedDelay = 100; // 让 Snapshot 在更多 Tick 内保持传输中状态
+            testWorld.LogLevel = NetDebug.LogLevelType.Debug; // 需要此日志等级才能输出 PERFORMANCE 警告
             testWorld.Bootstrap(true);
             var ghostGameObject = new GameObject();
             ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new GhostValueSerializerConverter();

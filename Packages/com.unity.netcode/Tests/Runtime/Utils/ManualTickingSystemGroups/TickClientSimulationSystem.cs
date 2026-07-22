@@ -4,8 +4,8 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Update the <see cref="SimulationSystemGroup"/> of a client world from another world (usually the default world)
-    /// Used only for DOTSRuntime and tests or other specific use cases.
+    /// 从另一个 World（通常为默认 World）更新客户端 World 的 <see cref="SimulationSystemGroup"/>
+    /// 仅用于 DOTS Runtime、测试或其他特殊场景
     /// </summary>
 #if !UNITY_SERVER || UNITY_EDITOR
 #if !UNITY_CLIENT || UNITY_SERVER || UNITY_EDITOR

@@ -14,7 +14,7 @@ using Unity.Mathematics;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Group that contains all systems that receives commands. Only present in server world.
+    /// 包含所有命令接收系统的 Group，仅存在于 Server World
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation, WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup))]
@@ -65,86 +65,84 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Helper struct for implementing systems to receive commands.
-    /// This is generally used by code-gen and should only be used directly in special cases.
+    /// 用于实现命令接收系统的辅助结构体
+    /// 通常由代码生成器使用，只应在特殊情况下直接使用
     /// </summary>
-    /// <typeparam name="TCommandDataSerializer">Unmanaged CommandDataSerializer of type ICommandDataSerializer.</typeparam>
-    /// <typeparam name="TCommandData">Unmanaged CommandData of type ICommandData.</typeparam>
+    /// <typeparam name="TCommandDataSerializer">实现 ICommandDataSerializer 的 Unmanaged CommandDataSerializer</typeparam>
+    /// <typeparam name="TCommandData">实现 ICommandData 的 Unmanaged CommandData</typeparam>
     public struct CommandReceiveSystem<TCommandDataSerializer, TCommandData>
         where TCommandData : unmanaged, ICommandData
         where TCommandDataSerializer : unmanaged, ICommandDataSerializer<TCommandData>
     {
-        /// <summary>
-        /// Helper struct used by code-gen for implementing the Execute method of the the generated receiving job.
-        /// The ReceiveJobData implement the command deserialization logic, by reading from the data stream the
-        /// serialized commands and enqueuing them into the taget entity command buffer.
-        /// As part of the command deserialization, if a <see cref="CommandDataInterpolationDelay"/> component is present
-        /// on target entity, it will be updated with the latest reported interpolation delay.
-        /// </summary>
+            /// <summary>
+            /// 代码生成器用于实现生成的接收 Job 的 Execute 方法的辅助结构体
+            /// ReceiveJobData 实现命令反序列化逻辑，从数据流读取序列化命令并将其加入目标 Entity 的 Command Buffer
+            /// 在命令反序列化期间，如果目标 Entity 具有 <see cref="CommandDataInterpolationDelay"/> 组件，
+            /// 系统会用最近上报的插值延迟更新该组件
+            /// </summary>
         public struct ReceiveJobData
         {
-            /// <summary>
-            /// The output command buffer where the deserialized command are added.
+                /// <summary>
+                /// 用于添加反序列化命令的输出 Command Buffer
             /// </summary>
             public BufferLookup<TCommandData> commandData;
-            /// <summary>
-            /// Accessor for retrieving the optional <see cref="CommandDataInterpolationDelay"/> component from the target entity.
+                /// <summary>
+                /// 用于从目标 Entity 获取可选 <see cref="CommandDataInterpolationDelay"/> 组件的访问器
             /// </summary>
             public ComponentLookup<CommandDataInterpolationDelay> delayFromEntity;
-            /// <summary>
-            /// Accessor for retrieving the optional <see cref="GhostOwner"/> component,
-            /// and used for lookup the entity target when using <see cref="AutoCommandTarget"/>.
+                /// <summary>
+                /// 用于获取可选 <see cref="GhostOwner"/> 组件的访问器，
+                /// 使用 <see cref="AutoCommandTarget"/> 时也用于查找目标 Entity
             /// </summary>
             [ReadOnly] public ComponentLookup<GhostOwner> ghostOwnerFromEntity;
-            /// <summary>
-            /// Accessor for retrieving the optional <see cref="AutoCommandTarget"/> component.
+                /// <summary>
+                /// 用于获取可选 <see cref="AutoCommandTarget"/> 组件的访问器
             /// </summary>
             [ReadOnly] public ComponentLookup<AutoCommandTarget> autoCommandTargetFromEntity;
-            /// <summary>
-            /// The compression model used for decoding the delta compressed commands.
+                /// <summary>
+                /// 解码差分压缩命令所使用的压缩模型
             /// </summary>
             public StreamCompressionModel compressionModel;
-            /// <summary>
-            /// Read-only type handle for reading the data from the <see cref="IncomingCommandDataStreamBuffer"/> buffer.
+                /// <summary>
+                /// 用于从 <see cref="IncomingCommandDataStreamBuffer"/> Buffer 读取数据的只读类型句柄
             /// </summary>
             [ReadOnly] public BufferTypeHandle<IncomingCommandDataStreamBuffer> cmdBufferType;
-            /// <summary>
-            /// Type handle for <see cref="EnablePacketLogging"/>, which allows us to dump command info to disk.
+                /// <summary>
+                /// <see cref="EnablePacketLogging"/> 的类型句柄，用于把命令信息转储到磁盘
             /// </summary>
             public ComponentTypeHandle<EnablePacketLogging> enablePacketLoggingType;
-            /// <summary>
-            /// Type handle to get the <see cref="NetworkSnapshotAck"/> for the connection.
+                /// <summary>
+                /// 用于获取连接 <see cref="NetworkSnapshotAck"/> 的类型句柄
             /// </summary>
             public ComponentTypeHandle<NetworkSnapshotAck> snapshotAckType;
-            /// <summary>
-            /// Read-only type handle to get the <see cref="NetworkId"/> for the connection.
+                /// <summary>
+                /// 用于获取连接 <see cref="NetworkId"/> 的只读类型句柄
             /// </summary>
             [ReadOnly] public ComponentTypeHandle<NetworkId> networkIdType;
-            /// <summary>
-            /// Read-only type handle to get the <see cref="CommandTarget"/> for the connection.
+                /// <summary>
+                /// 用于获取连接 <see cref="CommandTarget"/> 的只读类型句柄
             /// </summary>
             [ReadOnly] public ComponentTypeHandle<CommandTarget> commmandTargetType;
-            /// <summary>
-            /// A readonly mapping to retrieve a ghost entity instance from a <see cref="SpawnedGhost"/> identity.
-            /// See <see cref="SpawnedGhostEntityMap"/> for more information.
+                /// <summary>
+                /// 根据 <see cref="SpawnedGhost"/> 标识获取 Ghost Entity 实例的只读映射
+                /// 更多信息请参阅 <see cref="SpawnedGhostEntityMap"/>
             /// </summary>
             [ReadOnly] public NativeParallelHashMap<SpawnedGhost, Entity>.ReadOnly ghostMap;
-            /// <summary>
-            /// The current server tick
+                /// <summary>
+                /// 当前服务器 Tick
             /// </summary>
             public NetworkTick serverTick;
-            /// <summary>
-            /// The <see cref="NetDebug"/> singleton component instance.
+                /// <summary>
+                /// <see cref="NetDebug"/> Singleton 组件实例
             /// </summary>
             public NetDebug netDebug;
-            /// <summary>
-            /// The stable hash for the <see cref="ICommandData"/> type. Used to verify the commands are
-            /// consistent.
+                /// <summary>
+                /// <see cref="ICommandData"/> 类型的稳定 Hash，用于验证命令是否一致
             /// </summary>
             public ulong stableHash;
 
-            /// <summary>
-            /// Deserialize all commands present in the packet, and put all the inputs into the entity <see cref="ICommandData"/> buffer.
+                /// <summary>
+                /// 反序列化数据包中的所有命令，并把所有输入放入 Entity 的 <see cref="ICommandData"/> Buffer
             /// </summary>
             /// <param name="reader"></param>
             /// <param name="targetEntity"></param>
@@ -173,10 +171,10 @@ namespace Unity.NetCode
                 var baselineReceivedCommand = default(TCommandData);
                 var serializer = default(TCommandDataSerializer);
 
-                // Deserialize the first, delta-compressed against zero (default).
+                // 反序列化第一条命令，它以零值（默认值）作为差分压缩 Baseline
                 baselineReceivedCommand.Tick = new NetworkTick{SerializedData = reader.ReadUInt()};
                 serializer.Deserialize(ref reader, deserializeState, ref baselineReceivedCommand, default, compressionModel);
-                // Store received commands in the network command buffer
+                // 把接收到的命令存入网络 Command Buffer
                 reusableTempBuffer[0] = baselineReceivedCommand;
 
                 var earlyByTicks = baselineReceivedCommand.Tick.TicksSince(serverTick);
@@ -193,19 +191,19 @@ namespace Unity.NetCode
                 }
 #endif
 
-                // Deserialize the next n:
+                // 反序列化后续 N 条命令
                 var assumedTickIndex = baselineReceivedCommand.Tick;
                 for (uint inputIndex = 1; inputIndex < numCommandsSent; ++inputIndex)
                 {
                     var receivedCommand = default(TCommandData);
                     receivedCommand.Tick = ReadTickDeltaCompressed(ref reader, ref assumedTickIndex);
 
-                    // If this flag is false, input i-1 is equal to input i.
-                    // Note that these are backwards, so i-1 is actually the input for the NEXT tick.
+                    // 如果此标志为 false，则输入 i-1 与输入 i 相同
+                    // 注意命令按倒序排列，因此 i-1 实际上是下一个 Tick 的输入
                     var changeBit = reader.ReadRawBits(1);
                     if (changeBit == 0)
                     {
-                        // Invalid ticks technically always have a zero changeBit.
+                        // 从技术上讲，无效 Tick 的 changeBit 始终为零
                         var copyOfNextInput = receivedCommand.Tick.IsValid
                             ? reusableTempBuffer[(int) (inputIndex - 1)]
                             : default;
@@ -219,8 +217,8 @@ namespace Unity.NetCode
                         reusableTempBuffer[(int) inputIndex] = receivedCommand;
                     }
 
-                    // Determine if this input is too late:
-                    // NOTE: This is missing the first input, which itself could be late, technically.
+                    // 判断此输入是否到达过晚
+                    // 注意：这里没有检查第一条输入，从技术上讲它本身也可能迟到
                     bool isLate = receivedCommand.Tick.IsValid && receivedCommand.Tick.TicksSince(serverTick) < 0;
                     if (isLate) arrivalStats.NumArrivedTooLate++;
 
@@ -236,32 +234,29 @@ namespace Unity.NetCode
                 }
 
                 var totalBitsRead = reader.GetBitsRead() - readerStartBit;
-                totalBitsRead = ((totalBitsRead + 7) / 8) * 8; // Flush to make identical with sender!
+                totalBitsRead = ((totalBitsRead + 7) / 8) * 8; // 对齐到整字节，使其与发送端完全一致
 #if NETCODE_DEBUG
                 if(enablePacketLogging.IsPacketCacheCreated)
                     enablePacketLogging.LogToPacket($"\t---\n\t{CommandDataUtility.FormatBitsBytes(totalBitsRead)}\n");
 #endif
 
-                // Add the command in the order they were produced, instead of the order they were sent:
+                // 按命令生成顺序添加，而不是按发送顺序添加
                 for (int i = (int) numCommandsSent - 1; i >= 0; --i)
                 {
                     if (!reusableTempBuffer[i].Tick.IsValid)
                         continue;
                     var input = reusableTempBuffer[i];
-                    // This is a special case, since this could be the latest tick we have for the current server tick
-                    // it must be stored somehow. Trying to get the data for previous tick also needs to return
-                    // what we actually used previous tick. So we fake the tick of the most recent input we got
-                    // to point at the current server tick, even though it was actually for a tick we already
-                    // simulated
-                    // If it turns out there is another tick which is newer and should be used for serverTick
-                    // that must be included in this packet and will overwrite the state for serverTick
+                    // 这是特殊情况，因为它可能是当前 Server Tick 能获得的最新输入，必须以某种方式保存
+                    // 获取前一个 Tick 的数据时也需要返回前一个 Tick 实际使用的内容
+                    // 因此把最近收到的输入 Tick 伪装成当前 Server Tick，尽管它实际上属于已经模拟过的 Tick
+                    // 如果还有更新且应由 Server Tick 使用的输入，它必须包含在此数据包中，并会覆盖 Server Tick 的状态
                     if (serverTick.IsNewerThan(reusableTempBuffer[i].Tick))
                         input.Tick = serverTick;
                     var didReplaceExisting = command.AddCommandData(input);
                     if (didReplaceExisting) arrivalStats.NumRedundantResends++;
                 }
 
-                // Stats:
+                // 更新统计信息
                 {
                     arrivalStats.NumCommandPacketsArrived++;
                     arrivalStats.NumCommandsArrived += numCommandsSent;
@@ -272,7 +267,7 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// Compare this against the writer method in CommandSendSystem!
+            /// 此实现应与 CommandSendSystem 中的 Writer 方法对照检查
             /// </summary>
             /// <param name="reader"></param>
             /// <param name="assumedTickIndex"></param>
@@ -287,7 +282,7 @@ namespace Unity.NetCode
                         assumedTickIndex.Subtract(delta);
                         return assumedTickIndex;
                     }
-                    // Subtract 4 from the PREVIOUS VALUE because it can't be -1, -2, or -3.
+                    // 从上一个值减去 4，因为差值不可能是 -1、-2 或 -3
                     if(assumedTickIndex.IsValid) assumedTickIndex.Subtract(4);
                     assumedTickIndex.SerializedData = reader.ReadPackedUIntDelta(assumedTickIndex.SerializedData, compressionModel);
                     return assumedTickIndex;
@@ -299,13 +294,12 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// Decode the commands present in the <see cref="IncomingCommandDataStreamBuffer"/> for all
-            /// the connections present in the chunk and lookup for the target entity where the command should be
-            /// enqueued by either using the <see cref="CommandTarget"/> target entity or via
-            /// <see cref="AutoCommandTarget"/> if enabled.
+            /// 解码 Chunk 内所有连接的 <see cref="IncomingCommandDataStreamBuffer"/> 中的命令
+            /// 通过 <see cref="CommandTarget"/> 的目标 Entity，或在启用时通过 <see cref="AutoCommandTarget"/>，
+            /// 查找应将命令加入队列的目标 Entity
             /// </summary>
-            /// <param name="chunk">Chunk containing commands to decode</param>
-            /// <param name="orderIndex">Order index</param>
+            /// <param name="chunk">包含待解码命令的 Chunk</param>
+            /// <param name="orderIndex">顺序索引</param>
             public unsafe void Execute(ArchetypeChunk chunk, int orderIndex)
             {
                 var snapshotAcks = chunk.GetNativeArray(ref snapshotAckType);
@@ -341,7 +335,7 @@ namespace Unity.NetCode
                         var startPos = reader.GetBytesRead();
                         if (hash == stableHash)
                         {
-                            // Read ghost id
+                            // 读取 Ghost ID
                             var ghostId = reader.ReadInt();
                             var spawnTick = new NetworkTick {SerializedData = reader.ReadUInt()};
                             var spawnedGhost = new SpawnedGhost {ghostId = ghostId, spawnTick = spawnTick};
@@ -381,12 +375,12 @@ namespace Unity.NetCode
 #endif
                                 Deserialize(ref reader, targetEntity, tick, snapshotAck, numCommandsSent, reusableTempBuffer, ref snapshotAck.CommandArrivalStatistics, ref enablePacketLogging, readerStartBit, in spawnedGhost);
 
-                                // Validate received BYTE count (don't do bits, as we don't send the exact bit count):
+                                // 验证接收的字节数，不验证 bit，因为发送端没有发送精确 bit 数
                                 var actualBitsRead = reader.GetBytesRead() - startPos;
                                 if (reader.HasFailedReads || actualBitsRead != commandPayloadLength)
                                 {
                                     netDebug.LogError($"Failed to correctly deserialize command '{ComponentType.ReadWrite<TCommandData>().ToFixedString()}' on {targetEntity.ToFixedString()} from NID[{owner}]! Expected: {commandPayloadLength} bytes, actual {actualBitsRead} bytes, reader.HasFailedReads: {reader.HasFailedReads}!");
-                                    // TODO - Check frequency of this error in production. Would we prefer to kick this player?
+                                    // TODO 检查此错误在生产环境中的发生频率，并决定是否应断开该玩家
                                 }
                             }
                         }
@@ -411,7 +405,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The query to use when scheduling the processing job.
+        /// 调度处理 Job 时使用的查询
         /// </summary>
         public EntityQuery Query => m_entityQuery;
         private EntityQuery m_entityQuery;
@@ -431,7 +425,7 @@ namespace Unity.NetCode
         private ComponentTypeHandle<CommandTarget> m_CommandTargetComponentHandle;
 
         /// <summary>
-        /// Invoked by code-gen from job system
+        /// 由 Job System 的代码生成器调用
         /// </summary>
         /// <param name="state"><see cref="SystemState"/></param>
         public void OnCreate(ref SystemState state)
@@ -466,10 +460,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Initialize the internal state of a processing job, should be called from OnUpdate of an ISystem.
+        /// 初始化处理 Job 的内部状态，应从 ISystem 的 OnUpdate 调用
         /// </summary>
-        /// <param name="state">Raw entity system state.</param>
-        /// <returns>Constructed <see cref="ReceiveJobData"/> with initialized state.</returns>
+        /// <param name="state">原始 Entity System 状态</param>
+        /// <returns>已构造并完成状态初始化的 <see cref="ReceiveJobData"/></returns>
         public ReceiveJobData InitJobData(ref SystemState state)
         {
             m_TCommandDataFromEntity.Update(ref state);

@@ -5,16 +5,16 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// A collection of utility to assign constant colors for the NetworkId's. There are in total 13 unique colors,
-    /// with 14+ mapping to the original.
+    /// 为 Network ID 分配固定颜色的工具集合
+    /// 共有 13 种唯一颜色，从第 14 个 ID 开始循环映射到原有颜色
     /// </summary>
     public static class NetworkIdDebugColorUtility
     {
         /// <summary>
-        /// Get the constant color assigned to the given network id.
+        /// 获取分配给指定 Network ID 的固定颜色
         /// </summary>
-        /// <param name="networkId">Network id</param>
-        /// <returns>A constant debug color for NetworkId's to aid in debugging</returns>
+        /// <param name="networkId">网络 ID</param>
+        /// <returns>用于辅助调试 Network ID 的固定颜色</returns>
         public static float4 Get(int networkId)
         {
             var colorIndex = networkId % 13;

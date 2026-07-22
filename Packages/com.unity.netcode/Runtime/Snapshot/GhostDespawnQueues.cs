@@ -5,8 +5,8 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Singleton component with APIs and collections required for Ghost spawning and despawning.
-    /// <see cref="GhostSpawnSystem"/> and <see cref="GhostDespawnSystem"/>.
+    /// 包含 Ghost 生成与销毁所需 API 和集合的单例组件
+    /// 参见 <see cref="GhostSpawnSystem"/> 和 <see cref="GhostDespawnSystem"/>
     /// </summary>
     internal struct GhostDespawnQueues : IComponentData
     {

@@ -14,7 +14,7 @@ namespace Unity.NetCode
     public partial struct WarnAboutApplicationRunInBackground : ISystem, ISystemStartStop
     {
         /// <summary>
-        /// Require user to be connected to show this warning.
+        /// 要求用户已连接后才显示此警告
         /// </summary>
         /// <param name="state"></param>
         public void OnCreate(ref SystemState state)
@@ -23,7 +23,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Handle raising the warning.
+        /// 处理警告触发
         /// </summary>
         /// <param name="state"></param>
         public void OnUpdate(ref SystemState state)
@@ -32,7 +32,7 @@ namespace Unity.NetCode
             if (netDebug.SuppressApplicationRunInBackgroundWarning || netDebug.HasWarnedAboutApplicationRunInBackground)
                 return;
 
-            // @FIXME: Singleplayer via two world support needs to suppress this.
+            // @FIXME 通过两个 World 支持单机模式时需要抑制此警告
             if (!UnityEngine.Application.runInBackground)
             {
                 netDebug.HasWarnedAboutApplicationRunInBackground = true;
@@ -40,7 +40,9 @@ namespace Unity.NetCode
             }
         }
 
-        /// <summary>Reset the warning as we've disconnected.</summary>
+        /// <summary>
+        /// 断开连接后重置警告
+        /// </summary>
         /// <param name="state"></param>
         public void OnStartRunning(ref SystemState state)
         {
@@ -48,7 +50,9 @@ namespace Unity.NetCode
             netDebug.HasWarnedAboutApplicationRunInBackground = false;
         }
 
-        /// <summary>Does nothing.</summary>
+        /// <summary>
+        /// 不执行任何操作
+        /// </summary>
         /// <param name="state"></param>
         public void OnStopRunning(ref SystemState state)
         {

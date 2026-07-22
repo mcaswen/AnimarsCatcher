@@ -1,4 +1,4 @@
-/* TODO: This test is failing on main https://unity-ci.cds.internal.unity3d.com/job/51974397?utm_source=slack. Tracked in https://jira.unity3d.com/browse/MTT-13324
+/* TODO：该测试当前在主分支失败 https://unity-ci.cds.internal.unity3d.com/job/51974397?utm_source=slack，跟踪工单为 https://jira.unity3d.com/browse/MTT-13324
 #if UNITY_2023_2_OR_NEWER
 using System;
 using System.Collections.Generic;
@@ -62,7 +62,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void AnalyticsEventSentOnFirstUpdate()
         {
-            // Act: Trigger the first update
+            // 操作：触发首次更新
             var oldValue = MultiplayerPlayModePreferences.WarnBatchedTicks;
             MultiplayerPlayModePreferences.WarnBatchedTicks = !oldValue;
             _window.PlayModeStateChanged(PlayModeStateChange.EnteredPlayMode);
@@ -72,17 +72,17 @@ namespace Unity.NetCode.Tests
         [Test]
         public void AnalyticsEventSentOnlyOnPrefsChange()
         {
-            // Act 1: enter playmode, no event should be sent
+            // 操作一：进入 Play Mode，此时不应发送事件
             _window.PlayModeStateChanged(PlayModeStateChange.EnteredPlayMode);
             Assert.AreEqual(0, _analyticsMock.EventCountByType<MultiplayerPlayModePreferencesUpdatedAnalytic>(), "No event should have been sent");
 
-            // Act 2: Update preferences and exit playmode, a preferences updated event should be sent
+            // 操作二：更新偏好设置并退出 Play Mode，此时应发送偏好设置更新事件
             var oldValue = MultiplayerPlayModePreferences.WarnBatchedTicks;
             MultiplayerPlayModePreferences.WarnBatchedTicks = !oldValue;
             _window.PlayModeStateChanged(PlayModeStateChange.ExitingPlayMode);
             Assert.AreEqual(1, _analyticsMock.EventCountByType<MultiplayerPlayModePreferencesUpdatedAnalytic>(), "One event should have been sent");
 
-            // Act 3: Enter playmode again, no event should be sent
+            // 操作三：再次进入 Play Mode，此时不应发送事件
             _window.PlayModeStateChanged(PlayModeStateChange.EnteredPlayMode);
             Assert.AreEqual(1, _analyticsMock.EventCountByType<MultiplayerPlayModePreferencesUpdatedAnalytic>(), "No event should have been sent");
         }

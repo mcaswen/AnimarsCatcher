@@ -32,7 +32,7 @@ namespace Unity.NetCode.Tests
                 EnterPlayModeOptions.DisableDomainReload | EnterPlayModeOptions.DisableSceneReload)]
             EnterPlayModeOptions enterPlayModeOptions)
         {
-            // Setup:
+            // 初始化测试环境
             LogAssert.ignoreFailingMessages = false;
             m_OldNetCodeConfigGlobal = NetCodeClientAndServerSettings.instance.GlobalNetCodeConfig;
             m_OldEnterPlayModeOptionsEnabled = EditorSettings.enterPlayModeOptionsEnabled;
@@ -48,19 +48,18 @@ namespace Unity.NetCode.Tests
             AssetDatabase.CreateAsset(NetCodeConfig.Global, m_TempNetCodeConfigGlobalProjectAsset);
             NetCodeClientAndServerSettings.instance.GlobalNetCodeConfig = NetCodeConfig.Global;
 
-            // Test:
+            // 执行 PlayMode 测试
             EditorSettings.enterPlayModeOptionsEnabled = enterPlayModeOptions != EnterPlayModeOptions.None;
             EditorSettings.enterPlayModeOptions = enterPlayModeOptions;
             NetCodeClientAndServerSettings.instance.GlobalNetCodeConfig.EnableClientServerBootstrap = value;
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             m_ExpectDomainReload = (enterPlayModeOptions & EnterPlayModeOptions.DisableDomainReload) == 0;
-            yield return new EnterPlayMode(m_ExpectDomainReload); // This step destroys all private or static field data,
-                                                                  // and variables (except arguments),
-                                                                  // as it triggers a domain reload!
+            yield return new EnterPlayMode(m_ExpectDomainReload); // 该步骤触发 Domain Reload 时会清空全部私有或静态字段数据
+                                                                  // 方法参数除外
             var hasClientWorlds = ClientServerBootstrap.HasClientWorlds;
             var hasServerWorld = ClientServerBootstrap.HasServerWorld;
 
-            // Teardown:
+            // 退出 PlayMode 并恢复编辑器配置
             yield return new ExitPlayMode();
             World.DisposeAllWorlds();
             EditorSettings.enterPlayModeOptions = m_OldEnterPlayModeOptions;
@@ -70,7 +69,7 @@ namespace Unity.NetCode.Tests
 #if UNITY_EDITOR
             MultiplayerPlayModePreferences.WarnBatchedTicks = m_WarnWhenTicksBatch;
 #endif
-            // Run Assertions:
+            // 验证自动 Bootstrap 是否按配置创建客户端和服务端 World
             var expectNetCodeWorlds = value == NetCodeConfig.AutomaticBootstrapSetting.EnableAutomaticBootstrap;
             Assert.AreEqual(expectNetCodeWorlds, hasClientWorlds, nameof(hasClientWorlds));
             Assert.AreEqual(expectNetCodeWorlds, hasServerWorld, nameof(hasServerWorld));

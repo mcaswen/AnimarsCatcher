@@ -97,8 +97,8 @@ namespace Unity.NetCode.Analytics
     }
 
 #if UNITY_2023_2_OR_NEWER
-    // Schema: com.unity3d.data.schemas.editor.analytics.n4eToolsMPMPrefsUpdated_v1
-    // Taxonomy: editor.analytics.n4eToolsMPMPrefsUpdated.v1
+    // Schema 标识：com.unity3d.data.schemas.editor.analytics.n4eToolsMPMPrefsUpdated_v1
+    // Taxonomy 标识：editor.analytics.n4eToolsMPMPrefsUpdated.v1
     [AnalyticInfo(eventName: "n4eToolsMPMPrefsUpdated", vendorKey: "unity.netcode", version:1, maxEventsPerHour: 100)]
     internal class MultiplayerPlayModePreferencesUpdatedAnalytic : IAnalytic
 #else

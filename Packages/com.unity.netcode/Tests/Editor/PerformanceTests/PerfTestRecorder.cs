@@ -31,7 +31,7 @@ namespace Unity.NetCode.Tests.Performance
         }
         static public void Report(SampleRecorder[] recorders, string name)
         {
-            //the first recorder is the system and should not be divided
+            // 第一个 Recorder 对应系统总标记，无需按子标记拆分
             for (var index = 0; index < recorders.Length; index++)
             {
                 var r = recorders[index];
@@ -47,7 +47,7 @@ namespace Unity.NetCode.Tests.Performance
         {
             var ll = new List<SampleRecorder>();
             var profilerMarker = EntityManager.EntityManagerDebug.GetSystemProfilerMarkerName(world, handle);
-            //little hack to track the correct burst marker name and category
+            // 使用底层类别值匹配正确的 Burst 标记名称和类别
             var category = ProfilerCategory.Scripts;
             if (BurstCompiler.IsEnabled) { unsafe { *((short*)&category) = 3; } }
             var marker = new ProfilerMarker(category, profilerMarker);

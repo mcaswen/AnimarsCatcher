@@ -12,18 +12,16 @@ using Unity.Transforms;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// A component used by the GhostAnimationController to figure out what needs a
-    /// managed update call and what can use a system based fast path.
+    /// GhostAnimationController 用于判断哪些对象需要托管更新调用，
+    /// 哪些对象可以使用基于 System 的快速路径的组件
     /// </summary>
     public struct EnableAnimationControllerPredictionUpdate : IComponentData
     {}
 
     /// <summary>
-    /// A ghost animation controller is a special animation graph which supports
-    /// ghosting through netcode for entities. It needs to be added to a GameObject
-    /// which is referenced by an entity through a GhostPresentationGameObjectPrefabReference.
-    /// The controller has a single graph asset, but that asset can be recursive
-    /// and contain a full graph.
+    /// Ghost Animation Controller 是支持通过 NetCode for Entities 进行 Ghost 同步的特殊 Animation Graph
+    /// 必须添加到由 Entity 通过 GhostPresentationGameObjectPrefabReference 引用的 GameObject
+    /// Controller 具有单个 Graph Asset，但该 Asset 可以递归并包含完整 Graph
     /// </summary>
     [RequireComponent(typeof(Animator), typeof(GhostPresentationGameObjectEntityOwner))]
     [DisallowMultipleComponent]
@@ -53,31 +51,26 @@ namespace Unity.NetCode.Hybrid
         }
 
         /// <summary>
-        /// The graph asset used by this controller.
+        /// 此 Controller 使用的 Graph Asset
         /// </summary>
         public GhostAnimationGraphAsset AnimationGraphAsset;
         /// <summary>
-        /// Setting this to true will cause the animation graph to be evaluated as part of
-        /// the prediction update. Doing that will give you immediate updated to the skeleton,
-        /// if it is set to false the pose will only be update once per frame after all systems
-        /// have run, so it has a one frame latency. Setting it to false will also prevet
-        /// root motion from working.
+        /// 设为 true 时，Animation Graph 会作为预测更新的一部分进行求值，使 Skeleton 立即更新
+        /// 设为 false 时，Pose 只会在全部系统运行后每帧更新一次，因此会产生一帧延迟，
+        /// 同时 Root Motion 也无法工作
         /// </summary>
         public bool EvaluateGraphInPrediction;
         /// <summary>
-        /// Setting this to true will prevent the animation system from firing events even
-        /// if they are specified in the animation nodes. This is mostly useful if you are
-        /// re-using an asset with events but are not handling the events in the entities
-        /// version.
+        /// 设为 true 时，即使 Animation Node 中指定了事件，Animation System 也不会触发
+        /// 主要用于复用包含事件的 Asset，但 Entity 版本不处理这些事件的情况
         /// </summary>
         public bool IgnoreEvents;
         private bool m_ApplyRootMotion;
         /// <summary>
-        /// Returns true if root motion is being used by this controller. It is only
-        /// true if the animator supports it, the graph is evaluated in prediction
-        /// and the ghost is predicted (when using owner prediction the local players
-        /// character is predicted).
-        /// Can be accessed from graph assets to modify behaviour when root motion is enabled.
+        /// 此 Controller 使用 Root Motion 时返回 true
+        /// 仅当 Animator 支持 Root Motion、Graph 在预测中求值且 Ghost 为 Predicted Ghost 时才为 true
+        /// 使用 Owner Prediction 时，本地玩家角色属于 Predicted Ghost
+        /// Graph Asset 可以访问此属性，以便在启用 Root Motion 时调整行为
         /// </summary>
         public bool ApplyRootMotion => m_ApplyRootMotion;
 
@@ -93,27 +86,27 @@ namespace Unity.NetCode.Hybrid
         private Transform m_Transform;
 
         /// <summary>
-        /// Implementation of IRegisterPlayableData, should not be called directly.
+        /// IRegisterPlayableData 的实现，不应直接调用
         /// </summary>
-        /// <typeparam name="T">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
+        /// <typeparam name="T"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
         public void RegisterPlayableData<T>() where T: unmanaged, IComponentData
         {
             if (!m_EntityOwner.World.EntityManager.HasComponent<T>(m_EntityOwner.Entity))
                 throw new InvalidOperationException("Playable data registration failed");
             if (!m_References.ContainsKey(typeof(T)))
             {
-                // Allocate memory for a copy of the data
+                // 为数据副本分配内存
                 var reference = new AnimationDataReference<T>();
                 reference.Value = new NativeReference<T>(Allocator.Persistent);
                 m_References[typeof(T)] = reference;
             }
         }
         /// <summary>
-        /// Get a copy of playable data registered by the graph asset.
-        /// This can be called at any time.
+        /// 获取 Graph Asset 注册的 Playable Data 副本
+        /// 可以随时调用
         /// </summary>
-        /// <typeparam name="T">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
-        /// <returns>Copy of playable data of type <typeparamref name="T"/>.</returns>
+        /// <typeparam name="T"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
+        /// <returns><typeparamref name="T"/> 类型的 Playable Data 副本</returns>
         public unsafe T GetPlayableData<T>() where T: unmanaged, IComponentData
         {
             if (!m_References.ContainsKey(typeof(T)))
@@ -122,11 +115,11 @@ namespace Unity.NetCode.Hybrid
             return reference.Value.Value;
         }
         /// <summary>
-        /// Get a reference to playable data registered by the graph asset.
-        /// This can only be called from PreparePredictedData.
+        /// 获取 Graph Asset 注册的 Playable Data 引用
+        /// 只能从 PreparePredictedData 调用
         /// </summary>
-        /// <typeparam name="T">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
-        /// <returns>Reference to playable data of type <typeparamref name="T"/>.</returns>
+        /// <typeparam name="T"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
+        /// <returns><typeparamref name="T"/> 类型的 Playable Data 引用</returns>
         public unsafe ref T GetPlayableDataRef<T>() where T: unmanaged, IComponentData
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -134,15 +127,15 @@ namespace Unity.NetCode.Hybrid
                 throw new InvalidOperationException("GetPlayableDataRef can only be called from PreparePredictedData, use GetPlayableData without ref to read the data outside the prediction update");
             #endif
             AnimationDataReference<T> reference = m_References[typeof(T)] as AnimationDataReference<T>;
-            // Lookup the pointer, convert to ref and return
+            // 查找指针，转换为引用后返回
             return ref UnsafeUtility.AsRef<T>(reference.Value.GetUnsafePtr());
         }
         /// <summary>
-        /// Get a copy of data for a component on the entity associated with the controller.
-        /// This can only be called from PreparePredictedData.
+        /// 获取与 Controller 关联 Entity 上组件的数据副本
+        /// 只能从 PreparePredictedData 调用
         /// </summary>
-        /// <typeparam name="T">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
-        /// <returns>Copy of component data of type <typeparamref name="T"/>.</returns>
+        /// <typeparam name="T"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
+        /// <returns><typeparamref name="T"/> 类型的组件数据副本</returns>
         public T GetEntityComponentData<T>() where T: unmanaged, IComponentData
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -152,11 +145,11 @@ namespace Unity.NetCode.Hybrid
             return m_EntityOwner.World.EntityManager.GetComponentData<T>(m_EntityOwner.Entity);
         }
         /// <summary>
-        /// Modify the data for a component on the entity associated with the controller.
-        /// This can only be called from PreparePredictedData.
+        /// 修改与 Controller 关联 Entity 上的组件数据
+        /// 只能从 PreparePredictedData 调用
         /// </summary>
-        /// <param name="data">Data to assign to the entity.</param>
-        /// <typeparam name="T">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
+        /// <param name="data">要赋给 Entity 的数据</param>
+        /// <typeparam name="T"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
         public void SetEntityComponentData<T>(T data) where T: unmanaged, IComponentData
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -166,11 +159,11 @@ namespace Unity.NetCode.Hybrid
             m_EntityOwner.World.EntityManager.SetComponentData<T>(m_EntityOwner.Entity, data);
         }
         /// <summary>
-        /// Get a DynamicBuffer for a component on the entity associated with the controller.
-        /// This can only be called from PreparePredictedData.
+        /// 获取与 Controller 关联 Entity 上组件的 DynamicBuffer
+        /// 只能从 PreparePredictedData 调用
         /// </summary>
-        /// <typeparam name="T">Unmanaged type of <see cref="IBufferElementData"/>.</typeparam>
-        /// <returns><see cref="DynamicBuffer{T}"/> of components of type <typeparamref name="T"/> on controller.</returns>
+        /// <typeparam name="T"><see cref="IBufferElementData"/> 的 Unmanaged 类型</typeparam>
+        /// <returns>Controller 上 <typeparamref name="T"/> 类型组件的 <see cref="DynamicBuffer{T}"/></returns>
         public DynamicBuffer<T> GetEntityBuffer<T>() where T: unmanaged, IBufferElementData
         {
             #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -212,18 +205,18 @@ namespace Unity.NetCode.Hybrid
             var animator = GetComponent<Animator>();
             m_EntityOwner = GetComponent<GhostPresentationGameObjectEntityOwner>();
             var isPredicted = m_EntityOwner.World.EntityManager.HasComponent<PredictedGhost>(m_EntityOwner.Entity);
-            // Create the playable graph from the asset
+            // 从 Asset 创建 Playable Graph
             m_PlayableGraph = PlayableGraph.Create(gameObject.name);
 
             if (IgnoreEvents)
                 animator.fireEvents = false;
 
-            //update the graph manually
+            // 手动更新 Graph
             if (EvaluateGraphInPrediction && isPredicted)
                 m_PlayableGraph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
             else
             {
-                // Disable root motion for interpolated ghosts, or when updating in prediction is not enabled
+                // 对插值 Ghost 或未启用预测更新的情况禁用 Root Motion
                 animator.applyRootMotion = false;
                 m_PlayableGraph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
             }
@@ -244,7 +237,7 @@ namespace Unity.NetCode.Hybrid
 
         void OnDestroy()
         {
-            // Destroy the playable graph
+            // 销毁 Playable Graph
             m_PlayableGraph.Destroy();
             foreach (var entry in m_References.Values)
                 entry.Dispose();
@@ -253,8 +246,8 @@ namespace Unity.NetCode.Hybrid
     }
 
     /// <summary>
-    /// A system which calls PreparePredictedData for all registered ghost animation controllers
-    /// and also trigger graph evaluation if enabled.
+    /// 为所有已注册的 Ghost Animation Controller 调用 PreparePredictedData，
+    /// 并在启用时触发 Graph 求值的系统
     /// </summary>
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
     public partial class GhostAnimationControllerPredictionSystem : SystemBase
@@ -307,9 +300,8 @@ namespace Unity.NetCode.Hybrid
         }
     }
     /// <summary>
-    /// A system which makes sure registered playable data is updated before
-    /// PrepareFrame runs for interpolated ghosts, and predicted ghosts not using
-    /// PreparePredictedData or graph updates in prediction.
+    /// 确保已注册的 Playable Data 在插值 Ghost 执行 PrepareFrame 前完成更新，
+    /// 同时处理未在预测中使用 PreparePredictedData 或 Graph 更新的 Predicted Ghost
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -350,9 +342,8 @@ namespace Unity.NetCode.Hybrid
         }
     }
     /// <summary>
-    /// A system which makes sure registered playable data is updated before
-    /// PrepareFrame runs for predicted ghosts not using PreparePredictedData
-    /// or graph updates in prediction on the server.
+    /// 确保服务器上未在预测中使用 PreparePredictedData 或 Graph 更新的 Predicted Ghost，
+    /// 在执行 PrepareFrame 前完成已注册 Playable Data 更新的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast=true)]

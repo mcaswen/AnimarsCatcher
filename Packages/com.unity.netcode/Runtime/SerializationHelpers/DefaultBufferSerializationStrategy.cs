@@ -26,7 +26,7 @@ namespace Unity.NetCode.LowLevel.Unsafe
                 baseOffset = (int)GhostComponentSerializer.TypeCast<uint>(baselinePtr, snapshotOffset+IntSize);
             }
 
-            // Calculate change masks for dynamic data
+            // 计算动态数据的 ChangeMask
             var dynamicMaskUints = GhostComponentSerializer.ChangeMaskArraySizeInUInts(changeMaskBits * len);
             var dynamicMaskBitsPtr = snapshotDynamicDataPtr + dynamicSnapshotDataOffset;
 
@@ -46,10 +46,10 @@ namespace Unity.NetCode.LowLevel.Unsafe
                     bOffset += dynamicDataSize;
                     dynamicMaskOffset += changeMaskBits;
                 }
-                // Calculate any change mask and set the dynamic snapshot mask
+                // 计算是否存在任意变化，并设置动态 Snapshot Mask
                 uint anyChangeMask = 0;
 
-                //Cleanup the remaining bits for the changemasks
+                // 清理 ChangeMask 中剩余的位
                 var changeMaskLenInBits = changeMaskBits * len;
                 var remaining = (changeMaskBits * len)&31;
                 if(remaining > 0)
@@ -60,12 +60,12 @@ namespace Unity.NetCode.LowLevel.Unsafe
                     anyChangeMask |= (changeMaskUint!=0)?1u:0;
                 }
                 GhostComponentSerializer.CopyToChangeMask(changeMaskData, anyChangeMask, maskOffsetInBits, 2);
-                //We can early exit here if the buffer has zero changes. There is no need to serialize on the network
-                //a stream of zeros. Neither the changemask nor the buffer contents need to be written in this case.
+                // Buffer 没有任何变化时可以提前退出，无需通过网络序列化全零数据流
+                // 此时 ChangeMask 和 Buffer 内容都不需要写入
                 if (anyChangeMask == 0)
                     return;
 
-                // Write the bits to the data stream
+                // 将位写入 Data Stream
                 for (int mi = 0; mi < dynamicMaskUints; ++mi)
                 {
                     uint changeMaskUint = GhostComponentSerializer.TypeCast<uint>(snapshotDynamicDataPtr + dynamicSnapshotDataOffset, mi*IntSize);
@@ -75,7 +75,7 @@ namespace Unity.NetCode.LowLevel.Unsafe
             }
             else
             {
-                // Clear the dynamic change mask to all 1
+                // 将动态 ChangeMask 全部设为 1
                 // var remaining = changeMaskBits * len;
                 // while (remaining > 32)
                 // {
@@ -85,18 +85,18 @@ namespace Unity.NetCode.LowLevel.Unsafe
                 // }
                 // if (remaining > 0)
                 //     GhostComponentSerializer.CopyToChangeMask(dynamicMaskBitsPtr, (1u<<remaining)-1, dynamicMaskOffset, remaining);
-                // // FIXME: setting the bits as above is more correct, but requires changes to the receive system making it incompatible with the v1 serializer
+                // // FIXME：按上方方式设置位更为正确，但需要修改接收系统，并会导致其与 v1 Serializer 不兼容
                 for (int j = 0; j < maskSize; ++j)
                     GhostComponentSerializer.TypeCast<byte>(dynamicMaskBitsPtr, j) = 0xff;
-                // Set the dynamic snapshot mask
+                // 设置动态 Snapshot Mask
                 GhostComponentSerializer.CopyToChangeMask(changeMaskData, 3, maskOffsetInBits, 2);
 
                 baselineDynamicDataPtr = IntPtr.Zero;
                 writer.WritePackedUIntDelta((uint)len, (uint)baseLen, compressionModel);
 
-                //Assume all changed so no changemask are present (they will be considered all 1s)
+                // 假定全部元素均已变化，因此不写入 ChangeMask，接收端会将其视为全 1
             }
-            //Serialize the elements contents
+            // 序列化元素内容
             dynamicMaskOffset = 0;
             offset = dynamicSnapshotDataOffset;
             bOffset = baseOffset;

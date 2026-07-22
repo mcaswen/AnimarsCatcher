@@ -9,16 +9,17 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Build the ghost baseline for all the pre-spawned ghosts present in the world.
-    /// The job will add to the entities a new buffer, PrespawGhostBaseline, witch will contains the
-    /// a pre-serialized snapshot of the entity at the time the job run.
+    /// 为 World 中的所有预生成 Ghost 构建 Ghost Baseline
+    /// 该 Job 会向 Entity 添加 PrespawnGhostBaseline Buffer
+    /// 其中包含 Job 运行时该 Entity 的预序列化 Snapshot
     ///
-    /// NOTE: The serialization does not depend on component stripping (it is only dependent on the ghost type archetype
-    /// serializer /omponent that is guarantee to be same on both client and server and that is handled by the GhostCollectionSystem)
+    /// 注意：序列化不依赖 Component 剥离
+    /// 它只依赖由 GhostCollectionSystem 处理的 Ghost 类型 Archetype Serializer 与 Component
+    /// 这些内容保证在客户端与服务器保持一致
     /// </summary>
-    // baseline snapshot data layout:
+    // Baseline Snapshot 数据布局：
     // -------------------------------------------------------------
-    // [COMPONENT DATA][SIZE][PADDING (3UINT)][DYNAMIC BUFFER DATA]
+    // [COMPONENT 数据][大小][填充（3 个 uint）][动态 Buffer 数据]
     // -------------------------------------------------------------
     [BurstCompile]
     internal struct PrespawnGhostSerializer : IJobChunk
@@ -40,7 +41,7 @@ namespace Unity.NetCode
 
         public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            // This job is not written to support queries with enableable component types.
+            // 此 Job 不支持包含可启用 Component 类型的查询
             Assert.IsFalse(useEnabledMask);
 
             var entities = chunk.GetNativeArray(entityType);
@@ -53,7 +54,7 @@ namespace Unity.NetCode
                 if (GhostCollection[ghostType].GhostType == ghostTypeComponent)
                     break;
             }
-            //the type has not been processed yet. There isn't much we can do about it
+            // 该类型尚未处理完成，此时无法继续序列化
             if (ghostType >= GhostCollection.Length || ghostType >= GhostTypeCollection.Length)
             {
                 UnityEngine.Debug.LogError($"Cannot serialize prespawn ghost baselines as the `GhostCollection` didn't correctly process some prefabs. GhostTypeCollection.Length: {GhostTypeCollection.Length}.");
@@ -74,7 +75,7 @@ namespace Unity.NetCode
             };
 
             var typeData = GhostTypeCollection[ghostType];
-            //collect the buffers size for each entity (and children)
+            // 收集每个 Entity 及其子 Entity 的 Buffer 大小
             if (GhostTypeCollection[ghostType].NumBuffers > 0)
                 helper.GatherBufferSize(chunk, 0, chunk.Count, typeData, ref buffersSize);
 
@@ -87,9 +88,9 @@ namespace Unity.NetCode
             var chunkHashes = stackalloc ulong[entities.Length];
             for (int i = 0; i < entities.Length; ++i)
             {
-                //Initialize the baseline buffer. This will contains the component data
+                // 初始化用于容纳 Component 数据的 Baseline Buffer
                 var baselineBuffer = bufferAccessor[i];
-                //The first 4 bytes are the size of the dynamic data
+                // 前 4 个字节记录动态数据大小
                 var dynamicDataCapacity = GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint)) + buffersSize[i];
                 baselineBuffer.ResizeUninitialized(snapshotSize + dynamicDataCapacity);
                 var baselinePtr = baselineBuffer.GetUnsafePtr();
@@ -98,7 +99,7 @@ namespace Unity.NetCode
                 helper.changeMaskUints = changeMaskUints;
                 helper.snapshotOffset = snapshotBaseOffset;
                 helper.snapshotPtr = (byte*) baselinePtr;
-                //Prespawned ghost baseline assume the dynamic data offset is from the beginning of the buffer (because the server does that)
+                // Prespawn Ghost Baseline 假定动态数据偏移从 Buffer 起点计算，与服务器行为保持一致
                 helper.snapshotDynamicHeaderPtr = (byte*)baselinePtr + snapshotSize;
                 helper.snapshotDynamicPtr = (byte*)baselinePtr + snapshotSize;
                 helper.dynamicSnapshotDataOffset = headerSize;
@@ -106,7 +107,7 @@ namespace Unity.NetCode
                 helper.dynamicSnapshotCapacity = baselineBuffer.Length - snapshotSize;
                 helper.CopyEntityToSnapshot(chunk, i, typeData, GhostSerializeHelper.ClearOption.DontClear);
 
-                // Compute the hash for that baseline
+                // 计算该 Baseline 的 Hash
                 chunkHashes[i] =
                     Unity.Core.XXHash.Hash64((byte*)baselineBuffer.GetUnsafeReadOnlyPtr(), baselineBuffer.Length);
             }
@@ -117,10 +118,10 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    ///  Strip from the prespawned ghost instances all the runtime components marked to be removed or disabled
+    /// 从预生成 Ghost 实例中剥离所有标记为应移除或禁用的运行时 Component
     /// </summary>
     /// <remarks>
-    /// This job is not burst compatbile since it uses TypeManager internal static members, that aren't SharedStatic.
+    /// 该 Job 使用了并非 SharedStatic 的 TypeManager 内部静态成员，因此不兼容 Burst
     /// </remarks>
     [BurstCompile]
     internal struct PrespawnGhostStripComponentsJob : IJobChunk
@@ -136,7 +137,7 @@ namespace Unity.NetCode
 
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            // This job is not written to support queries with enableable component types.
+            // 此 Job 不支持包含可启用 Component 类型的查询
             Assert.IsFalse(useEnabledMask);
 
             var ghostTypes = chunk.GetNativeArray(ref ghostTypeHandle);
@@ -145,7 +146,7 @@ namespace Unity.NetCode
                 netDebug.LogError("Failed to look up ghost type");
                 return;
             }
-            // Modfy the entity to its proper version
+            // 将 Entity 调整为当前 World 所需的正确版本
             if (!metaDataFromEntity.HasComponent(ghostPrefabEntity))
             {
                 netDebug.LogWarning($"Could not find a valid ghost prefab for the ghostType");
@@ -180,7 +181,7 @@ namespace Unity.NetCode
                         var rmCompType = ComponentType.ReadWrite(TypeManager.GetTypeIndexFromStableTypeHash(childIndexCompHashPair.StableHash));
                         commandBuffer.RemoveComponent(unfilteredChunkIndex,linkedEntityGroup[childIndexCompHashPair.EntityIndex].Value, rmCompType);
                     }
-                    // FIXME: should disable instead of removing once we have a way of doing that without structural changes
+                    // FIXME: 能够在不产生结构变更的情况下禁用后，应改为禁用而不是移除
                     if (ghostMetaData.DefaultMode == GhostPrefabBlobMetaData.GhostMode.Predicted)
                     {
                         for (int rm = 0; rm < ghostMetaData.DisableOnPredictedClient.Length; ++rm)
@@ -205,8 +206,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Assign to GhostComponent and GhostStateSystemComponent the ghost ids for all the prespawn ghosts.
-    /// Also responsible to populate the SpawnedGhostMapping lists with all the spawned ghosts
+    /// 为所有 Prespawn Ghost 的 GhostInstance 与 GhostCleanup 分配 GhostId
+    /// 同时使用全部已生成 Ghost 填充 SpawnedGhostMapping 列表
     /// </summary>
     [BurstCompile]
     internal struct AssignPrespawnGhostIdJob : IJobChunk
@@ -227,12 +228,12 @@ namespace Unity.NetCode
 
         public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
-            // This job is not written to support queries with enableable component types.
+            // 此 Job 不支持包含可启用 Component 类型的查询
             Assert.IsFalse(useEnabledMask);
 
-            // find ghost type index
+            // 查找 Ghost 类型索引
             int ghostTypeIndex = -1;
-            if (isServer) // client side, this is deserialized in ghost receive so skipping this client side
+            if (isServer) // 客户端会在 Ghost Receive 阶段反序列化该值，因此这里只在服务器处理
             {
                 GhostType currentChunkGhostType = ((GhostType*)chunk.GetRequiredComponentDataPtrRO(ref ghostType))[0];
                 ghostTypeIndex = GhostTypeToColletionIndex[currentChunkGhostType];
@@ -248,13 +249,13 @@ namespace Unity.NetCode
             for (int index = 0, chunkEntityCount = chunk.Count; index < chunkEntityCount; ++index)
             {
                 var entity = entities[index];
-                // Check if this entity has already been handled
+                // 检查该 Entity 是否已经处理
                 if (ghostComponents[index].ghostId != 0)
                 {
                     netDebug.LogWarning($"{entity} already has ghostId={ghostComponents[index].ghostId} PreSpawnedGhostIndex={preSpawnedIndices[index].Value}");
                     continue;
                 }
-                //Special encoding for prespawn index (sort of "namespace").
+                // 对 Prespawn 索引使用类似命名空间的特殊编码
                 var ghostId = PrespawnHelper.MakePrespawnGhostId(preSpawnedIndices[index].Value + startGhostId);
                 if (ghostStates.IsCreated && ghostStates.Length > 0)
                     ghostStates[index] = new GhostCleanup {ghostId = ghostId, despawnTick = NetworkTick.Invalid, spawnTick = NetworkTick.Invalid};
@@ -263,10 +264,9 @@ namespace Unity.NetCode
                 {
                     ghost = new SpawnedGhost {ghostId = ghostId, spawnTick = NetworkTick.Invalid}, entity = entity
                 };
-                // GhostType -1 is a special case for prespawned ghosts which is converted to a proper ghost id in the send / receive systems
-                // once the ghost ids are known
-                // Pre-spawned uses spawnTick = 0, if there is a reference to a ghost and it has spawnTick 0 the ref is always resolved
-                // This works because there despawns are high priority and we never create pre-spawned ghosts after connection
+                // GhostType -1 是 Prespawn Ghost 的特殊值，GhostId 确定后会在发送或接收 System 中转换为正确类型
+                // Prespawn 使用无效 spawnTick；引用目标 Ghost 的 spawnTick 无效时，该引用始终会尝试解析
+                // 这是可行的，因为这类 Despawn 具有高优先级，而且连接建立后不会再创建新的 Prespawn Ghost
                 ghostComponents[index] = new GhostInstance {ghostId = ghostId, ghostType = ghostTypeIndex, spawnTick = NetworkTick.Invalid};
             }
             spawnedGhosts.AddRangeNoResize(chunkSpawnedGhostMappings, spawnedGhostCount);

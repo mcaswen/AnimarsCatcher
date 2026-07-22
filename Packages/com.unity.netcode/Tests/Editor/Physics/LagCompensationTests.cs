@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using System;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
@@ -98,8 +98,8 @@ namespace Unity.NetCode.Physics.Tests
                 commandBuffer.AddComponent(entityInQueryIndex, ent, new NetworkStreamInGame());
                 if (isServer)
                 {
-                    // Spawn the player so it gets replicated to the client
-                    // Spawn the cube and sphere when a player connects, for simplicity
+                    // 生成玩家以便同步到客户端
+                    // 为简化测试，在玩家连接时同时生成立方体和球体
                     foreach (var colliderPrefab in colliderPrefabs)
                         commandBuffer.Instantiate(entityInQueryIndex, colliderPrefab);
                     var player = commandBuffer.Instantiate(entityInQueryIndex, playerPrefab);
@@ -261,13 +261,13 @@ namespace Unity.NetCode.Physics.Tests
                     Assert.AreEqual(1, networkTime.SimulationStepBatchSize, "Must not be batching ticks!");
                     Assert.IsFalse(networkTime.IsCatchUpTick, "Must not be catching up!");
 
-                    // Movement:
+                    // 更新玩家位置
                     var prevPos = characterTrans.Position;
                     characterTrans.Position = LagCompensationTestCommandSystem.GetPlayersDeterministicPositionForTick(networkTime.ServerTick);
 
                     if (networkTime.IsFirstTimeFullyPredictingTick)
                     {
-                        // Draw:
+                        // 绘制移动轨迹
                         var stepColor = networkTime.InputTargetTick.TickIndexForValidTick % 2 == 0
                             ? (isServer ? Color.grey : Color.white)
                             : (isServer ? Color.black : Color.grey);
@@ -276,42 +276,39 @@ namespace Unity.NetCode.Physics.Tests
                         Debug.DrawLine(characterTrans.Position + offset, characterTrans.Position + offset + new float3(0, 0.5f, 0), stepColor, LagCompensationTestCubeMoveSystem.DebugDrawLineDuration);
                     }
 
-                    // Do not perform hit-scan when rolling back, only when simulating the latest tick
+                    // 回滚重放时不执行 Hit Scan，只在首次完整预测当前 Tick 时检测
                     if (!networkTime.IsFirstTimeFullyPredictingTick)
                         return;
 
-                    // If there is no data for the tick or a fire was not requested - do not process anything
+                    // 当前 Tick 没有 Command 或未请求开火时不做处理
                     if (!commands.GetDataAtTick(networkTime.ServerTick, out var cmd))
                         return;
                     if (cmd.lastFire != networkTime.ServerTick)
                         return;
 
-                    // When we fetch the CollisionWorld for ServerTick T, we need to account for the fact that the user
-                    // raised this input sometime on the previous tick (render-frame, technically).
+                    // 获取 ServerTick T 的 CollisionWorld 时，需要考虑输入实际产生于前一个渲染帧
                     const int additionalRenderDelay = 1;
                     var interpolDelay = EnableLagCompensation && isServer
-                        ? delay.Delay // Don't account for `additionalRenderDelay` here,
-                                      // because we're using an auto-aim "bot",
-                                      // which doesn't have any additional input delay on the server.
+                        ? delay.Delay // 此处不计 additionalRenderDelay，因为测试使用自动瞄准
+                                      // 服务器端不存在额外输入延迟
                         : additionalRenderDelay;
 
                     var forcedInputLatencyEnabled = ForcedInputLatencyTicks > 0;
                     var (expected, margin) = (isServer, forcedInputLatencyEnabled) switch
                     {
-                        // The client has a default value of 0, even with ForcedInputLatency enabled,
-                        // as we're not polling input gather ticks here, we're polling predicted ticks.
+                        // 即使启用 ForcedInputLatency，客户端默认值仍为零
+                        // 因为此处检查的是预测 Tick，而不是输入采集 Tick
                         (false, _) => (0, 0),
-                        // Server, with lag compensation enabled, we expect a huge difference between
-                        // ForcedInputLatency ON vs OFF:
+                        // 服务器启用延迟补偿后，ForcedInputLatency 开关会显著改变延迟值
                         (true, true) => (14 - (int)ForcedInputLatencyTicks, 2),
                         (true, false) => (14, 2),
                     };
                     Assert.That(delay.Delay, Is.EqualTo(expected).Within(margin), $"CommandDataInterpolationDelay.Delay value for: EnableLagCompensation:{EnableLagCompensation}, isServer:{isServer}, ForcedInputLatencyTicks:{ForcedInputLatencyTicks} ({forcedInputLatencyEnabled})!");
 
-                    // Get the collision world to use given the tick currently being predicted and the interpolation delay for the connection
+                    // 根据当前预测 Tick 和连接插值延迟取得对应的历史 CollisionWorld
                     collisionHistory.GetCollisionWorldFromTick(networkTime.ServerTick, interpolDelay, ref physicsWorld, out var collWorld, out var expectedTick, out var returnedTick);
                     var rayInput = new Unity.Physics.RaycastInput();
-                    rayInput.Start = characterTrans.Position; // NOTE: We're NOT using the ray origin here!
+                    rayInput.Start = characterTrans.Position; // 此处刻意不使用 Command 中的射线起点
                     var positionDesyncMeters = math.distance(rayInput.Start, cmd.origin);
                     rayInput.End = rayInput.Start + cmd.direction;
                     rayInput.Filter = Unity.Physics.CollisionFilter.Default;
@@ -320,7 +317,7 @@ namespace Unity.NetCode.Physics.Tests
                     var color = isServer ? Color.blue : Color.red;
                     Debug.DrawLine(characterTrans.Position, rayInput.End, color, LagCompensationTestCubeMoveSystem.DebugDrawLineDuration);
 
-                    // Draw a faint line showing where the client originally shot from, to show the divergence when using Forced Input Latency.
+                    // 绘制淡色射线表示客户端原始开火位置，以展示 ForcedInputLatency 造成的偏差
                     {
                         var black = Color.black;
                         black.a = 0.2f;
@@ -337,8 +334,7 @@ namespace Unity.NetCode.Physics.Tests
                             ServerRayCastHit = raycastHit;
                         else ClientRayCastHit = raycastHit;
 
-                        // NOTE: The Entity SHOULD BE RETURNED even if said Entity was 'since deleted',
-                        // because this is a historic query on a historic CollisionWorld.
+                        // 即使实体随后已被删除，历史 CollisionWorld 查询仍应返回当时的 Entity
                         if (isServer)
                             ServerVictimEntityStillExists = victimIsAlive;
                         else ClientVictimEntityStillExists = victimIsAlive;
@@ -347,7 +343,7 @@ namespace Unity.NetCode.Physics.Tests
                         Assert.IsTrue(victimCollider.IsCreated, "Expecting physics collider in historic collision world to be valid, due to deep copy clone operation!");
                     }
 
-                    // Draw all colliders:
+                    // 绘制历史 CollisionWorld 中的全部 Collider
                     for (var i = 0; i < collWorld.Bodies.Length; i++)
                     {
                         var rigidBody = collWorld.Bodies[i];
@@ -358,7 +354,7 @@ namespace Unity.NetCode.Physics.Tests
                             collisionInfo += $"\n\tcollWorld.Bodies[{i}] Pos:{victimPos} null";
                             continue;
                         }
-                        var drawOffset = new float3(0, 0, 0.001f); // See the other line!
+                        var drawOffset = new float3(0, 0, 0.001f); // 略微偏移以免与其他调试线重叠
                         if (victimCollider.Value.Type == ColliderType.Box)
                         {
                             var boxCollider = ((BoxCollider*) victimCollider.GetUnsafePtr());
@@ -420,16 +416,15 @@ namespace Unity.NetCode.Physics.Tests
             {
                 foreach (var localTransform in SystemAPI.Query<LocalTransform>().WithAll<LagCompensationTestPlayer>())
                 {
-                    // We CANNOT use the players CURRENT Entity LocalTransform.Position here,
-                    // because it's out of date, because it has not been updated yet, as the GhostInputSystemGroup
-                    // runs before both the GhostUpdateSystem and the Prediction Loop.
+                    // 此处不能使用玩家实体当前的 LocalTransform.Position，因为该值尚未更新
+                    // GhostInputSystemGroup 运行在 GhostUpdateSystem 和预测循环之前
                     cmd.origin = GetPlayersDeterministicPositionForTick(networkTime.ServerTick);
 
                     var victimTransform = EntityManager.GetComponentData<LocalTransform>(ClientAimAtTarget);
                     var aimPoint = victimTransform.Position;
                     var isTryingToMiss = ClientShotAction == ShotType.ShootToMiss;
-                    if (isTryingToMiss) aimPoint.y += 2.5f; // Force shot miss by aiming ABOVE the target.
-                    cmd.direction = (aimPoint - cmd.origin) * 1.1f; // add 10% to the distance.
+                    if (isTryingToMiss) aimPoint.y += 2.5f; // 瞄准目标上方以强制射偏
+                    cmd.direction = (aimPoint - cmd.origin) * 1.1f; // 将射线距离增加百分之十
                     cmd.lastFire = cmd.Tick;
 
                     Debug.DrawLine(cmd.origin, aimPoint, Color.yellow, LagCompensationTestCubeMoveSystem.DebugDrawLineDuration);
@@ -437,7 +432,7 @@ namespace Unity.NetCode.Physics.Tests
                     ClientShotAction = default;
                 }
             }
-            // Not firing and data for the tick already exists, skip it to make sure a few command is not overwritten
+            // 未开火且当前 Tick 已有数据时跳过，避免已有 Command 被覆盖
             else if (buffer.GetDataAtTick(cmd.Tick, out var dupCmd) && dupCmd.Tick == cmd.Tick)
                 return;
             buffer.AddCommandData(cmd);
@@ -458,19 +453,19 @@ namespace Unity.NetCode.Physics.Tests
     {
         const int k_TicksToRegisterHit = 12;
 
-        // Unique values for ease of debugging.
+        // 使用易于区分的数值方便调试
         internal static float BoxColliderGeometryOriginalSize = 0.222f;
         private static float BoxColliderGeometryResizeSize = 0.333f;
         private static float SphereColliderRadiusSize = 0.4444f;
-        internal static float MovementSpeedPerTick = 0.5f; // It's larger than the diameter of each collider,
-                                                           // which means we're validating perfect hits.
+        internal static float MovementSpeedPerTick = 0.5f; // 每 Tick 位移大于各 Collider 直径
+                                                           // 因而命中必须依赖准确的历史位置
 
         [Test]
         public void LagCompensationDoesNotUpdateIfLagCompensationConfigIsNotPresent()
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                testWorld.DriverSimulatedDelay = 50; // Each way! I.e. Testing lag compensation with a MINIMUM of 100ms ping.
+                testWorld.DriverSimulatedDelay = 50; // 单向延迟五十毫秒，因此往返延迟至少一百毫秒
                 testWorld.TestSpecificAdditionalAssemblies.Add("Unity.NetCode.Physics,");
                 testWorld.TestSpecificAdditionalAssemblies.Add("Unity.Physics,");
                 testWorld.Bootstrap(true);
@@ -518,7 +513,7 @@ namespace Unity.NetCode.Physics.Tests
                 clientTickRate.ForcedInputLatencyTicks = LagCompensationTestHitScanSystem.ForcedInputLatencyTicks;
                 testWorld.ClientWorlds[0].EntityManager.CreateSingleton(clientTickRate);
 
-                // Give the netcode some time to spawn entities and settle on a good time synchronization
+                // 等待实体生成并让网络时间同步稳定
                 for (int i = 0; i < 70; ++i)
                     testWorld.Tick();
 
@@ -527,20 +522,20 @@ namespace Unity.NetCode.Physics.Tests
                 LagCompensationTestHitScanSystem.EnableLagCompensation = true;
                 int ticksToRegisterHit = k_TicksToRegisterHit + LagCompensationTestHitScanSystem.ForcedInputLatencyTicks;
 
-                // Test hit:
+                // 测试命中
                 LagCompensationTestCommandSystem.ClientShotAction = LagCompensationTestCommandSystem.ShotType.ShootToHit;
                 for (int i = 0; i < ticksToRegisterHit; ++i)
                     testWorld.Tick();
                 Assert.IsTrue(LagCompensationTestHitScanSystem.BothHitsRegistered);
 
-                // Test miss
+                // 测试射偏
                 ResetHits();
                 LagCompensationTestCommandSystem.ClientShotAction = LagCompensationTestCommandSystem.ShotType.ShootToMiss;
                 for (int i = 0; i < ticksToRegisterHit; ++i)
                     testWorld.Tick();
                 Assert.IsTrue(LagCompensationTestHitScanSystem.NoHitsRegistered);
 
-                // Make sure there is no hit without lag compensation
+                // 验证禁用延迟补偿后服务器无法命中历史位置
                 ResetHits();
                 LagCompensationTestHitScanSystem.EnableLagCompensation = false;
                 LagCompensationTestCommandSystem.ClientShotAction = LagCompensationTestCommandSystem.ShotType.ShootToHit;
@@ -548,7 +543,7 @@ namespace Unity.NetCode.Physics.Tests
                     testWorld.Tick();
                 Assert.IsTrue(LagCompensationTestHitScanSystem.OnlyClientHitRegistered);
 
-                // Test miss
+                // 再次测试射偏
                 ResetHits();
                 LagCompensationTestCommandSystem.ClientShotAction = LagCompensationTestCommandSystem.ShotType.ShootToMiss;
                 for (int i = 0; i < ticksToRegisterHit; ++i)
@@ -594,7 +589,7 @@ namespace Unity.NetCode.Physics.Tests
         }
 
         /// <summary>
-        /// Customer issue where Lag Compensation was throwing BlobAsset exceptions when triggering on since-destroyed Entities.
+        /// 客户问题：延迟补偿命中随后已销毁的 Entity 时会抛出 BlobAsset 异常
         /// https://docs.google.com/document/d/18RZrbZfAwD37J2goBPODvqTcH9jkwCyeQN5wlmMqGVk/edit
         /// DOTS-10392
         /// </summary>
@@ -606,7 +601,7 @@ namespace Unity.NetCode.Physics.Tests
         }
 
         /// <summary>
-        /// Customer issue where Lag Compensation was throwing BlobAsset exceptions when triggering on since-destroyed Entities.
+        /// 客户问题：延迟补偿命中随后已销毁的 Entity 时会抛出 BlobAsset 异常
         /// https://docs.google.com/document/d/18RZrbZfAwD37J2goBPODvqTcH9jkwCyeQN5wlmMqGVk/edit
         /// DOTS-10392
         /// </summary>
@@ -619,9 +614,9 @@ namespace Unity.NetCode.Physics.Tests
 
         private static void RunHitWithLagCompensationWithColliderChangeTest(IncrementalBroadphase incrementalBroadphase, ColliderChangeTiming colliderChangeTiming, ColliderStaticType victimColliderType, DestroyType destroyType, DeepCopyStrategy deepCopyStrategy, ColliderChangeType colliderChangeType)
         {
-            // TODO - Do a statistics based test (e.g. shooting 1k times).
-            // TODO - What happens if interpolation delay changes DURING the simulation?
-            // TODO - Use a variable time-step with degradation.
+            // TODO 增加基于统计的测试，例如开火一千次
+            // TODO 验证模拟期间插值延迟变化时的行为
+            // TODO 使用带退化情况的可变时间步
             using (var testWorld = new NetCodeTestWorld())
             {
                 var config = new LagCompensationConfig
@@ -633,15 +628,15 @@ namespace Unity.NetCode.Physics.Tests
                 };
                 InitTest(testWorld, victimColliderType == ColliderStaticType.StaticVictimEntity, incrementalBroadphase, out var clientEm, out var serverEm, config);
 
-                // Give the netcode some time to spawn entities and settle on a good time synchronization
+                // 等待实体生成并让网络时间同步稳定
                 for (int i = 0; i < 20; ++i)
                     testWorld.Tick();
 
-                // Fetch the LagCompensationTestCube and LagCompensationTestSphere entities:
+                // 取得 LagCompensationTestCube 和 LagCompensationTestSphere 实体
                 GetCubeAndSphere(serverEm, out var serverVictimCubeEntity, out var serverVictimCollider, out var serverSphereEntity, out var serverSphereCollider);
                 GetCubeAndSphere(clientEm, out var clientVictimCubeEntity, out var clientVictimCollider, out var clientSphereEntity, out var clientSphereCollider);
 
-                // Now we have the bodies spawned, add them to the copy whitelist:
+                // 刚体生成后将其加入深拷贝白名单
                 {
                     var serverBodies = testWorld.GetSingletonRW<PhysicsWorldSingleton>(testWorld.ServerWorld).ValueRW.Bodies;
                     var clientBodies = testWorld.GetSingletonRW<PhysicsWorldSingleton>(testWorld.ClientWorlds[0]).ValueRW.Bodies;
@@ -651,7 +646,7 @@ namespace Unity.NetCode.Physics.Tests
                     AddBodiesToWhitelist("Client", clientBodies, ref clientWhitelist, clientVictimCubeEntity, clientSphereEntity, deepCopyStrategy);
                     static void AddBodiesToWhitelist(string context, NativeArray<RigidBody> bodies, ref NativeList<int> whitelist, Entity victimCubeEntity, Entity sphereEntity, DeepCopyStrategy deepCopyStrategy)
                     {
-                        // Can be more than 3 as null entries can exist in the bodies list!
+                        // Bodies 列表可能包含空项，因此数量可以超过三
                         Assert.That(bodies.Length, Is.GreaterThanOrEqualTo(3), $"Sanity - PhysicsWorld Bodies count on {context}!");
                         if (deepCopyStrategy is not DeepCopyStrategy.OnlyManualWhitelist) return;
                         for (var bodyIdx = 0; bodyIdx < bodies.Length; bodyIdx++)
@@ -663,70 +658,59 @@ namespace Unity.NetCode.Physics.Tests
                     }
                 }
 
-                // Ensure this collider change is "replicated" on both the client and server,
-                // REGARDLESS of respective timelines.
+                // 无论双方时间线如何，都在客户端和服务器上应用相同 Collider 变化以模拟复制
                 if (colliderChangeTiming == ColliderChangeTiming.ColliderChangeBeforeShot)
                 {
                     PredictColliderChanges(colliderChangeType, serverEm, serverVictimCubeEntity, ref serverVictimCollider, serverSphereCollider);
                     PredictColliderChanges(colliderChangeType, clientEm, clientVictimCubeEntity, ref clientVictimCollider, clientSphereCollider);
                 }
 
-                // Give the netcode some MORE time to settle on a good time synchronization.
-                // This should also apply the appropriate deep copy strategy after the above collider update.
+                // 继续等待网络时间同步稳定
+                // 同时让上方 Collider 更新应用对应的深拷贝策略
                 for (int i = 0; i < 50; ++i)
                     testWorld.Tick();
 
-                // Client fires shot.
+                // 客户端开火
                 LagCompensationTestHitScanSystem.ForcedInputLatencyTicks = 0;
                 LagCompensationTestCommandSystem.ClientAimAtTarget = clientVictimCubeEntity;
                 LagCompensationTestHitScanSystem.EnableLagCompensation = true;
                 Assert.IsTrue(LagCompensationTestHitScanSystem.NoHitsRegistered, "Sanity check: Neither client nor server should have hit anything yet.");
                 LagCompensationTestCommandSystem.ClientShotAction = LagCompensationTestCommandSystem.ShotType.ShootToHit;
-                // Note: The simulated delay will mean the clients shot input arrives on the server in a future frame.
+                // 模拟延迟使客户端开火输入在后续帧才到达服务器
 
                 testWorld.Tick();
-                testWorld.Tick(); // Tick where the shot confirms on client.
+                testWorld.Tick(); // 客户端确认命中的 Tick
                 Assert.IsTrue(LagCompensationTestHitScanSystem.OnlyClientHitRegistered, "Sanity check: Expected the client shot to have landed by now.");
 
                 testWorld.Tick();
                 if (colliderChangeTiming == ColliderChangeTiming.ColliderChangeAfterShot)
                 {
-                    // Why only the client?
-                    // 1. The client is obviously ahead of the server.
-                    // 2. We're emulating here that the collider change is predicted.
-                    // 3. Thus, if the client predicts the collider change on tick T5 (two frames before the shot),
-                    // the server will also predict it on T5 (two frames before the shot).
-
-                    // NOTE: WE DON'T CARE ABOUT INPUT INDETERMINISM LEADING TO COLLIDER SIZE TO BE INCORRECTLY PREDICTED,
-                    // BECAUSE OF COURSE THAT WILL FAIL!
+                    // 此时只修改客户端，因为客户端时间领先服务器且这里模拟预测产生的 Collider 变化
+                    // 若客户端在 T5 预测变化，即开火前两帧，服务器随后也会在自己的 T5 执行同一变化
+                    // 本测试不覆盖输入不确定性导致 Collider 尺寸预测错误的情况，该情况按定义会失败
                     PredictColliderChanges(colliderChangeType, clientEm, clientVictimCubeEntity, ref clientVictimCollider, clientSphereCollider);
                 }
 
-                // Delete the LagCompensationTestCube entity on the server,
-                // The simulated delay will mean the clients shot input arrives on the server in a future frame.
+                // 在服务器删除 LagCompensationTestCube
+                // 模拟延迟使客户端开火输入在后续帧才到达服务器
                 if (destroyType == DestroyType.DestroyVictimEntity)
                 {
                     //Debug.Log($"Destroying victim entity: {serverVictimCubeEntity} to trigger Physics BlobAsset bug...");
                     serverEm.DestroyEntity(serverVictimCubeEntity);
 
-                    // HACK: Destroying is a multi-step process, as ICleanupComponentData's exist.
-                    // See GhostDespawnParallelJob, and the fact that entity deletion is deferred until all clients have
-                    // acked a snapshot containing the deletion.
+                    // HACK 由于存在 ICleanupComponentData，销毁实体是多阶段过程
+                    // GhostDespawnParallelJob 会等待所有客户端确认包含删除信息的快照后才真正删除实体
+                    // 该过程需要多个 Tick，正常测试必须更早开始销毁并精确安排客户端 ACK 到达顺序
+                    // 这会使测试脆弱且难以推理，因此这里手动移除 GhostCleanup 以强制完成删除
 
-                    // Unfortunately for us, this takes many more ticks, which means we have to begin this destroy
-                    // operation earlier (so that it arrives on the client almost exactly one tick after the client shot),
-                    // and the clients ack needs to arrive in the input packet BEFORE the input packet needs ot be processed.
-                    // These two facts makes this test very hard to reason about, and very fragile, so we brute force
-                    // the deletion here instead, by removing the GhostCleanup component manually.
-
-                    // Note: It therefore still is possible for the client to send a hit for a since-deleted ghost entity,
-                    // but it's rare in practice due to this deferred deletion. But rare = common at N4E scales.
+                    // 客户端仍可能上报命中随后已删除的 Ghost，延迟删除只会降低发生概率
+                    // 在 N4E 规模下低概率事件仍会频繁出现
 
                     serverEm.RemoveComponent<GhostCleanup>(serverVictimCubeEntity);
                 }
 
-                // Server performs hit detection on historic CollisionWorld,
-                // thus must return the PREVIOUS (i.e. unmodified) collider (when deep copy is enabled).
+                // 服务器在历史 CollisionWorld 上执行命中检测
+                // 启用深拷贝时必须返回变化前的 Collider
                 for (int i = 0; i < k_TicksToRegisterHit; ++i)
                 {
                     testWorld.Tick();
@@ -749,27 +733,26 @@ namespace Unity.NetCode.Physics.Tests
 
                 if (colliderChangeTiming == ColliderChangeTiming.ColliderChangeAfterShot)
                 {
-                    // Finally, after we know the server hit occurred,
-                    // the server simulates the tick that resizes the collider.
+                    // 确认服务器命中后，服务器再模拟调整 Collider 的 Tick
                     if(serverEm.Exists(serverVictimCubeEntity))
                         PredictColliderChanges(colliderChangeType, serverEm, serverVictimCubeEntity, ref serverVictimCollider, serverSphereCollider);
                 }
 
-                // Even when we Destroy the Entity, it should still be returned by the collision hit,
-                // thus we check both of these are identical.
+                // 即使 Entity 已销毁，历史碰撞命中仍应返回原 Entity
+                // 因此检查命中实体与受击实体一致
                 Assert.AreEqual(clientVictimCubeEntity, LagCompensationTestHitScanSystem.ClientRayCastHit.Value.Entity, "Expecting to hit the client victim entity!");
                 var serverRayCastHit = LagCompensationTestHitScanSystem.ServerRayCastHit.Value;
                 Assert.AreEqual(serverVictimCubeEntity, serverRayCastHit.Entity, "Expecting to hit the server victim entity!");
 
-                // Also ensure the hit INFO is mostly deterministic:
+                // 同时验证命中信息基本确定
                 var hitDistance = math.length(serverRayCastHit.Position - LagCompensationTestHitScanSystem.ClientRayCastHit.Value.Position);
                 var hitRayFraction = math.length(serverRayCastHit.Fraction - LagCompensationTestHitScanSystem.ClientRayCastHit.Value.Fraction);
                 var hitNormalDot = math.dot(serverRayCastHit.SurfaceNormal, LagCompensationTestHitScanSystem.ClientRayCastHit.Value.SurfaceNormal);
                 Debug.Log($"ServerRayCastHit vs ClientRayCastHit: hitDistance: {hitDistance}, hitRayFraction: {hitRayFraction}, hitNormalDot: {hitNormalDot}!");
 
-                // We now compare the hits on the server vs the client, ensuring hits are "mostly deterministic".
-                // HOWEVER: We should only do so if there is an expectation that it'll actually be correct.
-                // The non-deep-copy scenario is essentially "undefined behaviour", in terms of expectations.
+                // 比较服务器与客户端命中结果以验证其基本确定性
+                // 只有正确深拷贝对应 Collider 类型时结果才有明确定义
+                // 未深拷贝场景的历史 Collider 行为不作保证
                 var isCopyingTheRightTypeOfCollider = victimColliderType == ColliderStaticType.StaticVictimEntity
                     ? config.DeepCopyStaticColliders
                     : config.DeepCopyDynamicColliders;
@@ -797,24 +780,24 @@ namespace Unity.NetCode.Physics.Tests
 
         internal static unsafe void PredictColliderChanges(ColliderChangeType colliderChangeType, EntityManager em, Entity victimCubeEntity, ref PhysicsCollider victimCollider, PhysicsCollider sphereCollider)
         {
-            // Reading: https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/PhysicsSamples/Assets/9.%20Modify
-            // MUST be predicted.
-            // I.e. Client and server change the victim box collider in some fun ways, on the same "serverTick".
+            // 参考 https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/PhysicsSamples/Assets/9.%20Modify
+            // Collider 变化必须参与预测
+            // 客户端和服务器要在相同 ServerTick 上以相同方式修改受击方 BoxCollider
 
-            em.CompleteAllTrackedJobs(); // Fixes safety issues.
+            em.CompleteAllTrackedJobs(); // 完成依赖以避免安全检查冲突
             switch (colliderChangeType)
             {
                 case ColliderChangeType.NoColliderChange:
                     break;
                 case ColliderChangeType.ResizeCollider:
-                    // Resizes ALL boxColliders which share this BlobAsset Geometry!
+                    // 调整所有共享该 BlobAsset Geometry 的 BoxCollider
                     var boxCollider = ((BoxCollider*) victimCollider.ColliderPtr);
                     var boxGeometry = boxCollider->Geometry;
                     boxGeometry.Size = BoxColliderGeometryResizeSize;
                     boxCollider->Geometry = boxGeometry;
                     break;
                 case ColliderChangeType.ChangeColliderToSphere:
-                    // Change the collider type of ONLY this collider:
+                    // 只更改当前 Collider 的类型
                     victimCollider.Value = sphereCollider.Value;
                     em.SetComponentData(victimCubeEntity, victimCollider);
                     break;
@@ -826,7 +809,7 @@ namespace Unity.NetCode.Physics.Tests
             }
 
             victimCollider = em.GetComponentData<PhysicsCollider>(victimCubeEntity);
-            em.CompleteAllTrackedJobs(); // Fixes safety issues.
+            em.CompleteAllTrackedJobs(); // 完成依赖以避免安全检查冲突
         }
 
         private static void GetCubeAndSphere(EntityManager em, out Entity victimCubeEntity, out Unity.Physics.PhysicsCollider victimCollider, out Entity sphereEntity, out Unity.Physics.PhysicsCollider sphereCollider)
@@ -841,7 +824,7 @@ namespace Unity.NetCode.Physics.Tests
 
             Assert.IsTrue(victimCollider.IsValid);
             Assert.IsTrue(sphereCollider.IsValid);
-            // Defensive! Swap them if we selected wrong due to query ToComponentDataArray order non-determinism!
+            // 查询返回顺序不确定，若类型相反则交换实体和 Collider
             if (victimCollider.Value.Value.Type != ColliderType.Box)
             {
                 (victimCollider, sphereCollider) = (sphereCollider, victimCollider);
@@ -853,7 +836,7 @@ namespace Unity.NetCode.Physics.Tests
 
         private static void InitTest(NetCodeTestWorld testWorld, bool useStaticColliders, IncrementalBroadphase broadphaseMode, out EntityManager clientEm, out EntityManager serverEm, LagCompensationConfig config)
         {
-            testWorld.DriverSimulatedDelay = 50; // Each way! I.e. Testing lag compensation with a MINIMUM of 100ms ping.
+            testWorld.DriverSimulatedDelay = 50; // 单向延迟五十毫秒，因此往返延迟至少一百毫秒
             testWorld.TestSpecificAdditionalAssemblies.Add("Unity.NetCode.Physics,");
             testWorld.TestSpecificAdditionalAssemblies.Add("Unity.Physics,");
 
@@ -868,7 +851,7 @@ namespace Unity.NetCode.Physics.Tests
             var cubeGameObject = new GameObject("LagCompensationTestCube");
             cubeGameObject.AddComponent<UnityEngine.BoxCollider>().size = new Vector3(BoxColliderGeometryOriginalSize, BoxColliderGeometryOriginalSize, BoxColliderGeometryOriginalSize);
             var sphereGameObject = new GameObject("LagCompensationTestSphere");
-            sphereGameObject.transform.position = new Vector3(0, -5, 0); // Y pos moves it out of the way!
+            sphereGameObject.transform.position = new Vector3(0, -5, 0); // 沿 Y 轴移开球体以免干扰射线
             sphereGameObject.AddComponent<UnityEngine.SphereCollider>().radius = SphereColliderRadiusSize;
             var playerGameObject = new GameObject("LagCompensationTestPlayer");
             playerGameObject.transform.position = new Vector3(0, 0, 0);

@@ -36,8 +36,7 @@ namespace Tests.Editor
     internal class ClientSimulationSystemGroup
     {
         /// <summary>
-        /// This test will trigger a rollback. Simulating that the client has not received anything from the server
-        /// for 10 ticks.
+        /// 触发一次回滚，模拟客户端连续 10 个 Tick 未收到服务端数据
         /// </summary>
         [Test]
         public void RollbackWillSkipUpdate()
@@ -68,8 +67,7 @@ namespace Tests.Editor
 
 #if !UNITY_SERVER
         /// <summary>
-        /// This test will trigger a rollback. Simulating that the client has not received anything from the server
-        /// for 10 ticks.
+        /// 触发一次回滚，模拟客户端连续 10 个 Tick 未收到服务端数据
         /// </summary>
         [Test]
         public void WhenRollbackPredictionErrorWillBeDisplayed()
@@ -85,7 +83,7 @@ namespace Tests.Editor
 
                 testWorld.Tick(1.0f / 60.0f);
                 testWorld.Tick(1.0f / 60.0f);
-                testWorld.Tick(1.0f / 60.0f); // First time both curServerTick and previousServerTick are valid
+                testWorld.Tick(1.0f / 60.0f); // curServerTick 与 previousServerTick 首次同时有效
                 for (int i = 0; i < 20; i++)
                 {
                     testWorld.TickClientWorld();
@@ -101,7 +99,7 @@ namespace Tests.Editor
 
         static void TriggerRollback(NetCodeTestWorld testWorld, uint rollback = 10)
         {
-            // set the server tick to 10 ticks in the past
+            // 将 Server Tick 回退到指定数量的历史 Tick
             NetworkTick predictTargetTick;
             NetworkTimeSystemData networkTimeSystemData;
 

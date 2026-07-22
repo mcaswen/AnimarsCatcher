@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Jobs;
@@ -81,10 +81,10 @@ namespace Unity.NetCode.Tests
 
         static int ConnectAndGoInGame(NetCodeTestWorld testWorld)
         {
-            // Connect and make sure the connection could be established
+            // 建立连接并确认连接成功
             testWorld.Connect();
 
-            // Go in-game
+            // 进入游戏状态
             testWorld.GoInGame();
 
             var con = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
@@ -105,11 +105,11 @@ namespace Unity.NetCode.Tests
 
                 ConnectAndGoInGame(testWorld);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(Entity.Null, clientEnt);
             }
@@ -131,11 +131,11 @@ namespace Unity.NetCode.Tests
                 var serverGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEnt).ghostId;
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverGhostId), 1);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(1, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -159,11 +159,11 @@ namespace Unity.NetCode.Tests
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverGhostId), 1);
                 spawnAndSetId(testWorld, ghostGameObject, 2);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(1, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -183,11 +183,11 @@ namespace Unity.NetCode.Tests
 
                 ConnectAndGoInGame(testWorld);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(1, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -210,11 +210,11 @@ namespace Unity.NetCode.Tests
                 var serverGhostId = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEnt).ghostId;
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverGhostId), 1);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(Entity.Null, clientEnt);
             }
@@ -237,11 +237,11 @@ namespace Unity.NetCode.Tests
                 ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection(serverConnectionId, serverGhostId), 1);
                 spawnAndSetId(testWorld, ghostGameObject, 2);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进若干帧以便客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 检查客户端 World 中的实体数量和数据是否正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(2, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
@@ -371,7 +371,7 @@ namespace Unity.NetCode.Tests
                 var clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 checkValidSet(checkHashSet, clientValues, 0, 128);
 
-                // For every update we make ghostsPerFrame new ghosts irrelevant and check that the change was propagated
+                // 每次更新将 ghostsPerFrame 个新 Ghost 标记为不相关并检查变更是否同步
                 for (int start = 0; start+ghostsPerFrame < 128; start += ghostsPerFrame)
                 {
                     var autoMarkIrrelevantSystem = testWorld.ServerWorld.GetExistingSystemManaged<AutoMarkIrrelevantSystem>();
@@ -417,10 +417,10 @@ namespace Unity.NetCode.Tests
                 var clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 Assert.AreEqual(0, clientValues.Length);
 
-                // For every update we make ghostsPerFrame new ghosts relevant and check that the change was propagated
+                // 每次更新将 ghostsPerFrame 个新 Ghost 标记为相关并检查变更是否同步
                 for (int start = 0; start+ghostsPerFrame < 128; start += ghostsPerFrame)
                 {
-                    // Complete the dependency
+                    // 完成依赖以便安全读取查询结果
                     testWorld.ServerWorld.EntityManager.GetComponentData<GhostRelevancy>(testWorld.TryGetSingletonEntity<GhostRelevancy>(testWorld.ServerWorld));
                     for (int i = 0; i < ghostsPerFrame; ++i)
                         autoMarkIrrelevantSystem.IrrelevantGhosts.Remove(start+i+1);
@@ -448,7 +448,7 @@ namespace Unity.NetCode.Tests
                 var autoMarkIrrelevantSystem = testWorld.ServerWorld.GetExistingSystemManaged<AutoMarkIrrelevantSystem>();
                 autoMarkIrrelevantSystem.ConnectionId = serverConnectionId;
 
-                // The relevant set is 3x the changes per frame, this means 1/3 is added, 1/3 is removed and 1/3 remains relevant
+                // 相关集合大小为每帧变更量的三倍，因此每帧新增三分之一、移除三分之一并保留三分之一
                 int end = ghostsPerFrame*3;
                 for (int ghost = 0; ghost < 128; ++ghost)
                 {
@@ -466,7 +466,7 @@ namespace Unity.NetCode.Tests
                 var clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 checkValidSet(checkHashSet, clientValues, 0, end);
 
-                // For every update we make ghostsPerFrame new ghosts relevant and check that the change was propagated
+                // 每次更新滑动相关窗口并检查变更是否同步
                 for (int start = 0; end+ghostsPerFrame < 128; start += ghostsPerFrame, end += ghostsPerFrame)
                 {
                     for (int i = 0; i < ghostsPerFrame; ++i)
@@ -502,7 +502,7 @@ namespace Unity.NetCode.Tests
                     spawnAndSetId(testWorld, ghostGameObject, 2);
                 }
                 spawnAndSetId(testWorld, ghostGameObject, 1);
-                // Start with the ghost irrelevant
+                // 初始状态下 Ghost 不相关
                 autoMarkIrrelevantSystem.IrrelevantGhosts.Add(1);
 
                 for (int i = 0; i < 16; ++i)
@@ -510,7 +510,7 @@ namespace Unity.NetCode.Tests
 
                 using var query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostOwner>());
                 var clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
-                // Check that the ghost does not exist
+                // 检查客户端尚未生成该 Ghost
                 Assert.AreEqual(128, clientValues.Length);
                 for (int ghost = 0; ghost < clientValues.Length; ++ghost)
                     Assert.AreEqual(2, clientValues[ghost].NetworkId);
@@ -518,7 +518,7 @@ namespace Unity.NetCode.Tests
 
                 int sawGhost = 0;
                 bool foundOne;
-                // Loop unevent number of times so the ghost ends as relevant
+                // 切换奇数次以使 Ghost 最终处于相关状态
                 for (int i = 0; i < 63; ++i)
                 {
                     clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
@@ -544,19 +544,19 @@ namespace Unity.NetCode.Tests
                         ++sawGhost;
                     }
 
-                    // Toggle the host between relevant and not relevant every frame
+                    // 每帧在相关与不相关状态之间切换
                     if ((i&1) == 0)
                         autoMarkIrrelevantSystem.IrrelevantGhosts.Remove(1);
                     else
                         autoMarkIrrelevantSystem.IrrelevantGhosts.Add(1);
                     testWorld.Tick();
                 }
-                // The ghost should have been relevant less than half the frames, since some spawns were skipped to to a pending despawn
+                // 由于等待 Despawn 时会跳过部分 Spawn，Ghost 实际相关的帧数应少于一半
                 Assert.Less(sawGhost, 32);
 
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
-                // Check that it ended up relevant after toggling for many frames since it ended on relevant
+                // 检查多次切换后以相关状态结束时 Ghost 最终存在
                 clientValues = query.ToComponentDataArray<GhostOwner>(Allocator.Temp);
                 foundOne = false;
                 for (int ghost = 0; ghost < clientValues.Length; ++ghost)
@@ -599,7 +599,7 @@ namespace Unity.NetCode.Tests
                     testWorld.Connect(maxSteps:32);
                     testWorld.GoInGame();
 
-                    // Let the game run for a bit so the ghosts are spawned on the client:
+                    // 推进若干帧以便客户端生成 Ghost
                     for (int i = 0; i < 200; ++i)
                         testWorld.Tick();
 
@@ -607,14 +607,14 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(10000, ghostCount.GhostCountInstantiatedOnClient);
                     Assert.AreEqual(10000, ghostCount.GhostCountReceivedOnClient);
 
-                    // Make all 10 000 ghosts irrelevant
+                    // 将全部一万个 Ghost 标记为不相关
                     ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
                     ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
 
                     for (int i = 0; i < 16; ++i)
                         testWorld.Tick();
 
-                    // Assert that replicated version is correct
+                    // 检查客户端同步结果是否正确
                     Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
                     Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);
 
@@ -624,7 +624,7 @@ namespace Unity.NetCode.Tests
                     for (int i = 0; i < 16; ++i)
                         testWorld.Tick();
 
-                    // Assert that replicated version is correct
+                    // 再次检查客户端同步结果是否正确
                     Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
                     Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);
                 }
@@ -645,7 +645,7 @@ namespace Unity.NetCode.Tests
             var prefabCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ServerWorld);
             var prefab = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(prefabCollection)[0].Value;
 
-            // One ghost per 1x1x1 tile:
+            // 每个 1x1x1 网格单元放置一个 Ghost
             const int gridXYZ = 10;
             const int instanceCount = gridXYZ * gridXYZ * gridXYZ;
             testWorld.Connect(maxSteps: 16);
@@ -675,7 +675,7 @@ namespace Unity.NetCode.Tests
                 Position = new float3(0),
             });
 
-            // Let the game run for a bit so the ghosts are spawned on the client:
+            // 推进若干帧以便客户端生成 Ghost
             for (int i = 0; i < 32; ++i)
                 testWorld.Tick();
 
@@ -683,7 +683,7 @@ namespace Unity.NetCode.Tests
             Assert.AreEqual(instanceCount, ghostCount.GhostCountInstantiatedOnClient);
             Assert.AreEqual(instanceCount, ghostCount.GhostCountReceivedOnClient);
 
-            // Make all instanceCount ghosts are irrelevant
+            // 将全部 instanceCount 个 Ghost 标记为不相关
             ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
             ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
 
@@ -691,13 +691,13 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 64; ++i)
                 testWorld.Tick();
 
-            // Assert that replicated version is correct
+            // 检查客户端同步结果是否正确
             ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
             Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
             Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);
             Assert.AreEqual(0, ghostCount.GhostCountOnServer);
 
-            // Enable ghost distance importance:
+            // 启用 Ghost 距离重要度缩放
             var gridSingleton = testWorld.ServerWorld.EntityManager.CreateSingleton(new GhostDistanceData
             {
                 TileSize = new int3(1),
@@ -712,12 +712,11 @@ namespace Unity.NetCode.Tests
                 GhostImportancePerChunkDataType = ComponentType.ReadOnly<GhostDistancePartitionShared>(),
             });
 
-            // Replicate relevant ghosts. Note that with importance scaling, it can take
-            // more ticks to replicate the ghosts at the boundaries.
+            // 同步相关 Ghost，启用重要度缩放后边界处的 Ghost 可能需要更多 Tick 才能同步
             for (int i = 0; i < 64; ++i)
                 testWorld.Tick();
 
-            // Assert that we have some ghosts.
+            // 确认客户端已收到部分 Ghost
             {
                 ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
                 const int expectedCount = 54;
@@ -727,7 +726,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(0, ghostRelevancy.GhostRelevancySet.Count(), "No ghosts need to be added to the set.");
             }
 
-            // Now move the connection, and assert that the set of ghosts has changed:
+            // 移动连接位置并确认收到的 Ghost 集合随之改变
             testWorld.ServerWorld.EntityManager.SetComponentData(client0NetworkId, new GhostConnectionPosition
             {
                 Position = new float3(gridXYZ * .5f),
@@ -735,7 +734,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 32; ++i)
                 testWorld.Tick();
 
-            // Assert that we have new ghosts.
+            // 确认客户端收到了新的 Ghost
             {
                 ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
                 const int expectedCount = 257;
@@ -749,9 +748,9 @@ namespace Unity.NetCode.Tests
         [Test]
         public void TestAlwaysRelevantQuery()
         {
-            // basic feature test, custom components set user side in that query should always be relevant
+            // 验证基础行为，用户查询选中的自定义组件应始终相关
 
-            // Setup spawn
+            // 准备生成测试实体
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true);
             var ghostGameObject = new GameObject();
@@ -766,7 +765,7 @@ namespace Unity.NetCode.Tests
             var clientGhostQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostValueSerializer));
             var relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
-            relevancy.ValueRW.GhostRelevancySet.Clear(); // make sure the only way to get the ghost is through the query
+            relevancy.ValueRW.GhostRelevancySet.Clear(); // 确保只能通过查询将 Ghost 标记为相关
             testWorld.Connect();
             testWorld.GoInGame();
             for (int i = 0; i < 100; i++)
@@ -774,10 +773,10 @@ namespace Unity.NetCode.Tests
                 testWorld.Tick();
             }
 
-            // test nothing is relevant for now
+            // 确认当前没有相关 Ghost
             Assert.That(clientGhostQuery.IsEmpty);
 
-            // test add query and check that the ghost is relevant now
+            // 设置查询并确认 Ghost 变为相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostValueSerializer));
             for (int i = 0; i < 4; i++)
@@ -818,7 +817,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void TestMoreComplexAlwaysRelevantQuery()
         {
-            // Setup spawn
+            // 准备生成测试实体
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true);
             var ghostGameObjectPrefabA = new GameObject();
@@ -843,7 +842,7 @@ namespace Unity.NetCode.Tests
             var clientGhostQueryB = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostRelevancyB));
             var relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
-            relevancy.ValueRW.GhostRelevancySet.Clear(); // make sure the only way to get the ghost is through the query
+            relevancy.ValueRW.GhostRelevancySet.Clear(); // 确保只能通过查询将 Ghost 标记为相关
             testWorld.Connect();
             testWorld.GoInGame();
             for (int i = 0; i < 100; i++)
@@ -853,7 +852,7 @@ namespace Unity.NetCode.Tests
 
             int tickCountForReplication = 4;
 
-            // Clear for next tests
+            // 清理状态以执行下一项检查
             void Clear()
             {
                 relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
@@ -870,11 +869,11 @@ namespace Unity.NetCode.Tests
                 Assert.That(clientGhostQueryB.IsEmpty);
             }
 
-            // test nothing is relevant for now
+            // 确认当前没有相关 Ghost
             Assert.That(clientGhostQueryA.IsEmpty);
             Assert.That(clientGhostQueryB.IsEmpty);
 
-            // test add query for A and check that the ghost is relevant now
+            // 设置 A 查询并确认对应 Ghost 变为相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostRelevancyA));
             for (int i = 0; i < tickCountForReplication; i++)
@@ -886,7 +885,7 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // test add query for B and check that the ghost is relevant now
+            // 设置 B 查询并确认对应 Ghost 变为相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostRelevancyB));
             for (int i = 0; i < tickCountForReplication; i++)
@@ -898,7 +897,7 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // test add query and check that both ghosts are relevant now
+            // 设置联合查询并确认两个 Ghost 均变为相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithAny<GhostRelevancyA, GhostRelevancyB>().Build(testWorld.ServerWorld.EntityManager);
             for (int i = 0; i < tickCountForReplication; i++)
@@ -910,7 +909,7 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // test hash map is union with query
+            // 验证逐连接集合与默认查询取并集
             var connection = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkId)).GetSingleton<NetworkId>();
             var ghostIDA = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(ghostEntityA).ghostId;
             var ghostIDB = testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(ghostEntityB).ghostId;
@@ -928,7 +927,7 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // test hash map has priority over query
+            // 验证逐连接集合可以在查询未匹配时补充相关 Ghost
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancySet.Clear();
             relevancy.ValueRW.GhostRelevancySet.Add(new RelevantGhostForConnection(connection.Value, ghostIDA), 0);
@@ -940,9 +939,9 @@ namespace Unity.NetCode.Tests
             Assert.That(clientGhostQueryA.CalculateEntityCount(), Is.EqualTo(1));
             Assert.That(clientGhostQueryB.IsEmpty);
 
-            // Test same ghost set, but with new relevancy query
+            // 保持逐连接集合不变并更换相关性查询
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
-            // A should already be relevant
+            // A 已由逐连接集合标记为相关
             relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithAll<GhostRelevancyB>().Build(testWorld.ServerWorld.EntityManager);
             for (int i = 0; i < tickCountForReplication; i++)
             {
@@ -951,7 +950,7 @@ namespace Unity.NetCode.Tests
             Assert.That(clientGhostQueryA.CalculateEntityCount(), Is.EqualTo(1));
             Assert.That(clientGhostQueryB.CalculateEntityCount(), Is.EqualTo(1));
 
-            // Test no query has no relevant ghosts
+            // 验证未配置查询且集合为空时没有相关 Ghost
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = default;
             relevancy.ValueRW.GhostRelevancySet.Clear();
@@ -964,10 +963,10 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // make sure relevancy disabled status works as expected with internal vs user facing query
+            // 验证禁用相关性过滤后内部查询不会受用户查询限制
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.Disabled;
-            relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithNone<GhostRelevancyA, GhostRelevancyB>().Build(testWorld.ServerWorld.EntityManager); // should be ignored
+            relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithNone<GhostRelevancyA, GhostRelevancyB>().Build(testWorld.ServerWorld.EntityManager); // 禁用过滤后应忽略该查询
             for (int i = 0; i < tickCountForReplication; i++)
             {
                 testWorld.Tick();
@@ -977,7 +976,7 @@ namespace Unity.NetCode.Tests
 
             Clear();
 
-            // test if user marks a ghost as not relevant specifically, that a always relevant query won't override it
+            // 验证用户显式标记 Ghost 不相关时全匹配查询不会覆盖该结果
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
             relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithAny<GhostRelevancyA, GhostRelevancyB>().Build(testWorld.ServerWorld.EntityManager);
@@ -991,12 +990,12 @@ namespace Unity.NetCode.Tests
             Assert.That(clientGhostQueryB.CalculateEntityCount(), Is.EqualTo(1));
 
             Clear();
-            // test for breaking change, if users set Irrelevant and expect non-included ghosts to be relevant without specifying a query
+            // 验证兼容行为，使用 SetIsIrrelevant 且未指定查询时集合外的 Ghost 默认相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
-            relevancy.ValueRW.DefaultRelevancyQuery = default; // This should work, since a default query matches everything
+            relevancy.ValueRW.DefaultRelevancyQuery = default; // 默认查询匹配所有实体，因此该配置有效
             relevancy.ValueRW.GhostRelevancySet.Clear();
-            // B is excluded, A is implicitly included
+            // B 被显式排除，A 则被隐式包含
             relevancy.ValueRW.GhostRelevancySet.Add(new RelevantGhostForConnection(connection.Value, ghostIDB), 0);
             for (int i = 0; i < tickCountForReplication; i++)
             {
@@ -1006,12 +1005,12 @@ namespace Unity.NetCode.Tests
             Assert.That(clientGhostQueryB.IsEmpty);
 
             Clear();
-            // test None filter in query vs SetIsIrrelevant
+            // 验证 None 查询过滤条件与 SetIsIrrelevant 的组合行为
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
             relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithNone<GhostRelevancyA>().Build(testWorld.ServerWorld.EntityManager);
             relevancy.ValueRW.GhostRelevancySet.Clear();
-            // A is excluded by query, but included by set implicitly?
+            // 查询排除 A，但集合未显式排除 A，因此 A 仍然相关
             relevancy.ValueRW.GhostRelevancySet.Add(new RelevantGhostForConnection(connection.Value, ghostIDB), 0);
             for (int i = 0; i < tickCountForReplication; i++)
             {
@@ -1029,14 +1028,14 @@ namespace Unity.NetCode.Tests
         [TestCase(GhostRelevancyMode.SetIsIrrelevant, true, true, false)]
         [TestCase(GhostRelevancyMode.SetIsIrrelevant, true, false, true)]
         [TestCase(GhostRelevancyMode.SetIsIrrelevant, false, true, false)]
-        [TestCase(GhostRelevancyMode.SetIsIrrelevant, false, false, true)] // if set does not contain, then implicitly we want the ghost replicated
+        [TestCase(GhostRelevancyMode.SetIsIrrelevant, false, false, true)] // 集合未包含时默认需要同步该 Ghost
         [TestCase(GhostRelevancyMode.Disabled, true, true, true)]
         [TestCase(GhostRelevancyMode.Disabled, true, false, true)]
         [TestCase(GhostRelevancyMode.Disabled, false, true, true)]
         [TestCase(GhostRelevancyMode.Disabled, false, false, true)]
         public void TestRelevancyScenarios(GhostRelevancyMode mode, bool queryMatchesGhost, bool setContainsGhost, bool expectedRelevancyResult)
         {
-            // Setup spawn
+            // 准备生成测试实体
             using var testWorld = new NetCodeTestWorld();
             testWorld.SetTestLatencyProfile(NetCodeTestLatencyProfile.RTT16ms_PL5);
             testWorld.Bootstrap(true);
@@ -1056,7 +1055,7 @@ namespace Unity.NetCode.Tests
             var relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
 
             relevancy.ValueRW.GhostRelevancyMode = mode;
-            relevancy.ValueRW.GhostRelevancySet.Clear(); // make sure the only way to get the ghost is through the query
+            relevancy.ValueRW.GhostRelevancySet.Clear(); // 确保只能通过查询将 Ghost 标记为相关
             testWorld.Connect(maxSteps:16);
             testWorld.GoInGame();
             for (int i = 0; i < 8; i++)
@@ -1089,7 +1088,7 @@ namespace Unity.NetCode.Tests
 
             Assert.That(clientGhostQueryA.CalculateEntityCount(), expectedRelevancyResult ? Is.EqualTo(1) : Is.EqualTo(0));
 
-            // GhostCount Singleton:
+            // 检查 GhostCount 单例中的统计值
             var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
             string msg = ghostCount.ToString();
             int expectedGhostInstancesCount = expectedRelevancyResult ? 1 : 0;

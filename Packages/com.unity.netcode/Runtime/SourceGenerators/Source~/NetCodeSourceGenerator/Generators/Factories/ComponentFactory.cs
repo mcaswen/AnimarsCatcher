@@ -10,12 +10,11 @@ namespace Unity.NetCode.Generators
     internal class ComponentFactory
     {
         /// <summary>
-        /// Collect and generate component serialization. Is also responsible to generate the registration system.
+        /// 收集 Component 候选类型并生成序列化代码，同时生成注册 System
         /// </summary>
-        /// <param name="variantsCandidates"></param>
-        /// <param name="context"></param>
-        /// <param name="codeGenContext"></param>
-        /// <param name="componentsCandidates"></param>
+        /// <param name="componentsCandidates">Component 候选语法节点</param>
+        /// <param name="variantsCandidates">Variant 候选语法节点</param>
+        /// <param name="codeGenContext">代码生成 Context</param>
         public static void Generate(
             IReadOnlyList<SyntaxNode> componentsCandidates,
             IReadOnlyList<SyntaxNode> variantsCandidates,
@@ -37,7 +36,7 @@ namespace Unity.NetCode.Generators
                 var hasGhostEnabledBitAttribute = HasGhostEnabledBitAttribute(syntaxNode);
                 var hasGhostFields = HasGhostFields(syntaxNode);
 
-                // Warning! These only work if the attribute is not inherited (thus they cannot be inherited from).
+                // 注意：这些快速检查仅适用于未继承的特性，无法识别从基类继承的特性
                 if (!HasGhostComponentAttribute(syntaxNode) && !hasGhostFields && !hasGhostEnabledBitAttribute)
                     continue;
 
@@ -65,13 +64,13 @@ namespace Unity.NetCode.Generators
                 if (typeInfo == null)
                     continue;
 
-                //This is an error for buffers and commands that require serialization. Is handled later, outside, that way
-                //we report first all the errors and then skip the type.
+                // 对需要序列化的 Buffer 与 Command 而言，缺失 GhostField 是错误
+                // 在外层集中处理，以便先报告全部错误再跳过该类型
                 if (typeBuilder.MissingGhostFields.Count > 0)
                 {
-                    // These need to be fully annotated  or not at all. So it's ok all fields have missing
-                    // annotations (normal CommandData or buffer with ghost component annotation) but not ok
-                    // if one is already present (remote player command buffer sync or just a normal dynamic buffer)
+                    // 这些字段必须全部标记或全部不标记
+                    // 普通 CommandData 或仅有 GhostComponent 标记的 Buffer 可以全部不标记
+                    // 但远端玩家 Command Buffer 同步或普通动态 Buffer 一旦有一个字段已标记，就必须全部标记
                     if ((typeInfo.ComponentType == ComponentType.Buffer || typeInfo.ComponentType == ComponentType.CommandData) &&
                         typeInfo.GhostFields.Count > 0)
                     {
@@ -103,7 +102,7 @@ namespace Unity.NetCode.Generators
                 codeGenContext.ResetState();
                 NameUtils.UpdateNameAndNamespace(typeInfo, ref codeGenContext, candidateSymbol);
 
-                // If the serializer type already exist we can just skip generation
+                // Serializer 类型已存在时可以跳过生成
                 if (codeGenContext.executionContext.Compilation.GetSymbolsWithName(GetGhostSerializerName(codeGenContext)).FirstOrDefault() != null)
                 {
                     codeGenContext.diagnostic.LogDebug($"Skipping code-gen for {candidateSymbol.Name} because a component serializer for it already exists");
@@ -159,8 +158,8 @@ namespace Unity.NetCode.Generators
                 if (!isSerialized)
                     continue;
 
-                //This is an error for buffers and commands that require serialization. Is handled later, outside, that way
-                //we report first all the errors and then skip the type.
+                // 对需要序列化的 Buffer 与 Command 而言，缺失 GhostField 是错误
+                // 在外层集中处理，以便先报告全部错误再跳过该类型
                 if (variantTypeInfo.ComponentType == ComponentType.Buffer)
                 {
                     if (typeBuilder.MissingGhostFields.Count > 0)
@@ -175,7 +174,7 @@ namespace Unity.NetCode.Generators
 
                 codeGenContext.ResetState();
                 NameUtils.UpdateNameAndNamespace(variantTypeInfo, ref codeGenContext, variantSymbol);
-                // If the serializer type already exist we can just skip generation
+                // Serializer 类型已存在时可以跳过生成
                 if (codeGenContext.executionContext.Compilation.GetSymbolsWithName(GetGhostSerializerName(codeGenContext)).FirstOrDefault() != null)
                 {
                     codeGenContext.diagnostic.LogDebug($"Skipping code-gen for {codeGenContext.generatorName} because a variant component serializer for it already exists");
@@ -191,9 +190,9 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
-        /// Fast early exit check to determine if we need to serialize a type.
+        /// 快速判断类型是否具有 GhostField，以便尽早退出
         /// </summary>
-        /// <returns></returns>
+        /// <returns>存在 GhostField 时返回 true</returns>
         static private bool HasGhostFields(TypeDeclarationSyntax structNode)
         {
             using (new Profiler.Auto("HasGhostFields"))
@@ -202,7 +201,7 @@ namespace Unity.NetCode.Generators
                     .SelectMany(attr => attr.AttributeLists, (attr, list) => list.Attributes)
                     .SelectMany(attributes => attributes))
                 {
-                    //Remove qualifiers if present
+                    // 移除可能存在的限定名
                     var name = t.Name is QualifiedNameSyntax syntax
                         ? syntax.Right.Identifier.ValueText
                         : t.Name.ToString();
@@ -214,9 +213,9 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
-        /// Fast early exit check to determine if we need to serialize a type.
+        /// 快速判断类型是否具有 GhostEnabledBit，以便尽早退出
         /// </summary>
-        /// <returns></returns>
+        /// <returns>存在 GhostEnabledBit 时返回 true</returns>
         static private bool HasGhostEnabledBitAttribute(TypeDeclarationSyntax structNode)
         {
             using (new Profiler.Auto("HasGhostEnabledBitAttribute"))
@@ -224,7 +223,7 @@ namespace Unity.NetCode.Generators
                 foreach (var t in structNode.AttributeLists
                              .SelectMany(list => list.Attributes))
                 {
-                    //Remove qualifiers if present
+                    // 移除可能存在的限定名
                     var name = t.Name is QualifiedNameSyntax syntax
                         ? syntax.Right.Identifier.ValueText
                         : t.Name.ToString();
@@ -242,7 +241,7 @@ namespace Unity.NetCode.Generators
                 foreach (var t in structNode.AttributeLists
                     .SelectMany(list => list.Attributes))
                 {
-                    //Remove qualifiers if present
+                    // 移除可能存在的限定名
                     var name = t.Name is QualifiedNameSyntax syntax
                         ? syntax.Right.Identifier.ValueText
                         : t.Name.ToString();
@@ -254,9 +253,9 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
-        /// Check if a GhostComponentAttribute is present for the given symbol
+        /// 检查给定 Symbol 是否具有 GhostComponentAttribute 并解析其配置
         /// </summary>
-        /// <returns></returns>
+        /// <returns>解析后的 GhostComponentAttribute，不存在时返回默认值</returns>
         static internal GhostComponentAttribute TryGetGhostComponent(ISymbol symbol)
         {
             using (new Profiler.Auto("TryGetGhostComponent"))

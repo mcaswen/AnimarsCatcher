@@ -43,8 +43,8 @@ partial struct ChangeComponentValueSystem : ISystem
         foreach (var c in SystemAPI.Query<RefRW<EnableableComponent_3>>())
             c.ValueRW.SetValue(c.ValueRW.GetValue() + 5);
 
-        //Buffer are never using 3 baselines. They are still here to validate nothing break. But for both bandwidth and cpu
-        //there is no difference.
+        // Buffer 不使用三个 Baseline，此处保留 Buffer 仅用于验证开关不会破坏功能
+        // 因此两种模式下 Buffer 的带宽和 CPU 开销没有差异
         foreach (var c in SystemAPI.Query<DynamicBuffer<EnableableBuffer_0>>())
         {
             for (int i = 0; i < c.Length; i++)
@@ -71,8 +71,8 @@ partial struct ChangeComponentValueSystem : ISystem
 
 class SingleBaselineTests
 {
-    //This create a ghost with 5 child entites, of which 3 in the same chunk, and other 2 in distinct chunks
-    //for an an overall use of 4 archetypes per ghost.
+    // 创建包含五个子实体的 Ghost，其中三个子实体位于同一 Chunk，另外两个分别位于不同 Chunk
+    // 根实体与子实体合计使用四种 Archetype
     private static Entity CreatePrefab(EntityManager entityManager, GhostPrefabCreation.Config config)
     {
         var prefab = entityManager.CreateEntity();
@@ -117,8 +117,7 @@ class SingleBaselineTests
         return prefab;
     }
 
-    //This create a ghost with 5 child entites, of which 3 in the same chunk, and other 2 in distinct chunks
-    //for an an overall use of 4 archetypes per ghost.
+    // 创建用于带宽测试的 Ghost，字段数量足以体现不同 Baseline 策略的差异
     private static Entity CreatePrefabForBandwidth(EntityManager entityManager, GhostPrefabCreation.Config config)
     {
         var prefab = entityManager.CreateEntity();
@@ -200,7 +199,7 @@ class SingleBaselineTests
 
         var systemDataEntity = testWorld.TryGetSingletonEntity<GhostSendSystemData>(testWorld.ServerWorld);
         var data = new GhostSendSystemData();
-        //Use three baselines, all values should be normally replicated
+        // 先使用三个 Baseline，所有值都应正常同步
         var serverEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefab);
         for (int i = 0; i < 4; ++i)
             testWorld.Tick();
@@ -212,7 +211,7 @@ class SingleBaselineTests
             testWorld.Tick();
         }
 
-        //force single baseline, verify that everything still get serialized as expected
+        // 强制使用单 Baseline，并验证所有数据仍按预期序列化
         data.ForceSingleBaseline = true;
         testWorld.ServerWorld.EntityManager.SetComponentData(systemDataEntity, data);
 
@@ -296,7 +295,7 @@ class SingleBaselineTests
         {
             for(int k=0;k<entities.Length;++k)
             {
-                //linear progression
+                // 让字段值随 Tick 线性增长
                 testWorld.ServerWorld.EntityManager.SetComponentData(entities[k], new EnableableComponent_0 { value = 100+i });
                 testWorld.ServerWorld.EntityManager.SetComponentData(entities[k], new EnableableComponent_1 { value = 200+i });
                 testWorld.ServerWorld.EntityManager.SetComponentData(entities[k], new EnableableComponent_2 { value = 300+i });
@@ -311,7 +310,7 @@ class SingleBaselineTests
             testWorld.Tick();
             tickMetrics[i] = testWorld.ClientWorlds[0].EntityManager.GetComponentData<SnapshotMetrics>(metrics);
         }
-        //do an average
+        // 计算全部采样的平均带宽
         Bandwidth result = new Bandwidth();
         long avgBitSize = 0;
         long totalEntCount = 0;

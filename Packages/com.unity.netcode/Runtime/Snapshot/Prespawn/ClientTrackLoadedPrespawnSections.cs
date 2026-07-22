@@ -7,8 +7,8 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The ClientTrackLoadedPrespawnSections is responsible for tracking when a scene section is unloaded and
-    /// removing the pre-spawned ghosts from the client ghosts maps
+    /// 负责跟踪 Scene Section 的卸载
+    /// 并从客户端 Ghost Map 中移除其中的预生成 Ghost
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(PrespawnGhostSystemGroup))]
@@ -49,7 +49,7 @@ namespace Unity.NetCode
             if(unloadedScenes.Length == 0)
                 return;
 
-            //Only process scenes for which all prefabs have been already destroyed
+            // 仅处理所有 Prefab 都已销毁的场景
             var ghostsToRemove = new NativeList<SpawnedGhost>(128, state.WorldUpdateAllocator);
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
             for(int i=0;i<unloadedScenes.Length;++i)
@@ -78,7 +78,7 @@ namespace Unity.NetCode
             if (ghostsToRemove.Length == 0)
                 return;
 
-            //Remove the ghosts from the spawn maps
+            // 从生成 Map 中移除 Ghost
             ref readonly var ghostMapSingleton = ref SystemAPI.GetSingletonRW<SpawnedGhostEntityMap>().ValueRO;
             var removeJob = new RemovePrespawnedGhosts
             {

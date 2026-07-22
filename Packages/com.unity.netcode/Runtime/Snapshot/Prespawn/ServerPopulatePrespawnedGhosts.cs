@@ -10,26 +10,24 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Responsible for assigning a unique <see cref="GhostInstance.ghostId"/> to each pre-spawned ghost,
-    /// and and adding the ghosts to the spawned ghosts maps.
-    /// Relies on the previous initializations step to determine the subscene subset to process.
+    /// 负责为每个预生成 Ghost 分配唯一的 <see cref="GhostInstance.ghostId"/>
+    /// 并将 Ghost 加入已生成 Ghost Map
+    /// 依赖前一个初始化步骤确定需要处理的 SubScene 子集
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The server is authoritative and it is responsible for assigning unique id ranges to the each scene.
-    /// For each section that present prespawn ghosts, the prespawn hash, id range and baseline hash are sent to client
-    /// as part of the streaming protocol.
-    /// Clients will use the received subscene hash and baseline hash for validation and the ghost range to assign
-    /// the ghost id to the pre-spawned ghosts like the server. This remove any necessity for loading order determinism.
-    /// Finally, clients will ack the server about the loaded scenes and the server, upon ack receipt,
-    /// will start streaming the pre-spawned ghosts
+    /// 服务器具有权威性，负责为每个场景分配唯一的 GhostId 范围
+    /// 对每个包含 Prespawn Ghost 的 Section，流式传输协议会向客户端发送 Prespawn Hash、ID 范围和 Baseline Hash
+    /// 客户端使用收到的 SubScene Hash 与 Baseline Hash 验证数据，并按 GhostId 范围像服务器一样为 Prespawn Ghost 分配 ID
+    /// 因而无需保证场景加载顺序具有确定性
+    /// 最后客户端向服务器确认已加载场景，服务器收到 Ack 后开始流式传输其中的预生成 Ghost
     /// </para>
-    /// <para>### The Full Prespawn Subscene Sync Protocol</para>
+    /// <para>### 完整的 Prespawn SubScene 同步协议</para>
     /// <para>
-    /// The Server calculates the prespawn baselines.
-    /// The Server assigns runtime ghost IDs to the prespawned ghosts.
-    /// The Server stores the `SubSceneHash`, `BaselineHash`, `FirstGhostId`, and `PrespawnCount` inside the the `PrespawnSceneLoaded` collection.
-    /// The Server creates a new ghost with a `PrespawnSceneLoaded` buffer that is serialized to the clients.
+    /// 服务器计算 Prespawn Baseline
+    /// 服务器为预生成 Ghost 分配运行时 GhostId
+    /// 服务器将 `SubSceneHash`、`BaselineHash`、`FirstGhostId` 和 `PrespawnCount` 存入 `PrespawnSceneLoaded` 集合
+    /// 服务器创建具有 `PrespawnSceneLoaded` Buffer 的新 Ghost，并将其序列化到客户端
     /// </para>
     /// </remarks>
     /// <seealso cref="ClientPopulatePrespawnedGhostsSystem"/>
@@ -77,7 +75,7 @@ namespace Unity.NetCode
             state.EntityManager.SetName(m_GhostIdAllocator, (FixedString64Bytes)"PrespawnGhostIdAllocator");
             state.RequireForUpdate(m_UninitializedScenes);
             state.RequireForUpdate(m_Prespawns);
-            // Require any number of in-game tags, server can have one per client
+            // 要求至少存在一个 InGame 标签，服务器可以为每个客户端各有一个
             state.RequireForUpdate<NetworkStreamInGame>();
             state.RequireForUpdate<GhostCollection>();
         }
@@ -89,27 +87,25 @@ namespace Unity.NetCode
             if (!SystemAPI.TryGetSingletonEntity<PrespawnSceneLoaded>(out var prespawnSceneListEntity))
             {
                 var prefab = m_PrefabQuery.GetSingletonEntity();
-                // TODO-release Validate if this issue still happens
-                // this assumes that NetworkStreamInGame has been called later
-                // steps of issue:
-                // - Game starts
-                // - NetworkId is created
-                // - user system makes it NetworkStreamInGame
-                // - next frame
-                // - GhostCollection runs and registers prefabs
-                // - PrespawnGhostInitializationSystem OnBeforeStart runs, creating the prespawn scene list prefab
-                // - that prefab is instantiated right after, since NetworkStreamInGame is present
-                // - GhostSendSystem updates, and sees an extra prefab which wasn't registered as part of the GhostCollection yet and throws an exception
+                // TODO-release: 验证该问题是否仍会发生
+                // 以下过程假定 NetworkStreamInGame 在稍后添加：
+                // - 游戏启动
+                // - 创建 NetworkId
+                // - 用户 System 添加 NetworkStreamInGame
+                // - 进入下一帧
+                // - GhostCollection 运行并注册 Prefab
+                // - PrespawnGhostInitializationSystem 的 OnBeforeStart 运行并创建 Prespawn 场景列表 Prefab
+                // - 由于已存在 NetworkStreamInGame，该 Prefab 随即实例化
+                // - GhostSendSystem 更新时发现一个尚未注册到 GhostCollection 的额外 Prefab 并抛出异常
                 prespawnSceneListEntity = state.EntityManager.Instantiate(prefab);
                 state.EntityManager.RemoveComponent<GhostPrefabMetaData>(prespawnSceneListEntity);
                 state.EntityManager.GetBuffer<PrespawnSceneLoaded>(prespawnSceneListEntity).EnsureCapacity(128);
             }
             var subScenesWithGhosts = m_UninitializedScenes.ToComponentDataArray<SubSceneWithPrespawnGhosts>(Allocator.Temp);
             var subSceneEntities = m_UninitializedScenes.ToEntityArray(Allocator.Temp);
-            // Add GhostCleanup to all ghosts
-            // After some measurement this is the fastest way to achieve it. Is roughly 5/6x faster than
-            // adding all the components change one by one via command buffer in a job
-            // with a decent amount of entities (> 3000)
+            // 为所有 Ghost 添加 GhostCleanup
+            // 实测表明，当 Entity 数量较多时，例如超过 3000 个
+            // 这种方式比在 Job 中通过 Command Buffer 逐个添加 Component 快约 5 到 6 倍
             for (int i = 0; i < subScenesWithGhosts.Length; ++i)
             {
                 var sharedFilter = new SubSceneGhostComponentHash {Value = subScenesWithGhosts[i].SubSceneHash};
@@ -117,14 +113,13 @@ namespace Unity.NetCode
                 state.EntityManager.AddComponent<GhostCleanup>(m_Prespawns);
             }
             var netDebug = SystemAPI.GetSingleton<NetDebug>();
-            //This temporary list is necessary because we forcibly re-assign the entity to spawn maps for both client and server in case the
-            //ghost is already registered.
+            // 该临时列表用于在 Ghost 已注册时仍将 Entity 强制重新写入客户端和服务器的生成 Map
             var totalPrespawns = 0;
             for (int i = 0; i < subScenesWithGhosts.Length; ++i)
                 totalPrespawns += subScenesWithGhosts[i].PrespawnCount;
             var spawnedGhosts = new NativeList<SpawnedGhostMapping>(totalPrespawns, state.WorldUpdateAllocator);
-            //Kick a job for each sub-scene that assign the ghost id to all scene prespawn ghosts.
-            //It also fill the array of prespawned ghosts that is going to be used to populate the ghost maps in the send/receive systems.
+            // 为每个 SubScene 调度 Job，给场景内全部预生成 Ghost 分配 GhostId
+            // 同时填充 Prespawn Ghost 数组，供发送与接收 System 写入 Ghost Map
             var subsceneCollection = state.EntityManager.GetBuffer<PrespawnSceneLoaded>(prespawnSceneListEntity);
             var entityCommandBuffer = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
             ref var spawnedGhostEntityMap = ref SystemAPI.GetSingletonRW<SpawnedGhostEntityMap>().ValueRW;
@@ -139,7 +134,7 @@ namespace Unity.NetCode
                 LogAssignPrespawnGhostIds(ref netDebug, subScenesWithGhosts[i]);
                 var sharedFilter = new SubSceneGhostComponentHash {Value = subScenesWithGhosts[i].SubSceneHash};
                 m_Prespawns.SetSharedComponentFilter(sharedFilter);
-                //Allocate or reuse an id-range for that subscene and assign the ids to the ghosts
+                // 为该 SubScene 分配或复用 GhostId 范围，并将 ID 分配给 Ghost
                 int startId = AllocatePrespawnGhostRange(ref netDebug, ref spawnedGhostEntityMap, subScenesWithGhosts[i].SubSceneHash, subScenesWithGhosts[i].PrespawnCount);
                 var collectionEntity = SystemAPI.GetSingletonEntity<GhostCollection>();
                 var assignPrespawnGhostIdJob = new AssignPrespawnGhostIdJob
@@ -156,7 +151,7 @@ namespace Unity.NetCode
                     isServer = state.WorldUnmanaged.IsServer()
                 };
                 state.Dependency = assignPrespawnGhostIdJob.ScheduleParallel(m_Prespawns, state.Dependency);
-                //add the subscene to the collection. This will be synchronized to the clients
+                // 将 SubScene 加入集合，该集合会同步到客户端
                 subsceneCollection.Add(new PrespawnSceneLoaded
                 {
                     SubSceneHash = subScenesWithGhosts[i].SubSceneHash,
@@ -165,7 +160,7 @@ namespace Unity.NetCode
                     PrespawnCount = subScenesWithGhosts[i].PrespawnCount
                 });
 
-                //Mark scenes as initialized and add tracking.
+                // 将场景标记为已初始化并添加生命周期跟踪
                 var sceneSectionData = default(SceneSectionData);
 #if UNITY_EDITOR
                 if (state.EntityManager.HasComponent<LiveLinkPrespawnSectionReference>(subSceneEntities[i]))
@@ -189,7 +184,7 @@ namespace Unity.NetCode
                 });
             }
             m_Prespawns.ResetFilter();
-            //Wait for all ghost ids jobs assignments completed and populate the spawned ghost map
+            // 等待所有 GhostId 分配 Job 完成，再填充已生成 Ghost Map
             var addJob = new ServerAddPrespawn
             {
                 netDebug = netDebug,
@@ -218,7 +213,7 @@ namespace Unity.NetCode
                     if (!ghostMap.TryAdd(newGhost.ghost, newGhost.entity))
                     {
                         netDebug.LogError($"GhostID {newGhost.ghost.ghostId} already present in the spawned ghost entity map.");
-                        //Force a reassignment.
+                        // 强制重新分配映射
                         ghostMap[newGhost.ghost] = newGhost.entity;
                     }
                 }
@@ -226,9 +221,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Return the start ghost id for the subscene. Id ranges are re-used by the same subscene if it is loaded again
+        /// 返回 SubScene 的起始 GhostId
+        /// 同一 SubScene 再次加载时会复用原有 ID 范围
         /// </summary>
-        //TODO: the allocation may become a little more advanced by re-using ids later
+        // TODO: 后续可以通过复用其他已释放 ID 范围改进分配策略
         private int AllocatePrespawnGhostRange(ref NetDebug netDebug, ref SpawnedGhostEntityMap spawnedGhostEntityMap, ulong subSceneHash, int prespawnCount)
         {
             var allocatedRanges = m_PrespawnGhostIdRangeFromEntity[m_GhostIdAllocator];
@@ -236,7 +232,7 @@ namespace Unity.NetCode
             {
                 if (allocatedRanges[r].SubSceneHash == subSceneHash)
                 {
-                    //This is an error or an hash collision.
+                    // 此情况表示状态错误或发生 Hash 冲突
                     if (allocatedRanges[r].Reserved != 0)
                         throw new System.InvalidOperationException($"prespawn ids range already present for subscene with hash {subSceneHash}");
 
@@ -266,7 +262,7 @@ namespace Unity.NetCode
             };
             allocatedRanges.Add(newRange);
             LogAllocatedIdRange(ref netDebug, newRange);
-            //Update the prespawn allocated ids
+            // 更新服务器已分配的 Prespawn GhostId 上界
             spawnedGhostEntityMap.SetServerAllocatedPrespawnGhostId(nextGhostId + prespawnCount);
             return newRange.FirstGhostId;
         }

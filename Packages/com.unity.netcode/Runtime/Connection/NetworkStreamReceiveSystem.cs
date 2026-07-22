@@ -19,10 +19,8 @@ using Debug = UnityEngine.Debug;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Parent group of all systems that; receive data from the server, deal with connections, and
-    /// that need to perform operations before the ghost simulation group.
-    /// In particular, <see cref="CommandSendSystemGroup"/>, and the <see cref="NetworkStreamReceiveSystem"/>
-    /// update in this group.
+    /// 所有从服务器接收数据、处理连接，以及需要在 Ghost Simulation Group 前执行操作的系统父 Group
+    /// <see cref="CommandSendSystemGroup"/> 和 <see cref="NetworkStreamReceiveSystem"/> 会在此 Group 中更新
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation,
         WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
@@ -45,28 +43,28 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Factory interface that needs to be implemented by a concrete class for creating and registering new <see cref="NetworkDriver"/> instances.
+    /// 用于创建和注册新 <see cref="NetworkDriver"/> 实例的工厂接口，需要由具体类实现
     /// </summary>
     public interface INetworkStreamDriverConstructor
     {
         /// <summary>
-        /// Register to the driver store a new instance of <see cref="NetworkDriver"/> suitable to be used by clients.
+        /// 向 Driver Store 注册适合客户端使用的新 <see cref="NetworkDriver"/> 实例
         /// </summary>
-        /// <param name="world">Client world</param>
-        /// <param name="driver">Driver store</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">客户端 World</param>
+        /// <param name="driver">Driver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         void CreateClientDriver(World world, ref NetworkDriverStore driver, NetDebug netDebug);
         /// <summary>
-        /// Register to the driver store a new instance of <see cref="NetworkDriver"/> suitable to be used by servers.
+        /// 向 Driver Store 注册适合服务器使用的新 <see cref="NetworkDriver"/> 实例
         /// </summary>
-        /// <param name="world">Server world</param>
-        /// <param name="driver">Driver store</param>
-        /// <param name="netDebug">The <see cref="netDebug"/> singleton, for logging errors and debug information</param>
+        /// <param name="world">服务器 World</param>
+        /// <param name="driver">Driver 存储</param>
+        /// <param name="netDebug">用于记录错误和调试信息的 <see cref="netDebug"/> Singleton</param>
         void CreateServerDriver(World world, ref NetworkDriverStore driver, NetDebug netDebug);
     }
 
     /// <summary>
-    /// A system processing NetworkStreamRequestConnect components
+    /// 处理 NetworkStreamRequestConnect 组件的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup))]
@@ -104,9 +102,9 @@ namespace Unity.NetCode
             systemState.EntityManager.RemoveComponent<NetworkStreamRequestConnect>(m_ConnectionRequestConnectQuery);
             if (requests.Length > 1)
             {
-                //There is more than 1 request. We don't know what was the last queued (there is not way to detect that reliably with
-                //chunk ordering). Unless we put something like a Timestamp (that requires users adding it or we need to provide a proper
-                //API. We can eventually support that later. For now we just get the first request and discard the others.
+                // 存在多个请求，受 Chunk 顺序限制，无法可靠判断最后入队的是哪一个
+                // 除非增加 Timestamp 等信息，这需要用户添加或由框架提供正式 API
+                // 后续可以支持，目前只处理第一个请求并丢弃其他请求
                 netDebug.LogError($"Found {requests.Length} pending connection requests. It is required that only one NetworkStreamRequestConnect is queued at any time. Only the connect request to {requests[0].Endpoint.ToFixedString()} will be handled.");
 
                 for (int i = 1; i < requests.Length; ++i)
@@ -121,8 +119,8 @@ namespace Unity.NetCode
                     systemState.EntityManager.DestroyEntity(requetEntity[i]);
                 }
             }
-            //TODO: add a proper handling of request connect and connection already connected.
-            //It may required disposing the driver and also some problem with NetworkStreamReceiveSystem
+            // TODO 正确处理连接请求与已经连接的情况
+            // 可能需要释放 Driver，并处理 NetworkStreamReceiveSystem 的相关问题
             var connection = networkStreamDriver.Connect(systemState.EntityManager, requests[0].Endpoint, requetEntity[0]);
             if(connection == Entity.Null)
             {
@@ -139,7 +137,7 @@ namespace Unity.NetCode
         }
     }
     /// <summary>
-    /// A system processing NetworkStreamRequestListen components
+    /// 处理 NetworkStreamRequestListen 组件的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup))]
@@ -177,10 +175,9 @@ namespace Unity.NetCode
             var requestEnt = requestEntity[0];
             if (requestListens.Length > 1)
             {
-                //There is more than 1 request. We don't know what was the last queued (there is not way to detect that reliably with
-                //chunk ordering). Unless we put something like a Timestamp (that requires users adding it or we need to provide a proper
-                //API). A proper idea can be implemented for 1.1.
-                //For now we just get the first request and discard the others.
+                // 存在多个请求，受 Chunk 顺序限制，无法可靠判断最后入队的是哪一个
+                // 除非增加 Timestamp 等信息，这需要用户添加或由框架提供正式 API
+                // 可以在 1.1 中实现更完善的方案，目前只处理第一个请求并丢弃其他请求
                 netDebug.LogError($"Found {requestCount} pending listen requests. Only one NetworkStreamRequestListen can be queued at any time. Only the request to listen at {requestListens[0].Endpoint.ToFixedString()} will be handled.");
                 for (int i = 1; i < requestEntity.Length; ++i)
                 {
@@ -201,8 +198,8 @@ namespace Unity.NetCode
                 anyInterfaceListening |= networkStreamDriver.DriverStore.GetDriverInstanceRO(i).driver.Listening;
             }
 
-            //TODO: we can support that but requires some extra work and disposing the drivers.
-            //Also because this is done before the NetworkStreamReceiveSystem some stuff may not work.
+            // TODO 可以支持此情况，但需要额外处理并释放 Driver
+            // 此操作发生在 NetworkStreamReceiveSystem 之前，部分逻辑也可能无法工作
             if (anyInterfaceListening)
             {
                 netDebug.LogError($"Listen request for address {endpoint.ToFixedString()} refused. Driver is already listening");
@@ -241,21 +238,21 @@ namespace Unity.NetCode
                     }
                 }
             }
-            //Consume all requests.
+            // 消费全部请求
             systemState.EntityManager.DestroyEntity(m_ConnectionRequestListenQuery);
         }
     }
 
     /// <summary>
-    /// <para>The NetworkStreamReceiveSystem is one of the most important system of the NetCode package and its fundamental job
-    /// is to manage all the <see cref="NetworkStreamConnection"/> life-cycles (creation, update, destruction), and receiving all the
-    /// <see cref="NetworkStreamProtocol"/> message types.
-    /// It is responsible also responsible for:</para>
-    /// <para>- creating the <see cref="NetworkStreamDriver"/> singleton (see also <see cref="NetworkDriverStore"/> and <see cref="NetworkDriver"/>).</para>
-    /// <para>- handling the driver migration (see <see cref="DriverMigrationSystem"/> and <see cref="MigrationTicket"/>).</para>
-    /// <para>- listening and accepting incoming connections (server).</para>
-    /// <para>- exchanging the <see cref="NetworkProtocolVersion"/> during the initial handshake.</para>
-    /// <para>- updating the <see cref="ConnectionState"/> state component if present.</para>
+    /// <para>NetworkStreamReceiveSystem 是 NetCode 包最重要的系统之一
+    /// 其核心职责是管理全部 <see cref="NetworkStreamConnection"/> 生命周期，包括创建、更新和销毁，
+    /// 并接收全部 <see cref="NetworkStreamProtocol"/> 消息类型
+    /// 它还负责：</para>
+    /// <para>- 创建 <see cref="NetworkStreamDriver"/> Singleton，另请参阅 <see cref="NetworkDriverStore"/> 和 <see cref="NetworkDriver"/></para>
+    /// <para>- 处理 Driver 迁移，参见 <see cref="DriverMigrationSystem"/> 和 <see cref="MigrationTicket"/></para>
+    /// <para>- 监听并接受入站连接，仅服务器</para>
+    /// <para>- 在初始 Handshake 期间交换 <see cref="NetworkProtocolVersion"/></para>
+    /// <para>- 更新存在的 <see cref="ConnectionState"/> 状态组件</para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup))]
@@ -267,7 +264,7 @@ namespace Unity.NetCode
         static readonly ProfilerMarker k_Scheduling = new ProfilerMarker("NetworkStreamReceiveSystem_Scheduling");
 
         /// <summary>
-        /// Assign your <see cref="INetworkStreamDriverConstructor"/> to customize the <see cref="NetworkDriver"/> construction.
+        /// 分配自定义 <see cref="INetworkStreamDriverConstructor"/> 以定制 <see cref="NetworkDriver"/> 构造过程
         /// </summary>
         public static INetworkStreamDriverConstructor DriverConstructor
         {
@@ -353,7 +350,7 @@ namespace Unity.NetCode
             if (SystemAPI.HasSingleton<MigrationTicket>())
             {
                  var ticket = SystemAPI.GetSingleton<MigrationTicket>();
-                 // load driver & all the network connection data
+                 // 加载 Driver 和全部网络连接数据
                  var driverState = driverMigrationSystem.Load(ticket.Value);
                  driverStore = driverState.DriverStore;
                  lastEp = driverState.LastEp;
@@ -397,26 +394,27 @@ namespace Unity.NetCode
         }
 
 
-        // The content of this method should shadow the logic in HandleDriverEvents.ApproveConnection
+        // 此方法内容应与 HandleDriverEvents.ApproveConnection 的逻辑保持一致
         void AttemptCreateFakeHostConnection(ref SystemState state)
         {
             if (state.WorldUnmanaged.IsHost())
             {
-                // Combined single world host still needs a connection entity
-                // Generate a fake connection for handling going in game etc
+                // 合并式单 World Host 仍然需要连接 Entity
+                // 创建虚拟连接，用于处理进入游戏等流程
                 var ent = state.EntityManager.CreateEntity();
                 state.EntityManager.AddComponent(ent, NetworkStreamConnection.GetEssentialComponentsForConnection());
                 state.EntityManager.AddBuffer<OutgoingRpcDataStreamBuffer>(ent);
-                // TODO set NetworkStreamInGame on by default? As a single world host, there's not really a case for that to be off. If users rely on this to know if they are ready, they should instead have their own user side signal.
+                // TODO 是否应默认设置 NetworkStreamInGame
+                // 对单 World Host 而言几乎没有关闭它的场景，如果用户依赖此状态判断是否就绪，应改用自己的用户侧信号
                 state.EntityManager.GetBuffer<LinkedEntityGroup>(ent).Add(new LinkedEntityGroup { Value = ent });
 
-                // Avoid using 0
+                // 避免使用 0
                 int nid = m_NumNetworkIds.Value + 1;
                 m_NumNetworkIds.Value = nid;
 
                 var networkId = new NetworkId {Value = nid};
                 state.EntityManager.AddComponentData(ent, networkId);
-                state.EntityManager.AddComponent<LocalConnection>(ent); // we're not doing this for binary world servers, since it doesn't really make sense. For a server world, a local client world shouldn't be different from other client worlds.
+                state.EntityManager.AddComponent<LocalConnection>(ent); // Binary World Server 不添加此组件，因为本地 Client World 不应区别于其他 Client World
                 state.EntityManager.SetName(ent, new FixedString64Bytes(FixedString.Format("Host Fake NetworkConnection ({0})", nid)));
             }
         }
@@ -444,7 +442,7 @@ namespace Unity.NetCode
             }
             UnsafeUtility.Free((void*)m_DriverPointers, Allocator.Persistent);
 
-            // Force clean-up of ReceivedSnapshotByRemoteMask:
+            // 强制清理 ReceivedSnapshotByRemoteMask
             foreach (var snapshotAck in SystemAPI.Query<RefRW<NetworkSnapshotAck>>())
             {
                 if (snapshotAck.ValueRO.ReceivedSnapshotByRemoteMask.IsCreated)
@@ -464,7 +462,8 @@ namespace Unity.NetCode
 #if UNITY_EDITOR || NETCODE_DEBUG
             if (!state.WorldUnmanaged.IsServer())
             {
-                // Not needed for server, we're only gathering client stats for now. Should come back to this if we gather server stats here too, it's also reset in GhostSendSystem
+                // 服务器不需要此操作，目前这里只收集客户端统计信息
+                // 如果以后也在此收集服务器统计信息，需要重新处理，GhostSendSystem 中也会重置该值
                 var numLoadedPrefabs = SystemAPI.GetSingleton<GhostCollection>().NumLoadedPrefabs;
                 ref var netStatsSnapshotSingleton = ref SystemAPI.GetSingletonRW<GhostStatsSnapshotSingleton>().ValueRW;
                 netStatsSnapshotSingleton.ResetWriter(numLoadedPrefabs);
@@ -473,13 +472,12 @@ namespace Unity.NetCode
 
             if (!SystemAPI.HasSingleton<NetworkProtocolVersion>())
             {
-                // Fix: Wait for the CreateComponentCollection to have been called, otherwise we'd create a
-                // NetworkProtocolVersion with GhostCollection:0.
+                // 等待 CreateComponentCollection 被调用，否则会创建 GhostCollection 为 0 的 NetworkProtocolVersion
                 var data = SystemAPI.GetSingleton<GhostComponentSerializerCollectionData>();
                 if (data.CollectionFinalized.Value != 2)
                     return;
 
-                // RW is required because this call marks the collection as final, which means no further rpcs can be registered.
+                // 必须使用读写访问，因为此调用会把集合标记为 Final，之后不能再注册 RPC
                 ref var rpcCollection = ref SystemAPI.GetSingletonRW<RpcCollection>().ValueRW;
                 var serializerState = SystemAPI.GetSingletonBuffer<GhostComponentSerializer.State>();
                 var npv = new NetworkProtocolVersion
@@ -502,7 +500,7 @@ namespace Unity.NetCode
                 {
                     driverListening &= DriverStore.GetDriverInstanceRO(i).driver.Listening;
                 }
-                // Detect failed listen by checking if some but not all drivers are listening
+                // 通过检查是否只有部分 Driver 正在监听来检测 Listen 失败
                 if (!driverListening)
                 {
                     for (int i = DriverStore.FirstDriver + 1; i < DriverStore.LastDriver; ++i)
@@ -564,10 +562,10 @@ namespace Unity.NetCode
                 m_FreeNetworkIds.Clear();
             }
 
-            // Keep the index incrementing with some added randomeness via server tick. The random generated outputs will never collide with previous outputs
+            // 让索引持续递增，并通过 Server Tick 增加一定随机性，生成的随机结果不会与之前的结果冲突
             m_RandomIndex.Value += networkTime.ServerTick.SerializedData;
 
-            // This singleton will only exist on clients as it's used to keep track of this value between connection destroy/recreate
+            // 此 Singleton 只存在于客户端，用于在连接销毁和重建之间保留该值
             uint clientConnectionUniqueId = 0;
             if (!state.WorldUnmanaged.IsServer() && SystemAPI.TryGetSingletonRW<ConnectionUniqueId>(out var uniqueId))
                 clientConnectionUniqueId = uniqueId.ValueRO.Value;
@@ -585,7 +583,7 @@ namespace Unity.NetCode
             m_SnapshotBufferFromEntity.Update(ref state);
             m_GhostComponentFromEntity.Update(ref state);
 
-            // FIXME: because it uses buffer from entity
+            // FIXME 此处依赖 Entity 上的 Buffer
             var handleJob = new HandleDriverEvents
             {
                 commandBuffer = commandBuffer,
@@ -660,7 +658,7 @@ namespace Unity.NetCode
                     NetworkConnection con;
                     while ((con = driver.Accept()) != default)
                     {
-                        // New connection can never have any events, if this one does - just close it
+                        // 新连接不应具有任何待处理事件，如果存在则直接关闭
                         var evt = con.PopEvent(driver, out _);
                         if (evt != NetworkEvent.Type.Empty)
                         {
@@ -669,8 +667,8 @@ namespace Unity.NetCode
                             continue;
                         }
 
-                        //TODO: Lookup for any connection that is already connected with the same ip address or any other player identity.
-                        //Relying on the IP is pretty weak test but at least is remove already some positives
+                        // TODO 查找是否已有使用相同 IP 地址或其他玩家标识的连接
+                        // 仅依赖 IP 的验证较弱，但至少可以排除一部分重复连接
                         Debug.Assert(tickRate.HandshakeApprovalTimeoutMS > 0);
                         var ent = commandBuffer.CreateEntity();
                         commandBuffer.AddComponent(ent, NetworkStreamConnection.GetEssentialComponentsForConnection());
@@ -747,7 +745,7 @@ namespace Unity.NetCode
             public uint localTime;
             public NetworkTick lastServerTick;
 
-            // Stuff for Approval:
+            // Approval 相关数据
             public uint clientConnectionUniqueId;
             public NativeReference<uint> randomIndex;
             public NativeReference<int> numNetworkId;
@@ -771,7 +769,7 @@ namespace Unity.NetCode
                 {
                     disconnectReason = disconnectRequest.Reason;
                     driverStore.Disconnect(connection);
-                    // Disconnect cleanup will be handled below.
+                    // 断开连接的清理会在下方处理
                 }
                 else if (!inGameFromEntity.HasComponent(entity))
                 {
@@ -794,11 +792,11 @@ namespace Unity.NetCode
                 networkIdFromEntity.TryGetComponent(entity, out var networkId);
                 HandleApproval(entity, ref connection, ref networkId, ref disconnectReason);
 
-                // Update State:
+                // 更新状态
                 ref var driverInstance = ref driverStore.GetDriverInstanceRW(connection.DriverId);
                 ref var driver = ref driverInstance.driver;
 
-                // Event popping:
+                // 取出事件
                 NetworkEvent.Type evt;
                 while ((evt = driver.PopEventForConnection(connection.Value, out var reader, out var pipelineStage)) != NetworkEvent.Type.Empty)
                 {
@@ -806,7 +804,7 @@ namespace Unity.NetCode
                     {
                         case NetworkEvent.Type.Connect:
                         {
-                            // This event is only invoked on the client. The server bypasses, as part of the Accept() call.
+                            // 此事件只在客户端触发，服务器会在 Accept() 调用期间绕过它
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                             Debug.Assert(!isServer, "Sanity check failed: got connect event, but not on server");
                             Debug.Assert(!snapshotAck.ReceivedSnapshotByRemoteMask.IsCreated);
@@ -835,14 +833,14 @@ namespace Unity.NetCode
                         case NetworkEvent.Type.Disconnect:
                             if (reader.Length == 1)
                                 disconnectReason = (NetworkStreamDisconnectReason) reader.ReadByte();
-                            // Disconnect cleanup will be handled below.
+                            // 断开连接的清理会在下方处理
                             connection.CurrentState = ConnectionState.State.Disconnected;
                             connection.CurrentStateDirty = false;
                             goto doubleBreak;
                         case NetworkEvent.Type.Data:
                             var msgType = (NetworkStreamProtocol)reader.ReadByte();
 
-                            // Handle connection approval phase, without it we won't process game data further.
+                            // 处理连接审批阶段，未完成审批时不继续处理游戏数据
                             if (isServer && connection.IsHandshakeOrApproval)
                             {
                                 if (msgType != NetworkStreamProtocol.Rpc)
@@ -890,7 +888,7 @@ namespace Unity.NetCode
                                         TryLog(in entity, msg);
                                     }
 #endif
-                                    // Do not try to process incoming commands which are older than commands we already processed
+                                    // 不处理比已处理命令更旧的入站命令
                                     if (!isValidCmdTick)
                                         break;
                                     snapshotAck.LastReceivedSnapshotByLocal = cmdTick;
@@ -915,27 +913,28 @@ namespace Unity.NetCode
                                     var rtt = NetworkSnapshotAck.CalculateRttViaLocalTime(localTime, localTimeMinusRTT);
                                     snapshotAck.UpdateRemoteTime(remoteTime, rtt, localTime);
 
-                                    // SSId:
+                                    // Snapshot 序列 ID
                                     var currentSnapshotSequenceId = reader.ReadByte();
 
-                                    // Copy the reader here, as we want to pass the ServerTick into the GhostReceiveSystem,
-                                    // and that'll fail if we read too far.
+                                    // 在此复制 Reader，因为需要把 Server Tick 传给 GhostReceiveSystem
+                                    // 如果读取过远，该操作会失败
                                     var copyOfReader = reader;
                                     var currentSnapshotServerTick = new NetworkTick{SerializedData = copyOfReader.ReadUInt()};
 
-                                    // Skip old snapshots:
+                                    // 跳过旧 Snapshot
                                     var isValid = !snapshotAck.LastReceivedSnapshotByLocal.IsValid || currentSnapshotServerTick.IsNewerThan(snapshotAck.LastReceivedSnapshotByLocal);
                                     UpdatePacketLossStats(ref snapshotAck.SnapshotPacketLoss, isValid, currentSnapshotSequenceId, currentSnapshotServerTick, ref snapshotAck, in entity, buffer);
                                     if (!isValid)
                                         break;
-                                    //This is partially valid: if we receive 3 packets, it is valid to only ack the last one
+                                    // 这在一定程度上是合理的：如果收到 3 个数据包，只确认最后一个是有效行为
                                     if (snapshotAck.LastReceivedSnapshotByLocal.IsValid)
                                     {
-                                        //remove the last acked packet, we will never process this if multiple packets are received in the same frame
-                                        //so we can't communicate to the server that we have data for that specific server tick.
+                                        // 移除最近确认的数据包
+                                        // 同一帧收到多个数据包时，之前的数据包永远不会被处理，
+                                        // 因而不能向服务器声称已经取得对应 Server Tick 的数据
                                         if (buffer.Length > 0)
                                             snapshotAck.ReceivedSnapshotByLocalMask ^= 0x1;
-                                        //shift the ack window. It is correct to shift
+                                        // 移动 Ack 窗口，此处执行位移是正确行为
                                         var shamt = currentSnapshotServerTick.TicksSince(snapshotAck.LastReceivedSnapshotByLocal);
                                         if (shamt < 32)
                                             snapshotAck.ReceivedSnapshotByLocalMask <<= shamt;
@@ -946,7 +945,7 @@ namespace Unity.NetCode
                                     snapshotAck.LastReceivedSnapshotByLocal = currentSnapshotServerTick;
                                     snapshotAck.CurrentSnapshotSequenceId = currentSnapshotSequenceId;
 
-                                    // Limitation: Clobber any previous snapshot, even if said snapshot has not been processed yet.
+                                    // 限制：覆盖之前的所有 Snapshot，即使它们尚未处理
                                     if (buffer.Length > 0)
                                     {
 #if UNITY_EDITOR || NETCODE_DEBUG
@@ -955,7 +954,7 @@ namespace Unity.NetCode
                                         buffer.Clear();
                                     }
 
-                                    // Save the new snapshot to the buffer, so we can process it in GhostReceiveSystem.
+                                    // 把新 Snapshot 保存到 Buffer，以便在 GhostReceiveSystem 中处理
                                     buffer.Add(ref reader);
                                     break;
                                 }
@@ -984,12 +983,12 @@ namespace Unity.NetCode
                 }
                 doubleBreak:
 
-                // Now react to changes:
+                // 响应状态变化
 
-                // CurrentStateDirty is a bit of a hack: It only exists for:
-                // - The `Connecting` state on the client.
-                // - The `Approval` state on the client.
-                // Note that we intentionally bypass this in most places (see various event evocations scattered around).
+                // CurrentStateDirty 是一项临时处理，只用于以下情况：
+                // - 客户端的 `Connecting` 状态
+                // - 客户端的 `Approval` 状态
+                // 大多数位置会有意绕过它，参见分散在各处的事件触发逻辑
                 if(Hint.Unlikely(connection.CurrentStateDirty))
                 {
                     connection.CurrentStateDirty = false;
@@ -1003,10 +1002,9 @@ namespace Unity.NetCode
                     });
                 }
 
-                // Handle disconnects:
-                // Fix for issue where: Transport does not raise the Disconnect event locally for any connection that is manually Disconnected.
-                // Thus, we (Netcode) need to duplicate the event via status polling.
-                // TODO - Local events will be supported via feature flag `EnableDisconnectEventOnSelf = true` at some point.
+                // 处理断开连接
+                // Transport 不会为本地主动断开的连接触发本地 Disconnect 事件，因此 NetCode 需要通过状态轮询补发事件
+                // TODO 未来将通过功能开关 `EnableDisconnectEventOnSelf = true` 支持本地事件
                 if (Hint.Unlikely(connection.CurrentState == ConnectionState.State.Disconnected
                                   || driver.GetConnectionState(connection.Value) == NetworkConnection.State.Disconnected))
                 {
@@ -1049,7 +1047,7 @@ namespace Unity.NetCode
                     connection.CurrentStateDirty = false;
                 }
 
-                // Update ConnectionState:
+                // 更新 ConnectionState
                 if (connectionStateFromEntity.TryGetComponent(entity, out var existingState))
                 {
                     var newState = existingState;
@@ -1061,12 +1059,14 @@ namespace Unity.NetCode
                 }
             }
 
-            /// <summary>Called inline, as we need to update the NetworkId as soon as possible.</summary>
+            /// <summary>
+            /// 以内联方式调用，因为需要尽快更新 NetworkId
+            /// </summary>
             private void HandleApproval(Entity entity, ref NetworkStreamConnection connection, ref NetworkId networkId, ref NetworkStreamDisconnectReason disconnectReason)
             {
                 if (!connection.IsHandshakeOrApproval) return;
 
-                // Handle Handshake:
+                // 处理 Handshake
                 if (isServer && connection.ProtocolVersionReceived != 0 && connection.CurrentState == ConnectionState.State.Handshake)
                 {
                     if (requireConnectionApproval == 0)
@@ -1076,7 +1076,7 @@ namespace Unity.NetCode
                     }
                     else
                     {
-                        // Begin approval process:
+                        // 开始 Approval 流程
                         connection.CurrentState = ConnectionState.State.Approval;
                         connection.CurrentStateDirty = false;
                         connectionEvents.Add(new NetCodeConnectionEvent
@@ -1094,7 +1094,7 @@ namespace Unity.NetCode
                     }
                 }
 
-                // Handle ConnectionApproved component:
+                // 处理 ConnectionApproved 组件
                 if (!networkIdFromEntity.HasComponent(entity) && connectionApprovedLookup.HasComponent(entity))
                 {
                     if (isServer)
@@ -1108,7 +1108,7 @@ namespace Unity.NetCode
                                     ApproveConnection(entity, ref connection, buf, ref networkId);
                                     break;
                                 case ConnectionState.State.Handshake:
-                                    // Waiting for the Handshake to complete...
+                                    // 等待 Handshake 完成
                                     break;
                                 default:
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -1127,8 +1127,8 @@ namespace Unity.NetCode
                     }
                 }
 
-                // Handle timeout: Note that the client can time itself out, too, but only if not in handshake,
-                // as it doesn't know the configured timeout duration.
+                // 处理超时
+                // 客户端也可以让自身超时，但仅限非 Handshake 状态，因为客户端不知道配置的超时时长
                 if (Hint.Unlikely(connection.ConnectionApprovalTimeoutStart != 0))
                 {
                     var isClientHandshaking = !isServer && connection.CurrentState == ConnectionState.State.Handshake;
@@ -1146,15 +1146,17 @@ namespace Unity.NetCode
                 }
             }
 
-            /// <summary>Logic to actually fully accept a connection. Only called once handshake + approval (if enabled) is successful.</summary>
+            /// <summary>
+            /// 真正完全接受连接的逻辑，仅在 Handshake 和启用时的 Approval 成功后调用一次
+            /// </summary>
             private void ApproveConnection(Entity ent, ref NetworkStreamConnection connection, DynamicBuffer<OutgoingRpcDataStreamBuffer> outgoingBuffer, ref NetworkId networkId)
             {
-                // Re-assign previous unique Id in case this is a returning client
+                // 如果是返回的客户端，则重新分配之前的唯一 ID
                 uint connectionUniqueId = 0;
                 bool isReconnecting = false;
                 if (connectionUniqueIdFromEntity.HasComponent(ent))
                 {
-                    // Only re-assign if the ID isn't already registered
+                    // 仅当 ID 尚未注册时重新分配
                     var clientReportedId = connectionUniqueIdFromEntity[ent].Value;
                     if (!connectionUniqueIds.Contains(clientReportedId))
                         connectionUniqueId = clientReportedId;
@@ -1172,7 +1174,7 @@ namespace Unity.NetCode
 
                 if (newNetworkId == 0 && !freeNetworkIds.TryDequeue(out newNetworkId))
                 {
-                    // Avoid using 0
+                    // 避免使用 0
                     newNetworkId = numNetworkId.Value + 1;
                     numNetworkId.Value = newNetworkId;
                 }
@@ -1190,7 +1192,7 @@ namespace Unity.NetCode
                         randomIndex.Value++;
                         random = Mathematics.Random.CreateFromIndex(randomIndex.Value);
                         connectionUniqueId = random.NextUInt();
-                        // Doubtful we'll ever have 100 collisions but just to prevent infinite loops
+                        // 几乎不可能发生 100 次冲突，但仍设置上限以防止无限循环
                         if (count++ > 100)
                         {
                             Debug.LogError($"Failed to generate a non-colliding unique ID for network ID {newNetworkId}, unique ID count {connectionUniqueIds.Length}.");
@@ -1202,7 +1204,7 @@ namespace Unity.NetCode
                 commandBuffer.AddComponent(ent, new ConnectionUniqueId(){ Value = connectionUniqueId });
                 connectionUniqueIds.Add(connectionUniqueId);
 
-                // the logic in AttemptCreateFakeHostConnection should shadow the logic here. I.e. If you update this, double check AttemptCreateFakeHostConnection.
+                // AttemptCreateFakeHostConnection 的逻辑应与此处保持一致，修改时必须同时复查该方法
                 networkId = new NetworkId {Value = newNetworkId};
                 commandBuffer.AddComponent(ent, networkId);
                 commandBuffer.SetName(ent, new FixedString64Bytes(FixedString.Format("NetworkConnection ({0})", newNetworkId)));
@@ -1226,7 +1228,7 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// Records SnapshotSequenceId [SSId] statistics, detecting packet loss, packet duplication, and out of order packets.
+            /// 记录 SnapshotSequenceId（SSId）统计信息，检测丢包、重复包和乱序包
             /// </summary>
             // ReSharper disable once UnusedParameter.Local
             private void UpdatePacketLossStats(ref SnapshotPacketLossStatistics stats, bool snapshotIsConfirmedNewer,
@@ -1239,7 +1241,7 @@ namespace Unity.NetCode
                 var sequenceIdDelta = snapshotAck.CalculateSequenceIdDelta(currentSnapshotSequenceId, snapshotIsConfirmedNewer);
                 if (snapshotIsConfirmedNewer)
                 {
-                    // Detect packet loss:
+                    // 检测丢包
                     var numDroppedPackets = sequenceIdDelta - 1;
                     if (numDroppedPackets > 0)
                     {
@@ -1249,7 +1251,7 @@ namespace Unity.NetCode
 #endif
                     }
 
-                    // Netcode limitation: We can only process one snapshot per tick!
+                    // NetCode 限制：每个 Tick 只能处理一个 Snapshot
                     if (buffer.Length > 0)
                     {
                         stats.NumPacketsCulledAsArrivedOnSameFrame++;
@@ -1264,11 +1266,11 @@ namespace Unity.NetCode
                     return;
                 }
 
-                // Detect out of order and duplicate packets:
+                // 检测乱序包和重复包
                 if (sequenceIdDelta == 0)
                 {
-                    // We can't track any previous duplicate packets (unless we keep an ack history),
-                    // so we don't track it at all. Just log.
+                    // 除非保留 Ack 历史，否则无法跟踪之前的重复包
+                    // 因此这里只记录日志，不进行统计
 #if NETCODE_DEBUG
                     TryLog(entity, (FixedString512Bytes) $"[SSId:{currentSnapshotSequenceId}, ST:{currentSnapshotServerTick.ToFixedString()}] Detected duplicated snapshot packet!");
 #endif
@@ -1276,9 +1278,8 @@ namespace Unity.NetCode
                 }
 
                 stats.NumPacketsCulledOutOfOrder++;
-                // Technically a packet we skipped over was counted as dropped, but it just arrived.
-                // We may not even know about it, as jitter during connection can cause us to detect
-                // dropped packets that we should never have received anyway.
+                // 从技术上讲，之前跳过的数据包已被计为丢失，但它刚刚到达
+                // 也可能无法预先获知该数据包，因为连接期间的抖动会让系统检测到本就不应收到的丢包
                 if (stats.NumPacketsDroppedNeverArrived > 0)
                     stats.NumPacketsDroppedNeverArrived--;
 #if NETCODE_DEBUG

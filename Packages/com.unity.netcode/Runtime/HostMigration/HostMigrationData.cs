@@ -15,25 +15,25 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.NetCode.HostMigration
 {
     /// <summary>
-    /// Host migration class used to access the host migration system, like getting the host migration data blob and
-    /// deploying migration data to a new world.
+    /// 用于访问 Host Migration System 的 Host Migration 类，
+    /// 例如获取 Host Migration Data Blob 并把迁移数据部署到新 World
     /// </summary>
     public static class HostMigrationData
     {
         internal struct Data
         {
-            // Flag for if a ghost type has had the server-only components scanned and added to the below hashmap
+            // 标记某种 Ghost 类型是否已扫描仅服务器组件并添加到下方 HashMap
             public NativeList<int> ServerOnlyComponentsFlag;
-            // Cache for the server-only components which are present in each ghost type
+            // 缓存每种 Ghost 类型中存在的仅服务器组件
             public NativeHashMap<int, NativeList<ComponentType>> ServerOnlyComponentsPerGhostType;
         }
 
         /// <summary>
-        /// Get the host migration data which has been collected by the host migration system. There
-        /// is no limit enforced on the total size of the migration data.
+        /// 获取 Host Migration System 已采集的 Host Migration 数据
+        /// 不限制迁移数据的总大小
         /// </summary>
-        /// <param name="fromWorld">The world where the migration data is stored</param>
-        /// <param name="toData">Destination list to copy the data, this will be resized if it is too small to store all the data</param>
+        /// <param name="fromWorld">保存迁移数据的 World</param>
+        /// <param name="toData">复制数据的目标列表，容量不足以保存全部数据时会自动调整大小</param>
         public static void Get(World fromWorld, ref NativeList<byte> toData)
         {
             var hostMigrationDataQuery = fromWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<HostMigrationStorage>());
@@ -46,7 +46,7 @@ namespace Unity.NetCode.HostMigration
             if (toData.Capacity < size)
                 toData.Resize(size*2, NativeArrayOptions.ClearMemory);
 
-            // Set the size to exactly what will be copied
+            // 把大小精确设为待复制数据的大小
             toData.Length = size;
             var dataArray = toData.AsArray();
             CopyMigrationData(ref dataArray, hostData, compressedGhostData);
@@ -54,7 +54,7 @@ namespace Unity.NetCode.HostMigration
 
         static unsafe void CopyMigrationData(ref NativeArray<byte> destinationBuffer, NativeList<byte> hostData, NativeList<byte> ghostData)
         {
-            // Copy host data size + host data into destination buffer
+            // 把 Host Data 大小和 Host Data 复制到目标 Buffer
             var dataPtr = (IntPtr)destinationBuffer.GetUnsafePtr();
             var offset = 0;
             int* header = (int*)dataPtr;
@@ -62,7 +62,7 @@ namespace Unity.NetCode.HostMigration
             offset += sizeof(int);
             UnsafeUtility.MemCpy((void*)(dataPtr + offset), hostData.GetUnsafeReadOnlyPtr(), hostData.Length);
 
-            // Copy ghost data size + ghost data into destination buffer behind the host data
+            // 把 Ghost Data 大小和 Ghost Data 复制到目标 Buffer 中 Host Data 之后
             offset += hostData.Length;
             header = (int*)(dataPtr + offset);
             *header = ghostData.Length;
@@ -81,26 +81,26 @@ namespace Unity.NetCode.HostMigration
         }
 
         /// <summary>
-        /// Compress the ghost data if compression is enabled in the host migration configuration.
-        /// Update the migration data statistics data size as they've been recorded earlier uncompressed
+        /// 如果 Host Migration 配置启用压缩，则压缩 Ghost Data
+        /// 由于之前记录的是未压缩大小，还需要更新迁移数据统计大小
         /// </summary>
         static NativeList<byte> CompressGhostDataIfEnabled(World world, NativeList<byte> ghostData, NativeList<byte> hostData, out int size)
         {
-            // This is the required size for host/ghost data + headers for each
+            // Host Data、Ghost Data 及各自 Header 所需的总大小
             size = hostData.Length + ghostData.Length + sizeof(int) + sizeof(int);
 
-            // NOTE: Compression needs to be done here as it's not burst compatible and can't be done in the host migration system
+            // 注意：压缩不兼容 Burst，无法在 Host Migration System 中执行，因此必须在此处理
             var compressedGhostData = new NativeList<byte>(ghostData.Length, Allocator.Temp);
             CompressAndEncodeGhostData(ghostData, compressedGhostData);
             size = hostData.Length + compressedGhostData.Length + sizeof(int) + sizeof(int);
 
-            // Statistics need to be updated as the recorded value earlier was uncompressed
+            // 之前记录的是未压缩值，因此需要更新统计信息
             UpdateStatistics(world, size);
             return compressedGhostData;
         }
 
         /// <summary>
-        /// Compress ghost data using Brotli compression and Base64 encode the result
+        /// 使用 Brotli 压缩 Ghost Data，并对结果进行 Base64 编码
         /// </summary>
         internal static unsafe void CompressAndEncodeGhostData(NativeList<byte> ghostData, NativeList<byte> compressedGhostData)
         {
@@ -119,9 +119,9 @@ namespace Unity.NetCode.HostMigration
         }
 
         /// <summary>
-        /// On the server check if an incoming connection is a known connection reconnecting
-        /// and re-add all the components it previously had before the host migration. Note
-        /// that it only readds the components but does not restore component data.
+        /// 在服务器上检查入站连接是否为已知连接的重连，
+        /// 并重新添加它在 Host Migration 前具有的全部组件
+        /// 注意这里只重新添加组件，不恢复组件数据
         /// </summary>
         internal static bool HandleReconnection(NativeArray<HostConnectionData> hostMigrationConnections, EntityCommandBuffer commandBuffer, Entity connectionEntity, ConnectionUniqueId uniqueId)
         {
@@ -148,7 +148,7 @@ namespace Unity.NetCode.HostMigration
 
         internal static unsafe bool RestoreConnectionComponentData(NativeArray<HostConnectionData> hostMigrationConnections, EntityManager entityManager, Entity connectionEntity, ConnectionUniqueId uniqueId)
         {
-            entityManager.CompleteAllTrackedJobs(); // For the dynamic component data pointer safety
+            entityManager.CompleteAllTrackedJobs(); // 确保动态组件数据指针安全
             for (int j = 0; j < hostMigrationConnections.Length; ++j)
             {
                 var prevConnectionData = hostMigrationConnections[j];
@@ -184,15 +184,15 @@ namespace Unity.NetCode.HostMigration
         }
 
         /// <summary>
-        /// Deploy the given host migration data in the given world. The data needs to be collected
-        /// by <see cref="Get"/> and contains all the ghost data and specific host configuration data
-        /// needed to set up the netcode state.
+        /// 在指定 World 中部署给定 Host Migration 数据
+        /// 数据必须由 <see cref="Get"/> 采集，并包含设置 NetCode 状态所需的全部 Ghost Data
+        /// 和 Host 专用配置数据
         /// </summary>
-        /// <param name="toWorld">Destination world to deploy the migration data</param>
-        /// <param name="fromData">Host migration data collected by the host migration system</param>
+        /// <param name="toWorld">部署迁移数据的目标 World</param>
+        /// <param name="fromData">Host Migration System 采集的 Host Migration 数据</param>
         public static unsafe void Set(in NativeArray<byte> fromData, World toWorld)
         {
-            // Extract host data part
+            // 提取 Host Data 部分
             int hostDataSize = 0;
             UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref hostDataSize), (void*)fromData.GetUnsafePtr(), sizeof(int));
             if (hostDataSize + sizeof(int) > fromData.Length)
@@ -202,10 +202,10 @@ namespace Unity.NetCode.HostMigration
             }
             var hostData = new NativeSlice<byte>(fromData, sizeof(int), hostDataSize);
 
-            // Extract ghost data part
+            // 提取 Ghost Data 部分
             var ghostDataPtr = (IntPtr)fromData.GetUnsafePtr() + sizeof(int) + hostDataSize;
             int ghostDataSize = 0;
-            int ghostDataStart = 2 * sizeof(int) + hostDataSize;    // where the ghost data portion will begin in the migration buffer
+            int ghostDataStart = 2 * sizeof(int) + hostDataSize;    // Ghost Data 部分在迁移 Buffer 中的起始位置
             UnsafeUtility.MemCpy(UnsafeUtility.AddressOf(ref ghostDataSize), (void*)ghostDataPtr, sizeof(int));
             if (ghostDataSize + ghostDataStart > fromData.Length)
             {
@@ -226,7 +226,7 @@ namespace Unity.NetCode.HostMigration
 
             hostMigrationData.ValueRW.Ghosts = DecompressAndDecodeGhostData(ghostData);
 
-            // TODO: It appears this does not work
+            // TODO 此操作似乎没有生效
             toWorld.SetTime(new TimeData(hostMigrationData.ValueRO.HostData.ElapsedTime, 0));
 
             using var networkTimeQuery = toWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkTime>());
@@ -236,9 +236,8 @@ namespace Unity.NetCode.HostMigration
             Debug.Log($"Setting server state: ElapsedTime={hostMigrationData.ValueRO.HostData.ElapsedTime} ServerTick={networkTime.ValueRW.ServerTick.TickValue} ElapsedNetworkTime={hostMigrationData.ValueRO.HostData.ElapsedNetworkTime}");
 
 
-            // Set the allocation id to be at the same place it was on the original server
-            // this will ensure any new ghosts instantiated during a migration won't be given
-            // the same id as a migrating ghost
+            // 把分配 ID 恢复到原服务器的位置
+            // 这样可以确保迁移期间实例化的新 Ghost 不会获得与迁移中 Ghost 相同的 ID
             var spawnedGhostEntityMapQuery = toWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<SpawnedGhostEntityMap>());
             var spawnedGhostEntityMapData = spawnedGhostEntityMapQuery.GetSingletonRW<SpawnedGhostEntityMap>();
             if (spawnedGhostEntityMapData.ValueRW.m_ServerAllocatedGhostIds[0] != 1 || spawnedGhostEntityMapData.ValueRW.m_ServerAllocatedGhostIds[1] != 1)
@@ -250,7 +249,7 @@ namespace Unity.NetCode.HostMigration
             var prespawnGhostIdRangeBufferEntityQuery = toWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<PrespawnGhostIdRange>());
             var prespawnGhostIdRangeBufferData = prespawnGhostIdRangeBufferEntityQuery.GetSingletonBuffer<PrespawnGhostIdRange>();
 
-            // Setup the PrespawnGhostIdRanges, this will allow the subscene loading to match ghostIds to the old server
+            // 设置 PrespawnGhostIdRanges，使 SubScene 加载时能够把 Ghost ID 与旧服务器匹配
             foreach ( var prespawnGhostIdRange in hostMigrationData.ValueRO.HostData.PrespawnGhostIdRanges )
             {
                 prespawnGhostIdRangeBufferData.Add(new PrespawnGhostIdRange() {
@@ -261,18 +260,18 @@ namespace Unity.NetCode.HostMigration
                 });
             }
 
-            // migrate the network ids of the currently connected clients
+            // 迁移当前已连接客户端的 Network ID
             using var migratedNetworkIdsQuery = toWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<MigratedNetworkIdsData>());
             if ( migratedNetworkIdsQuery.TryGetSingletonRW<MigratedNetworkIdsData>(out var migratedNetworkIds) )
             {
-                migratedNetworkIds.ValueRW.MigratedNetworkIds.Clear(); // make sure its empty
+                migratedNetworkIds.ValueRW.MigratedNetworkIds.Clear(); // 确保容器为空
                 foreach (var c in hostMigrationData.ValueRO.HostData.Connections)
                 {
                     migratedNetworkIds.ValueRW.MigratedNetworkIds.Add(c.UniqueId, c.NetworkId);
                 }
             }
 
-            // migrate the information used to assign NetworkIDs so new connections are assigned correctly without overlapping the migrated ids
+            // 迁移用于分配 Network ID 的信息，确保新连接正确分配且不会与已迁移 ID 重叠
             using var networkIDAllocationDataQuery = toWorld.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkIDAllocationData>());
             if (networkIDAllocationDataQuery.TryGetSingletonRW<NetworkIDAllocationData>(out var networkIDAllocationData))
             {
@@ -297,7 +296,7 @@ namespace Unity.NetCode.HostMigration
             if (hasPrespawns)
                 toWorld.EntityManager.CreateSingleton<ForcePrespawnListPrefabCreate>();
 
-            // Trigger server host migration system
+            // 触发服务器 Host Migration System
             var requestEntity = toWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<HostMigrationRequest>());
             toWorld.EntityManager.SetComponentData(requestEntity, new HostMigrationRequest(){ExpectedPrefabCount = hostMigrationData.ValueRW.Ghosts.GhostPrefabs.Length});
             toWorld.EntityManager.CreateEntity(ComponentType.ReadOnly<HostMigrationInProgress>());
@@ -332,7 +331,7 @@ namespace Unity.NetCode.HostMigration
             var ghostData = new GhostStorage()
             {
                 GhostPrefabs = prefabs,
-                // TODO: Free/reuse this buffer
+                // TODO 释放或复用此 Buffer
                 Ghosts = new NativeArray<GhostData>(ghostCount, Allocator.Persistent)
             };
             for (int i = 0; i < ghostCount; ++i)
@@ -387,7 +386,7 @@ namespace Unity.NetCode.HostMigration
                 return default;
             }
 
-            // TODO: Avoid this copy, data reader could just support slices
+            // TODO 避免此次复制，可以让 Data Reader 直接支持 Slice
             var toArray = new NativeArray<byte>(data.Length, Allocator.Temp);
             UnsafeUtility.MemCpy(toArray.GetUnsafePtr(), data.GetUnsafeReadOnlyPtr(), data.Length);
             var reader = new DataStreamReader(toArray);

@@ -10,10 +10,10 @@ using UnityEngine;
 
 namespace Unity.NetCode.Tests
 {
-    // TODO - Test case to ensure the default variants for all components on the root level entity are `DefaultSerialization`.
-    // TODO - Test case to ensure manually specified defaults are respected.
-    // TODO - Test case to ensure the default variant for all components on all child entities are `DontSerializeVariant`.
-    // TODO - Test case for usage of `ClientOnlyVariant`.
+    // TODO：验证根实体全部组件的默认 Variant 均为 DefaultSerialization
+    // TODO：验证手动指定的默认 Variant 得到正确应用
+    // TODO：验证全部子实体组件的默认 Variant 均为 DontSerializeVariant
+    // TODO：补充 ClientOnlyVariant 用法测试
 
     [TestFixture]
     internal class PerPrefabOverridesTests
@@ -53,7 +53,7 @@ namespace Unity.NetCode.Tests
             return collection;
         }
 
-        //Check that the component prefab serializer and indexes are initialized as expected
+        // 检查组件 Prefab Serializer 及其索引是否按预期初始化
         void CheckCollection(World world, int serializerIndex, int entityIndex)
         {
             using var collectionQuery = world.EntityManager.CreateEntityQuery(typeof(GhostCollection));
@@ -61,7 +61,7 @@ namespace Unity.NetCode.Tests
             var ghostSerializerCollection = world.EntityManager.GetBuffer<GhostCollectionPrefabSerializer>(collection);
             var ghostComponentIndex = world.EntityManager.GetBuffer<GhostCollectionComponentIndex>(collection);
             Assert.AreEqual(4, ghostSerializerCollection.Length);
-            //First 3 (all, predicted, interpolated) should have the component (also the GhostGen_IntStruct)
+            // 前三种发送规则 All、Predicted 和 Interpolated 应包含该组件及 GhostGen_IntStruct
             for (int i = 0; i < ghostSerializerCollection.Length; ++i)
             {
                 if(serializerIndex != ghostComponentIndex[ghostSerializerCollection[i].FirstComponent].SerializerIndex)
@@ -73,7 +73,7 @@ namespace Unity.NetCode.Tests
                         .GetSubArray(ghostSerializerCollection[i].FirstComponent, 5)
                         .Count(t => t.SerializerIndex == serializerIndex));
                 }
-                //The (none) variant should have 4
+                // None 规则对应的 Variant 应只有 4 个组件
                 else if (ghostSerializerCollection[i].NumComponents == 4)
                 {
                     Assert.AreEqual(entityIndex==0?1:0, ghostSerializerCollection[i].NumChildComponents);
@@ -97,7 +97,7 @@ namespace Unity.NetCode.Tests
                 var names = new[] {"ServerOnly", "ClientOnly", "PredictedOnly", "InterpolatedOnly"};
                 var prefabTypes = new[] {GhostPrefabType.Server, GhostPrefabType.Client, GhostPrefabType.InterpolatedClient, GhostPrefabType.PredictedClient};
                 var collection = CreatePrefabs(names);
-                //overrides the component prefab types in different prefabs
+                // 在不同 Prefab 上覆盖根实体组件的 PrefabType
                 for (int i = 0; i < prefabTypes.Length; ++i)
                 {
                     var gameObject = collection[i];
@@ -117,11 +117,11 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
+                // 检查服务端与客户端 Prefab 的预期组件集合
                 var ghostCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ServerWorld);
                 var prefabList = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(ghostCollection).ToNativeArray(Allocator.Temp);
                 Assert.AreEqual(4, prefabList.Length);
@@ -159,7 +159,7 @@ namespace Unity.NetCode.Tests
                 var names = new[] {"ServerOnly", "ClientOnly", "PredictedOnly", "InterpolatedOnly"};
                 var prefabTypes = new[] {GhostPrefabType.Server, GhostPrefabType.Client, GhostPrefabType.InterpolatedClient, GhostPrefabType.PredictedClient};
                 var collection = CreatePrefabs(names);
-                //Only modify child behaviors
+                // 只覆盖直接子实体的行为
                 for (int i = 0; i < prefabTypes.Length; ++i)
                 {
                     var gameObject = collection[i];
@@ -179,12 +179,12 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
-                //Server
+                // 检查预期结果
+                // 服务端
                 var ghostCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ServerWorld);
                 var prefabList = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(ghostCollection).ToNativeArray(Allocator.Temp);
                 Assert.AreEqual(4, prefabList.Length);
@@ -197,7 +197,7 @@ namespace Unity.NetCode.Tests
                     else
                         Assert.IsFalse(testWorld.ServerWorld.EntityManager.HasComponent<GhostGen_IntStruct>(linkedGroupBuffer[1].Value), "{0} should not have ChildComponent", names[i]);
                 }
-                //Client
+                // 客户端
                 ghostCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ClientWorlds[0]);
                 prefabList = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCodeTestPrefab>(ghostCollection).ToNativeArray(Allocator.Temp);
                 Assert.AreEqual(4, prefabList.Length);
@@ -222,7 +222,7 @@ namespace Unity.NetCode.Tests
                 var names = new[] {"ServerOnly", "ClientOnly", "PredictedOnly", "InterpolatedOnly"};
                 var prefabTypes = new[] {GhostPrefabType.Server, GhostPrefabType.Client, GhostPrefabType.InterpolatedClient, GhostPrefabType.PredictedClient};
                 var collection = CreatePrefabs(names);
-                // Only modify nested child behaviors
+                // 只覆盖嵌套子实体的行为
                 for (int i = 0; i < prefabTypes.Length; ++i)
                 {
                     var gameObject = collection[i];
@@ -244,12 +244,12 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
-                //Server
+                // 检查预期结果
+                // 服务端
                 var ghostCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ServerWorld);
                 var prefabList = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(ghostCollection).ToNativeArray(Allocator.Temp);
                 Assert.AreEqual(4, prefabList.Length);
@@ -262,7 +262,7 @@ namespace Unity.NetCode.Tests
                     else
                         Assert.IsFalse(testWorld.ServerWorld.EntityManager.HasComponent<GhostGen_IntStruct>(linkedGroupBuffer[2].Value), "{0} should not have ChildComponent", names[i]);
                 }
-                //Client
+                // 客户端
                 ghostCollection = testWorld.TryGetSingletonEntity<NetCodeTestPrefabCollection>(testWorld.ClientWorlds[0]);
                 prefabList = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCodeTestPrefab>(ghostCollection).ToNativeArray(Allocator.Temp);
                 Assert.AreEqual(4, prefabList.Length);
@@ -305,11 +305,11 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //In order to get the collection setup I need to enter in game
+                // 进入游戏状态，使 Ghost Collection 完成运行时设置
                 testWorld.Connect();
                 testWorld.GoInGame();
 
@@ -319,7 +319,7 @@ namespace Unity.NetCode.Tests
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
+                // 检查各发送规则生成的 Serializer 索引
                 var collectionEntity = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var ghostCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentIndex>(collectionEntity);
                 var ghostComponentCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentType>(collectionEntity);
@@ -363,11 +363,11 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //In order to get the collection setup I need to enter in game
+                // 进入游戏状态，使 Ghost Collection 完成运行时设置
                 testWorld.Connect();
                 testWorld.GoInGame();
 
@@ -377,7 +377,7 @@ namespace Unity.NetCode.Tests
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
+                // 检查直接子实体各发送规则生成的 Serializer 索引
                 var collectionEntity = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var ghostCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentIndex>(collectionEntity);
                 var ghostComponentCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentType>(collectionEntity);
@@ -422,11 +422,11 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(collection));
                 testWorld.CreateWorlds(true, 1);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //In order to get the collection setup I need to enter in game
+                // 进入游戏状态，使 Ghost Collection 完成运行时设置
                 testWorld.Connect();
                 testWorld.GoInGame();
 
@@ -436,7 +436,7 @@ namespace Unity.NetCode.Tests
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //Then check the expected results
+                // 检查嵌套子实体各发送规则生成的 Serializer 索引
                 var collectionEntity = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var ghostCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentIndex>(collectionEntity);
                 var ghostComponentCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentType>(collectionEntity);
@@ -454,7 +454,9 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /// <summary>A client only variant we can assign.</summary>
+        /// <summary>
+        /// 可显式指定给 LocalTransform 的测试 Variant
+        /// </summary>
         [GhostComponentVariation(typeof(Transforms.LocalTransform), nameof(TransformVariantTest))]
         [GhostComponent(PrefabType=GhostPrefabType.All, SendTypeOptimization=GhostSendType.AllClients)]
         internal struct TransformVariantTest
@@ -486,7 +488,7 @@ namespace Unity.NetCode.Tests
                 authoring.DefaultGhostMode = GhostMode.Interpolated;
                 authoring.SupportedGhostModes = GhostModeMask.All;
 
-                //Setup a variant for both root and child entity and check that the runtime serializer use this one to serialize data
+                // 为根实体、子实体和嵌套子实体设置同一 Variant，并验证运行时 Serializer 使用该 Variant
                 var attrType = typeof(TransformVariantTest).GetCustomAttribute<GhostComponentVariationAttribute>();
                 ulong hash = 0;
 
@@ -542,11 +544,11 @@ namespace Unity.NetCode.Tests
                 testWorld.BakeGhostCollection(testWorld.ServerWorld);
                 testWorld.BakeGhostCollection(testWorld.ClientWorlds[0]);
 
-                //Register serializers and setup all the system
+                // 注册 Serializer 并完成 System 初始化
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                //In order to get the collection setup I need to enter in game
+                // 进入游戏状态，使 Ghost Collection 完成运行时设置
                 testWorld.Connect();
                 testWorld.GoInGame();
                 testWorld.SpawnOnServer(ghostGameObject);
@@ -556,10 +558,10 @@ namespace Unity.NetCode.Tests
 
                 var typeIndex = TypeManager.GetTypeIndex<Transforms.LocalTransform>();
 
-                //Then check the expected results
+                // 检查 Variant 注册与 Prefab 组件索引
                 var collection = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var ghostSerializerCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(collection);
-                //Check that the variant has been registered
+                // 检查目标 Variant 已注册
                 bool variantIsPresent = false;
                 foreach (var t in ghostSerializerCollection)
                     variantIsPresent |= t.VariantHash == hash;
@@ -567,7 +569,7 @@ namespace Unity.NetCode.Tests
 
                 var componentIndex = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentIndex>(collection);
                 var ghostPrefabCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionPrefabSerializer>(collection);
-                //And verify that the component associated with the ghost for the transform point to this index
+                // 验证 Ghost 上 LocalTransform 对应的组件索引指向该 Variant
                 for (int i = 0; i < ghostPrefabCollection[0].NumComponents;++i)
                 {
                     var idx = componentIndex[ghostPrefabCollection[0].FirstComponent + i];

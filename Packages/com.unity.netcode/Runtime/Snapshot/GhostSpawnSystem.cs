@@ -10,30 +10,32 @@ namespace Unity.NetCode
 {
     /// <summary>
     /// <para>
-    /// System responsible for spawning all the ghost entities for the client world.
+    /// 负责为客户端 World 生成全部 Ghost 实体的系统
     /// </para>
     /// <para>
-    /// When a ghost snapshot is received from the server, the <see cref="GhostReceiveSystem"/> add a spawning request to the <see cref="GhostSpawnBuffer"/>.
-    /// After the spawning requests has been classified (see <see cref="GhostSpawnClassificationSystem"/>),
-    /// the <see cref="GhostSpawnSystem"/> start processing the spawning queue.
+    /// 从服务器收到 Ghost Snapshot 时，<see cref="GhostReceiveSystem"/> 会向 <see cref="GhostSpawnBuffer"/> 添加生成请求
+    /// 生成请求由 <see cref="GhostSpawnClassificationSystem"/> 分类后
+    /// <see cref="GhostSpawnSystem"/> 开始处理生成队列
     /// </para>
     /// <para>
-    /// Based on the spawning (<see cref="GhostSpawnBuffer.Type"/>), the requests are handled quite differently.
+    /// 系统会根据生成类型 <see cref="GhostSpawnBuffer.Type"/> 以不同方式处理请求
     /// </para>
-    /// <para>When the mode is set to <see cref="GhostSpawnBuffer.Type.Interpolated"/>, the ghost creation is delayed
-    /// until the <see cref="NetworkTime.InterpolationTick"/> match (or is greater) the actual spawning tick on the server.
-    /// A temporary entity, holding the spawning information, the received snapshot data from the server, and tagged with the <see cref="PendingSpawnPlaceholder"/>
-    /// is created. The entity will exists until the real ghost instance is spawned (or a de-spawn request has been received),
-    /// and its sole purpose of receiving new incoming snapshots (even though they are not applied to the entity, since it is not a real ghost).
-    /// </para>
-    /// <para>
-    /// When the mode is set to <see cref="GhostSpawnBuffer.Type.Predicted"/>, a new ghost instance in spawned immediately if the
-    /// current simulated <see cref="NetworkTime.ServerTick"/> is greater or equals the spawning tick reported by the server.
-    /// This condition is usually the norm, since the client timeline (the current simulated tick) should be ahead of the server.
+    /// <para>模式设为 <see cref="GhostSpawnBuffer.Type.Interpolated"/> 时
+    /// Ghost 创建会延迟到 <see cref="NetworkTime.InterpolationTick"/> 等于或大于服务器实际生成 Tick
+    /// 系统会创建带有 <see cref="PendingSpawnPlaceholder"/> 标签的临时实体
+    /// 用于保存生成信息和从服务器收到的 Snapshot 数据
+    /// 该实体会一直存在，直到真实 Ghost 实例生成或收到销毁请求
+    /// 它只负责接收新的 Snapshot，这些数据不会应用到实体，因为它还不是真实 Ghost
     /// </para>
     /// <para>
-    /// Otherwise, the ghost creation is delayed until the the <see cref="NetworkTime.ServerTick"/> is greater or equals the required spawning tick.
-    /// Like to interpolated ghost, a temporary placeholder entity is created to hold spawning information and for holding new received snapshots.
+    /// 模式设为 <see cref="GhostSpawnBuffer.Type.Predicted"/> 时
+    /// 如果当前模拟 <see cref="NetworkTime.ServerTick"/> 大于或等于服务器报告的生成 Tick
+    /// 就会立即生成新的 Ghost 实例
+    /// 这通常是常态，因为客户端时间线，即当前模拟 Tick，应领先于服务器
+    /// </para>
+    /// <para>
+    /// 否则 Ghost 创建会延迟到 <see cref="NetworkTime.ServerTick"/> 大于或等于所需生成 Tick
+    /// 与插值 Ghost 类似，系统会创建临时占位实体保存生成信息及新收到的 Snapshot
     /// </para>
     /// </summary>
     [BurstCompile]
@@ -93,7 +95,7 @@ namespace Unity.NetCode
         [BurstCompile]
         public unsafe void OnUpdate(ref SystemState state)
         {
-            state.Dependency.Complete(); // For ghost map access
+            state.Dependency.Complete(); // 等待完成以访问 Ghost 映射
             if (state.WorldUnmanaged.IsThinClient())
                 return;
             var stateEntityManager = state.EntityManager;
@@ -110,7 +112,7 @@ namespace Unity.NetCode
             var ghostSpawnBufferComponent = stateEntityManager.GetBuffer<GhostSpawnBuffer>(ghostSpawnEntity);
             var snapshotDataBufferComponent = stateEntityManager.GetBuffer<SnapshotDataBuffer>(ghostSpawnEntity);
 
-            //Avoid adding new ghost if the stream is not in game
+            // Stream 尚未进入游戏时避免添加新 Ghost
             if (m_InGameGroup.IsEmptyIgnoreFilter)
             {
                 ghostSpawnBufferComponent.ResizeUninitialized(0);
@@ -146,23 +148,23 @@ namespace Unity.NetCode
                 }
                 else if (ghost.SpawnType == GhostSpawnBuffer.Type.Predicted)
                 {
-                    // can it be spawned immediately?
+                    // 检查是否可以立即生成
                     if (!ghost.ClientSpawnTick.IsNewerThan(predictionTargetTick))
                     {
-                        // TODO: this could allow some time for the prefab to load before giving an error
+                        // TODO：报错前可以为 Prefab 加载预留一段时间
                         if (prefabs[ghost.GhostType].GhostPrefab == Entity.Null)
                         {
                             ReportMissingPrefab(ref stateEntityManager);
                             continue;
                         }
-                        // Spawn directly
+                        // 直接生成
                         entity = ghost.PredictedSpawnEntity != Entity.Null ? ghost.PredictedSpawnEntity : stateEntityManager.Instantiate(prefabs[ghost.GhostType].GhostPrefab);
                         if(stateEntityManager.HasComponent<PredictedGhostSpawnRequest>(entity))
                             stateEntityManager.RemoveComponent<PredictedGhostSpawnRequest>(entity);
                         if (stateEntityManager.HasComponent<GhostPrefabMetaData>(prefabs[ghost.GhostType].GhostPrefab))
                         {
                             ref var toRemove = ref stateEntityManager.GetComponentData<GhostPrefabMetaData>(prefabs[ghost.GhostType].GhostPrefab).Value.Value.DisableOnPredictedClient;
-                            //Need copy because removing component will invalidate the buffer pointer, since introduce structural changes
+                            // 移除组件会产生结构变更并使 Buffer 指针失效，因此需要先复制 LinkedEntityGroup
                             var linkedEntityGroup = stateEntityManager.GetBuffer<LinkedEntityGroup>(entity).ToNativeArray(Allocator.Temp);
                             for (int rm = 0; rm < toRemove.Length; ++rm)
                             {
@@ -183,7 +185,7 @@ namespace Unity.NetCode
                         UnsafeUtility.MemCpy(snapshotData, (byte*)snapshotDataBuffer.GetUnsafeReadOnlyPtr() + ghost.DataOffset, snapshotSize);
                         if (hasBuffers)
                         {
-                            //Resize and copy the associated dynamic buffer snapshot data
+                            // 调整大小并复制关联的 Dynamic Buffer Snapshot 数据
                             var snapshotDynamicBuffer = stateEntityManager.GetBuffer<SnapshotDynamicDataBuffer>(entity);
                             var dynamicDataCapacity= SnapshotDynamicBuffersHelper.CalculateBufferCapacity(ghost.DynamicDataSize, out var _);
                             snapshotDynamicBuffer.ResizeUninitialized((int)dynamicDataCapacity);
@@ -191,10 +193,11 @@ namespace Unity.NetCode
                             if(dynamicSnapshotData == null)
                                 throw new InvalidOperationException("snapshot dynamic data buffer not initialized but ghost has dynamic buffer contents");
 
-                            // Update the dynamic data header (uint[GhostSystemConstants.SnapshotHistorySize)]) by writing the used size for the current slot
-                            // (for new spawned entity is 0). Is un-necessary to initialize all the header slots to 0 since that information is only used
-                            // for sake of delta compression and, because that depend on the acked tick, only initialized and relevant slots are accessed in general.
-                            // For more information about the layout, see SnapshotData.cs.
+                            // 将当前槽位的已用大小写入动态数据 Header，即 uint[GhostSystemConstants.SnapshotHistorySize]
+                            // 对新生成实体而言当前槽位为 0
+                            // 无需将所有 Header 槽位初始化为 0，因为这些信息只用于增量压缩
+                            // 且增量压缩依赖已 Ack Tick，通常只会访问已初始化且相关的槽位
+                            // 布局详情参见 SnapshotData.cs
                             ((uint*)dynamicSnapshotData)[0] = ghost.DynamicDataSize;
                             var headerSize = SnapshotDynamicBuffersHelper.GetHeaderSize();
                             UnsafeUtility.MemCpy(dynamicSnapshotData + headerSize, (byte*)snapshotDataBuffer.GetUnsafeReadOnlyPtr() + ghost.DataOffset + snapshotSize, ghost.DynamicDataSize);
@@ -202,7 +205,7 @@ namespace Unity.NetCode
                     }
                     else
                     {
-                        // Add to delayed spawning queue
+                        // 加入延迟生成队列
                         entity = AddToDelayedSpawnQueue(ref stateEntityManager, m_DelayedPredictedGhostSpawnQueue, ghost, ref snapshotDataBuffer, ghostTypeCollection);
 
                         nonSpawnedGhosts.Add(new NonSpawnedGhostMapping { ghostId = ghost.GhostID, entity = entity });
@@ -254,7 +257,7 @@ namespace Unity.NetCode
         {
             SystemAPI.GetSingleton<NetDebug>().LogError($"Trying to spawn with a prefab which is not loaded");
 
-            // TODO: Use entityManager.AddComponentData(EntityQuery, T); when it's available.
+            // TODO：可用后改用 entityManager.AddComponentData(EntityQuery, T)
             using var entities = m_NetworkIdQuery.ToEntityArray(Allocator.Temp);
             foreach (var entity in entities)
             {
@@ -279,7 +282,7 @@ namespace Unity.NetCode
             var newBuffer = entityManager.AddBuffer<SnapshotDataBuffer>(entity);
             newBuffer.ResizeUninitialized(snapshotSize * GhostSystemConstants.SnapshotHistorySize);
             var snapshotData = (byte*)newBuffer.GetUnsafePtr();
-            //Add also the SnapshotDynamicDataBuffer if the entity has buffers to copy the dynamic contents
+            // 实体具有 Buffer 时还要添加 SnapshotDynamicDataBuffer，以复制动态内容
             if (hasBuffers)
                 entityManager.AddBuffer<SnapshotDynamicDataBuffer>(entity);
             entityManager.AddComponentData(entity, new SnapshotData { SnapshotSize = snapshotSize, LatestIndex = 0 });
@@ -290,7 +293,7 @@ namespace Unity.NetCode
             UnsafeUtility.MemCpy(snapshotData, (byte*)snapshotDataBuffer.GetUnsafeReadOnlyPtr() + ghost.DataOffset, snapshotSize);
             if (hasBuffers)
             {
-                //Resize and copy the associated dynamic buffer snapshot data
+                // 调整大小并复制关联的 Dynamic Buffer Snapshot 数据
                 var snapshotDynamicBuffer = entityManager.GetBuffer<SnapshotDynamicDataBuffer>(entity);
                 var dynamicDataCapacity = SnapshotDynamicBuffersHelper.CalculateBufferCapacity(ghost.DynamicDataSize, out var _);
                 snapshotDynamicBuffer.ResizeUninitialized((int)dynamicDataCapacity);
@@ -298,10 +301,11 @@ namespace Unity.NetCode
                 if (dynamicSnapshotData == null)
                     throw new InvalidOperationException("snapshot dynamic data buffer not initialized but ghost has dynamic buffer contents");
 
-                // Update the dynamic data header (uint[GhostSystemConstants.SnapshotHistorySize)]) by writing the used size for the current slot
-                // (for new spawned entity is 0). Is un-necessary to initialize all the header slots to 0 since that information is only used
-                // for sake of delta compression and, because that depend on the acked tick, only initialized and relevant slots are accessed in general.
-                // For more information about the layout, see SnapshotData.cs.
+                // 将当前槽位的已用大小写入动态数据 Header，即 uint[GhostSystemConstants.SnapshotHistorySize]
+                // 对新生成实体而言当前槽位为 0
+                // 无需将所有 Header 槽位初始化为 0，因为这些信息只用于增量压缩
+                // 且增量压缩依赖已 Ack Tick，通常只会访问已初始化且相关的槽位
+                // 布局详情参见 SnapshotData.cs
                 ((uint*)dynamicSnapshotData)[0] = ghost.DynamicDataSize;
                 var headerSize = SnapshotDynamicBuffersHelper.GetHeaderSize();
                 UnsafeUtility.MemCpy(dynamicSnapshotData + headerSize, (byte*)snapshotDataBuffer.GetUnsafeReadOnlyPtr() + ghost.DataOffset + snapshotSize, ghost.DynamicDataSize);
@@ -314,17 +318,17 @@ namespace Unity.NetCode
         {
             entity = Entity.Null;
 
-            // TODO: this could allow some time for the prefab to load before giving an error
+            // TODO：报错前可以为 Prefab 加载预留一段时间
             if (prefabs[ghost.ghostType].GhostPrefab == Entity.Null)
             {
                 ReportMissingPrefab(ref entityManager);
                 return false;
             }
-            //Entity has been destroyed meawhile it was in the queue
+            // 实体在队列等待期间已被销毁
             if (!entityManager.HasComponent<GhostInstance>(ghost.oldEntity))
                 return false;
 
-            // Spawn actual entity
+            // 生成实际实体
             entity = ghost.predictedSpawnEntity != Entity.Null ? ghost.predictedSpawnEntity : entityManager.Instantiate(prefabs[ghost.ghostType].GhostPrefab);
             if(entityManager.HasComponent<PredictedGhostSpawnRequest>(entity))
                 entityManager.RemoveComponent<PredictedGhostSpawnRequest>(entity);
@@ -334,7 +338,7 @@ namespace Unity.NetCode
                 if (spawnType == GhostSpawnBuffer.Type.Predicted)
                     toRemove = ref entityManager.GetComponentData<GhostPrefabMetaData>(prefabs[ghost.ghostType].GhostPrefab).Value.Value.DisableOnPredictedClient;
                 var linkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(entity).ToNativeArray(Allocator.Temp);
-                //Need copy because removing component will invalidate the buffer pointer, since introduce structural changes
+                // 移除组件会产生结构变更并使 Buffer 指针失效，因此需要先复制 LinkedEntityGroup
                 for (int rm = 0; rm < toRemove.Length; ++rm)
                 {
                     var compType = ComponentType.ReadWrite(TypeManager.GetTypeIndexFromStableTypeHash(toRemove[rm].StableHash));
@@ -353,9 +357,8 @@ namespace Unity.NetCode
             var newBuffer = entityManager.GetBuffer<SnapshotDataBuffer>(entity);
             newBuffer.ResizeUninitialized(oldBuffer.Length);
             UnsafeUtility.MemCpy(newBuffer.GetUnsafePtr(), oldBuffer.GetUnsafeReadOnlyPtr(), oldBuffer.Length);
-            //copy the old buffers content to the new entity.
-            //Perf FIXME: if we can introduce a "move" like concept for buffer to transfer ownership we can avoid a lot of copies and
-            //allocations
+            // 将旧 Buffer 内容复制到新实体
+            // 性能 FIXME：如果能为 Buffer 引入类似 Move 的所有权转移机制，就可以避免大量复制和分配
             var ghostTypeCollection = entityManager.GetBuffer<GhostCollectionPrefabSerializer>(ghostCollectionSingleton);
             bool hasBuffers = ghostTypeCollection[ghost.ghostType].NumBuffers > 0;
             if (hasBuffers)

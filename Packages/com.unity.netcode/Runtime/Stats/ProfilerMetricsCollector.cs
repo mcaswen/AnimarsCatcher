@@ -11,26 +11,26 @@ using Debug = UnityEngine.Debug;
 
 namespace Unity.NetCode
 {
-    // Profiler counters and additional metrics
+    // Profiler 计数器与附加指标
     struct ProfilerMetrics : IComponentData
     {
-        // Size sent by server accumulated over the whole profiler run
+        // 整个 Profiler 运行期间服务端累计发送的大小
         internal uint TotalSizeSentByServerInBits;
 
-        // Total packet count sent by server over the whole profiler run
+        // 整个 Profiler 运行期间服务端累计发送的数据包总数
         internal uint TotalPacketCountSentByServer;
 
-        // Size received by client accumulated over the whole profiler run
+        // 整个 Profiler 运行期间客户端累计接收的大小
         internal uint TotalSizeReceivedByClientInBits;
 
-        // Total packet count received by client over the whole profiler run
+        // 整个 Profiler 运行期间客户端累计接收的数据包总数
         internal uint TotalPacketCountReceivedByClient;
 
-        // Server World Counters
+        // 服务端 World 计数器
         internal ProfilerCounterValue<uint> ServerGhostInstancesCounter;
         internal ProfilerCounterValue<uint> ServerGhostSnapshotCounter;
 
-        // Client World Counters
+        // 客户端 World 计数器
         internal ProfilerCounterValue<uint> ClientGhostInstancesCounter;
         internal ProfilerCounterValue<uint> ClientGhostSnapshotCounter;
         internal ProfilerCounterValue<float> JitterCounter;
@@ -38,15 +38,14 @@ namespace Unity.NetCode
         internal ProfilerCounterValue<float> SnapshotAgeMinCounter;
         internal ProfilerCounterValue<float> SnapshotAgeMaxCounter;
 
-        // ServerTick
+        // 服务端 Tick
         internal NetworkTick ServerTick;
     }
 
     /// <summary>
-    /// Contains the uncompressed size in bits for each ghost type.
-    /// This is used to calculate the compression efficiency in the N4E profiler modules.
-    /// Only the size of every type in the GhostCollectionPrefab is needed so we just save the snapshot size for each
-    /// entry of the GhostCollectionPrefabSerializer.
+    /// 保存每种 Ghost 类型的未压缩大小，单位为位
+    /// 用于在 N4E Profiler 模块中计算压缩效率
+    /// 只需要 GhostCollectionPrefab 中各类型的大小，因此仅保存 GhostCollectionPrefabSerializer 每个条目的 Snapshot 大小
     /// </summary>
     [InternalBufferCapacity(0)]
     struct UncompressedSizesPerType : IBufferElementData
@@ -67,11 +66,11 @@ namespace Unity.NetCode
             ComponentType.ReadOnly<PredictionErrorMetrics>()
         };
 
-        // Flag to know if we have already initialized the metrics collection.
+        // 标记指标收集是否已经初始化
         bool m_MetricsCollectionEnabled;
-        // Flag to know if we are waiting for a connection in order to set the uncompressed sizes per type once we have one.
+        // 标记是否正在等待连接，以便连接建立后设置各类型的未压缩大小
         bool m_WaitForConnection;
-        // Flag to know if we need to clean up the profiler metrics.
+        // 标记是否需要清理 Profiler 指标
         bool m_IsCleanedUp = true;
 
         void Initialize()
@@ -112,14 +111,13 @@ namespace Unity.NetCode
 
             if (!EntityManager.CreateEntityQuery(typeof(GhostMetricsMonitor)).TryGetSingletonEntity<GhostMetricsMonitor>(out var singletonEntity))
             {
-                // Create a new GhostMetricsMonitor singleton entity if it doesn't exist.
+                // GhostMetricsMonitor 单例不存在时创建一个新实体
                 CreateGhostMetricsMonitorSingleton();
             }
             else
             {
-                // In this case there was already a GhostMetricsMonitor singleton created by the user.
-                // We will notify the user that their GhostMetricsMonitor will be destroyed and that they need to
-                // recreate it when the profiler is disabled.
+                // 此时用户已经创建了 GhostMetricsMonitor 单例
+                // 提醒用户该单例将被销毁，并需在禁用 Profiler 后重新创建
                 Debug.LogWarning("A GhostMetricsMonitor singleton already exists in the world.\n " +
                     "This will be destroyed and recreated by the ProfilerMetricsCollector system.\n " +
                     "Please recreate your GhostMetricsMonitor after disabling the profiler.");
@@ -142,7 +140,7 @@ namespace Unity.NetCode
         {
             if (!Profiler.enabled)
             {
-                // We have no way to get notified when the profiler is disabled, so we clean up the metrics once and set a flag.
+                // 无法收到 Profiler 禁用通知，因此只清理一次指标并设置标记
                 Cleanup();
                 return;
             }
@@ -150,8 +148,7 @@ namespace Unity.NetCode
             if (!m_MetricsCollectionEnabled)
                 Initialize();
 
-            // This also checks for NetworkStreamInGame, so it's important to call it before we potentially early-out
-            // due to empty stats.
+            // 该方法还会检查 NetworkStreamInGame，因此必须在统计为空而可能提前退出前调用
             SetUncompressedSizesPerType();
 
             var ghostStatsSnapshot = SystemAPI.GetSingleton<GhostStatsSnapshotSingleton>().GetAsyncStatsReader();
@@ -182,12 +179,12 @@ namespace Unity.NetCode
 
             SystemAPI.SetSingleton(profilerMetrics);
 
-            // Serialize component stats.
+            // 序列化组件统计
             var serializedGhostStatsSnapshot = ghostStatsSnapshot.ToBlittableData(Allocator.Temp);
 
             var guid = World.IsServer() ? ProfilerMetricsConstants.ServerGuid : ProfilerMetricsConstants.ClientGuid;
 
-            // Send the data to the profiler.
+            // 将数据发送到 Profiler
             EmitNetcodeFrameMetaData(guid, serializedGhostStatsSnapshot);
         }
 
@@ -195,10 +192,10 @@ namespace Unity.NetCode
         {
             var uncompressedSizesPerType = SystemAPI.GetSingletonBuffer<UncompressedSizesPerType>();
 
-            // We only set uncompressed sizes at the start and when they change.
+            // 仅在启动时或数据变化时设置未压缩大小
             if (uncompressedSizesPerType.IsEmpty && !m_WaitForConnection)
             {
-                // Initial setup
+                // 初始设置
                 var serializers = SystemAPI.GetSingletonBuffer<GhostCollectionPrefabSerializer>();
                 if (serializers.IsEmpty)
                     return;
@@ -212,10 +209,10 @@ namespace Unity.NetCode
                 return;
             }
 
-            // Check if we need to rebuild the buffer.
+            // 检查是否需要重建 Buffer
             if (SystemAPI.QueryBuilder().WithAll<NetworkStreamInGame>().Build().CalculateEntityCount() == 0)
             {
-                // Wait until we have a connection again so we can rebuild the buffer.
+                // 等待连接重新建立后再重建 Buffer
                 m_WaitForConnection = true;
                 uncompressedSizesPerType.Clear();
             }
@@ -238,19 +235,19 @@ namespace Unity.NetCode
                 instancesCount += ghostTypeStats[i].EntityCount;
             }
 
-            // Update Graph Counters
+            // 更新图表计数器
             if (World.IsServer())
             {
                 profilerMetrics.ServerGhostInstancesCounter.Value = instancesCount;
-                profilerMetrics.ServerGhostSnapshotCounter.Value = ghostStatsSnapshot.SnapshotTotalSizeInBits >> 3; // Convert to bytes;
+                profilerMetrics.ServerGhostSnapshotCounter.Value = ghostStatsSnapshot.SnapshotTotalSizeInBits >> 3; // 转换为字节
             }
             else
             {
                 profilerMetrics.ClientGhostInstancesCounter.Value = instancesCount;
-                profilerMetrics.ClientGhostSnapshotCounter.Value = ghostStatsSnapshot.SnapshotTotalSizeInBits >> 3; // Convert to bytes
+                profilerMetrics.ClientGhostSnapshotCounter.Value = ghostStatsSnapshot.SnapshotTotalSizeInBits >> 3; // 转换为字节
 
                 var networkMetrics = SystemAPI.GetSingleton<NetworkMetrics>();
-                // Profiler expects nanoseconds as base unit
+                // Profiler 使用纳秒作为基础单位
                 profilerMetrics.JitterCounter.Value = networkMetrics.Jitter * 1_000_000f;
                 profilerMetrics.RttCounter.Value = networkMetrics.Rtt * 1_000_000f;
                 profilerMetrics.SnapshotAgeMinCounter.Value = networkMetrics.SnapshotAgeMin;

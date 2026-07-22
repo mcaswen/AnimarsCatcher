@@ -42,7 +42,7 @@ namespace Unity.NetCode.Editor
                 treeViewFilter?.Invoke(evt.newValue);
             });
 
-            // TODO: Add search bar
+            // TODO 添加搜索栏
             // container.Add(searchBar);
             return container;
         }
@@ -108,7 +108,7 @@ namespace Unity.NetCode.Editor
         {
             AddToClassList("metrics-header");
 
-            // Left-aligned label for the world name and server tick
+            // 左对齐显示 World 名称与 Server Tick
             var leftAlignedContainer = new VisualElement();
             leftAlignedContainer.AddToClassList("metrics-header__left-aligned");
             m_WorldNameLabel = new Label("World Name");
@@ -119,7 +119,7 @@ namespace Unity.NetCode.Editor
             leftAlignedContainer.Add(m_ServerTickLabel);
             Add(leftAlignedContainer);
 
-            // Right-aligned labels for jitter and rtt
+            // 右对齐显示 Jitter 与 RTT
             if (role == NetworkRole.Client)
             {
                 var rightAlignedContainer = new VisualElement();
@@ -131,7 +131,7 @@ namespace Unity.NetCode.Editor
                 Add(rightAlignedContainer);
             }
 
-            // background highlight
+            // 背景高亮
             AddToClassList("unity-collection-view__item--alternative-background");
         }
 

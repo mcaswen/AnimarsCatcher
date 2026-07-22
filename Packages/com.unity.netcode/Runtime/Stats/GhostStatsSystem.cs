@@ -11,10 +11,8 @@ using UnityEditor;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Commit to the Network Debugger tools all the stats collected by the server and clients worlds
-    /// during the last frame. It is also responsible to handle the connection to the debugging tool.
-    /// The system explicity run in the DefaultWorld (since it is responsible to persist and mains the connection to the
-    /// debugging systems, regardless of the existance of the client/server worlds).
+    /// 将服务端和客户端 World 在上一帧收集的全部统计提交给 Network Debugger 工具，同时负责管理调试工具连接
+    /// 该 System 明确运行在 DefaultWorld 中，因为无论客户端或服务端 World 是否存在，它都必须持续维护与调试系统的连接
     /// </summary>
     class GhostStatsConnection : IDisposable
     {
@@ -42,7 +40,7 @@ namespace Unity.NetCode
 #if !UNITY_WEBGL
         internal static ushort Port = 8787;
 #else
-        //disable listening
+        // 禁用监听
         internal static ushort Port = 0;
 #endif
 
@@ -86,7 +84,7 @@ namespace Unity.NetCode
                 }
             }
 
-            //Remove stats if the world has been disposed
+            // 移除所属 World 已释放的统计
             if (m_StatsCollections != null)
             {
                 for (var con = m_StatsCollections.Count - 1; con >= 0; --con)
@@ -131,7 +129,7 @@ namespace Unity.NetCode
 
         private unsafe void SetStatIndex(EntityQuery singletonQuery, int index)
         {
-            //Reset the collected stats when we invalidate the index
+            // 索引失效时重置已收集的统计
             ref var statsData = ref singletonQuery.GetSingletonRW<GhostStatsCollectionData>().ValueRW;
             statsData.m_StatIndex = index;
             statsData.m_CollectionTick = NetworkTick.Invalid;
@@ -140,7 +138,7 @@ namespace Unity.NetCode
             if (statsData.m_LastNameAndErrorArray.Length > 0)
                 statsData.AppendNamePacket(singletonQuery.GetSingleton<GhostStatsSnapshotSingleton>());
 
-            //Complete any pending jobs before resetting singleton data
+            // 重置单例数据前完成所有待处理 Job
             singletonQuery.CompleteDependency();
             ref var commandStatsData = ref singletonQuery.GetSingletonRW<GhostStatsCollectionCommand>().ValueRW;
             ref var predictionErrorData = ref singletonQuery.GetSingletonRW<GhostStatsCollectionPredictionError>().ValueRW;
@@ -148,7 +146,7 @@ namespace Unity.NetCode
             commandStatsData.Value[0] = 0;
             commandStatsData.Value[1] = 0;
             commandStatsData.Value[2] = 0;
-            // snapshotCollectionData.Data.Clear(); // No need to do this here. We're clearing write stats right after copying them to read stats.
+            // snapshotCollectionData.Data.Clear(); // 此处无需清理，写入统计复制到读取统计后会立即清理
             predictionErrorData.Data.Clear();
             UnsafeUtility.MemClear(minMaxTickData.Value.GetUnsafePtr(), UnsafeUtility.SizeOf<NetworkTick>()*minMaxTickData.Value.Length);
         }
@@ -191,4 +189,3 @@ namespace Unity.NetCode
     }
 }
 #endif
-

@@ -5,15 +5,17 @@ using Unity.Networking.Transport.Utilities;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     Presets for the com.unity.transport simulator.
-    ///     Allows developers to simulate a variety of network conditions.
+    /// com.unity.transport 模拟器的 Preset
+    /// 允许开发者模拟多种网络条件
     /// </summary>
     /// <seealso cref="AppendBaseSimulatorPresets"/>
     /// <seealso cref="AppendAdditionalMobileSimulatorProfiles"/>
     [Serializable]
     public struct SimulatorPreset
     {
-        /// <summary>Users can modify simulator preset values directly. This preset is called "custom".</summary>
+        /// <summary>
+        /// 用户可以直接修改模拟器 Preset 值，此 Preset 称为 Custom
+        /// </summary>
         internal const string k_CustomProfileKey = "Custom / User Defined";
         const string k_CustomProfileTooltip = "Custom indicates that you have modified individual simulator values yourself.";
         const string k_PoorMobileTooltip = "Extremely poor connection quality, completely unsuitable for synchronous multiplayer gaming due to exceptionally high latency. Turn based games <i>may</i> work.";
@@ -33,10 +35,10 @@ namespace Unity.NetCode
         const string k_InternationalPoor = "Represents a \"poor\" connection from a player connecting to a server hosted <b>outside their region</b>." + k_InternationalDisclaimer + "I.e. 95% of " + k_PlayersAsGoodOrBetter;
 
         /// <summary>
-        ///     The most common profiles, including custom debug ones.
-        ///     Last updated Q3 2022.
+        /// 最常用的 Profile，包括自定义调试项
+        /// 最后更新于 2022 年第三季度
         /// </summary>
-        /// <param name="list">To append to.</param>
+        /// <param name="list">要追加内容的列表</param>
         public static void AppendBaseSimulatorPresets(List<SimulatorPreset> list)
         {
             list.Add(new SimulatorPreset(k_CustomProfileKey, -1, -1, -1, 0, k_CustomProfileTooltip));
@@ -48,15 +50,15 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        ///     <para>These are best-estimate approximations for mobile connection types, informed by real world data.
-        ///     Last updated Q3 2022.</para>
-        ///     <para>Sources:</para>
-        ///     <para>- Developers [Multiplayer, Support and Customers]</para>
+        /// <para>根据真实数据对移动网络连接类型作出的最佳近似估计
+        /// 最后更新于 2022 年第三季度</para>
+        /// <para>来源</para>
+        /// <para>- 开发者、多人游戏团队、支持团队与客户</para>
         ///     <para>- https://unity.com/products/multiplay</para>
         ///     <para>- https://www.giffgaff.com/blog/h-5g-lte-a-g-e-new-cell-network-alphabet/</para>
         ///     <para>- https://www.4g.co.uk/how-fast-is-4g/</para>
         /// </summary>
-        /// <param name="list">To append to.</param>
+        /// <param name="list">要追加内容的列表</param>
         public static void AppendAdditionalMobileSimulatorProfiles(List<SimulatorPreset> list)
         {
             BuildProfiles(list, false, "2G [!] [CDMA & GSM, '00] / ", 200, 20, 5, k_PoorMobileTooltip);
@@ -71,26 +73,28 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        ///     <para>These are best-estimate approximations of PC and Console connection types, informed by real world data.
-        ///     Last updated Q3 2022.</para>
-        ///     <para>Sources:</para>
-        ///     <para>- Developers [Multiplayer, Support and Customers]</para>
+        /// <para>根据真实数据对 PC 和主机连接类型作出的最佳近似估计
+        /// 最后更新于 2022 年第三季度</para>
+        /// <para>来源</para>
+        /// <para>- 开发者、多人游戏团队、支持团队与客户</para>
         ///     <para>- https://unity.com/products/multiplay</para>
         /// </summary>
-        /// <param name="list">To append to.</param>
+        /// <param name="list">要追加内容的列表</param>
         public static void AppendAdditionalPCSimulatorPresets(List<SimulatorPreset> list)
         {
             list.Add(new SimulatorPreset("LAN [Local Area Network]", 1, 1, 1, 0, "Playing on LAN is generally <1ms (i.e. simulator off), but we've included it for convenience."));
         }
 
-        /// <summary>Builds sub-profiles for your profile. E.g. 4 regional options for your custom profile.</summary>
-        /// <param name="list">To append to.</param>
-        /// <param name="showRegional">False for any profiles that are such poor quality, that you don't even want to allow users to select regional servers (as it would be pointless, and give the wrong impression).</param>
-        /// <param name="name">Name of profile. Include a forward slash if you want sub-profiles to be in a sub-menu.</param>
-        /// <param name="packetDelayMs">Note that profiles add delay on top.</param>
-        /// <param name="packetJitterMs">Note that profiles add delay on top.</param>
-        /// <param name="packetLossPercent">Note that profiles add delay on top.</param>
-        /// <param name="tooltip">Note that profiles add delay on top.</param>
+        /// <summary>
+        /// 为 Profile 构建子 Profile，例如为自定义 Profile 构建四个地区选项
+        /// </summary>
+        /// <param name="list">要追加内容的列表</param>
+        /// <param name="showRegional">连接质量极差，选择地区服务器也无意义且会造成错误印象时设为 false</param>
+        /// <param name="name">Profile 名称，需要让子 Profile 出现在子菜单中时包含正斜杠</param>
+        /// <param name="packetDelayMs">Profile 会在此基础上继续增加延迟</param>
+        /// <param name="packetJitterMs">Profile 会在此基础上继续增加抖动</param>
+        /// <param name="packetLossPercent">Profile 会在此基础上继续增加丢包率</param>
+        /// <param name="tooltip">Profile 会在此基础上追加提示内容</param>
         public static void BuildProfiles(List<SimulatorPreset> list, bool showRegional, string name, int packetDelayMs, int packetJitterMs, int packetLossPercent, string tooltip)
         {
             if (tooltip != null)
@@ -111,7 +115,7 @@ namespace Unity.NetCode
 
 #if UNITY_EDITOR
         /// <summary>
-        /// Returns appropriate presets for the targeted version.
+        /// 返回适合目标版本的 Preset
         /// </summary>
         /// <param name="presetGroupName"></param>
         /// <param name="appendPresets"></param>
@@ -141,16 +145,17 @@ namespace Unity.NetCode
 #endif
 
         /// <summary>
-        /// True if this is user-defined the preset.
+        /// 当前为用户定义的 Preset 时返回 true
         /// </summary>
         public bool IsCustom => string.IsNullOrWhiteSpace(Name) || Name == k_CustomProfileKey;
 
         /// <summary>
-        /// The name of the preset. Can be empty for custom preset (when the user modify the simulator setting in the editor).
+        /// Preset 名称
+        /// 对于用户在 Editor 中修改模拟器设置后形成的自定义 Preset，可以为空
         /// </summary>
         readonly internal string Name;
         /// <summary>
-        /// The tooltip displayed in thet simulator window.
+        /// 在模拟器窗口中显示的 Tooltip
         /// </summary>
         readonly internal string Tooltip;
         /// <inheritdoc cref="Unity.Networking.Transport.Utilities.SimulatorUtility.Parameters.PacketDelayMs"/>
@@ -162,16 +167,16 @@ namespace Unity.NetCode
         /// <inheritdoc cref="SimulatorUtility.Parameters.FuzzFactor"/>
         internal int PacketFuzzPercent;
 
-        // TODO - Make use of bandwidth data in later commit.
+        // TODO：在后续提交中使用带宽数据
 
         /// <summary>
-        /// Retrieve the preset with the given <paramref name="name"/> from the <paramref name="allProfiles"/> list.
+        /// 从 <paramref name="allProfiles"/> 列表中获取具有指定 <paramref name="name"/> 的 Preset
         /// </summary>
         /// <param name="name"></param>
         /// <param name="allProfiles"></param>
-        /// <param name="preset">the preset matching the name. null if the preset is not found.</param>
-        /// <param name="index">the index of the preset in the list. -1 if the preset is not found.</param>
-        /// <returns>true if the preset has been found</returns>
+        /// <param name="preset">名称匹配的 Preset，未找到时为 null</param>
+        /// <param name="index">Preset 在列表中的索引，未找到时为 -1</param>
+        /// <returns>找到 Preset 时为 true</returns>
         internal static bool TryGetPresetFromName(string name, List<SimulatorPreset> allProfiles, out SimulatorPreset preset, out int index)
         {
             for (var i = 0; i < allProfiles.Count; i++)
@@ -189,14 +194,14 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Construct a new preset.
+        /// 构造新的 Preset
         /// </summary>
-        /// <param name="name">Simulator name</param>
-        /// <param name="packetDelayMs">Packet delay in miliseconds</param>
-        /// <param name="packetJitterMs">Packet jitter in miliseconds</param>
-        /// <param name="packetLossPercent">Packet loss in percentage</param>
-        /// <param name="packetFuzzPercent">Packet fuzz in percentage</param>
-        /// <param name="tooltip">Tooltip string</param>
+        /// <param name="name">Simulator 名称</param>
+        /// <param name="packetDelayMs">数据包延迟，单位为毫秒</param>
+        /// <param name="packetJitterMs">数据包抖动，单位为毫秒</param>
+        /// <param name="packetLossPercent">数据包丢失百分比</param>
+        /// <param name="packetFuzzPercent">数据包模糊处理百分比</param>
+        /// <param name="tooltip">Tooltip 字符串</param>
         public SimulatorPreset(string name, int packetDelayMs, int packetJitterMs, int packetLossPercent, int packetFuzzPercent, string tooltip)
         {
             Name = name;
@@ -208,13 +213,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Construct a new preset.
+        /// 构造新的 Preset
         /// </summary>
-        /// <param name="name">Simulator name</param>
-        /// <param name="packetDelayMs">Packet delay in miliseconds</param>
-        /// <param name="packetJitterMs">Packet jitter in miliseconds</param>
-        /// <param name="packetLossPercent">Packet loss in percentage</param>
-        /// <param name="tooltip">Tooltip string</param>
+        /// <param name="name">Simulator 名称</param>
+        /// <param name="packetDelayMs">数据包延迟，单位为毫秒</param>
+        /// <param name="packetJitterMs">数据包抖动，单位为毫秒</param>
+        /// <param name="packetLossPercent">数据包丢失百分比</param>
+        /// <param name="tooltip">Tooltip 字符串</param>
         [Obsolete("Use other constructor. (RemovedAfter 2.0)")]
         public SimulatorPreset(string name, int packetDelayMs, int packetJitterMs, int packetLossPercent, string tooltip)
             : this(name, packetDelayMs, packetJitterMs, packetLossPercent, 0, tooltip)

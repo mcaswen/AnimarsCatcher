@@ -130,7 +130,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.IsNotNull(componentModel);
             Assert.IsTrue(Roslyn.Extensions.IsBuffer(bufferModel as ITypeSymbol));
             Assert.IsTrue(Roslyn.Extensions.IsCommand(commandModel as ITypeSymbol));
-            //Is Command is also a buffer, lets check if the inheritance works
+            // Command 同时也是 Buffer，检查继承关系是否生效
             Assert.IsTrue(Roslyn.Extensions.IsBuffer(commandModel as ITypeSymbol));
             Assert.IsTrue(Roslyn.Extensions.IsComponent(componentModel as ITypeSymbol));
         }

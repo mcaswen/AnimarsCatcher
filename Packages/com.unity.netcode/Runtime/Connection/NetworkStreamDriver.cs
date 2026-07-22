@@ -8,10 +8,9 @@ using Unity.Networking.Transport.Relay;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Singleton that can hold a reference to the <see cref="NetworkDriverStore"/> and that should be used
-    /// to easily listening for new connection or connecting to server.
-    /// Provide also other shortcut for retrieving the remote address of a <see cref="NetworkStreamConnection"/> or its
-    /// underlying transport state.
+    /// 保存 <see cref="NetworkDriverStore"/> 引用的 Singleton，
+    /// 用于便捷地监听新连接或连接服务器
+    /// 还提供获取 <see cref="NetworkStreamConnection"/> 远端地址及其底层 Transport 状态的快捷方法
     /// </summary>
     public unsafe struct NetworkStreamDriver : IComponentData
     {
@@ -37,28 +36,28 @@ namespace Unity.NetCode
         private void* m_DriverPointer;
 
         /// <summary>
-        /// A pointer to the underlying <see cref="DriverStore"/>, giving access to raw Transport APIs.<br/>
-        /// <b>Warning: You MUST fetch <see cref="NetworkStreamDriver"/> as RW access when performing Driver operations!</b>
+        /// 指向底层 <see cref="DriverStore"/> 的指针，可用于访问原始 Transport API<br/>
+        /// <b>警告：执行 Driver 操作时，必须以读写方式获取 <see cref="NetworkStreamDriver"/></b>
         /// </summary>
         /// <remarks>
-        /// <see cref="NetworkDriverStore"/> has specific usage patterns (see for loop use-cases below). Use with care!<br/>
-        /// Copying such a large struct is expensive, prefer <c>ref var driverStore = ref networkStreamDriver.RefRW.DriverStore;</c> syntax.
+        /// <see cref="NetworkDriverStore"/> 具有特定使用模式，参见下方 for 循环示例，请谨慎使用<br/>
+        /// 复制如此大的结构体开销很高，应优先使用 <c>ref var driverStore = ref networkStreamDriver.RefRW.DriverStore;</c> 语法
         /// </remarks>
         public ref NetworkDriverStore DriverStore => ref UnsafeUtility.AsRef<Pointers>(m_DriverPointer).DriverStore;
 
         /// <summary>
-        /// A reference to the concurrent version of the <see cref="NetworkDriverStore"/> (<see cref="ConcurrentDriverStore"/>), used for send/receiving
-        /// messages in jobs.
+        /// <see cref="NetworkDriverStore"/> 并发版本，即 <see cref="ConcurrentDriverStore"/> 的引用，
+        /// 用于在 Job 中发送和接收消息
         /// </summary>
         public ref ConcurrentDriverStore ConcurrentDriverStore => ref UnsafeUtility.AsRef<Pointers>(m_DriverPointer).ConcurrentDriverStore;
 
         /// <summary>
-        /// Convenience. Records the DriverStore used in the latest call to <see cref="Listen"/> or <see cref="Connect"/>.
+        /// 便捷属性，记录最近一次调用 <see cref="Listen"/> 或 <see cref="Connect"/> 时使用的 DriverStore
         /// </summary>
         /// <remarks>
-        /// <para>Note that the actual Endpoint used by each <see cref="NetworkStreamDriver"/> may be different,
-        /// due to <see cref="IPCNetworkInterface"/>.</para>
-        /// <para>See <see cref="SanitizeConnectAddress"/> and <see cref="SanitizeListenAddress"/>.</para>
+        /// <para>由于 <see cref="IPCNetworkInterface"/> 的存在，每个 <see cref="NetworkStreamDriver"/>
+        /// 实际使用的 Endpoint 可能不同</para>
+        /// <para>参见 <see cref="SanitizeConnectAddress"/> 和 <see cref="SanitizeListenAddress"/></para>
         /// </remarks>
         public NetworkEndpoint LastEndPoint { get; internal set; }
 
@@ -68,10 +67,9 @@ namespace Unity.NetCode
         private NativeQueue<int> m_FreeNetworkIds;
 
         /// <summary>
-        /// Require all incoming connections to all the drivers in the driver store to go through the connection
-        /// approval process. If turned off the connections are immediately approved and go from connecting to
-        /// the handshake state.
-        /// <br/>Server-only. Always false on the client.
+        /// 要求 Driver Store 中所有 Driver 的全部入站连接都经过连接审批流程
+        /// 如果关闭，连接会立即获批并从 Connecting 进入 Handshake 状态
+        /// <br/>仅服务器使用，客户端上始终为 false
         /// </summary>
         public bool RequireConnectionApproval
         {
@@ -94,28 +92,23 @@ namespace Unity.NetCode
 
         /// <summary>
         ///     <para>
-        ///         Stores all <see cref="NetCodeConnectionEvent" />s raised by Netcode for this
-        ///         <see cref="SimulationSystemGroup" /> tick,
-        ///         which allows user code to subscribe to connection and disconnection events (including
-        ///         <see cref="ConnectionState.State.Handshake" /> and <see cref="ConnectionState.State.Approval" />, if
-        ///         applicable).
-        ///         Refer to the Network connection page
+        ///         保存 NetCode 在当前 <see cref="SimulationSystemGroup" /> Tick 触发的全部
+        ///         <see cref="NetCodeConnectionEvent" />，
+        ///         使用户代码能够订阅连接与断开事件，包括适用时的 <see cref="ConnectionState.State.Handshake" />
+        ///         和 <see cref="ConnectionState.State.Approval" />
+        ///         更多信息请参阅 Network Connection 页面
         ///         (https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/manual/network-connection.html)
-        ///         for more details.
         ///     </para>
         ///     <para>
-        ///         It's a self-cleaning list and therefore has no consume API (in other words, there's no need to explicitly
-        ///         remove entries from this collection, which is why it's read-only). This also means that events are only
-        ///         valid for a single <see cref="SimulationSystemGroup" /> tick, and therefore must be polled inside this group.
+        ///         这是自清理列表，因此没有消费 API
+        ///         换言之，无需显式移除集合中的条目，这也是它只读的原因
+        ///         这还意味着事件只在单个 <see cref="SimulationSystemGroup" /> Tick 内有效，必须在此 Group 内轮询
         ///     </para>
         ///     <para>
-        ///         This collection is cleared and repopulated in the <see cref="NetworkGroupCommandBufferSystem" />, which
-        ///         is also the ECB playback that creates and destroys <see cref="NetworkStreamConnection" /> 'NetworkConnection'
-        ///         entities.
-        ///         Therefore, if you query this collection after the `NetworkGroupCommandBufferSystem` system (via the
-        ///         <see cref="UpdateAfterAttribute" />),
-        ///         you'll get the current tick's event data, but if you poll before it, your event data will always be one tick
-        ///         out of date.
+        ///         此集合会在 <see cref="NetworkGroupCommandBufferSystem" /> 中清空并重新填充，
+        ///         该系统也会回放用于创建和销毁 <see cref="NetworkStreamConnection" /> NetworkConnection Entity 的 ECB
+        ///         因此，如果通过 <see cref="UpdateAfterAttribute" /> 在 `NetworkGroupCommandBufferSystem` 之后查询集合，
+        ///         会得到当前 Tick 的事件数据；如果在它之前轮询，事件数据始终会落后一个 Tick
         ///     </para>
         ///  <code>
         ///      [BurstCompile]
@@ -129,38 +122,37 @@ namespace Unity.NetCode
         /// </summary>
         /// <remarks>
         ///     <para>
-        ///         This collection can be safely passed into jobs, as long as the <see cref="NetworkStreamDriver" /> singleton
-        ///         is fetched as read/write.
+        ///         只要以读写方式获取 <see cref="NetworkStreamDriver" /> Singleton，就可以把此集合安全传入 Job
         ///     </para>
         ///     <para>
-        ///         These events are raised on client worlds as well, but only for your own client world.
-        ///         I.e. Each client does not receive events regarding other clients. Refer to the PlayerList NetcodeSamples sample
+        ///         Client World 也会触发这些事件，但仅针对自身客户端
+        ///         即每个客户端都不会收到其他客户端的相关事件
+        ///         可参考 PlayerList NetcodeSamples 示例
         ///         (https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/PlayerList)
-        ///         for an example implementation of RPC logic that actually communicates player join and leave events (with
-        ///         display names and <see cref="NetworkStreamDisconnectReason" />s).
+        ///         其中展示了实际传递玩家加入与离开事件的 RPC 逻辑，包括显示名称和
+        ///         <see cref="NetworkStreamDisconnectReason" />
         ///     </para>
         /// </remarks>
         public NativeArray<NetCodeConnectionEvent>.ReadOnly ConnectionEventsForTick { get; internal set; }
 
         /// <summary>
-        ///     The raw list of <see cref="NetCodeConnectionEvent"/>'s. <see cref="ConnectionEventsForTick"/>.
+        ///     <see cref="NetCodeConnectionEvent"/> 的原始列表，参见 <see cref="ConnectionEventsForTick"/>
         /// </summary>
         internal NativeList<NetCodeConnectionEvent> ConnectionEventsList { get; }
 
         /// <summary>
-        /// Check if the endpoint can be used for listening for the given driver type. At the moment,
-        /// rules are enforced for the <see cref="IPCNetworkInterface"/>.
+        /// 检查 Endpoint 是否可供指定 Driver 类型监听
+        /// 当前会强制执行 <see cref="IPCNetworkInterface"/> 的规则
         /// </summary>
-        /// <param name="endpoint">The address to validate and sanitise.</param>
-        /// <param name="driverId">The id of driver in between [FirstDriver/LastDriver) range.</param>
-        /// <returns>A valid address to use for listening, if the address is valid for the driver or if has been possible to sanitise it.
-        /// An invalid address otherwise.</returns>
+        /// <param name="endpoint">要验证并清洗的地址</param>
+        /// <param name="driverId">[FirstDriver, LastDriver) 范围内的 Driver ID</param>
+        /// <returns>地址对 Driver 有效或可以成功清洗时返回可供监听的有效地址，否则返回无效地址</returns>
         private NetworkEndpoint SanitizeListenAddress(in NetworkEndpoint endpoint, int driverId)
         {
             if (DriverStore.GetDriverType(driverId) != TransportType.IPC)
                 return endpoint;
-            //This is just a debug log to remind that you are passing an ANY address and that the listen port is now going to be different for each driver. That would requires some special handling when it comes to the
-            //local IPC connection.
+            // 此调试日志用于提醒调用方传入的是 ANY 地址，因此每个 Driver 的监听端口会不同
+            // 处理本地 IPC 连接时需要针对这种情况进行特殊处理
             if (endpoint.Port == 0)
             {
                 UnityEngine.Debug.Log($"Driver with ID {driverId} uses IPCNetworkInterface. The endpoint used for listening is using Port == 0. A random port will be assigned to this interface. In order to connect to this endpoint, you will need to retrieve the local address. You can use the NetworkStreamDriver.GetLocalEndPoint({driverId}) to retrieve the assigned address.");
@@ -177,13 +169,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Check if the address we are trying to connect to is valid for driver type.
+        /// 检查尝试连接的地址对指定 Driver 类型是否有效
         /// </summary>
-        /// <param name="endpoint">the endpoint to sanitise</param>
-        /// <param name="driverId">the driver we wants to check for</param>
-        /// <returns>The address you should to pass to Connect. </returns>
+        /// <param name="endpoint">要清洗的 Endpoint</param>
+        /// <param name="driverId">要检查的 Driver</param>
+        /// <returns>应传给 Connect 的地址</returns>
         /// <remarks>
-        /// This function always return a valid address.
+        /// 此函数始终返回有效地址
         /// </remarks>
         #if UNITY_EDITOR || !UNITY_CLIENT
         private NetworkEndpoint SanitizeConnectAddress(in NetworkEndpoint endpoint, int driverId)
@@ -193,7 +185,7 @@ namespace Unity.NetCode
 
             if (DriverStore.GetDriverType(driverId) == TransportType.IPC)
             {
-                //When using IPC driver, the address MUST be a loopback. We are enforcing this here
+                // 使用 IPC Driver 时地址必须是 Loopback，此处强制执行该约束
                 UnityEngine.Debug.LogWarning(
                     $"Trying to connect to a server at address {endpoint.ToFixedString()} using an IPCNetworkInterface. IPC interfaces only support loopback address. Forcing using the NetworkEndPoint.Loopback address; family (IPV4/IPV6) and port will be preserved");
                 if (endpoint.Family == NetworkFamily.Ipv4)
@@ -205,27 +197,26 @@ namespace Unity.NetCode
         #endif
 
         /// <summary>
-        /// Tell all the registered <see cref="NetworkDriverStore"/> drivers to start listening for incoming connections.
+        /// 通知 <see cref="NetworkDriverStore"/> 中全部已注册 Driver 开始监听入站连接
         /// </summary>
-        /// <param name="endpoint">The local address to use. This is the address that will be used to bind the underlying socket.</param>
-        /// <returns>Whether the drivers starts listening</returns>
+        /// <param name="endpoint">要使用的本地地址，底层 Socket 会绑定到此地址</param>
+        /// <returns>Driver 是否开始监听</returns>
         public bool Listen(NetworkEndpoint endpoint)
         {
-            //Check that at least the first driver have been created. This is a sufficient condition.
+            // 检查至少已经创建第一个 Driver，此条件已经足够
             if (!DriverStore.m_Driver0.IsCreated)
                 throw new InvalidOperationException($"You cannot call Listen on a NetworkStreamDriver for which the DriverStore have been not created. Please ensure the NetworkDriverStore is setup before calling the Listen method.");
 
-            // Switching to server mode. Start listening all the driver interfaces
+            // 切换到服务器模式，开始监听全部 Driver 接口
             var errors = new FixedList32Bytes<int>();
-            //It is possible to listen on a specific address/port. However, for IPC drivers there is a restriction:
-            //the ip address should be Any or the Loopback address and the port must be != 0.
-            //Because it is possible to have multiple drivers, we are going to force the IPC
-            //network interface to be bound and listen the ANY.Port or (if a real IP has been provided) to Loopback:Port
-            //Also, binding to Any:0 or Loopback:0 should also be considered invalid in this case.
+            // 可以监听指定地址和端口，但 IPC Driver 存在限制：IP 地址应为 Any 或 Loopback，且端口不能为 0
+            // 由于可能存在多个 Driver，这里强制 IPC 网络接口绑定并监听 ANY:Port，
+            // 如果提供了真实 IP，则绑定并监听 Loopback:Port
+            // 此时绑定 Any:0 或 Loopback:0 也应视为无效
             for(int i=DriverStore.FirstDriver; i<DriverStore.LastDriver;++i)
             {
                 var tempAddress = SanitizeListenAddress(endpoint, i);
-                //SanitizeListenAddress return an invalid address if the endpoint can't be sanised.
+                // 如果 Endpoint 无法清洗，SanitizeListenAddress 会返回无效地址
                 if(!tempAddress.IsValid)
                 {
                     errors.Add(i);
@@ -237,23 +228,22 @@ namespace Unity.NetCode
             }
             if(!errors.IsEmpty)
             {
-                // The inconsistent state will be picked up and fixed by the network stream receive system
+                // Network Stream Receive System 会检测并修复不一致状态
                 return false;
             }
-            // FIXME: bad if this is not a ref of the driver store, but so is the state change for listen / connect
+            // FIXME 如果这不是 Driver Store 的引用会有问题，Listen 和 Connect 的状态变化也存在相同问题
             LastEndPoint = endpoint;
             return true;
         }
 
         /// <summary>
-        /// Initiate a connection to the remote <paramref name="endpoint"/> address.
+        /// 向远端 <paramref name="endpoint"/> 地址发起连接
         /// </summary>
-        /// <param name="entityManager">The entity manager to use to create the new entity, if <paramref name="ent"/> equals <see cref="Entity.Null"/></param>
-        /// <param name="endpoint">The remote address we want to connect</param>
-        /// <param name="ent">An optional entity to use to create the connection. If not set, a new entity will be create instead</param>
-        /// <returns>The entity that hold the <see cref="NetworkStreamConnection"/>.
-        /// If the endpoint is not valid </returns>
-        /// <exception cref="InvalidOperationException">Throw an exception if the driver is not created or if multiple drivers are register</exception>
+        /// <param name="entityManager"><paramref name="ent"/> 等于 <see cref="Entity.Null"/> 时，用于创建新 Entity 的 EntityManager</param>
+        /// <param name="endpoint">要连接的远端地址</param>
+        /// <param name="ent">用于创建连接的可选 Entity，未设置时会创建新 Entity</param>
+        /// <returns>持有 <see cref="NetworkStreamConnection"/> 的 Entity，Endpoint 无效时返回默认值</returns>
+        /// <exception cref="InvalidOperationException">Driver 尚未创建或注册了多个 Driver 时抛出</exception>
         public Entity Connect(EntityManager entityManager, NetworkEndpoint endpoint, Entity ent = default)
         {
             if (!DriverStore.m_Driver0.IsCreated)
@@ -265,12 +255,12 @@ namespace Unity.NetCode
             var isIpEndpoint = endpoint.Family == NetworkFamily.Ipv4 || endpoint.Family == NetworkFamily.Ipv6;
             if (!endpoint.IsValid || (isIpEndpoint && endpoint.Port == 0))
             {
-                //Can't connect to a any port. This must be a valid address
+                // 无法连接任意端口，必须提供有效地址
                 netDebug.LogError($"Trying to connect to the address {endpoint.ToFixedString()} that has port == 0. For connection, a port !=0 is required");
                 return default;
             }
 
-            //Still storing the last connecting endpoint as it passed
+            // 仍按传入值保存最近一次连接 Endpoint
             LastEndPoint = endpoint;
 
             if (ent == Entity.Null)
@@ -299,8 +289,8 @@ namespace Unity.NetCode
                 Value = connection,
                 DriverId = 1,
                 CurrentState = state,
-                CurrentStateDirty = true, // Delay the `NetCodeConnectionEvent` for `Connecting` by up to 1 frame,
-                                          // so that it gets created and destroyed in line with the others.
+                CurrentStateDirty = true, // 最多延迟一帧触发 `Connecting` 的 `NetCodeConnectionEvent`
+                                          // 使其创建与销毁时机和其他事件保持一致
             });
             if (entityManager.HasComponent<ConnectionState>(ent))
             {
@@ -319,22 +309,21 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The remote connection address. This is the seen public ip address of the connection.
+        /// 远端连接地址，即此连接可见的公网 IP 地址
         /// </summary>
-        /// <param name="connection">Connection</param>
+        /// <param name="connection">连接</param>
         /// <returns>
-        /// When relay is used, the current relay host address. Otherwise the remote endpoint address.
+        /// 使用 Relay 时返回当前 Relay Host 地址，否则返回远端 Endpoint 地址
         /// </returns>
         /// <remarks>
-        /// Be aware that this method work sliglty differnetly than the NetworkDriver.GetRemoteEndpoint.
-        /// The <see cref="NetworkDriver.GetRemoteEndpoint"/> does not always return a valid address when used with relay
-        /// (once the connection is established it become the RelayAllocationId).
-        /// We instead wanted a consistent behaviour for this method: always return the address to which this connection is
-        /// is connected/connecting to.
+        /// 注意，此方法与 NetworkDriver.GetRemoteEndpoint 的行为略有不同
+        /// 使用 Relay 时，<see cref="NetworkDriver.GetRemoteEndpoint"/> 不一定返回有效地址，
+        /// 因为连接建立后地址会变成 RelayAllocationId
+        /// 此方法提供一致行为：始终返回连接当前已连接或正在连接的地址
         /// </remarks>
         public NetworkEndpoint GetRemoteEndPoint(NetworkStreamConnection connection)
         {
-            // TODO - Fetch as readonly when inner methods are marked as readonly (to prevent copy).
+            // TODO 内部方法标记为 readonly 后，以只读方式获取，避免复制
             ref var driver = ref DriverStore.GetDriverRW(connection.DriverId);
             if (driver.CurrentSettings.TryGet(out RelayNetworkParameter relayParams))
                 return relayParams.ServerData.Endpoint;
@@ -342,51 +331,51 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Check if the given connection is using relay to connect to the remote endpoint
+        /// 检查指定连接是否通过 Relay 连接远端 Endpoint
         /// </summary>
-        /// <param name="connection">Connection</param>
+        /// <param name="connection">连接</param>
         /// <returns>
-        /// Either if the connection is using the relay or not.
+        /// 连接是否正在使用 Relay
         /// </returns>
         public bool UseRelay(NetworkStreamConnection connection)
         {
-            // TODO - Fetch as readonly when inner methods are marked as readonly (to prevent copy).
+            // TODO 内部方法标记为 readonly 后，以只读方式获取，避免复制
             ref var driver = ref DriverStore.GetDriverRW(connection.DriverId);
             return driver.CurrentSettings.TryGet(out RelayNetworkParameter _);
         }
 
         /// <summary>
-        /// Get the local endpoint (the endpoint remote peers will use to reach this driver) used by the first driver inside <see cref="NetworkDriverStore"/>.
-        /// This is similar to calling <see cref="GetLocalEndPoint(int)"/> with
-        /// <see cref="NetworkDriverStore.FirstDriverId">NetworkDriverStore.FirstDriverId</see> as argument.
+        /// 获取 <see cref="NetworkDriverStore"/> 中第一个 Driver 使用的本地 Endpoint，
+        /// 即远端 Peer 用于访问此 Driver 的 Endpoint
+        /// 等价于以 <see cref="NetworkDriverStore.FirstDriverId">NetworkDriverStore.FirstDriverId</see>
+        /// 为参数调用 <see cref="GetLocalEndPoint(int)"/>
         /// </summary>
-        /// <returns>The local endpoint of the first driver.</returns>
+        /// <returns>第一个 Driver 的本地 Endpoint</returns>
         public NetworkEndpoint GetLocalEndPoint()
         {
             return GetLocalEndPoint(NetworkDriverStore.FirstDriverId);
         }
 
         /// <summary>
-        /// Get the local endpoint used by the driver (the endpoint remote peers will use to reach this driver).
+        /// 获取 Driver 使用的本地 Endpoint，即远端 Peer 用于访问此 Driver 的 Endpoint
         /// <br/>
-        /// When multiple drivers exist, e.g. when using both IPC and Socket connection, multiple drivers will be available
-        /// in the <see cref="NetworkDriverStore"/>.
+        /// 存在多个 Driver 时，例如同时使用 IPC 和 Socket 连接，<see cref="NetworkDriverStore"/> 中会有多个 Driver
         /// </summary>
-        /// <param name="driverId">Id of the driver. See <see cref="NetworkDriverStore.GetDriverRO"/>.</param>
-        /// <returns>The local endpoint of the driver.</returns>
+        /// <param name="driverId">Driver ID，参见 <see cref="NetworkDriverStore.GetDriverRO"/></param>
+        /// <returns>Driver 的本地 Endpoint</returns>
         public NetworkEndpoint GetLocalEndPoint(int driverId)
         {
-            // TODO - Fetch as readonly when inner methods are marked as readonly (to prevent copy).
+            // TODO 内部方法标记为 readonly 后，以只读方式获取，避免复制
             return DriverStore.GetDriverRW(driverId).GetLocalEndpoint();
         }
 
         /// <summary>
-        /// The current state of the internal transport connection.
+        /// 底层 Transport 连接的当前状态
         /// </summary>
-        /// <param name="connection">Connection</param>
-        /// <returns>The current state of the internal transport connection</returns>
+        /// <param name="connection">连接</param>
+        /// <returns>底层 Transport 连接的当前状态</returns>
         /// <remarks>
-        /// Is different from the <see cref="ConnectionState.State"/> and it is less granular.
+        /// 与 <see cref="ConnectionState.State"/> 不同，粒度也更粗
         /// </remarks>
         public NetworkConnection.State GetConnectionState(NetworkStreamConnection connection)
         {
@@ -408,10 +397,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Reset the current <see cref="DriverStore"/> by disposing the current instance and its associated
-        /// <see cref="ConcurrentDriverStore"/>.
-        /// This method can be used to re-create and re-configure the driver after world has been created and before either
-        /// <see cref="Listen"/> or <see cref="Connect"/> has been called.
+        /// 释放当前实例及关联的 <see cref="ConcurrentDriverStore"/>，以重置当前 <see cref="DriverStore"/>
+        /// 可在 World 创建后、调用 <see cref="Listen"/> 或 <see cref="Connect"/> 前，
+        /// 使用此方法重新创建并配置 Driver
         /// </summary>
         /// <example>
         /// <code>
@@ -424,22 +412,22 @@ namespace Unity.NetCode
         /// driver.Listen(listenEndPoint);
         /// </code>
         /// </example>
-        /// <param name="world">The world the NetworkStreamDriver singleton is part of.</param>
-        /// <param name="driverStore">The new driver store to use.</param>
+        /// <param name="world">NetworkStreamDriver Singleton 所属的 World</param>
+        /// <param name="driverStore">要使用的新 Driver Store</param>
         public void ResetDriverStore(WorldUnmanaged world, ref NetworkDriverStore driverStore)
         {
             if (UnsafeUtility.AddressOf(ref driverStore) == UnsafeUtility.AddressOf(ref DriverStore))
             {
-                //Try to self assign the same instance. Skip. I would say this is an error. Unfortunately, we can't catch the
-                //case where the NetworkDriverStore is copied on the stack and assigned.
+                // 尝试把同一实例赋值给自身时跳过
+                // 这可以视为错误，但无法检测 NetworkDriverStore 被复制到栈上再赋值的情况
                 return;
             }
             if (world.IsClient() && DriverStore.DriversCount > 1)
                 throw new InvalidOperationException($"Cannot assign the NetworkDriverStore to the NetworkStreamDriver for world {world.Name}. Client must configure the driver store to use ONLY ONE network driver, but the {nameof(driverStore)} instance passed as argument has been configured to use {driverStore.DriversCount} network drivers.");
 
-            //If the driver is not the "default" (no registered driver and the first interface is not created) it is valid to dispose the current driver.
-            //For example: the server can dispose the driver to stop listening (it is actually the only way to stop listening).
-            //In all cases, it is not valid to dispose a driver if there are connections.
+            // 如果 Driver 不是默认状态，即已经注册 Driver 且第一个接口已经创建，则可以释放当前 Driver
+            // 例如服务器可以通过释放 Driver 停止监听，这实际上是停止监听的唯一方式
+            // 无论如何，存在连接时都不能释放 Driver
             if (DriverStore.IsCreated)
             {
                 using var connectionQuery = world.EntityManager.CreateEntityQuery(typeof(NetworkStreamConnection));
@@ -447,10 +435,10 @@ namespace Unity.NetCode
                     throw new InvalidOperationException($"Cannot assign the NetworkDriverStore to the NetworkStreamDriver for world {world.Name} because there are NetworkStreamConnection entities.\nPlease ensure you are setting up the drivers after you disconnected all the connections and have them properly cleanup by the NetworkStreamReceiveSystem. This will usually require at least one world update (because NetworkStreamConnection are cleanup component).");
             }
 
-            //reset the current driver store any any case. This is a no-op if the current instance is already destroyed.
+            // 始终重置当前 Driver Store，如果当前实例已销毁则此操作不产生效果
             DriverStore.Dispose();
-            //finalize the driver store by adding any empty drivers. Calling Begin is not required, it is just finalizing the driver creation.
-            //Modify an existing driver store is also prohibited. Like calling RegisterDriver after having the driver finalized.
+            // 通过补充空 Driver 完成 Driver Store 初始化，无需调用 Begin，此处只负责结束 Driver 创建流程
+            // 同样禁止修改现有 Driver Store，例如在 Driver 完成 Finalize 后调用 RegisterDriver
             driverStore.FinalizeDriverStore();
             DriverStore = driverStore;
             ConcurrentDriverStore = driverStore.ToConcurrent();

@@ -219,9 +219,9 @@ namespace Unity.NetCode.Editor
     }
 
     /// <summary>
-    /// This struct is used to wrap the <see cref="ClientServerTickRate"/> struct to be serializable.
-    /// We ensure here that the data matches the expected format for the analytics.
-    /// If you change this struct, you must also update the analytics event in schemata.
+    /// 包装 <see cref="ClientServerTickRate"/> 以支持序列化
+    /// 在此确保数据符合 Analytics 预期格式
+    /// 修改该结构时，必须同步更新 Schema 中的 Analytics 事件
     /// </summary>
     [Serializable]
     internal struct WrappedClientServerTickRate
@@ -243,9 +243,9 @@ namespace Unity.NetCode.Editor
     }
 
     /// <summary>
-    /// This struct is used to wrap the <see cref="ClientTickRate"/> struct to be serializable.
-    /// We ensure here that the data matches the expected format for the analytics.
-    /// If you change this struct, you must also update the analytics event in schemata.
+    /// 包装 <see cref="ClientTickRate"/> 以支持序列化
+    /// 在此确保数据符合 Analytics 预期格式
+    /// 修改该结构时，必须同步更新 Schema 中的 Analytics 事件
     /// </summary>
     [Serializable]
     internal struct WrappedClientTickRate
@@ -382,10 +382,10 @@ namespace Unity.NetCode.Editor
         public const int k_ConfigurationVersion = 2;
 
         /// <summary>
-        /// This will add or update the buffer containing the configuration data from a <see cref="GhostAuthoringComponent"/>.
+        /// 添加或更新保存 <see cref="GhostAuthoringComponent"/> 配置数据的 Buffer
         /// </summary>
-        /// <param name="ghostComponent">Retrieve data from this component.</param>
-        /// <param name="numVariants">Count of the number of variants on this ghost.</param>
+        /// <param name="ghostComponent">从该组件读取数据</param>
+        /// <param name="numVariants">该 Ghost 的 Variant 数量</param>
         public static void BufferConfigurationData(GhostAuthoringComponent ghostComponent, int numVariants)
         {
             var analyticsData = new GhostConfigurationAnalyticsData
@@ -439,8 +439,8 @@ namespace Unity.NetCode.Editor
 
 #if UNITY_2023_2_OR_NEWER
         /// <summary>
-        /// Generic basic class that allow to dispatch any <see cref="IAnalytic.IData"/> data. Used internally by
-        /// GhostComponentAnalytics
+        /// 可分发任意 <see cref="IAnalytic.IData"/> 数据的通用基类
+        /// 由 GhostComponentAnalytics 内部使用
         /// </summary>
         /// <typeparam name="T"></typeparam>
         class NetCodeAnalytic<T> : IAnalytic where T: IAnalytic.IData

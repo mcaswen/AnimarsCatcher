@@ -99,9 +99,9 @@ namespace Unity.NetCode.GeneratorTests
                     MetadataReference.CreateFromFile(Path.Combine(directoryName, "System.Runtime.dll")),
                     MetadataReference.CreateFromFile(typeof(object).Assembly.Location));
 
-            //Enable this to check if there are some dependencies missing you don't expect.
-            //NOTE: is normal to have some depedencies from not present like RpcExecutor, burst, entities stuff etc.
-            //but for sake of this smoke testing they can be ignored
+            // 可启用以下代码检查是否缺少非预期依赖
+            // 缺少 RpcExecutor、Burst、Entities 等依赖属于正常情况
+            // 对此处 Smoke Test 可以忽略
 
             // foreach(var d in compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error))
             //     Console.WriteLine(d.ToString());
@@ -178,8 +178,8 @@ namespace Unity.NetCode.GeneratorTests
             return new NetCodeSyntaxReceiver();
         }
 
-        //Because we cannot have any Unity.XXX references here, let's embed our dependencies using some custom made code
-        //that just suit our need for sake of testing
+        // 此处不能直接引用任何 Unity.XXX 程序集
+        // 因此嵌入一组仅满足测试需求的自定义依赖声明
         private static SyntaxTree[] GetUnityNetCodeMetaRefs()
         {
             string hackyUnityRefs = @"

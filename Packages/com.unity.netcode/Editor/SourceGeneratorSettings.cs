@@ -8,7 +8,7 @@ namespace Unity.NetCode.Editor
     static class SourceGeneratorSettings
     {
         /// <summary>
-        /// Create the Default.globalconfig file in the Assets folder root.
+        /// 在 Assets 根目录创建 Default.globalconfig 文件
         /// </summary>
         /// <returns></returns>
         [MenuItem("Assets/Create/Multiplayer/SourceGenerator AnalyzerConfig", priority = 1)]

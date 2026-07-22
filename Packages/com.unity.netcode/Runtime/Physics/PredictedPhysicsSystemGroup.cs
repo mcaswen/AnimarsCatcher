@@ -2,7 +2,7 @@
 #define NETCODE_DEBUG
 #endif
 #if ENTITIES_1_5_OR_NEWER
-//Uncomment this to test the version with Reflection. It is only for testing purpose.
+// 取消此行注释可测试使用反射的版本，仅用于测试
 #define  HAS_NEW_SYSTEMATTRIBUTE_API
 #endif
 
@@ -23,34 +23,34 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Rate manager that control when the physics simulation will run.
-    /// The use cases we have:
+    /// 控制 Physics 模拟何时运行的 Rate Manager
+    /// 需要处理以下使用场景
     /// <para>
-    /// On the server
+    /// 在服务器上
     /// <list>
-    /// <li>Does require physics objects exist? No, physics should run all the time to rebuild the world (empty) if all the physics stuff are gone.</li>
-    /// <li>Static physics: yes, may need to raycast</li>
-    /// <li>Dynamic physics: yes, even if not replicated.</li>
-    /// <li>Triggers (static or dynamic): yes</li>
-    /// <li>Kinematics, non ghost with physics: yes</li>
-    /// <li>Predicted ghost with physics: yes</li>
-    /// <li>Interpolated ghost with physics: yes (kinematics)</li>
-    /// <li>Lag Compensation On: yes, we require the collision history to be rebuilt.</li>
+    /// <li>是否要求存在 Physics 对象：否，即使所有 Physics 内容都已移除，也应始终运行以重建空 World</li>
+    /// <li>静态 Physics：是，可能需要进行 Raycast</li>
+    /// <li>动态 Physics：是，即使未复制也需要</li>
+    /// <li>静态或动态 Trigger：是</li>
+    /// <li>带 Physics 的非 Ghost Kinematic：是</li>
+    /// <li>带 Physics 的 Predicted Ghost：是</li>
+    /// <li>带 Physics 的插值 Ghost：是，作为 Kinematic 处理</li>
+    /// <li>启用延迟补偿：是，需要重建碰撞历史</li>
     /// </list>
     /// </para>
     /// <para>
-    /// On the client:
+    /// 在客户端上
     /// <list type="">
-    /// <li>Does require physics objects exist? Ideally yse, in practice no: physics should run all the time to rebuild the world (empty) if all the physics stuff are gone.</li>
-    /// <li>Static physics: yes, may need to raycast. Ideally, this should use client-only physics if there are no ghost. It is up to the users</li>
-    /// <li>Dynamic physics: yes, even if not replicated. Not ideal keep them in world 0 in that case, but necessary. It is up to the users</li>
-    /// <li>Kinematics, non ghost with physics: yes. Not ideal keep them in world 0 in that case, but necessary. It is up to the users</li>
-    /// <li>Predicted ghost with physics: yes</li>
-    /// <li>Interpolated ghost with physics: yes (kinematics). In this case prediction should run only once. Should be up to the user though (not an hidden, opinionated default)</li>
-    /// <li>Lag Compensation On: yes</li>
+    /// <li>是否要求存在 Physics 对象：理想情况下是，实际则否，即使所有 Physics 内容都已移除，也应始终运行以重建空 World</li>
+    /// <li>静态 Physics：是，可能需要进行 Raycast；没有 Ghost 时，理想做法是使用仅客户端 Physics，由用户决定</li>
+    /// <li>动态 Physics：是，即使未复制也需要；此时将其保留在 World 0 并不理想但确有必要，由用户决定</li>
+    /// <li>带 Physics 的非 Ghost Kinematic：是；此时将其保留在 World 0 并不理想但确有必要，由用户决定</li>
+    /// <li>带 Physics 的 Predicted Ghost：是</li>
+    /// <li>带 Physics 的插值 Ghost：是，作为 Kinematic 处理；此时预测应只运行一次，但应由用户决定，而不是采用隐含的固定默认值</li>
+    /// <li>启用延迟补偿：是</li>
     ///</list>
-    /// Overall, the group should always run all the time by default. However, because this would be a breaking change, we allow to opt-in for this behaviour via
-    /// <see cref="PhysicGroupRunMode"/> enum.
+    /// 总体而言，该 Group 默认应始终运行，但这会造成破坏性变更，
+    /// 因此需要通过 <see cref="PhysicGroupRunMode"/> 枚举显式启用此行为
     /// </summary>
     class NetcodePhysicsRateManager : IRateManager
     {
@@ -63,16 +63,15 @@ namespace Unity.NetCode
         public NetcodePhysicsRateManager(ComponentSystemGroup group)
         {
             var queryBuilder = new EntityQueryBuilder(Allocator.Temp);
-            //The default current behaviour: allow physics to run as long as entities with physics velocity exists, either kinematic or dynamic.
-            //This is by far a very restrictive scenario, on client especially. For the server, this can be also
-            //be not what you want. You may need to raycast against some geometry for example.
+            // 当前默认行为：只要存在带 PhysicsVelocity 的 Entity，无论是 Kinematic 还是 Dynamic，都允许 Physics 运行
+            // 这是非常严格的条件，尤其是在客户端上
+            // 服务器也可能不适合此条件，例如可能仍需对某些几何体执行 Raycast
             queryBuilder.WithAll<PredictedGhost>().WithAny<PhysicsVelocity>();
             m_predictedPhysicsQuery = queryBuilder.Build(group.EntityManager);
-            //this is a more relaxed condition, that allow physics to run as long there are some ghost physics entities. This is more
-            //correct in my opinion, but break some "assumptions" and behavior in respect to the original default, so I left that
-            //only as an options.
-            //It is again not working correctly in case all physics entities get destroyed. The physics collision world is stale in that case.
-            //However, if lag compensation is turned on, everything work fine.
+            // 这是更宽松的条件，只要存在某些 Ghost Physics Entity 就允许运行 Physics
+            // 该行为更合理，但会打破原始默认值的一些假设和行为，因此只作为可选项提供
+            // 如果所有 Physics Entity 都已销毁，此模式仍无法正确工作，因为 Physics Collision World 会变得陈旧
+            // 但启用延迟补偿后可以正常工作
             queryBuilder.Reset();
             queryBuilder.WithAny<PhysicsVelocity, PhysicsCollider>();
             m_relaxedPhysicsQuery = queryBuilder.Build(group.EntityManager);
@@ -96,17 +95,17 @@ namespace Unity.NetCode
                 else
                     noEntitiesMatchingQuery = m_relaxedPhysicsQuery.IsEmptyIgnoreFilter;
 
-                //if query is emtpy and no lag compesation, there is nothing to run
+                // 查询为空且未启用延迟补偿时，无需运行
                 if (noEntitiesMatchingQuery)
                 {
-                    //On the client, if users set this to 0 is the same as disabling the hystory backup.
+                    // 在客户端上，用户将此值设为 0 等同于禁用历史备份
                     if (m_LagCompensationQuery.IsEmptyIgnoreFilter ||
                         (group.World.IsClient() &&
                          m_LagCompensationQuery.GetSingleton<LagCompensationConfig>().ClientHistorySize == 0))
                     {
                         return false;
                     }
-                    //if lag compensation is enabled, run only for new full ticks,
+                    // 启用延迟补偿后，仅在新的完整 Tick 上运行
                     var netTime = m_NetworkTimeQuery.GetSingleton<NetworkTime>();
                     if (!netTime.IsFirstTimeFullyPredictingTick)
                         return false;
@@ -131,7 +130,7 @@ namespace Unity.NetCode
     static class MovePhysicsSystemUtilities
     {
 #if !HAS_NEW_SYSTEMATTRIBUTE_API
-        //TODO: remove this hack when the new Entities package is public.
+        // TODO：新版 Entities Package 公开后移除此变通方案
         private static MethodInfo s_HackGetSystemTypeMethod = null;
         private static int s_FieldOffset = -1;
         public static Type GetSystemType(World world, SystemHandle systemHandle)
@@ -252,8 +251,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A system which setup physics for prediction. It will move the PhysicsSystemGroup
-    /// to the PredictedFixedStepSimulationSystemGroup.
+    /// 为预测配置 Physics 的系统
+    /// 它会将 PhysicsSystemGroup 移入 PredictedFixedStepSimulationSystemGroup
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
@@ -274,18 +273,17 @@ namespace Unity.NetCode
 
             var physicsSystemTypes = new NativeHashMap<SystemTypeIndex, SystemHandle>(100, Allocator.Temp);
             var physicsGroupTypeIndex = TypeManager.GetSystemTypeIndex<PhysicsSystemGroup>();
-            //TODO: there are a couple of problem with Incremental Physics world build and multiple worlds in general:
-            //- the InjectTemporalInfo bla bla system add temporal coherence to all physics entities, regardless of the PhysicsWorld index.
-            //- the InjectTemporalInfo is not moved. There is a "last resort system that does that" but seems to me just incorrect.
-            //- there is not possibilty (yet) to get a PhysicsStep per "PhysicsWorld". Instead, it should be possible to specify different settings
-            //  and simulation rate for the different physics world in my opinion.
-            //TODO: let's resolve the problem at the source: we don't need to move physics in first place, nor the fixed step group. that means changing the
-            //      whole system group and order. We can reason about this for 2.0
+            // TODO：增量构建 Physics World 和多 World 模式总体存在以下问题
+            // - InjectTemporalInfo 相关系统会忽略 PhysicsWorld 索引，为所有 Physics Entity 添加时间一致性数据
+            // - InjectTemporalInfo 没有被移动，虽然存在一个最后兜底的系统执行此操作，但这种做法似乎并不正确
+            // - 目前还无法为每个 PhysicsWorld 获取独立的 PhysicsStep，理想情况下应能为不同 Physics World 指定不同设置和模拟频率
+            // TODO：从源头解决问题，Physics 和 Fixed Step Group 本就不应被移动
+            //       这意味着需要修改整个 System Group 及其顺序，可在 2.0 中进一步设计
             physicsSystemTypes.Add(physicsGroupTypeIndex, srcGrp.World.GetExistingSystem(physicsGroupTypeIndex));
             MovePhysicsSystemUtilities.MovePhysicsSystems(srcGrp, dstGrp, ref physicsSystemTypes);
             foreach (var kv in physicsSystemTypes)
             {
-                //TODO: this is silly. I think the group API should be litte more consistent
+                // TODO：此处处理很繁琐，Group API 应提供更一致的接口
                 if (!kv.Key.IsManaged)
                     srcGrp.RemoveSystemFromUpdateList(kv.Value);
                 else
@@ -296,24 +294,21 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// If a singleton of this type exists in the world any non-ghost with dynamic physics
-    /// in the default physics world on the client will be moved to the indicated physics
-    /// world index.
-    /// This is required because the predicted physics loop cannot process objects which
-    /// are not rolled back.
+    /// 如果 World 中存在此类型的 Singleton，客户端默认 Physics World 中所有带动态 Physics 的非 Ghost
+    /// 都会被移到指定的 Physics World 索引
+    /// 这是因为预测 Physics 循环无法处理不参与回滚的对象
     /// </summary>
     public struct PredictedPhysicsNonGhostWorld : IComponentData
     {
         /// <summary>
-        /// The physics world index to move entities to.
+        /// Entity 要移入的 Physics World 索引
         /// </summary>
         public uint Value;
     }
 
     /// <summary>
-    /// A system used to detect invalid dynamic physics objects in the predicted
-    /// physics world on clients. This system also moves entities to the correct
-    /// world if PredictedPhysicsNonGhostWorld exists and is not 0.
+    /// 用于检测客户端预测 Physics World 中无效动态 Physics 对象的系统
+    /// 如果 PredictedPhysicsNonGhostWorld 存在且不为 0，此系统还会将 Entity 移到正确的 World
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
@@ -328,8 +323,8 @@ namespace Unity.NetCode
         /// <inheritdoc/>
         public void OnCreate(ref SystemState state)
         {
-            // This would still be needed on host worlds, to allow having physics scenes that don't interact with the authoritative world. Host worlds still need to have ragdolls for example.
-            // If not debug, require the singleton for update
+            // Host World 仍需执行此校验，以允许存在不与权威 World 交互的 Physics Scene，例如 Host World 仍然需要布娃娃
+            // 非调试模式下，要求存在该 Singleton 才更新
             #if !NETCODE_DEBUG
             state.RequireForUpdate<PredictedPhysicsNonGhostWorld>();
             #endif
@@ -348,14 +343,13 @@ namespace Unity.NetCode
             {
                 if (SystemAPI.TryGetSingleton<PredictedPhysicsNonGhostWorld>(out var targetWorld))
                 {
-                    // Go through all things and set the new target world. This is a structural change so need to be careful
+                    // 遍历所有对象并设置新的目标 World，此操作属于结构性变更，需要谨慎处理
                     state.EntityManager.SetSharedComponent(m_Query, new PhysicsWorldIndex(targetWorld.Value));
                 }
                 #if NETCODE_DEBUG
                 else if (!m_DidPrintError)
                 {
-                    // If debug, print a warning once telling users what to do,
-                    // and show them the first problem entity (for easy debugging).
+                    // 调试模式下只输出一次警告，说明处理方法并展示最先发现的问题 Entity，便于调试
                     var erredEntities = m_Query.ToEntityArray(Allocator.Temp);
                     FixedString512Bytes error = $"[{state.WorldUnmanaged.Name}] The default physics world contains {erredEntities.Length} dynamic physics objects which are not ghosts. This is not supported! In order to have client-only physics, you must setup a custom physics world:";
                     foreach (var erredEntity in erredEntities)
@@ -380,7 +374,7 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// System to make sure prediction switching smoothing happens after physics motion smoothing and overwrites the results
+    /// 确保预测模式切换平滑在 Physics 运动平滑之后执行并覆盖其结果的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(TransformSystemGroup))]

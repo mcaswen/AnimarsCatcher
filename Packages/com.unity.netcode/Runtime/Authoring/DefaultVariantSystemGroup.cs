@@ -3,13 +3,13 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Group that contains all the systems responsible for registering/setting up the default Ghost Variants (see <see cref="GhostComponentVariationAttribute"/>).
-    /// The system group OnCreate method finalizes the default mapping inside its own `OnCreate` method, by collecting from all the registered
-    /// <see cref="DefaultVariantSystemBase"/> systems the set of variant to use.
-    /// The order in which variants are set in the map is governed by the creation order (see <see cref="CreateAfterAttribute"/>, <see cref="CreateBeforeAttribute"/>).
+    /// 包含所有负责注册和设置默认 Ghost 变体的系统，参见 <see cref="GhostComponentVariationAttribute"/>
+    /// 该系统组的 OnCreate 方法会收集所有已注册 <see cref="DefaultVariantSystemBase"/> 系统所使用的变体集合，
+    /// 并在自身的 `OnCreate` 方法中完成默认映射
+    /// 变体写入映射的顺序由创建顺序决定，参见 <see cref="CreateAfterAttribute"/> 和 <see cref="CreateBeforeAttribute"/>
     /// </summary>
     /// <remarks>
-    /// The group is present in both baking and client/server worlds.
+    /// 该系统组同时存在于烘焙 World 和客户端/服务器 World 中
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation |
                        WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.BakingSystem)]
@@ -19,9 +19,9 @@ namespace Unity.NetCode
         {
             base.OnCreate();
 
-            // This may look out of place here, but this SystemGroup is used as a "marker",
-            // indicating that all "Serializer Registration" and "Default Variant Registration" systems have completed.
-            // It needed to be a SystemGroup, and "DefaultVariants" are registered at the same time as serializers.
+            // 这段逻辑放在这里可能显得突兀，但该 SystemGroup 被用作标记
+            // 表示所有序列化器注册系统和默认变体注册系统都已执行完毕
+            // 它必须是 SystemGroup，并且 DefaultVariants 与序列化器同时注册
             var data = SystemAPI.GetSingletonRW<GhostComponentSerializerCollectionData>().ValueRW;
             data.CollectionFinalized.Value = 1;
         }

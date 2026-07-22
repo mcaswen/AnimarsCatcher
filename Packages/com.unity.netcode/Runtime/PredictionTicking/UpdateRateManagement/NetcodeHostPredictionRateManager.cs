@@ -25,8 +25,8 @@ namespace Unity.NetCode
 
         bool ShouldRun(ComponentSystemGroup group)
         {
-            // This is initialized from parent simulation system group
-            // This only applies on host where prediction group runs multiple times inside a single SimulationSystemGroup run.
+            // 该值由父级 SimulationSystemGroup 初始化
+            // 仅适用于 Host，因为预测组会在单次 SimulationSystemGroup 更新中运行多次
             return m_TimeTracker.RemainingTicksToRun > 0;
         }
 
@@ -36,10 +36,10 @@ namespace Unity.NetCode
             m_ClientServerTickRateQuery.TryGetSingleton<ClientServerTickRate>(out var tickRate);
             tickRate.ResolveDefaults();
 
-            // We want current tick to be accurate even before running the prediction system group. So the first UpdateNetworkTime is run by the parent SimulationSystemGroup, not this group
+            // 为保证预测组运行前当前 Tick 已准确，首次 UpdateNetworkTime 由父级 SimulationSystemGroup 执行
             m_TimeTracker.RemainingTicksToRun--;
             var dt = m_TimeTracker.GetDeltaTimeForCurrentTick(tickRate);
-            // Host side this is only done in the prediction, as we want the real frame deltaTime outside prediction, for other client systems like interpolation
+            // Host 仅在预测期间压入固定时间，预测外仍保留真实帧 DeltaTime 供插值等客户端系统使用
             m_TimeTracker.PushTime(group, dt, networkTime);
 
             networkTime.Flags |= k_ServerPredictionFlags;
@@ -63,7 +63,7 @@ namespace Unity.NetCode
             ref var networkTime = ref m_NetworkTimeQuery.GetSingletonRW<NetworkTime>().ValueRW;
 
             m_TimeTracker.PopTime(group);
-            // Reset all the prediction flags. They are not valid outside the prediction loop
+            // 重置全部预测标志，因为它们在预测循环之外无效
             networkTime.Flags &= ~k_ServerPredictionFlags;
         }
 
@@ -71,9 +71,9 @@ namespace Unity.NetCode
         {
             return m_Runner.Update(group);
 
-            // containing system group already updated with appropriate initial time setup.
-            // if I'm before the prediction loop, frame systems should have "here's the tick that's about to get simulated this frame"
-            // if I'm after, frame systems should have "here's the tick that just got simulated". Input target tick should be +1 since we're accumulating inputs for the next tick
+            // 外层系统组已经设置了正确的初始时间
+            // 预测循环前，帧级系统应看到本帧即将模拟的 Tick
+            // 预测循环后，帧级系统应看到本帧刚完成模拟的 Tick，输入目标 Tick 应加一以便累积下一 Tick 的输入
         }
         public float Timestep
         {

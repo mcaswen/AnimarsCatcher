@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,7 +27,7 @@ namespace Unity.NetCode.Tests
         [GhostField(Smoothing=SmoothingAction.InterpolateAndExtrapolate, MaxSmoothingDistance=5)]
         public float ReceivedValueIaE;
         [GhostField(Smoothing=SmoothingAction.InterpolateAndExtrapolate, MaxSmoothingDistance=0.1f)]
-        public float ReceivedValueIaEWithMaxSmoothingDistance; // Special case.
+        public float ReceivedValueIaEWithMaxSmoothingDistance; // 特殊情况
         [GhostField(Smoothing=SmoothingAction.Interpolate, MaxSmoothingDistance=5)]
         public float ReceivedValueInterp;
         [GhostField(Smoothing=SmoothingAction.Clamp)]
@@ -104,15 +104,15 @@ namespace Unity.NetCode.Tests
                 ref var backup = ref backupRef.ValueRW;
                 var hasNewSnapshotContainingThisGhost = current.ReceivedValueClamp != backup.ReceivedValueClamp;
 
-                // Ignore the first few:
+                // 忽略最开始的若干次更新
                 if (backup.ReceivedValueIaE != default && backup.Tick.IsValid)
                 {
-                    // Draw bar graph showing X:time and Y:val.Value.
+                    // 绘制柱状曲线，其中 X 表示时间，Y 表示字段值
                     const float barScale = 0.01f;
                     var length = (nTime.InterpolationTick.TickIndexForValidTick + nTime.InterpolationTickFraction) * barScale;
                     var backupLength = (backup.Tick.TickIndexForValidTick + backup.Fraction) * barScale;
 
-                    // This is to aid the visual debugging:
+                    // 用于辅助可视化调试
                     const float xOffset = 4f;
                     var (color, _, x) = (current.OptimizationMode, current.GhostMode) switch
                     {
@@ -124,7 +124,7 @@ namespace Unity.NetCode.Tests
                         (GhostOptimizationMode.Static, GhostMode.OwnerPredicted) => (Color.magenta, "magenta", +2 * xOffset),
                         _ => throw new ArgumentOutOfRangeException(),
                     };
-                    color.a = 0.5f; // Add some fading so we can more easily see if two lines overlap.
+                    color.a = 0.5f; // 增加半透明效果，便于观察两条线是否重叠
                     x += ExtrapolationTests.TMode switch
                     {
                         ExtrapolationTests.NetcodeSetupMode.OnlyInterpolate100ms => -40,
@@ -142,7 +142,7 @@ namespace Unity.NetCode.Tests
                     Debug.DrawLine(new Vector3(x + backupLength, -backup.ReceivedValueIaEWithMaxSmoothingDistance, 0), new Vector3(x + length, -current.ReceivedValueIaEWithMaxSmoothingDistance, 0), pink, DrawDurationSeconds);
                     Debug.DrawLine(new Vector3(x + backupLength, -backup.PredictedValueClamp, 0), new Vector3(x + length, -current.PredictedValueClamp, 0), black, DrawDurationSeconds);
 
-                    // Draw every time we receive a snapshot:
+                    // 每次收到 Snapshot 时绘制标记
                     const float markerLength = 0.3f;
                     var expectedDeltaStep = tickRate.SimulationFixedTimeStep;
                     var numPredictedTicks = nTime.ServerTick.TicksSince(nTime.InterpolationTick);
@@ -167,7 +167,7 @@ namespace Unity.NetCode.Tests
                     log += $"\nST:{nTime.ServerTick.ToFixedString()} IT:{nTime.InterpolationTick.ToFixedString()} ?:{numPredictedTicks} TSCVC:{current.TicksSinceClampedValueChanged} --";
                     NumStepsTested++;
 
-                    // Expected behaviour:
+                    // 预期行为
                     var exp = ExtrapolationTests.GetExpectedResults(in current);
                     TestValue(1, exp.ExpectedRIaE, current.ReceivedValueIaE, backup.ReceivedValueIaE, ref log, "RIaE", current.TicksSinceClampedValueChanged, true);
                     TestValue(1, exp.ExpectedRIaEWithMaxSmoothingDistance, current.ReceivedValueIaEWithMaxSmoothingDistance, backup.ReceivedValueIaEWithMaxSmoothingDistance, ref log, "RInterp-MSD", current.TicksSinceClampedValueChanged, false);
@@ -200,7 +200,7 @@ namespace Unity.NetCode.Tests
                     ExtrapolationTests.TestLog[clientEntity] = log;
                 }
 
-                // Update backup:
+                // 更新备份
                 backup.ReceivedValueIaE = current.ReceivedValueIaE;
                 backup.ReceivedValueInterp = current.ReceivedValueInterp;
                 backup.ReceivedValueIaEWithMaxSmoothingDistance = current.ReceivedValueIaEWithMaxSmoothingDistance;
@@ -218,13 +218,21 @@ namespace Unity.NetCode.Tests
     internal enum Result
     {
         Unknown,
-        /// <summary>Denotes the value has (or should) smoothly increase (by deltaTime) in a positive direction, without any noticeable jumps or negative values.</summary>
+        /// <summary>
+        /// 表示值已经或应当按 DeltaTime 沿正方向平滑增长，不出现明显跳变或负值
+        /// </summary>
         Smooth,
-        /// <summary>Denotes the value has (or should) clamp to the latest value, forming a staircase where it either doesn't change, or (rarely) jumps many ticks.</summary>
+        /// <summary>
+        /// 表示值已经或应当 Clamp 到最新值，形成通常不变、偶尔跨多个 Tick 跳变的阶梯形态
+        /// </summary>
         Clamp,
-        /// <summary>Denotes the value has (or should) go negative.</summary>
+        /// <summary>
+        /// 表示值已经或应当变为负数
+        /// </summary>
         Negative,
-        /// <summary>Denotes any value allowed / skipped.</summary>
+        /// <summary>
+        /// 表示允许任意值或跳过检查
+        /// </summary>
         Any,
     }
 
@@ -235,8 +243,8 @@ namespace Unity.NetCode.Tests
         {
             OnlyInterpolate100ms,
             /// <summary>
-            /// Note: You cannot disable interpolation entirely - even setting the window to 0ms,
-            /// netcode will still require (and make use of) a couple of frames of interpolation.
+            /// 无法完全禁用插值，即使将窗口设为 0 ms
+            /// NetCode 仍需要并会使用若干帧进行插值
             /// </summary>
             SmallestInterpolationWindowAndExtrapolate100ms,
             Interpolate50msThenExtrapolate50ms,
@@ -245,25 +253,25 @@ namespace Unity.NetCode.Tests
         public const float k_StepTolerance = 0.001f;
         public static Dictionary<Entity,string> TestLog;
         /// <summary>
-        /// Tests three sub-systems used by end-users to get smooth, consistent gameplay using GhostFields;
+        /// 测试最终用户借助 GhostField 获得平滑一致游戏体验所依赖的三个子系统
         /// <list type="bullet">
-        /// <item>Client prediction.</item>
-        /// <item>The client's interpolation buffer/window.</item>
-        /// <item>Client-side extrapolation (when enabled via SmoothingAction).</item>
+        /// <item>客户端预测</item>
+        /// <item>客户端插值 Buffer 与窗口</item>
+        /// <item>通过 SmoothingAction 启用的客户端外推</item>
         /// </list>
-        /// The test-case is the simplest form (values changing by a fixed <c>dt</c> on a client ticking at exactly 60hz),
-        /// in a few scenarios (listed in <see cref="NetcodeSetupMode"/>).
-        /// It also tests the correctness of <see cref="GhostFieldAttribute.Smoothing"/> and <see cref="GhostFieldAttribute.MaxSmoothingDistance"/>.
+        /// 测试使用最简单的形式，即客户端严格以 60 Hz Tick 且数值按固定 <c>dt</c> 变化
+        /// 并覆盖 <see cref="NetcodeSetupMode"/> 列出的多种场景
+        /// 同时验证 <see cref="GhostFieldAttribute.Smoothing"/> 与 <see cref="GhostFieldAttribute.MaxSmoothingDistance"/> 的正确性
         /// </summary>
         /// <remarks>
-        /// Future hardening and improvement ideas include;
+        /// 后续可增加以下覆盖以强化测试
         /// <list type="bullet">
-        /// <item>With vs without prediction smoothing.</item>
-        /// <item>Partial snapshots (for client prediction).</item>
-        /// <item>Physics interactions (for client prediction in particular).</item>
-        /// <item>Introducing acceleration, teleportation, and large direction changes.</item>
-        /// <item>Different tick rates (e.g. 30Hz, 90Hz, variable Hz).</item>
-        /// <item>This test uses partial ticks. If we force always full ticks, do we see the same smoothness?</item>
+        /// <item>启用与禁用预测平滑</item>
+        /// <item>用于客户端预测的部分 Snapshot</item>
+        /// <item>物理交互，尤其是客户端预测中的交互</item>
+        /// <item>加入加速、传送和大幅方向变化</item>
+        /// <item>不同 Tick Rate，例如 30 Hz、90 Hz 和可变频率</item>
+        /// <item>当前测试使用部分 Tick，需比较强制完整 Tick 时能否获得相同平滑度</item>
         /// </list>
         /// </remarks>
         /// <param name="mode"></param>
@@ -271,7 +279,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void NetcodeProducesSmoothValues([Values]NetcodeSetupMode mode)
         {
-            // Setup:
+            // 初始化测试
             TMode = mode;
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true, typeof(MoveExtrapolated), typeof(CheckExtrapolate));
@@ -297,20 +305,19 @@ namespace Unity.NetCode.Tests
                     ghostAuthoringComponent.SupportedGhostModes = GhostModeMask.All;
                     ghostAuthoringComponent.OptimizationMode = optimizationMode;
                     ghostAuthoringComponent.HasOwner = true;
-                    ghostAuthoringComponent.MaxSendRate = 2; // Low, to make sure interpolation & extrapolation is used.
-                                                             // Note: Don't use NetworkTickRate for this, as it forces
-                                                             // the interpolation window to be a minimum of 1 NetworkTickRate tick.
+                    ghostAuthoringComponent.MaxSendRate = 2; // 使用较低发送频率，确保触发插值与外推
+                                                             // 不要通过 NetworkTickRate 达到该效果，因为它会强制插值窗口至少为 1 个 Network Tick
                 }
             }
             Assert.IsTrue(testWorld.CreateGhostCollection(authoringGhostPrefabs.ToArray()));
             testWorld.CreateWorlds(true, 1);
 
-            // Prevent batched ticks!
+            // 禁止 Tick 合并
             var tickRate = new ClientServerTickRate {MaxSimulationStepBatchSize = 1, MaxSimulationStepsPerFrame = 1};
             tickRate.ResolveDefaults();
             testWorld.ServerWorld.EntityManager.CreateSingleton(tickRate);
 
-            // Disable interpolation time to make sure extrapolation is used
+            // 按测试模式配置插值与外推窗口
             var clientTickRate = NetworkTimeSystem.DefaultClientTickRate;
             var (interpMs, extrapMs) = mode switch
             {
@@ -324,7 +331,7 @@ namespace Unity.NetCode.Tests
             clientTickRate.MaxExtrapolationTimeSimTicks = (uint) (extrapMs / 1000f * tickRate.SimulationTickRate);
             testWorld.ClientWorlds[0].EntityManager.CreateSingleton(clientTickRate);
 
-            // Spawn & set owner (for owner predicted):
+            // Spawn 并设置 Owner，以覆盖 Owner Predicted
             var serverEntitites = new FixedList4096Bytes<Entity>();
             foreach (var ghostPrefab in authoringGhostPrefabs)
             {
@@ -333,13 +340,13 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner{ NetworkId = 1, });
             }
 
-            // Let the simulation run for a bit since we're testing the stability of the connection (and start-up is turbulent):
+            // 先运行一段时间以越过启动期波动，因为测试关注稳定连接下的行为
             testWorld.Connect();
             testWorld.GoInGame();
             for (int i = 0; i < 256; ++i)
                 testWorld.Tick();
 
-            // Reset the values just before test start:
+            // 在正式测试开始前重置数值
             using var clientEntityQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(TestExtrapolated));
             using var clientEntities = clientEntityQuery.ToEntityArray(Allocator.Persistent);
             foreach (var serverEntity in serverEntitites)
@@ -359,20 +366,20 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 128; ++i)
                 testWorld.Tick();
 
-            // Enable the checks via component query:
+            // 通过添加组件启用查询检查
             Assert.AreEqual(serverEntitites.Length, clientEntities.Length, "Sanity");
             CheckExtrapolate.NumStepsTested = default;
             foreach (var clientEntity in clientEntities)
                 testWorld.ClientWorlds[0].EntityManager.AddComponent<ExtrapolateBackup>(clientEntity);
 
-            // Run the test over this many ticks:
+            // 在指定数量的 Tick 内运行测试
             for (int i = 0; i < 200; ++i)
                 testWorld.Tick();
 
             Assert.IsTrue(CheckExtrapolate.NumStepsTested > 180, $"We need to make sure the test has actually run! {CheckExtrapolate.NumStepsTested}");
 
-            // As of 01/25, there are occasional smoothing issues when snapshots arrive, due to the low send rate (except for interpolated ghosts).
-            // Thus, allow SOME % of errors.
+            // 截至 2025 年 1 月，低发送频率会导致 Snapshot 到达时偶发平滑问题，Interpolated Ghost 除外
+            // 因此允许一定比例的错误
             foreach (var clientEntity in clientEntities)
             {
                 var current = testWorld.ClientWorlds[0].EntityManager.GetComponentData<TestExtrapolated>(clientEntity);
@@ -389,7 +396,7 @@ namespace Unity.NetCode.Tests
                 var foundFatal = new Regex(Regex.Escape("FATAL")).Matches(log).Count;
                 if (foundErrors > 0 || foundFatal > 0)
                 {
-                    // Too many errors means test failure!
+                    // 错误过多时测试失败
                     if (foundErrors > 0 || foundFatal > 0)
                     {
                         var error = $"FAIL: Found {foundErrors} errors ({foundFatal} fatal) with (stepTolerance:{k_StepTolerance:0.000}) on {log}";
@@ -413,23 +420,22 @@ namespace Unity.NetCode.Tests
         }
         public static ResultGroup GetExpectedResults(in TestExtrapolated current)
         {
-            // Nuance1: Interpolation smoothes values for `(SNAPSHOT-N) to SNAPSHOT` ticks BEFORE the NEXT clamp value (including the tick the snapshot arrived for).
-            // Nuance2: Extrapolation smoothes values from `SNAPSHOT to (SNAPSHOT+N)` ticks i.e. AFTER the snapshot arrives (including the tick the snapshot arrived for).
-            // Nuance3: When in the extrapolation mode, we still see ~2 ticks of interpolation for SmoothingAction.Interpolate and SmoothingAction.InterpolateAndExtrapolate,
-            // on the 0th and last tick (before another snapshot arrives). This is correct & expected.
-            // Nuance4: Static-optimized disables extrapolation.
-            // Nuance5: 50ms of interpolation + 50ms of extrapolation leads to a different smooth & clamp pattern than previous patterns (as expected). This one is for dynamic ghosts.
-            // Nuance6: Same as Note5, but for static-optimized ghosts.
+            // 细节 1：插值会在下一个 Clamp 值之前，对 (SNAPSHOT-N) 到 SNAPSHOT 的 Tick 平滑数值，并包含 Snapshot 到达的 Tick
+            // 细节 2：外推会在 Snapshot 到达之后，对 SNAPSHOT 到 (SNAPSHOT+N) 的 Tick 平滑数值，并包含 Snapshot 到达的 Tick
+            // 细节 3：处于外推模式时，SmoothingAction.Interpolate 与 SmoothingAction.InterpolateAndExtrapolate 在第 0 个和最后一个 Tick，也就是下一 Snapshot 到达前，仍会出现约 2 个 Tick 的插值，这是正确且符合预期的
+            // 细节 4：Static Optimization 会禁用外推
+            // 细节 5：50 ms 插值加 50 ms 外推会产生不同于前述模式的 Smooth 与 Clamp 节奏，此列用于 Dynamic Ghost
+            // 细节 6：与细节 5 相同，但用于 Static Optimization Ghost
             Span<(Result n1, Result n2, Result n3, Result n4, Result n5, Result n6)> nuances = stackalloc (Result, Result, Result, Result, Result, Result)[]
             {
-                // Note1,           Note2,          Note3,          Note4,          Note5,          Note6
+                // 细节 1           细节 2          细节 3          细节 4          细节 5          细节 6
                 (Result.Smooth,     Result.Smooth,  Result.Smooth,  Result.Smooth,  Result.Smooth,  Result.Smooth), // 0
                 (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Smooth,  Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Smooth,  Result.Clamp),
-                (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Smooth,  Result.Clamp), // 3 - Extrapolation ends at 50ms.
+                (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Smooth,  Result.Clamp), // 3 - 外推在 50 ms 结束
                 (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Clamp,   Result.Clamp),
-                (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Clamp,   Result.Clamp), // 6 - Extrapolation ends at 100ms.
+                (Result.Clamp,      Result.Clamp,   Result.Smooth,  Result.Clamp,   Result.Clamp,   Result.Clamp), // 6 - 外推在 100 ms 结束
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
@@ -447,10 +453,10 @@ namespace Unity.NetCode.Tests
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Clamp,      Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
-                (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp), // 24 - Interpolation begins at 100ms.
+                (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp), // 24 - 插值从 100 ms 开始
                 (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
                 (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Clamp),
-                (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Smooth,  Result.Smooth), // 27 - Interpolation begins at 50ms.
+                (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Smooth,  Result.Smooth), // 27 - 插值从 50 ms 开始
                 (Result.Smooth,     Result.Clamp,   Result.Clamp,   Result.Clamp,   Result.Smooth,  Result.Smooth),
                 (Result.Smooth,     Result.Smooth,  Result.Smooth,  Result.Smooth,  Result.Smooth,  Result.Smooth), // 29
             };

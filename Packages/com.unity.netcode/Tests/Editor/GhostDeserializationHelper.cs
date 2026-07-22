@@ -7,8 +7,8 @@ using Unity.Entities;
 
 namespace Unity.NetCode.LowLevel.Unsafe
 {
-    //TODO: require some further generalization but then we can expose and use it to collect all the deserialization
-    //logics and helpers here, so they are not sparse anymore as a first refactor step.
+    // TODO：还需要进一步泛化，之后可将其公开并用来集中所有反序列化逻辑和辅助方法
+    // 这是避免相关实现继续分散的第一步重构
     [BurstCompile]
     unsafe struct GhostDeserializeHelper
     {
@@ -18,7 +18,7 @@ namespace Unity.NetCode.LowLevel.Unsafe
         public int snapshotSize;
         public int dynamicSnapshotCapacity;
         public GhostCollectionPrefabSerializer ghostPrefabSerializer;
-        //Constant data
+        // 常量数据
         [ReadOnly] public DynamicBuffer<GhostCollectionComponentIndex> GhostComponentIndex;
         [ReadOnly] public DynamicBuffer<GhostComponentSerializer.State> GhostComponentCollection;
         [ReadOnly] public EntityStorageInfoLookup childEntityLookup;

@@ -11,7 +11,7 @@ using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Networking.Transport;
 using Unity.Profiling;
 
-// TODO have this available in release builds for DGS
+// TODO 让 DGS 的 Release 构建也能使用该功能
 
 namespace Unity.NetCode
 {
@@ -24,20 +24,20 @@ namespace Unity.NetCode
         public NativeArray<uint> Value;
     }
 
-    // "unsafe" since this can't be a NativeContainer (it's embedded in NativeList in GhostStatsSnapshotSingleton for example)
-    // For now, assuming the read buffer containing a raw unsafe instance will only be called from the main thread. To use in a safe way, we could create a wrapper GhostStatsSnapshotReader to read those stats from jobs. Not an API we expose to users for now, so skipping for now.
-    // This is written to by Netcode and shouldn't be written to manually.
-    // There's still safety in here. It's useful in cases where the reader is used in a job, but the mainthread is trying to write to the reader base unsafe data (for updating the double buffer reader for example)
-    // Also useful for dispose checks
+    // 该类型标记为 unsafe，因为它不能作为 NativeContainer，例如它会嵌入 GhostStatsSnapshotSingleton 的 NativeList 中
+    // 当前假定包含原始 unsafe 实例的读取 Buffer 只在主线程调用，若需在 Job 中安全读取，可增加 GhostStatsSnapshotReader 包装器；由于暂未向用户开放此 API，现阶段不实现
+    // 该数据由 NetCode 写入，不应手动修改
+    // 内部仍保留安全检查，可处理读取器用于 Job、主线程同时尝试修改读取器底层 unsafe 数据的情况，例如更新双缓冲读取器
+    // 也用于释放检查
     internal unsafe struct UnsafeGhostStatsSnapshot : IDisposable
     {
         public struct PerGhostTypeStats : IDisposable
         {
-            public uint EntityCount; // old statType * 3 + 4
-            public uint SizeInBits; // old statType * 3 + 5
-            public uint UncompressedCount; // old statType * 3 + 6
-            // TODO there's some more data sent than what's counted here. They are some ints and bytes used netcode side to keep track of things. We should have a generic "metadata" section in the profiler that just takes the packet size and subtracts all the per component sizes to get the "netcode overhead + UTP overhead".
-            // TODO in the original code, this was stored at the same place as UncompressedCount (3rd index). Did I misunderstand something or is this just reusing the same spot in memory? Was there some form of optim there for this? There shouldn't be that many prefabs that we need to save on amount of memory used no? Like for 500 ghost types that's just 2KB. Even for web debugger packets, I'm still reusing the old format with only 3*uint per ghost type so this should still be good?
+            public uint EntityCount; // 旧格式索引为 statType * 3 + 4
+            public uint SizeInBits; // 旧格式索引为 statType * 3 + 5
+            public uint UncompressedCount; // 旧格式索引为 statType * 3 + 6
+            // TODO 实际发送的数据比这里统计的更多，包括 NetCode 内部用于状态跟踪的若干 int 和 byte；Profiler 应增加通用的“元数据”区域，用包大小减去所有逐组件大小，得到“NetCode 开销 + UTP 开销”
+            // TODO 原实现将该值与 UncompressedCount 放在同一位置，即第 3 个索引，需确认这是误解、内存复用还是刻意优化；即使有 500 种 Ghost，也只增加约 2 KB，Web 调试包继续使用每种 Ghost 仅 3 个 uint 的旧格式即可
             public uint ChunkCount;
             internal NativeList<PerComponentStats> PerComponentStatsList;
 
@@ -82,11 +82,11 @@ namespace Unity.NetCode
             public int GetBlittableSizeBytes()
             {
                 var toReturn = 0;
-                toReturn += UnsafeUtility.SizeOf<uint>(); // EntityCount
-                toReturn += UnsafeUtility.SizeOf<uint>(); // SizeInBits
-                toReturn += UnsafeUtility.SizeOf<uint>(); // UncompressedCount
-                toReturn += UnsafeUtility.SizeOf<uint>(); // ChunkCount
-                toReturn += UnsafeUtility.SizeOf<int>(); // list length
+                toReturn += UnsafeUtility.SizeOf<uint>(); // EntityCount 字段
+                toReturn += UnsafeUtility.SizeOf<uint>(); // SizeInBits 字段
+                toReturn += UnsafeUtility.SizeOf<uint>(); // UncompressedCount 字段
+                toReturn += UnsafeUtility.SizeOf<uint>(); // ChunkCount 字段
+                toReturn += UnsafeUtility.SizeOf<int>(); // 列表长度
                 for (int i = 0; i < PerComponentStatsList.Length; i++)
                 {
                     toReturn += PerComponentStatsList[i].GetBlittableSizeBytes();
@@ -142,7 +142,7 @@ namespace Unity.NetCode
             public int GetBlittableSizeBytes()
             {
                 var toReturn = 0;
-                toReturn += UnsafeUtility.SizeOf<int>(); // SizeInSnapshotInBits
+                toReturn += UnsafeUtility.SizeOf<int>(); // SizeInSnapshotInBits 字段
                 return toReturn;
             }
 
@@ -159,19 +159,19 @@ namespace Unity.NetCode
             }
         }
 
-        // This data used to be stored in a single uint array, with striding x3 to set individual counters. References to "old index" reference that that old way of storing things for reference purposes
-        internal NetworkTick Tick; // old index 0 // client side this is the received snapshot's tick (not current prediction tick). Server side this is the server tick when the send system executed
-        internal uint DespawnCount; // old index 1
-        internal uint DestroySizeInBits; // old index 2
+        // 这些数据过去保存在单个 uint 数组中，并以步长 3 设置各计数器，下文的“旧索引”用于对应这种旧存储方式
+        internal NetworkTick Tick; // 旧索引 0；客户端表示收到的 Snapshot Tick，而非当前预测 Tick；服务端表示发送 System 执行时的 Server Tick
+        internal uint DespawnCount; // 旧索引 1
+        internal uint DestroySizeInBits; // 旧索引 2
         internal uint PacketsCount;
-        internal uint SnapshotTotalSizeInBits; // includes headers
+        internal uint SnapshotTotalSizeInBits; // 包含 Header
         public bool Initialized;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         internal AtomicSafetyHandle m_Safety;
 #endif
         Allocator m_Allocator;
 
-        // indexed by ghostType index. TODO wrap ghost type index inside a struct?
+        // 按 GhostType 索引，TODO 考虑用结构体封装 GhostType 索引
         internal UnsafeList<PerGhostTypeStats> m_PerGhostTypeStatsList;
 
         public ref UnsafeList<PerGhostTypeStats> PerGhostTypeStatsListRefRW
@@ -243,7 +243,7 @@ namespace Unity.NetCode
             }
         }
 
-        // sets all data to default
+        // 将所有数据重置为默认值
         public void ResetToDefault()
         {
             CheckWrite();
@@ -321,14 +321,14 @@ namespace Unity.NetCode
         {
             int toReturn = 0;
 
-            toReturn += UnsafeUtility.SizeOf<uint>(); // Tick
-            toReturn += UnsafeUtility.SizeOf<uint>(); // DespawnCount
-            toReturn += UnsafeUtility.SizeOf<uint>(); // DestroySizeInBits
-            toReturn += UnsafeUtility.SizeOf<uint>(); // NewPacketsCountSent
-            toReturn += UnsafeUtility.SizeOf<uint>(); // SnapshotTotalSizeInBits
+            toReturn += UnsafeUtility.SizeOf<uint>(); // Tick 字段
+            toReturn += UnsafeUtility.SizeOf<uint>(); // DespawnCount 字段
+            toReturn += UnsafeUtility.SizeOf<uint>(); // DestroySizeInBits 字段
+            toReturn += UnsafeUtility.SizeOf<uint>(); // NewPacketsCountSent 字段
+            toReturn += UnsafeUtility.SizeOf<uint>(); // SnapshotTotalSizeInBits 字段
 
             var statsList = this.PerGhostTypeStatsListRO;
-            toReturn += UnsafeUtility.SizeOf<int>(); // length of stats list
+            toReturn += UnsafeUtility.SizeOf<int>(); // 统计列表长度
             for (int i = 0; i < statsList.Length; i++)
             {
                 toReturn += statsList[i].GetBlittableSizeBytes();
@@ -369,22 +369,22 @@ namespace Unity.NetCode
         public readonly int UIntOldSize()
         {
             CheckRead();
-            return 1 + 1 + 1 + (PerGhostTypeStatsListRO.Length * 3); // despawn count + destroy size + unknown + per ghost types
-            // return 1 + 1 + 1 + 1 + (PerGhostTypeStats.Length * 3); // tick + despawn count + destroy size + unknown + per ghost types
+            return 1 + 1 + 1 + (PerGhostTypeStatsListRO.Length * 3); // Despawn 数量 + 销毁大小 + 未知字段 + 各 Ghost 类型
+            // return 1 + 1 + 1 + 1 + (PerGhostTypeStats.Length * 3); // Tick + Despawn 数量 + 销毁大小 + 未知字段 + 各 Ghost 类型
         }
 
-        // using the old format to update the web page. Kept for flow compatibility reasons. We should remove this method once we remove the web page for profiler stats
+        // 使用旧格式更新网页，以保持现有流程兼容；移除 Profiler 统计网页后应一并删除此方法
         public NativeArray<uint> ToOldBinary(Allocator allocator, bool useReceivedStats)
         {
             CheckRead();
-            // should return the original format that's expected by the webpage
+            // 返回网页所需的原始格式
             var requiredSize = UIntOldSize();
             var toReturn = new NativeArray<uint>(requiredSize, allocator);
             // toReturn[0] = Tick.Value.SerializedData;
-            // TODO we don't send the tick?
+            // TODO 确认是否有意不发送 Tick
             toReturn[0] = DespawnCount;
             toReturn[1] = DestroySizeInBits;
-            toReturn[2] = 0; // this seems like it was never used and always set to 0. potentially a reserved spot for future use?
+            toReturn[2] = 0; // 该位置似乎从未使用且始终为 0，可能是预留字段
             for (int i = 0; i < PerGhostTypeStatsListRefRW.Length; i++)
             {
                 toReturn[i * 3 + 3] = PerGhostTypeStatsListRefRW.ElementAt(i).EntityCount;
@@ -400,17 +400,17 @@ namespace Unity.NetCode
         #endregion
     }
 
-    // main point of access to snapshot stats
-    // The flow goes like this: n worker threads gather stats in parallel from GhostSendSystem's job. Then next frame n worker stats are merged into the first "main" one. Then  those stats are copied in the read stats to be read by metrics and the web page.
-    // client side, since there's a single thread, GhostReceiveSystem only takes the first writer stat, no need for n writers.
-    // Uses NativeList for parallel write access safety. Everything underneath is unsafe.
+    // Snapshot 统计的主要访问入口
+    // 流程如下：n 个工作线程从 GhostSendSystem 的 Job 并行收集统计，下一帧将这些工作线程统计合并到首个主统计，再复制到读取统计供 Metrics 和网页读取
+    // 客户端只有一个线程，因此 GhostReceiveSystem 只使用首个写入统计，不需要 n 个 Writer
+    // 使用 NativeList 保证并行写入访问安全，其底层内容均为 unsafe
     internal struct GhostStatsSnapshotSingleton : IComponentData, IDisposable
     {
         internal NativeList<UnsafeGhostStatsSnapshot> allGhostStatsParallelWrites;
 
-        internal ref UnsafeGhostStatsSnapshot MainStatsWrite => ref allGhostStatsParallelWrites.ElementAt(0); // access to write list should be safe because of NativeList, but accessing the internal elements won't be. Make sure each instance is accessed on the same thread
+        internal ref UnsafeGhostStatsSnapshot MainStatsWrite => ref allGhostStatsParallelWrites.ElementAt(0); // NativeList 可保证写入列表访问安全，但不能保证内部元素安全，必须确保每个实例始终由同一线程访问
 
-        internal UnsafeGhostStatsSnapshot UnsafeMainStatsRead; // should only be accessed on main thread
+        internal UnsafeGhostStatsSnapshot UnsafeMainStatsRead; // 只能在主线程访问
 
         static int MaxThreadCount
         {
@@ -432,8 +432,8 @@ namespace Unity.NetCode
         }
 
 
-        // Main point of access for users. Use this to get a safe read copy of the stats. This should replace GhostMetrics access.
-        // This is a copy of the main stats being written to by jobs. This can be accessed from anywhere
+        // 用户读取统计的主要入口，用于取得安全的只读副本，应替代对 GhostMetrics 的直接访问
+        // 这是 Job 正在写入的主统计副本，可从任意位置访问
         // public unsafe GhostStatsSnapshotReader GetAsyncStatsReader()
         // {
         //     UnsafeMainStatsRead.CheckRead();
@@ -464,7 +464,7 @@ namespace Unity.NetCode
 #endif
 
         /// <summary>
-        /// Append to the collection the snapshost prefab stats  or the given tick. Used and populated by the <see cref="GhostSendSystem"/>
+        /// 将指定 Tick 的 Snapshot Prefab 统计追加到集合中，由 <see cref="GhostSendSystem"/> 填充和使用
         /// </summary>
         /// <param name="stats"></param>
         /// <param name="collectionData"></param>
@@ -474,9 +474,9 @@ namespace Unity.NetCode
             if (!statsTick.IsValid || UnsafeMainStatsRead.PerGhostTypeStatsListRO.Length < MainStatsWrite.PerGhostTypeStatsListRO.Length-1 || snapshotCount >= 255 || (!hasMonitor && collectionData.m_StatIndex < 0) || !collectionData.m_CollectionTick.IsValid)
                 return;
 
-            // TODO just swap pointers? no need for copy
+            // TODO 考虑直接交换指针以避免复制
             UnsafeMainStatsRead.Tick = MainStatsWrite.Tick;
-            UnsafeMainStatsRead.IncrementWith(MainStatsWrite); // since this can be called multiple times with no new stats, we don't want to override it, we need to just increment it
+            UnsafeMainStatsRead.IncrementWith(MainStatsWrite); // 可能在没有新统计时多次调用，因此不能覆盖现有值，只能累加
         }
 
         public unsafe void Dispose()
@@ -501,13 +501,11 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The GhostStatsCollectionSystem is responsible to hold all sent and received snapshot statitics on both client
-    /// and server.
-    /// The collected stats are then sent to the Network Debugger tools for visualization (when the debugger is connected attached) by
-    /// the <see cref="GhostStatsConnection"/> at the end of the frame.
+    /// GhostStatsCollectionSystem 负责保存客户端和服务端所有已发送及已接收的 Snapshot 统计
+    /// 帧结束时，若调试器已连接，<see cref="GhostStatsConnection"/> 会把收集到的统计发送到 Network Debugger 工具进行可视化
     /// </summary>
-    // This is updating first in the receive system group to make sure this system is the first stats collection
-    // running any given frame since this system sets up the current tick for the stats
+    // 该 System 在接收 System Group 中最先更新，确保每帧都最先执行统计收集
+    // 原因是它负责为统计设置当前 Tick
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup), OrderFirst = true)]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
                        WorldSystemFilterFlags.ServerSimulation |
@@ -520,8 +518,8 @@ namespace Unity.NetCode
         private bool m_HasMonitor;
 
         /// <summary>
-        /// Append to the collection the send/recv commands stats for the given tick. Used by the <see cref="NetworkStreamReceiveSystem"/>
-        /// and <see cref="CommandSendPacketSystem"/>.
+        /// 将指定 Tick 的命令发送和接收统计追加到集合中，由 <see cref="NetworkStreamReceiveSystem"/>
+        /// 与 <see cref="CommandSendPacketSystem"/> 使用
         /// </summary>
         /// <param name="stats"></param>
         /// <param name="collectionData"></param>
@@ -535,7 +533,7 @@ namespace Unity.NetCode
                 m_CommandTicks.Add(statsTick.TickIndexForValidTick);
         }
         /// <summary>
-        /// Append to the collection the prediction error calculatd by <see cref="GhostPredictionDebugSystem"/> for the given tick
+        /// 将 <see cref="GhostPredictionDebugSystem"/> 为指定 Tick 计算的预测误差追加到集合中
         /// </summary>
         /// <param name="stats"></param>
         /// <param name="collectionData"></param>
@@ -548,7 +546,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Append to the collection the number of discarded snapshots/commmands (respectively received by client and server)
+        /// 将丢弃的 Snapshot 或 Command 数量追加到集合中，二者分别由客户端和服务端接收
         /// </summary>
         /// <param name="stats"></param>
         /// <param name="collectionData"></param>
@@ -660,26 +658,26 @@ namespace Unity.NetCode
                     var connection = networkStreamConnection.ValueRO.Value;
                     for (int i = driverStore.FirstDriver; i < driverStore.LastDriver; i++)
                     {
-                        var networkDriver = driverStore.GetDriverRO(i); // each driver should be configured with the same pipelines
+                        var networkDriver = driverStore.GetDriverRO(i); // 每个 Driver 都应配置相同的 Pipeline
                         var pipeline = driverStore.GetDriverInstanceRO(i).unreliablePipeline;
 
                         var headerSize = networkDriver.MaxHeaderSize(pipeline);
                         if (networkDriver.GetMaxSupportedMessageSize(connection) < 0)
                         {
-                            // most likely this is IPC, skipping
+                            // 很可能是 IPC，直接跳过
                             continue;
                         }
-                        // trying to get header from non-fragmented pipeline first
+                        // 优先从非分片 Pipeline 获取 Header
                         var payloadMaxSize = networkDriver.GetMaxSupportedMessageSize(connection) - headerSize;
                         if (totalSnapshotSize > payloadMaxSize)
                         {
-                            // we used the fragmented pipeline, getting that header there
+                            // 当前使用分片 Pipeline，改为获取其 Header
                             headerSize = networkDriver.MaxHeaderSize(driverStore.GetDriverInstanceRO(i).unreliableFragmentedPipeline);
                             payloadMaxSize = networkDriver.GetMaxSupportedMessageSize(connection) - headerSize;
                         }
                         snapshotStatsSingleton.UnsafeMainStatsRead.PacketsCount += (uint)math.ceil(totalSnapshotSize / payloadMaxSize);
 
-                        break; // TODO we currently don't take into account snapshot size per connection, only globally. We assume the payload max size is the same for each connections and each non-IPC driver (which might not be the case in real life) currently, but would need to adapt to a per connection stats eventually. Breaking for now.
+                        break; // TODO 当前只统计全局 Snapshot 大小，未按连接区分，并假定所有连接及非 IPC Driver 的最大 Payload 大小一致；实际情况可能不同，后续应改为逐连接统计，现阶段先退出循环
                     }
 
                     break;
@@ -706,19 +704,19 @@ namespace Unity.NetCode
                 BeginCollection(ref state, currentTick, ref collectionData);
             }
 
-            state.CompleteDependency(); // We complete the dependency. This is needed because NetworkSnapshotAck is written by a job in NetworkStreamReceiveSystem
+            state.CompleteDependency(); // 必须完成依赖，因为 NetworkStreamReceiveSystem 中的 Job 会写入 NetworkSnapshotAck
             AddCommandStats(m_CommandStatsData, collectionData);
             AddDiscardedPackets(m_CommandStatsData[2], collectionData);
             m_CommandStatsData[0] = 0;
             m_CommandStatsData[1] = 0;
             m_CommandStatsData[2] = 0;
 
-            // merge stats for current frame if there's any from different threads
+            // 合并当前帧中不同线程产生的统计
             ref var snapshotStatsSingleton = ref SystemAPI.GetSingletonRW<GhostStatsSnapshotSingleton>().ValueRW;
             if (snapshotStatsSingleton.allGhostStatsParallelWrites.Length > 0 && snapshotStatsSingleton.MainStatsWrite.Tick.SerializedData != 0)
             {
                 ref var mainStats = ref snapshotStatsSingleton.MainStatsWrite;
-                // increment main writer with worker writer stats
+                // 将各工作线程 Writer 的统计累加到主 Writer
                 for (int worker = 1; worker < snapshotStatsSingleton.allGhostStatsParallelWrites.Length; worker++)
                 {
                     ref var currentWorkerWriteStats = ref snapshotStatsSingleton.allGhostStatsParallelWrites.ElementAt(worker);
@@ -726,10 +724,10 @@ namespace Unity.NetCode
                     currentWorkerWriteStats.ResetToDefault();
                 }
 
-                // swap to read stats
+                // 更新读取统计
                 snapshotStatsSingleton.UpdateDoubleBufferReadStats(collectionData, m_SnapshotTicks.Length, m_HasMonitor);
                 m_SnapshotTicks.Add(snapshotStatsSingleton.MainStatsWrite.Tick);
-                // reset main writer, those stats are saved in the reader now
+                // 统计已保存到 Reader，重置主 Writer
                 snapshotStatsSingleton.MainStatsWrite.ResetToDefault();
             }
             UpdateSnapshotPacketCount(ref state, ref snapshotStatsSingleton);
@@ -745,7 +743,7 @@ namespace Unity.NetCode
             m_MinMaxTickStatsData[0] = NetworkTick.Invalid;
             m_MinMaxTickStatsData[1] = NetworkTick.Invalid;
 
-            // Gather the min/max age stats
+            // 汇总最小和最大 Age 统计
 #if UNITY_2022_2_14F1_OR_NEWER
             int maxThreadCount = JobsUtility.ThreadIndexCount;
 #else
@@ -838,10 +836,10 @@ namespace Unity.NetCode
             binaryData[binarySize++] = (byte) m_TimeSamples.Length;
             binaryData[binarySize++] = (byte) m_SnapshotTicks.Length;
             binaryData[binarySize++] = (byte) m_CommandTicks.Length;
-            binaryData[binarySize++] = 0; // rpcs
+            binaryData[binarySize++] = 0; // RPC
             binaryData[binarySize++] = (byte)m_DiscardedPackets;
-            binaryData[binarySize++] = 0; // unused
-            binaryData[binarySize++] = 0; // unused
+            binaryData[binarySize++] = 0; // 未使用
+            binaryData[binarySize++] = 0; // 未使用
 
             for (int i = 0; i < m_TimeSamples.Length; ++i)
             {
@@ -857,7 +855,7 @@ namespace Unity.NetCode
                 timeSample[8] = m_TimeSamples[i].snapshotAgeMax;
                 binarySize += 36;
             }
-            // Write snapshots
+            // 写入 Snapshot
             for (int i = 0; i < m_SnapshotTicks.Length; ++i)
             {
                 *(uint*) (binaryData + binarySize) = m_SnapshotTicks[i].TickIndexForValidTick;
@@ -869,13 +867,13 @@ namespace Unity.NetCode
             using var bytes = statsSingleton.UnsafeMainStatsRead.ToOldBinary(Allocator.Temp, state.WorldUnmanaged.IsClient()).Reinterpret<byte>(UnsafeUtility.SizeOf<uint>());
             UnsafeUtility.MemCpy(binaryData + binarySize, bytes.GetUnsafePtr(), bytes.Length);
             binarySize += bytes.Length;
-            // Write prediction errors
+            // 写入预测误差
             for (int i = 0; i < m_PredictionErrors.Length; ++i)
             {
                 *(float*) (binaryData + binarySize) = m_PredictionErrors[i];
                 binarySize += 4;
             }
-            // Write commands
+            // 写入 Command
             for (int i = 0; i < m_CommandTicks.Length; ++i)
             {
                 *(uint*) (binaryData + binarySize) = m_CommandTicks[i];
@@ -909,7 +907,7 @@ namespace Unity.NetCode
         private NetworkTick m_SnapshotTickMin;
         private NetworkTick m_SnapshotTickMax;
         private NativeList<TimeSample> m_TimeSamples;
-        private NativeList<NetworkTick> m_SnapshotTicks; // TODO does the following make sense? --> These are the ticks of the individual snapshots we got in the past few frames before consuming them. Since receives runs at frame rate, but a server tick runs at tick rate, we can have multiple frames, each receiving different snapshots
+        private NativeList<NetworkTick> m_SnapshotTicks; // TODO 确认该语义是否合理：这里保存消费前若干帧内收到的各个 Snapshot Tick；接收按帧率运行，而 Server Tick 按 Tick Rate 运行，因此可能连续多帧分别收到不同 Snapshot
         private NativeList<float> m_PredictionErrors;
         private uint m_CommandStats;
         private uint m_DiscardedPackets;
@@ -932,8 +930,8 @@ namespace Unity.NetCode
             public float snapshotAgeMin;
             public float snapshotAgeMax;
         }
-        // TODO move this to GhostMetrics
-        // updates GhostMetrics with read buffer from last frame
+        // TODO 移到 GhostMetrics
+        // 使用上一帧的读取 Buffer 更新 GhostMetrics
         void UpdateMetrics(ref SystemState state, NetworkTick currentTick)
         {
             var hasTimeSamples = m_TimeSamples.Length > 0;
@@ -1045,10 +1043,10 @@ namespace Unity.NetCode
         }
     }
 
-    // collects data in binary packets to be sent to the web page
+    // 将数据收集为待发送到网页的二进制包
     internal struct GhostStatsCollectionData : IComponentData
     {
-        public NativeList<byte> m_PacketPool; // websocket packets we send to the profiler webpage
+        public NativeList<byte> m_PacketPool; // 发送到 Profiler 网页的 WebSocket 数据包
         public NativeList<GhostStatsCollectionSystem.Packet> m_PacketQueue;
         public NativeText m_LastNameAndErrorArray;
         public NativeList<float> m_PredictionErrors;
@@ -1070,19 +1068,19 @@ namespace Unity.NetCode
 
         public void UpdateMaxPacketSize(int snapshotStatsLength, int predictionErrorsLength)
         {
-            // Calculate a new max packet size
+            // 计算新的最大数据包大小
             var packetSize = 8 + 20 * 255 + 4 * snapshotStatsLength + 4 * predictionErrorsLength + 4 * 255;
             if (packetSize == m_MaxPacketSize)
                 return;
             m_MaxPacketSize = packetSize;
 
-            // Drop all pending packets not yet in the queue
+            // 丢弃所有尚未进入队列的待处理数据包
             m_CollectionTick = NetworkTick.Invalid;
         }
 
         /// <summary>
-        /// Setup the ghosts prefabs and error names (used by the NetworkDebugger tool). Called after the prefab collection has been
-        /// processed by the <see cref="GhostCollectionSystem"/>
+        /// 设置 Ghost Prefab 与误差名称，供 NetworkDebugger 工具使用
+        /// 在 <see cref="GhostCollectionSystem"/> 处理完 Prefab 集合后调用
         /// </summary>
         /// <param name="nameList"></param>
         /// <param name="errorList"></param>
@@ -1091,7 +1089,7 @@ namespace Unity.NetCode
             NativeList<FixedString64Bytes> nameList, NativeList<PredictionErrorNames> errorList,
             int predictedErrorCount, ref GhostStatsSnapshotSingleton snapshotStatsSingleton)
         {
-            // Add a pending packet with the new list of names
+            // 使用新的名称列表添加待处理数据包
             m_LastNameAndErrorArray.Clear();
             m_LastNameAndErrorArray.Append((FixedString32Bytes)"\"name\":\"");
             m_LastNameAndErrorArray.Append(worldName);
@@ -1121,10 +1119,10 @@ namespace Unity.NetCode
 
             m_LastNameAndErrorArray.Append(']');
 
-            // This is called when the ghost collection is updated, so we then know if there's new ghost types or removed ghost types and we can adjust the relevant stats lists sizes.
+            // Ghost 集合更新时调用，此时可获知新增或移除的 Ghost 类型，并相应调整统计列表大小
             snapshotStatsSingleton.UnsafeMainStatsRead.Reset(nameList.Length);
 
-            //we are clearing before resizing, because the resize will otherwise memcpy the old values
+            // 调整大小前先清空，否则 Resize 会复制旧值
             if (m_PredictionErrors.Length != predictedErrorCount)
             {
                 m_PredictionErrors.Clear();
@@ -1158,7 +1156,7 @@ namespace Unity.NetCode
                 isString = true
             });
             m_UsedPacketPoolSize += totalLen;
-            // Make sure the packet size is big enough for the new snapshot stats
+            // 确保数据包大小足以容纳新的 Snapshot 统计
             UpdateMaxPacketSize(snapshotStatsSingleton.UnsafeMainStatsRead.ByteOldSize(), m_PredictionErrors.Length);
         }
     }

@@ -13,14 +13,14 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// InitializePrespawnGhostSystem systems is responsible to prepare and initialize all sub-scenes pre-spawned ghosts
-    /// The initialization process is quite involved and need multiple steps:
-    /// - perform component stripping based on the ghost prefab metadata (MAJOR STRUCTURAL CHANGES)
-    /// - kickoff baseline serialization
-    /// - compute and assign the compound baseline hash to each subscene
+    /// 负责准备和初始化所有 SubScene 的预生成 Ghost
+    /// 初始化过程包含多个步骤：
+    /// - 根据 Ghost Prefab 元数据剥离 Component，会产生大量结构变更
+    /// - 启动 Baseline 序列化
+    /// - 计算复合 Baseline Hash 并分配给各 SubScene
     ///
-    /// The process start by finding the subscenes subset that has all the ghost archetype serializer ready.
-    /// A component stripping, serialization and baseline assignment jobs is started for each subscene in parallel.
+    /// 首先找出全部 Ghost Archetype Serializer 均已就绪的 SubScene 子集
+    /// 随后为每个 SubScene 并行启动 Component 剥离、序列化与 Baseline 分配 Job
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(PrespawnGhostSystemGroup))]
@@ -78,7 +78,7 @@ namespace Unity.NetCode
             m_SubSceneWithPrespawnGhostsFromEntity = state.GetComponentLookup<SubSceneWithPrespawnGhosts>();
 
             state.RequireForUpdate<GhostCollection>();
-            // Ignore scene loaded in the query for running so the singleton is created in time
+            // 运行条件查询不要求场景已加载，以便及时创建 Singleton
             builder.Reset();
             builder.WithAny<SubSceneWithPrespawnGhosts, ForcePrespawnListPrefabCreate>()
                 .WithNone<SubScenePrespawnBaselineResolved>();
@@ -94,7 +94,7 @@ namespace Unity.NetCode
 
         public void OnStartRunning(ref SystemState state)
         {
-            //This need to be delayed here to avoid creating this entity if not required (so no prespawn presents)
+            // 延迟到此处创建，以免在不存在 Prespawn 时生成不必要的 Entity
             if (m_SubSceneListPrefab == Entity.Null)
             {
                 m_SubSceneListPrefab = PrespawnHelper.CreatePrespawnSceneListGhostPrefab(state.EntityManager);
@@ -111,9 +111,9 @@ namespace Unity.NetCode
                 return;
             var collectionEntity = SystemAPI.GetSingletonEntity<GhostCollection>();
             var ghostPrefabTypes = state.EntityManager.GetBuffer<GhostCollectionPrefab>(collectionEntity);
-            //No data loaded yet. This condition can be true for both client and server.
-            //Server in particular can be in this state until at least one connection enter the in-game state.
-            //Client can hit this until it receives the prefabs to process from the Server.
+            // 尚未加载任何数据，客户端和服务器都可能处于此状态
+            // 服务器可能一直等待到至少一个连接进入 InGame 状态
+            // 客户端则可能一直等待到收到服务器发来的待处理 Prefab
             if(ghostPrefabTypes.Length == 0)
                 return;
 
@@ -122,18 +122,18 @@ namespace Unity.NetCode
             var subScenesSections = m_UninitializedScenes.ToEntityArray(Allocator.Temp);
             var readySections = new NativeList<int>(subScenesSections.Length, Allocator.Temp);
 
-            //Populate a map for faster retrieval and used also by component stripping job
+            // 填充用于快速查找的 Map，同时供 Component 剥离 Job 使用
             for (int i = 0; i < ghostPrefabTypes.Length; ++i)
             {
                 if(ghostPrefabTypes[i].GhostPrefab != Entity.Null)
                     processedPrefabs.Add(ghostPrefabTypes[i].GhostType, ghostPrefabTypes[i].GhostPrefab);
             }
 
-            //Find out all the scenes that have all their prespawn ghost type resolved by the ghost collection.
-            //(so we have the serializer ready)
+            // 找出全部 Prespawn Ghost 类型都已由 Ghost Collection 解析的场景
+            // 此时对应 Serializer 均已就绪
             for (int i = 0; i < subScenesSections.Length; ++i)
             {
-                //For large number would make sense to schedule a job for that
+                // 数量较大时可考虑把该检查调度为 Job
                 var sharedFilter = new SubSceneGhostComponentHash {Value = subSceneWithPrespawnGhosts[i].SubSceneHash};
                 m_Prespawns.SetSharedComponentFilter(sharedFilter);
                 var ghostTypes = m_Prespawns.ToComponentDataArray<GhostType>(Allocator.Temp);
@@ -145,12 +145,12 @@ namespace Unity.NetCode
             }
             m_Prespawns.ResetFilter();
 
-            //If not scene has resolved the ghost prefab, or has been loaded early exit
+            // 如果没有场景完成 Ghost Prefab 解析或加载，则提前退出
             if (readySections.Length == 0)
                 return;
 
-            //Remove the disable components. Is faster this way than using command buffers because this
-            //will affect the whole chunk at once
+            // 移除 Disabled Component
+            // 直接作用于整个 Chunk 比使用 Command Buffer 更快
             for (int readyScene = 0; readyScene < readySections.Length; ++readyScene)
             {
                 var sceneIndex = readySections[readyScene];
@@ -162,15 +162,15 @@ namespace Unity.NetCode
             m_GhostPrefabMetaDataLookup.Update(ref state);
             m_LinkedEntityGroupHandle.Update(ref state);
             m_GhostTypeComponentHandle.Update(ref state);
-            //kickoff strip components jobs on all the prefabs for each subscene
+            // 为每个 SubScene 的全部 Prefab 启动 Component 剥离 Job
             var jobs = new NativeList<JobHandle>(readySections.Length, Allocator.Temp);
             for (int readyScene = 0; readyScene < readySections.Length; ++readyScene)
             {
                 var sceneIndex = readySections[readyScene];
                 var sharedFilter = new SubSceneGhostComponentHash {Value = subSceneWithPrespawnGhosts[sceneIndex].SubSceneHash};
                 m_Prespawns.SetSharedComponentFilter(sharedFilter);
-                //Strip components this can be a large chunks of major structural changes and it is scheduled
-                //at the beginning of the next simulation update
+                // 剥离 Component 可能对大量 Chunk 产生结构变更
+                // 因此安排在下一次 Simulation 更新开始时执行
                 var ecb = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
                 LogStrippingPrespawn(ref netDebug, subSceneWithPrespawnGhosts[sceneIndex]);
                 var stripPrespawnGhostJob = new PrespawnGhostStripComponentsJob
@@ -189,7 +189,7 @@ namespace Unity.NetCode
             state.Dependency = JobHandle.CombineDependencies(jobs.AsArray());
             m_Prespawns.ResetFilter();
 
-            //In case the prespawn baselines are not present just mark everything as resolved
+            // 如果不存在 Prespawn Baseline，则直接将所有场景标记为已解析
             if (m_PrespawnBaselines.IsEmptyIgnoreFilter)
             {
                 for (int readyScene = 0; readyScene < readySections.Length; ++readyScene)
@@ -209,7 +209,7 @@ namespace Unity.NetCode
             m_EntityTypeHandle.Update(ref state);
             m_GhostComponentFromEntity.Update(ref state);
 
-            //Serialize the baseline and add the resolved tag.
+            // 序列化 Baseline 并添加已解析标签
             var serializerJob = new PrespawnGhostSerializer
             {
                 GhostComponentCollectionFromEntity = m_GhostComponentSerializerStateHandle,
@@ -237,11 +237,11 @@ namespace Unity.NetCode
                 var subSceneWithGhost = subSceneWithPrespawnGhosts[sceneIndex];
                 var sharedFilter = new SubSceneGhostComponentHash {Value = subSceneWithGhost.SubSceneHash};
                 m_PrespawnBaselines.SetSharedComponentFilter(sharedFilter);
-                // Serialize the baselines and store the baseline hashes
+                // 序列化 Baseline 并存储各自的 Baseline Hash
                 var baselinesHashes = new NativeList<ulong>(subSceneWithGhost.PrespawnCount, state.WorldUpdateAllocator);
                 serializerJob.baselineHashes = baselinesHashes.AsParallelWriter();
                 var serializeJobHandle = serializerJob.ScheduleParallelByRef(m_PrespawnBaselines, state.Dependency);
-                // Calculate the aggregate baseline hash for all the ghosts in the scene
+                // 计算场景内全部 Ghost 的聚合 Baseline Hash
                 var aggregateJob = new AggregateHash
                 {
                     baselinesHashes = baselinesHashes,
@@ -250,10 +250,10 @@ namespace Unity.NetCode
                     subScene = subScene
                 };
                 state.Dependency = aggregateJob.Schedule(serializeJobHandle);
-                //mark as resolved
+                // 标记为已解析
                 commandBuffer.AddComponent<SubScenePrespawnBaselineResolved>(subScene);
             }
-            //Playback immediately the resolved scenes
+            // 立即回放已解析场景的 Command
             commandBuffer.Playback(state.EntityManager);
             commandBuffer.Dispose();
         }
@@ -267,7 +267,7 @@ namespace Unity.NetCode
             public Entity subScene;
             public void Execute()
             {
-                //Sort to maintain consistent order
+                // 排序以保持确定性顺序
                 baselinesHashes.Sort();
                 ulong baselineHash;
                 unsafe

@@ -9,40 +9,39 @@ using Unity.Collections;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// A struct that is temporarily added to a ghosts entity when it switching between predicted / interpolated mode.
-    /// Added by <see cref="GhostPredictionSwitchingSystem"/> while processing the <see cref="GhostPredictionSwitchingQueues"/>.
+    /// Ghost Entity 在预测与插值模式间切换时临时添加的结构体
+    /// 由 <see cref="GhostPredictionSwitchingSystem"/> 在处理 <see cref="GhostPredictionSwitchingQueues"/> 时添加
     /// </summary>
     [WriteGroup(typeof(LocalToWorld))]
     public struct SwitchPredictionSmoothing : IComponentData
     {
         /// <summary>
-        /// The initial position of the ghost (in world space).
+        /// Ghost 在世界空间中的初始位置
         /// </summary>
         public float3 InitialPosition;
         /// <summary>
-        /// The initial rotation of the ghost (in world space).
+        /// Ghost 在世界空间中的初始旋转
         /// </summary>
         public quaternion InitialRotation;
         /// <summary>
-        /// The smoothing fraction to apply to the current transform. Always in between 0 and 1f.
+        /// 应用于当前 Transform 的平滑比例，始终位于 0 到 1 之间
         /// </summary>
         public float CurrentFactor;
         /// <summary>
-        /// The duration in second of the transition. Setup when the component is added and then remain constant.
+        /// 过渡持续秒数，在添加 Component 时设置并保持不变
         /// </summary>
         public float Duration;
         /// <summary>
-        /// The current version of the system when the component added to entity.
+        /// 将该 Component 添加到 Entity 时的 System 版本
         /// </summary>
         public uint SkipVersion;
     }
 
     /// <summary>
-    /// <para>System that manage the prediction transition for all ghost that present a <see cref="SwitchPredictionSmoothing"/>
-    /// components.</para>
+    /// <para>管理所有具有 <see cref="SwitchPredictionSmoothing"/> Component 的 Ghost 预测模式过渡</para>
     /// <para>
-    /// The system applying a visual smoohting to the ghost, by modifying the entity <see cref="LocalToWorld"/> matrix.
-    /// When the transition is completed, the system removes the <see cref="SwitchPredictionSmoothing"/> component.
+    /// 该 System 通过修改 Entity 的 <see cref="LocalToWorld"/> 矩阵为 Ghost 应用视觉平滑
+    /// 过渡完成后移除 <see cref="SwitchPredictionSmoothing"/> Component
     /// </para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -163,7 +162,7 @@ namespace Unity.NetCode
                         var scale = float4x4.Scale(new float3(transforms[i].Scale));
                         tr = math.mul(tr, scale);
                     }
-                    //TODO: is there a fast way to check if the postTransformMatrix is the identity?
+                    // TODO: 查找快速判断 postTransformMatrix 是否为单位矩阵的方法
                     if(postTransformMatrices.IsCreated)
                         tr = math.mul(tr, postTransformMatrices[i].Value);
 

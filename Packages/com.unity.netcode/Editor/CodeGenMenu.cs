@@ -10,10 +10,9 @@ namespace Unity.NetCode.Editor
         {
             EditorApplication.delayCall += () =>
             {
-                //Re-import the netcode package
-                //Extra problem: how to force a re-compile for the DOTSRuntime?
-                //since the templates are not dependencies, how can I force to recompile
-                //dlls?
+                // 重新导入 NetCode 包
+                // 额外问题：如何强制重新编译 DOTSRuntime
+                // Template 不属于依赖项，因此尚不清楚如何强制重新编译 DLL
                 var obj = AssetDatabase.LoadAssetAtPath<Object>("Packages/com.unity.netcode/Runtime");
                 var oldSelection = Selection.activeObject;
                 Selection.activeObject = obj;
@@ -33,7 +32,7 @@ namespace Unity.NetCode.Editor
         {
             if (!System.IO.File.Exists("Temp/NetCodeGenerated"))
             {
-                //Create a dummy one with an empty log
+                // 创建一个带空日志的占位目录
                 System.IO.Directory.CreateDirectory("Temp/NetCodeGenerated");
                 System.IO.File.CreateText("Temp/NetCodeGenerated/SourceGenerator.log").Close();
             }

@@ -6,30 +6,29 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Component used to enable predicted physics automatic world changing(<see cref="PredictedPhysicsNonGhostWorld"/>) and lag compensation (<see cref="EnableLagCompensation"/>) and
-    /// tweak their settings.
-    /// At conversion time, a singleton entity is added to the scene/subscene if either one of, or both of the features are enabled, and
-    /// the <see cref="PredictedPhysicsNonGhostWorld"/>, <see cref="EnableLagCompensation"/> components are automatically added to it based on these settings.
+    /// 用于启用预测物理的自动 World 切换（<see cref="PredictedPhysicsNonGhostWorld"/>）和延迟补偿（<see cref="EnableLagCompensation"/>），并调整相关设置
+    /// 转换时，只要启用了其中任一功能，就会向 Scene 或 SubScene 添加一个单例实体
+    /// 系统会根据这些设置自动为该实体添加 <see cref="PredictedPhysicsNonGhostWorld"/> 和 <see cref="EnableLagCompensation"/> 组件
     /// </summary>
     [DisallowMultipleComponent]
     [HelpURL(Authoring.HelpURLs.NetCodePhysicsConfig)]
     public sealed class NetCodePhysicsConfig : MonoBehaviour
     {
         /// <summary>
-        /// Configure how the PhysicsSystemGroup should update inside the <see cref="PredictedFixedStepSimulationSystemGroup"/>.
-        /// By default, this option is set to <see cref="PhysicGroupRunMode.LagCompensationEnabledOrKinematicGhosts"/> (preserve the original behavior).
-        /// However, in general, a more correct settings would be to either use <see cref="PhysicGroupRunMode.LagCompensationEnabledOrAnyPhysicsEntities"/>, or <see cref="PhysicGroupRunMode.AlwaysRun"/>.
+        /// 配置 PhysicsSystemGroup 在 <see cref="PredictedFixedStepSimulationSystemGroup"/> 内的更新方式
+        /// 默认使用 <see cref="PhysicGroupRunMode.LagCompensationEnabledOrKinematicGhosts"/> 以保留原有行为
+        /// 通常更合理的配置是 <see cref="PhysicGroupRunMode.LagCompensationEnabledOrAnyPhysicsEntities"/> 或 <see cref="PhysicGroupRunMode.AlwaysRun"/>
         /// </summary>
         /// <remarks>
-        /// For the client, in particular, because physics can update only if the prediction loop runs,
-        /// in order to have this settings be used, it is necessary to configure the PredictedSimulationSystemGroup to always update
-        /// (by using the <see cref="ClientTickRate.PredictionLoopUpdateMode"/> property and set that to <see cref="PredictionLoopUpdateMode.AlwaysRun"/>).
+        /// 客户端的物理系统只有在预测循环运行时才能更新
+        /// 要使此配置生效，必须将 PredictedSimulationSystemGroup 配置为始终更新
+        /// 即把 <see cref="ClientTickRate.PredictionLoopUpdateMode"/> 设置为 <see cref="PredictionLoopUpdateMode.AlwaysRun"/>
         /// </remarks>
         [Tooltip("Configure how the PhysicsSystemGroup should update inside the <b>PredictedFixedStepSimulationSystemGroup</b>.\nBy default, this option is set to <b>PhysicGroupRunMode.LagCompensationEnabledOrKinematicGhosts</b> (preserve the original behavior).\nHowever, in general, a more correct settings would be to either use <b>PhysicGroupRunMode.LagCompensationEnabledOrAnyPhysicsEntities</b>, or <b>PhysicGroupRunMode.AlwaysRun</b>.\n\n<b>For the client, in particular, because physics can update only if the prediction loop runs, in order to have this settings be used, <color=yellow>it is necessary to configure the PredictedSimulationSystemGroup to always update (by using the ClientTickRate.PredictionLoopUpdateMode property and set that to PredictionLoopUpdateMode.AlwaysRun</color>).</b>")]
         public PhysicGroupRunMode PhysicGroupRunMode;
         /// <summary>
-        /// Set to true to enable the use of the LagCompensation system. Server and Client will start recording the physics world state in the PhysicsWorldHistory buffer,
-        /// which size can be further configured for by changing the ServerHistorySize and ClientHistorySize properties.
+        /// 设为 true 后启用 LagCompensation 系统，服务端和客户端会开始在 PhysicsWorldHistory Buffer 中记录物理 World 状态
+        /// 可通过 ServerHistorySize 和 ClientHistorySize 属性进一步配置 Buffer 大小
         /// </summary>
         [Tooltip("Enable/Disable the LagCompensation system. Server and Client will start recording the physics world state in the PhysicsWorldHistory buffer")]
         public bool EnableLagCompensation;
@@ -41,8 +40,8 @@ namespace Unity.NetCode
         public int ClientHistorySize = 1;
 
         /// <summary>
-        /// When using predicted physics all dynamic physics objects in the main physics world on the client
-        /// must be ghosts. Setting this will move any non-ghost in the default physics world to another world.
+        /// 使用预测物理时，客户端主物理 World 中的所有动态物理对象都必须是 Ghost
+        /// 设置该值后，默认物理 World 中所有非 Ghost 对象都会被移入另一个 World
         /// </summary>
         [Tooltip("The physics world index to use for all dynamic physics objects which are not ghosts.")]
         public uint ClientNonGhostWorldIndex = 0;

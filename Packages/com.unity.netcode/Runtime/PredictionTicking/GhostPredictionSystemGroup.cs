@@ -155,29 +155,29 @@ namespace Unity.NetCode
 
 
     /// <summary>
-    /// <para>The parent group for all (roughly) deterministic gameplay systems that modify predicted ghosts.
-    /// This system group runs for both the client and server worlds at a fixed time step, as specified by
-    /// the <see cref="ClientServerTickRate.SimulationTickRate"/> setting.
-    /// To understand the differences between this group and the PredictedFixedStepSimulationSystemGroup,
-    /// refer to the <see cref="PredictedFixedStepSimulationSystemGroup"/> documentation.</para>
-    /// <para>On the server, this group is only updated once per tick, because it runs in tandem with the <see cref="SimulationSystemGroup"/>.
-    /// In other words, because the SimulationSystemGroup runs at a fixed time step, and only once per frame, this system inherits those properties.
-    /// On the client, the group implements client-side prediction logic by running the client simulation ahead of the server.</para>
-    /// <para><b>Important: Because the client is predicting ahead of the server, all systems in this group are updated multiple times
-    /// per simulation frame, every time the client receives a new snapshot (see <see cref="ClientServerTickRate.NetworkTickRate"/>
-    /// and <see cref="ClientServerTickRate.SimulationTickRate"/>). This is called rollback and re-simulation.</b></para>
-    /// <para>These re-simulation prediction group ticks also get more frequent at higher pings.
-    /// For example, a client with a 200ms ping is likely to re-simulate roughly twice as many frames than a client with a 100ms connection, with caveats.
-    /// The number of predicted, re-simulated frames can easily reach double digits, so systems in this group
-    /// must be exceptionally fast, and are likely to use a lot of CPU.
-    /// <i>You can use prediction group batching to help mitigate this. Refer to <see cref="ClientTickRate.MaxPredictionStepBatchSizeRepeatedTick"/>.</i></para>
-    /// <para>This group contains all predicted simulation (simulation that is the same on both client and server).
-    /// On the server, all prediction logic is treated as the authoritative game state, which is only simulated once.</para>
-    /// <para>Note: This SystemGroup is intentionally added to non-netcode worlds, to help enable single-player testing.</para>
+    /// <para>所有修改 Predicted Ghost 且大致具有确定性的 Gameplay System 的父 Group
+    /// 此 System Group 会在客户端和服务器 World 中按照固定时间步长运行，
+    /// 时间步长由 <see cref="ClientServerTickRate.SimulationTickRate"/> 指定
+    /// 关于此 Group 与 PredictedFixedStepSimulationSystemGroup 的差异，
+    /// 请参阅 <see cref="PredictedFixedStepSimulationSystemGroup"/> 文档</para>
+    /// <para>在服务器上，此 Group 与 <see cref="SimulationSystemGroup"/> 同步运行，因此每个 Tick 只更新一次
+    /// 换言之，SimulationSystemGroup 以固定时间步长运行且每帧只运行一次，此系统也继承这些特性
+    /// 在客户端上，此 Group 通过让客户端模拟领先服务器来实现客户端预测逻辑</para>
+    /// <para><b>重要：由于客户端会预测服务器未来的状态，每当客户端收到新 Snapshot 时，
+    /// 此 Group 中的所有系统都可能在一个模拟帧内更新多次，相关频率参见
+    /// <see cref="ClientServerTickRate.NetworkTickRate"/> 和 <see cref="ClientServerTickRate.SimulationTickRate"/>
+    /// 此过程称为回滚与重模拟</b></para>
+    /// <para>Ping 越高，预测 Group 的重模拟 Tick 也越频繁
+    /// 例如在其他条件相近时，Ping 为 200ms 的客户端可能需要重模拟的帧数约为 100ms 连接的两倍
+    /// 预测并重模拟的帧数很容易达到两位数，因此此 Group 中的系统必须非常高效，且可能消耗大量 CPU
+    /// <i>可以使用预测 Group 批处理缓解该问题，参见 <see cref="ClientTickRate.MaxPredictionStepBatchSizeRepeatedTick"/></i></para>
+    /// <para>此 Group 包含所有预测模拟，即客户端与服务器执行相同逻辑的模拟
+    /// 在服务器上，全部预测逻辑都作为权威游戏状态处理，并且只模拟一次</para>
+    /// <para>注意：此 SystemGroup 会有意添加到非 NetCode World 中，以支持单机测试</para>
     /// </summary>
-    /// <remarks>Because child systems in this group are updated so frequently (multiple times per frame on the client,
-    /// and for all predicted ghosts on the server), this group is usually the most expensive on both builds.
-    /// Pay particular attention to the systems that run in this group to keep your performance in check.
+    /// <remarks>由于此 Group 中的子系统更新非常频繁，在客户端上每帧可能运行多次，
+    /// 在服务器上则会处理所有 Predicted Ghost，因此它通常是两端构建中开销最大的 Group
+    /// 需要特别关注在此 Group 中运行的系统以控制性能
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst=true)]
@@ -187,20 +187,20 @@ namespace Unity.NetCode
     {}
 
     /// <summary>
-    /// <para>A fixed update group inside the ghost prediction. This is equivalent to <see cref="FixedStepSimulationSystemGroup"/> but for prediction.
-    /// The fixed update group can have a higher update frequency than the rest of the prediction, and it does not do partial ticks.</para>
-    /// <para>Note: This SystemGroup is intentionally added to non-netcode worlds, to help enable single-player testing.</para>
+    /// <para>Ghost 预测内部的固定更新 Group，相当于预测场景中的 <see cref="FixedStepSimulationSystemGroup"/>
+    /// 该固定更新 Group 可以采用比其他预测逻辑更高的更新频率，并且不会执行部分 Tick</para>
+    /// <para>注意：此 SystemGroup 会有意添加到非 NetCode World 中，以支持单机测试</para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderFirst = true)]
     public partial class PredictedFixedStepSimulationSystemGroup : ComponentSystemGroup
     {
         /// <summary>
-        /// Return the NetcodePredictionFixedRateManager instance that govern the update logic of the group.
+        /// 返回控制此 Group 更新逻辑的 NetcodePredictionFixedRateManager 实例
         /// </summary>
         internal NetcodePredictionFixedRateManager InternalRateManager => m_InternalRateManager;
         /// <summary>
-        /// Set the timestep used by this group, in seconds. The default value is 1/60 seconds.
+        /// 设置此 Group 使用的时间步长，单位为秒，默认值为 1/60 秒
         /// </summary>
         public float Timestep
         {
@@ -217,10 +217,10 @@ namespace Unity.NetCode
             }
         }
         /// <summary>
-        /// Set the current time step as ratio at which the this group run in respect to the simulation/prediction loop. Default value is 1,
-        /// that it, the group run at the same fixed rate as the <see cref="PredictedSimulationSystemGroup"/>.
+        /// 将当前时间步长设置为此 Group 相对模拟或预测循环的运行频率比例
+        /// 默认值为 1，即此 Group 与 <see cref="PredictedSimulationSystemGroup"/> 采用相同固定频率运行
         /// </summary>
-        /// <param name="tickRate">The ClientServerTickRate used for the simulation.</param>
+        /// <param name="tickRate">模拟使用的 ClientServerTickRate</param>
         internal void ConfigureTimeStep(in ClientServerTickRate tickRate)
         {
             if(m_InternalRateManager == null)

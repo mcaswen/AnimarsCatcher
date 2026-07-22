@@ -10,8 +10,8 @@ using Unity.NetCode.Generators;
 namespace Unity.NetCode.Roslyn
 {
     /// <summary>
-    /// Some extension to provide more user friendly access to some type information in roslyn.
-    /// TODO Should be nice to have a common effort to collect and share a common set of utilities that make sense
+    /// 提供更便捷方式访问 Roslyn 类型信息的扩展方法
+    /// TODO: 后续可以统一收集并共享通用的 Roslyn 辅助能力
     /// </summary>
     internal static class Extensions
     {
@@ -128,7 +128,7 @@ namespace Unity.NetCode.Roslyn
                 case SpecialType.System_UIntPtr:
                     return "uptr";
                 default:
-                    //TODO: need full type specifier??
+                    // TODO: 确认这里是否需要完整类型限定名
                     return type.ToDisplayString(QualifiedTypeFormat);
             }
         }
@@ -241,9 +241,9 @@ namespace Unity.NetCode.Roslyn
         {
             var interfaceQualifiedName = interfaceSymbol.ToDisplayString(QualifiedTypeFormat);
 
-            // Detecting the type here for interfaces inheriting ICommandData is important for
-            // InputBufferData when parsing it as a component (type needs to be set to ComponentType.CommandData) or the
-            // default ghost component parameters will not be set properly
+            // 此处必须识别继承 ICommandData 的接口
+            // 将 InputBufferData 解析为 Component 时，其类型需要设为 ComponentType.CommandData
+            // 否则无法正确设置默认 Ghost Component 参数
             if (interfaceQualifiedName == "Unity.NetCode.ICommandData" ||
                 interfaceSymbol.InheritsFromInterface("Unity.NetCode.ICommandData"))
             {
@@ -387,9 +387,9 @@ namespace Unity.NetCode.Roslyn
             return string.Concat(ns, ".", fullName);
         }
 
-        //return an ECMA compliant fully qualified name:
-        // - The namespace.[XXX+]TypeName if the type is not generic
-        // - The namespace.[XXX+]TypeName`N[[NameWithNamespaceAndContainingType, assembly],..]  if the type is generic
+        // 返回符合 ECMA 规范的完全限定名称：
+        // - 非泛型类型为 namespace.[XXX+]TypeName
+        // - 泛型类型为 namespace.[XXX+]TypeName`N[[NameWithNamespaceAndContainingType, assembly],..]
         public static string GetMetadataQualifiedName(ISymbol symbol)
         {
             var sb = new StringBuilder(symbol.MetadataName);
@@ -415,7 +415,7 @@ namespace Unity.NetCode.Roslyn
             return sb.ToString();
         }
 
-        //es: struct A { struct B { struct C} } } would return a string like A+B+C
+        // 例如 struct A { struct B { struct C } } } 会返回 A+B+C
         public static string GetTypeNameWithDeclaringTypename(ISymbol symbol)
         {
             var declaring = new List<string>(3);
@@ -454,9 +454,9 @@ namespace Unity.NetCode.Roslyn
         }
 
         /// <summary>
-        /// This is the only trustful (i.e. proper) way to check for interfaces.
-        /// This is also the reason why we can't rely on the SyntaxTreeVisitor for retrieving the candidates,
-        /// and why we need to collect pretty much all the structs with at least one interface.
+        /// 这是可靠检查接口的唯一正确方式
+        /// 因此不能依赖 SyntaxTreeVisitor 获取候选类型
+        /// 而需要先收集几乎所有至少实现一个接口的结构体
         /// </summary>
         public static AttributeData GetAttribute(ISymbol symbol, string attributeNamespace, string attributeName)
         {

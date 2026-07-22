@@ -3,11 +3,11 @@ using System;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Use this attribute to <b>allow</b> a GhostComponent to support any kind of Ghost variation.
-    /// Mutually exclusive to <see cref="DontSupportPrefabOverridesAttribute"/>.
+    /// 使用此特性可<b>允许</b> GhostComponent 支持任意类型的 Ghost 变体
+    /// 与 <see cref="DontSupportPrefabOverridesAttribute"/> 互斥
     /// </summary>
-    /// <remarks>Note that if a type implements <see cref="GhostComponentVariationAttribute"/>, it implicitly supports prefab overrides.</remarks>
-    /// <example>Use Case: Disabling a rendering component on the `Server` version of a Ghost.</example>
+    /// <remarks>请注意，如果类型实现 <see cref="GhostComponentVariationAttribute"/>，则会隐式支持 Prefab 覆盖</remarks>
+    /// <example>适用场景：在 Ghost 的 `Server` 版本上禁用渲染组件</example>
     [AttributeUsage(AttributeTargets.Struct)]
     [Obsolete("This attribute is now implicit (and thus this attribute does nothing), as all components (including components in other packages) should support user modification, and this prevented that. (RemovedAfter Entities 1.0)")]
     public class SupportsPrefabOverridesAttribute : Attribute

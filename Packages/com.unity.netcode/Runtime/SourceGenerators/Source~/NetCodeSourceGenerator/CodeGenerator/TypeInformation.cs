@@ -26,8 +26,8 @@ namespace Unity.NetCode.Generators
         Input
     }
 
-    // This is used internally in SG but needs to be kept in sync with the runtime netcode class in
-    // Runtime/Authoring/GhostComponentAttribute.cs
+    // 该类型供 Source Generator 内部使用，但必须与运行时 NetCode 类型保持同步
+    // 对应 Runtime/Authoring/GhostComponentAttribute.cs
     internal class GhostComponentAttribute
     {
         public GhostPrefabType PrefabType;
@@ -45,41 +45,41 @@ namespace Unity.NetCode.Generators
     }
 
     /// <summary>
-    /// A type descriptor, completely independent from roslyn types, used to generate serialization code for
-    /// both ghosts and commands
+    /// 完全独立于 Roslyn 类型的类型描述信息
+    /// 用于为 Ghost 与 Command 生成序列化代码
     /// </summary>
     internal class TypeInformation
     {
 #pragma warning disable 649
         public string Namespace;
         public string TypeFullName;
-        //Only valid for type that support a different type of backend, like Enums. Return empty otherwise
+        // 仅对 Enum 等具有不同底层类型的类型有效，其他情况为空
         public string UnderlyingTypeName;
-        //Only valid for field. Empty or null in all other cases
+        // 仅对字段有效，其他情况为空或 null
         public string FieldName;
-        //Optional and only valid for field. Empty or null in all other cases. Used to store an alternative path or name
-        //to access a field in the snapshot data, in case the access pattern does not match the automated rules
-        //parent.field.name -> parent_field_name
+        // 可选且仅对字段有效，其他情况为空或 null
+        // 当访问模式不符合自动规则时，用于保存访问 Snapshot 数据字段的替代路径或名称
+        // 例如 parent.field.name -> parent_field_name
         public string SnapshotFieldName;
-        //Only valid for field. Empty or null in all other cases
+        // 仅对字段有效，其他情况为空或 null
         public string FieldTypeName;
-        //Only valid for field. Empty or null in all other cases
+        // 仅对字段有效，其他情况为空或 null
         public string ContainingTypeFullName;
         public GenTypeKind Kind;
-        //This is valid for the root type and always NotApplicable for the members
+        // 仅对根类型有效，成员始终为 NotApplicable
         public ComponentType ComponentType;
-        //Children can inherit and set attribute if they are set in the mask (by default: all)
+        // 掩码允许时子节点可以继承并设置特性，默认允许全部
         public TypeAttribute.AttributeFlags AttributeMask = TypeAttribute.AttributeFlags.All;
         public TypeAttribute Attribute;
-        //Only applicable to root
+        // 仅适用于根类型
         public GhostComponentAttribute GhostAttribute;
-        //The path to field starting from the root
+        // 从根节点开始的字段路径
         public string FieldPath;
         public ITypeSymbol Symbol;
 #pragma warning restore 649
-        //The syntax tree and text span location of the type
+        // 类型在语法树中的 TextSpan 位置
         public Location Location;
-        //Only valid for generic types.
+        // 仅对泛型类型有效
         public string GenericTypeName;
         public TypeInformation PointeeType;
         public List<TypeInformation> GhostFields = new List<TypeInformation>();
@@ -87,7 +87,7 @@ namespace Unity.NetCode.Generators
         public bool HasDontSupportPrefabOverridesAttribute;
         public bool IsTestVariant;
         public bool CanBatchPredict;
-        //for fixed buffers and fixed list, the number of elements
+        // 固定 Buffer 与 FixedList 的元素数量
         public int ElementCount;
         public TypeDescription Description
         {

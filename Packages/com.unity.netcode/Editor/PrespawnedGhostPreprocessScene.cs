@@ -6,11 +6,9 @@ using Unity.Scenes;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// Process in the editor any sub-scene open for edit that contains pre-spawned ghosts.
-    /// This is a work-around for a limitation in the conversion workdflow that prevent custom component added to
-    /// sceen section entity when a sub-scene is open for edit.
-    /// To overcome that, the SubSceneWithPrespawnGhosts is added at runtime here and a LiveLinkPrespawnSectionReference
-    /// is also added ot the scene section enity to provide some misisng information about the section is referring to.
+    /// 在 Editor 中处理已打开编辑且包含 Pre-spawned Ghost 的 SubScene
+    /// 这是对转换工作流限制的规避方案，该限制会导致 SubScene 打开编辑时无法向 Scene Section Entity 添加自定义组件
+    /// 为解决此问题，这里在运行时添加 SubSceneWithPrespawnGhosts，并向 Scene Section Entity 添加 LiveLinkPrespawnSectionReference，以补齐所引用 Section 的信息
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
@@ -30,7 +28,6 @@ namespace Unity.NetCode.Editor
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            // Prerequisite: must exist some prespawn, otherwise no need to run
             var builder = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<PreSpawnedGhostIndex, SceneTag>()
                 .WithAllRW<SubSceneGhostComponentHash>()
@@ -52,7 +49,6 @@ namespace Unity.NetCode.Editor
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            //this is only valid in the editor
             prespawnHashTypeHandle.Update(ref state);
             sceneSectionTypeHandle.Update(ref state);
             prespawnToPreprocess.ResetFilter();
@@ -63,9 +59,7 @@ namespace Unity.NetCode.Editor
                     continue;
 
                 prespawnToPreprocess.SetSharedComponentFilter(new SceneTag{SceneEntity = sectionEntity});
-                // Mark the scene as processed. All scene section must be marked
                 state.EntityManager.AddComponent<PrespawnSceneExtracted>(sectionEntity);
-                // Early exit if no prespawn are present
                 var count = prespawnToPreprocess.CalculateEntityCount();
                 if (count == 0)
                     continue;
@@ -79,10 +73,8 @@ namespace Unity.NetCode.Editor
                     BaselinesHash = 0,
                     PrespawnCount = count
                 });
-                //Add this component to allow retrieve the section index and scene guid. This information are necessary
-                //to correctly add the SceneSection component to the pre-spawned ghosts when they are re-spawned
-                //FIXME: investigate if using the SceneTag may be sufficient to guaratee that re-spawned prespawned ghosts
-                //are deleted when scenes are unloaded. We can the remove this component and further simplify other things
+                // 添加该组件以取得 Section 索引与 Scene GUID，重新 Spawn Pre-spawned Ghost 时需要这些信息才能正确恢复 SceneSection 组件
+                // FIXME 确认仅使用 SceneTag 是否足以保证卸载 Scene 时删除重新 Spawn 的 Pre-spawned Ghost，若可行即可移除该组件并简化相关逻辑
                 state.EntityManager.AddComponentData(sectionEntity, new LiveLinkPrespawnSectionReference
                 {
                     SceneGUID = sceneSection.SceneGUID,

@@ -26,7 +26,7 @@ namespace NetCodeAnalyzer
         {
             var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
-            // Check if this is an EntityQueryBuilder creation
+            // 检查是否正在创建 EntityQueryBuilder
             if (!IsEntityQueryBuilderCreation(objectCreation))
                 return;
 
@@ -35,11 +35,11 @@ namespace NetCodeAnalyzer
 
         private void AnalyzeNetC0001(SyntaxNodeAnalysisContext context, ObjectCreationExpressionSyntax objectCreation)
         {
-            // Check if we're in a prediction system group
+            // 检查当前调用是否位于预测 System Group 中
             if (!EntitiesHelpers.IsInvocationInPredictionSystemGroup(objectCreation, context))
                 return;
 
-            // Find the chain of method calls that follows this object creation
+            // 查找紧跟在该对象创建表达式之后的方法调用链
             var methodChain = FindEntityQueryBuilderChain(objectCreation);
             if (methodChain.Count == 0)
                 return;

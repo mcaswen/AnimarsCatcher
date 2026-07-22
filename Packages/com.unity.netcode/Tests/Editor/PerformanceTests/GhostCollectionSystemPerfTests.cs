@@ -72,7 +72,7 @@ namespace Unity.NetCode.Tests.Performance
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true);
             testWorld.CreateWorlds(true, 1);
-            //Check perf on main thread only for now.
+            // 当前只测量主线程性能
 
             var serverEntity = CreatePrefab($"Prefab", testWorld.ServerWorld.EntityManager, 5, RootTypes, ChildTypes,
                 useSingleBaseline);
@@ -91,7 +91,7 @@ namespace Unity.NetCode.Tests.Performance
                 testWorld.ServerWorld.GetExistingSystem<GhostSendSystem>());
             var clientRecorders = PerfTestRecorder.CreateRecorders(testWorld.ClientWorlds[0],
                 testWorld.ClientWorlds[0].GetExistingSystem<GhostReceiveSystem>());
-            //Get all markers for the ghost collections
+            // 获取 Ghost 集合相关的全部性能标记
             PerfTestRecorder.StartRecording(serverRecorders);
             PerfTestRecorder.StartRecording(clientRecorders);
 
@@ -101,7 +101,7 @@ namespace Unity.NetCode.Tests.Performance
             }
             PerfTestRecorder.StopRecording(serverRecorders);
             PerfTestRecorder.StopRecording(clientRecorders);
-            //2 sample per frame per marker because the same marker is present on client and server
+            // 同一标记同时存在于客户端和服务器，因此每帧每个标记产生两个样本
             PerfTestRecorder.Report(serverRecorders, "server");
             PerfTestRecorder.Report(clientRecorders, "client");
         }
@@ -118,7 +118,7 @@ namespace Unity.NetCode.Tests.Performance
             {
                 testWorld.Tick();
             }
-            //Now import all the prefabs.
+            // 导入全部 Prefab
             for (int i = 0; i < numPrefabs; ++i)
                 CreatePrefab($"Prefab-{i}", testWorld.ServerWorld.EntityManager, 5, RootTypes, ChildTypes);
             for (int i = 0; i < numPrefabs; ++i)
@@ -138,7 +138,7 @@ namespace Unity.NetCode.Tests.Performance
                 $"{testWorld.ClientWorlds[0].Name}-GhostCollectionSystem_Mapping",
                 $"{testWorld.ClientWorlds[0].Name}-GhostCollectionSystem_Processing",
                 $"{testWorld.ClientWorlds[0].Name}-GhostCollectionSystem_UpdateNames");
-            //Get all markers for the ghost collections
+            // 获取 Ghost 集合相关的全部性能标记
             PerfTestRecorder.StartRecording(serverRecorders);
             PerfTestRecorder.StartRecording(clientRecorders);
             for (int i = 0; i < 256; ++i)
@@ -147,7 +147,7 @@ namespace Unity.NetCode.Tests.Performance
             }
             PerfTestRecorder.StopRecording(serverRecorders);
             PerfTestRecorder.StopRecording(clientRecorders);
-            //2 sample per frame per marker because the same marker is present on client and server
+            // 同一标记同时存在于客户端和服务器，因此每帧每个标记产生两个样本
             PerfTestRecorder.Report(serverRecorders, "server");
             PerfTestRecorder.Report(clientRecorders, "client");
         }
@@ -160,7 +160,7 @@ namespace Unity.NetCode.Tests.Performance
             var entity = entityManager.CreateEntity(archetype);
             var overrides = new NativeParallelHashMap<GhostPrefabCreation.Component, GhostPrefabCreation.ComponentOverride>(128,
                     Allocator.Temp);
-            //need to add a couple of overrides here to test that path and also exercise the variant mapping (that is usually the slow path)
+            // 添加若干 Override 以覆盖该路径，并测试通常较慢的 Variant 映射
             overrides[new GhostPrefabCreation.Component
             {
                 ComponentType = ComponentType.ReadWrite<LocalTransform>(),

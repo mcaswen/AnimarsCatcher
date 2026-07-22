@@ -26,10 +26,10 @@ namespace Unity.NetCode.Tests
                 new[] {prefab}, numObjects);
             using (var testWorld = new NetCodeTestWorld())
             {
-                //Create a scene with a subscene and a bunch of objects in it
+                // 创建包含多个对象的 SubScene
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, numClients);
-                //Stream the sub scene in
+                // 流式加载 SubScene
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
                 var firstTimeJoinStats = new uint[testWorld.ClientWorlds.Length * 3];
@@ -45,28 +45,28 @@ namespace Unity.NetCode.Tests
                     {
                         var singletonEntity = testWorld.TryGetSingletonEntity<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[client]);
                         var netStats = testWorld.ClientWorlds[client].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(singletonEntity).MainStatsWrite;
-                        //Gather some stats for later, it will be used to make some comparison
+                        // 收集首次加入时的统计数据供后续比较
                         if (netStats.PerGhostTypeStatsListRefRW.Length == 2)
                         {
-                            firstTimeJoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; //entities in the packet
-                            firstTimeJoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; //byte received
-                            firstTimeJoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; //uncompressed entities
+                            firstTimeJoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; // 包中的实体数
+                            firstTimeJoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; // 接收的位数
+                            firstTimeJoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; // 未压缩实体数
                         }
                     }
                     if (firstTimeJoinStats[0] >= numObjects)
                         break;
                 }
-                //make each client exit and re-entering the game, one at the time.
-                //verify that they are receiving the data we expect
+                // 依次让每个客户端退出并重新进入游戏
+                // 验证重新加入后收到的数据符合预期
                 for (int client = 0; client < numClients; ++client)
                 {
                     rejoinTickCount = 0;
                     testWorld.RemoveFromGame(client);
                     UnloadSubScene(testWorld.ClientWorlds[client]);
-                    //Run some ticks to reset all the internal data structure.
+                    // 推进若干 Tick 以重置所有内部数据结构
                     for (int k = 0; k < 6; ++k)
                         testWorld.Tick();
-                    //Verify that all the mappings are empty
+                    // 验证全部映射和确认列表均已清空
                     var singletonEntity = testWorld.TryGetSingletonEntity<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[client]);
                     var netStats = testWorld.ClientWorlds[client].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(singletonEntity).MainStatsWrite;
                     var recvGhostMapSingleton = testWorld.TryGetSingletonEntity<SpawnedGhostEntityMap>(testWorld.ClientWorlds[client]);
@@ -77,10 +77,10 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(1, inGame.Length);
                     Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.GetBuffer<PrespawnSectionAck>(inGame[0]).Length);
                     inGame.Dispose();
-                    //Reconnect the client, it should get again all the data
+                    // 让客户端重新进入游戏并再次接收全部数据
                     SubSceneHelper.LoadSubScene(testWorld.ClientWorlds[client]);
                     testWorld.SetInGame(client);
-                    //Re-run the exact same ticks count as the previous join. It should get the same data
+                    // 使用与首次加入相同的最大 Tick 数推进并收集重连数据
                     for(int k=0;k<32;++k)
                     {
                         ++rejoinTickCount;
@@ -89,38 +89,35 @@ namespace Unity.NetCode.Tests
                         netStats = testWorld.ClientWorlds[client].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(singletonEntity).MainStatsWrite;
                         if (netStats.PerGhostTypeStatsListRefRW.Length == 2)
                         {
-                            rejoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; //entities in the packet
-                            rejoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; //byte received
-                            rejoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; //uncompressed entities
+                            rejoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; // 包中的实体数
+                            rejoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; // 接收的位数
+                            rejoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; // 未压缩实体数
                         }
                         if (rejoinStats[3 * client] >= numObjects)
                             break;
                     }
-                    //Plus 1 to account for the extra tick due to the lazy prespawn initialization
-                    //This is not reliable. Because of a bug in the ClientSystemGroup. Put a +1
+                    // 预生成 Ghost 延迟初始化会额外占用一个 Tick
+                    // ClientSystemGroup 的已知问题使精确 Tick 数不稳定，因此允许多一个 Tick
                     Assert.IsTrue(rejoinTickCount>=firstJoinTickCount &&
                                   rejoinTickCount<firstJoinTickCount+2,
                                   "The number of ticks necessary to receive all the ghosts must be the same");
-                    //Check that we received the exact same number of entities as we did when the client joined
+                    // 检查重新加入时收到的实体数与首次加入完全一致
                     Assert.AreEqual(rejoinStats[3 * client], firstTimeJoinStats[3 * client], "re-joining client must receive the same number of entities as the first time");
-                    //Byte received can be a little different because of the ticks encoding so they could be not
-                    //exact the same. 1 byte margin may be enough
+                    // Tick 编码会使接收数据量略有差异，因此允许 8 bit 即 1 byte 的余量
                     const int extraMargin = 8;
                     Assert.GreaterOrEqual(rejoinStats[3 * client + 1], firstTimeJoinStats[3 * client + 1]);
                     Assert.LessOrEqual(rejoinStats[3 * client + 1], firstTimeJoinStats[3 * client + 1] + extraMargin);
                 }
 
-                //Exit from game. Stop streaming on both clients and server
+                // 退出游戏并停止服务器和所有客户端的场景流式加载
                 testWorld.ExitFromGame();
                 UnloadSubScene(testWorld.ServerWorld);
                 for (int i = 0; i < numClients; ++i)
                     UnloadSubScene(testWorld.ClientWorlds[i]);
-                //Run at least one tick for proper reset of all the systems
+                // 推进若干 Tick 以确保所有系统完成重置
                 for (int k = 0; k < 4; ++k)
                     testWorld.Tick();
-                //What I want to check:
-                // 1 - all data is clean up on the server
-                // 2- no prespawn data present
+                // 检查服务器数据已经清理且客户端不再保留预生成数据
                 for (int i = 0; i < 2; ++i)
                 {
                     var singletonEntity = testWorld.TryGetSingletonEntity<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[i]);
@@ -140,7 +137,7 @@ namespace Unity.NetCode.Tests
                 var serverConnections = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>()).ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.GetBuffer<PrespawnSectionAck>(serverConnections[0]).Length);
                 Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.GetBuffer<PrespawnSectionAck>(serverConnections[1]).Length);
-                //Re-enter the game and check that all the objects are received again. Same tick counts too
+                // 再次进入游戏并检查所有对象重新到达且耗用 Tick 数一致
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.GoInGame();
                 for (int i = 0; i < numClients; ++i)
@@ -161,15 +158,15 @@ namespace Unity.NetCode.Tests
                         var netStats = testWorld.ClientWorlds[client].EntityManager.GetComponentData<GhostStatsSnapshotSingleton>(singletonEntity).MainStatsWrite;
                         if (netStats.PerGhostTypeStatsListRefRW.Length == 2)
                         {
-                            rejoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; //entities in the packet
-                            rejoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; //byte received
-                            rejoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; //uncompressed entities
+                            rejoinStats[3 * client] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).EntityCount; // 包中的实体数
+                            rejoinStats[3 * client + 1] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).SizeInBits; // 接收的位数
+                            rejoinStats[3 * client + 2] += netStats.PerGhostTypeStatsListRefRW.ElementAt(1).UncompressedCount; // 未压缩实体数
                         }
                     }
                     if (rejoinStats[0] >= numObjects)
                         break;
                 }
-                //Plus 1 to account for the extra tick due to the lazy prespawn initialization
+                // 预生成 Ghost 延迟初始化会额外占用一个 Tick
                 Assert.IsTrue(rejoinTickCount>=firstJoinTickCount &&
                               rejoinTickCount<firstJoinTickCount+2,
                     "re-joining the server should take the same number of ticks");
@@ -177,8 +174,7 @@ namespace Unity.NetCode.Tests
                 {
                     Assert.AreEqual(firstTimeJoinStats[3*client], rejoinStats[3*client], "client must receive the same number of ghosts");
                     Assert.AreEqual(firstTimeJoinStats[3*client+2], rejoinStats[3*client+2], "client must received the same number of uncompressed entities (0)");
-                    //Byte received can be a little different because of the ticks encoding. Since tick is increasing
-                    //we can say almost greater than equals, up to a certain margin eventually
+                    // Tick 持续增长会使编码后的接收位数略有增加，因此允许一定余量
                     const int extraMargin = 8;
                     Assert.IsTrue(rejoinStats[3*client+1] >= firstTimeJoinStats[3*client+1] &&
                                   rejoinStats[3*client+1] <= firstTimeJoinStats[3*client+1] + extraMargin,

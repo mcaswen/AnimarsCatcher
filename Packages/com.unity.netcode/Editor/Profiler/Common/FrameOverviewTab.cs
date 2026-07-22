@@ -48,7 +48,7 @@ namespace Unity.NetCode.Editor
             {
                 var formattedBytes = UIUtils.FormatBitsToBytes(frameData.totalSizeSentByServerInBits);
                 var bitsAndBytes = $"{frameData.totalSizeSentByServerInBits}b ({formattedBytes})";
-                m_TotalReceivedLabel.text = "Received: N/A"; // TODO: Add received data for server
+                m_TotalReceivedLabel.text = "Received: N/A"; // TODO 增加服务端接收数据
                 m_TotalSentLabel.text = $"Sent: {bitsAndBytes}";
             }
             else
@@ -56,7 +56,7 @@ namespace Unity.NetCode.Editor
                 var formattedBytes = UIUtils.FormatBitsToBytes(frameData.totalSizeReceivedByClientInBits);
                 var bitsAndBytes = $"{frameData.totalSizeReceivedByClientInBits}b ({formattedBytes})";
                 m_TotalReceivedLabel.text = $"Received: {bitsAndBytes}";
-                m_TotalSentLabel.text = $"Sent: N/A"; // TODO: Add sent data for client
+                m_TotalSentLabel.text = $"Sent: N/A"; // TODO 增加客户端发送数据
             }
         }
 
@@ -71,14 +71,14 @@ namespace Unity.NetCode.Editor
                 { "serverTick", "Server Tick" },
             };
 
-            // TODO: This is a hacky workaround to best fit the column widths. Auto-sizing did not work.
+            // TODO 自动调整大小无效，暂时手动设置列宽以获得较合适的布局
             var snapshotLegendEntryWidths = new List<int>
             {
-                111, // total
-                124, // numberOfPackets
-                147, // numberOfGhostTypes
-                163, // numberOfInstance
-                80, // serverTick
+                111, // total 列
+                124, // numberOfPackets 列
+                147, // numberOfGhostTypes 列
+                163, // numberOfInstance 列
+                80, // serverTick 列
             };
 
             if (m_NetworkRole == NetworkRole.Client)
@@ -152,13 +152,13 @@ namespace Unity.NetCode.Editor
                 { "serverTick", "Server Tick" }
             };
 
-            // TODO: This is a hacky workaround to best fit the column widths. Auto-sizing did not work.
+            // TODO 自动调整大小无效，暂时手动设置列宽以获得较合适的布局
             var commandsLegendEntryWidths = new List<int>
             {
-                113, // totalSize
-                133, // inputTargetTick
-                124, // discardedPackets
-                80, // serverTick
+                113, // totalSize 列
+                133, // inputTargetTick 列
+                124, // discardedPackets 列
+                80, // serverTick 列
             };
 
             if (m_NetworkRole == NetworkRole.Client)

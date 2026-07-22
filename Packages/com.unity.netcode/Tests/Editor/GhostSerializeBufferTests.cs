@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -45,7 +45,7 @@ namespace Unity.NetCode.Tests
 
     internal struct GhostGen_BufferInterpolated : IBufferElementData
     {
-        //Buffers will discard the Interpolate attribute for either the field members and / or any struct sub-fields
+        // Buffer 会忽略自身字段及嵌套结构字段上的 Interpolate 设置
         [GhostField(Smoothing = SmoothingAction.Interpolate)] public float FloatValue;
         [GhostField] public GhostGen_InterpolatedStruct Vec;
     }
@@ -146,7 +146,7 @@ namespace Unity.NetCode.Tests
             }
             else
             {
-                // TODO: Seems like buffers sometimes have the same buffer length even when unsent. Assert.AreNotEqual(serverBuffer.Length, clientBuffer.Length);
+                // TODO：Buffer 未发送时两端长度有时仍相同，因此不能用长度不等作为未复制断言
                 for (int i = 0; i < serverBuffer.Length && i < clientBuffer.Length; ++i)
                 {
                     var bs = serverBuffer[i];
@@ -182,7 +182,7 @@ namespace Unity.NetCode.Tests
             return clientEntities;
         }
 
-        //Validate that client dynamic snapshot data as the content layout has we expect
+        // 验证客户端动态 Snapshot 数据的内存布局符合预期
         public static void ValidateMultiBufferSnapshotDataContents(in DynamicBuffer<SnapshotDynamicDataBuffer> dynamicBuffer,
             int structBufLen, int b1, int byteBufLen, int b2)
         {
@@ -258,13 +258,13 @@ namespace Unity.NetCode.Tests
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 3, 6);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
@@ -295,13 +295,13 @@ namespace Unity.NetCode.Tests
                 serverBuffer.ResizeUninitialized(10);
                 testWorld.ServerWorld.EntityManager.SetComponentEnabled<GhostGenTest_NoReplicatedFieldsBuffer>(serverEntity, false);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
@@ -332,30 +332,30 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
                 var clientEntities = BufferTestHelper.GetClientEntities(testWorld, new [] {serverEntity});
-                //Buffer are empty on both sides
+                // 两端 Buffer 初始均为空
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntity, clientEntities[0], true);
-                //Set bufferrs
+                // 写入 Buffer 数据
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 3, 10);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntity, clientEntities[0], true);
-                //Shrink
+                // 缩短 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 2, 20);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntity, clientEntities[0], true);
-                //Resize larger
+                // 扩大 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 5, 30);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
@@ -380,13 +380,13 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
@@ -400,29 +400,29 @@ namespace Unity.NetCode.Tests
                     BufferTestHelper.CheckBuffersValues(testWorld, serverEntity, clientEntities[0], true);
                 }
 
-                //Set buffers values
+                // 写入两个 Buffer 的数据
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntity, 10, 10);
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 3, 0);
 
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 Validate(3, 0, 10, 10);
-                //Shrink second buffer
+                // 缩短第二个 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 2, 20);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 Validate(2, 20, 10, 10);
-                //Resize second buffer
+                // 扩大第二个 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntity, 5, 30);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 Validate(5, 30, 10, 10);
-                //Shrink first buffer
+                // 缩短第一个 Buffer
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntity, 5, 100);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 Validate(5, 30, 5, 100);
-                //Resize first buffer
+                // 扩大第一个 Buffer
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntity, 15, 1000);
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
@@ -511,13 +511,13 @@ namespace Unity.NetCode.Tests
                     };
                 }
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
@@ -587,13 +587,13 @@ namespace Unity.NetCode.Tests
                 testWorld.SpawnOnServer(ghostGameObject);
                 var serverEntity = testWorld.TryGetSingletonEntity<GhostGenBuffer_ByteBuffer>(testWorld.ServerWorld);
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntity, 800, 0);
-                //Because of the size the entity will be only sent using fragmentation. Buffers does not support
-                //sending partial contents
-                // Connect and make sure the connection could be established
+                // 实体数据量较大，只能通过分片 Pipeline 发送
+                // Buffer 不支持只发送部分内容
+                // 建立连接并确认连接成功
                 testWorld.Connect();
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
                 var clientEntities = BufferTestHelper.GetClientEntities(testWorld, new [] {serverEntity});
@@ -614,8 +614,8 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
 
                 testWorld.CreateWorlds(true, 1);
-                //This should be about 3000 kb of data plus some extra for other components
-                //It should end be sent in 2/3 chunk
+                // 数据总量明显超过 300 字节的 Snapshot 包上限，并且还包含其他组件开销
+                // 因此同一 Chunk 中的实体需要分多次发送
                 testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld).ValueRW.DefaultSnapshotPacketSize = 300;
                 var serverEntities = new Entity[20];
                 for (int i = 0; i < 20; ++i)
@@ -624,13 +624,13 @@ namespace Unity.NetCode.Tests
                     BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntities[i], 85, 10);
                 }
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
@@ -690,7 +690,7 @@ namespace Unity.NetCode.Tests
                 }
 
                 var ghostGameObject = new GameObject();
-                //Parent and children can have different buffers types (or the same)
+                // 根实体与子实体可以使用相同或不同的 Buffer 类型
                 ghostGameObject.AddComponent<GhostByteBufferAuthoringComponent>();
                 int numChild = 1;
                 for (int i = 0; i < numChild; ++i)
@@ -699,7 +699,7 @@ namespace Unity.NetCode.Tests
                     childGo.AddComponent<GhostGenBufferAuthoringComponent>();
                     childGo.transform.parent = ghostGameObject.transform;
 
-                    // Ensure the buffer on the child is serialized:
+                    // 通过 Inspector Override 确保子实体上的 Buffer 参与序列化
                     if (sendForChildrenTestCase == SendForChildrenTestCase.YesViaInspectionComponentOverride)
                     {
                         var childInspectionComponent = childGo.AddComponent<GhostAuthoringInspectionComponent>();
@@ -726,14 +726,14 @@ namespace Unity.NetCode.Tests
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntityGroup[0].Value, 10, 10);
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntityGroup[1].Value, 3, 0);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
-                // This requires 32 states to be sent, and we need a few frames for the ghost types to be synchronized
+                // 运行若干 Tick，让客户端生成 Ghost
+                // 需要发送 32 个状态，并额外预留数帧同步 Ghost 类型
                 const int sendIterationCount = 32 + 4;
                 for (int i = 0; i < sendIterationCount; ++i)
                     testWorld.Tick();
@@ -744,7 +744,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(2, clientEntityGroup.Length);
                 Assert.AreEqual(2, serverEntityGroup.Length);
 
-                //Verify that the client snapshot data contains the right things
+                // 验证客户端 Snapshot 中包含正确的根实体和子实体 Buffer 数据
                 var shouldChildReceiveData = GhostSerializationTestsForEnableableBits.IsExpectedToReplicateBuffer<GhostGenTest_Buffer>(sendForChildrenTestCase, false);
                 var dynamicBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCode.SnapshotDynamicDataBuffer>(clientEntities[0]);
                 if(shouldChildReceiveData)
@@ -752,7 +752,7 @@ namespace Unity.NetCode.Tests
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntityGroup[0].Value,
                     clientEntityGroup[0].Value);
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntityGroup[1].Value, clientEntityGroup[1].Value, shouldChildReceiveData);
-                //Change values
+                // 修改根实体和子实体 Buffer 的数据
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntityGroup[0].Value, 10, 30);
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntityGroup[1].Value, 3, 5);
                 for (int i = 0; i < sendIterationCount; ++i)
@@ -760,28 +760,28 @@ namespace Unity.NetCode.Tests
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntityGroup[0].Value,
                     clientEntityGroup[0].Value);
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntityGroup[1].Value, clientEntityGroup[1].Value, shouldChildReceiveData);
-                //Shrink child buffer
+                // 缩短子实体 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntityGroup[1].Value, 2, 20);
                 for (int i = 0; i < sendIterationCount; ++i)
                     testWorld.Tick();
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntityGroup[0].Value,
                     clientEntityGroup[0].Value);
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntityGroup[1].Value, clientEntityGroup[1].Value, shouldChildReceiveData);
-                //Grow child buffer
+                // 扩大子实体 Buffer
                 BufferTestHelper.SetBufferValues(testWorld.ServerWorld, serverEntityGroup[1].Value, 5, 30);
                 for (int i = 0; i < sendIterationCount; ++i)
                     testWorld.Tick();
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntityGroup[0].Value,
                     clientEntityGroup[0].Value);
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntityGroup[1].Value, clientEntityGroup[1].Value, shouldChildReceiveData);
-                //Shrink root buffer
+                // 缩短根实体 Buffer
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntityGroup[0].Value, 5, 50);
                 for (int i = 0; i < sendIterationCount; ++i)
                     testWorld.Tick();
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntityGroup[0].Value,
                     clientEntityGroup[0].Value);
                 BufferTestHelper.CheckBuffersValues(testWorld, serverEntityGroup[1].Value, clientEntityGroup[1].Value, shouldChildReceiveData);
-                //grow root buffer
+                // 扩大根实体 Buffer
                 BufferTestHelper.SetByteBufferValues(testWorld.ServerWorld, serverEntityGroup[0].Value, 15, 100);
                 for (int i = 0; i < sendIterationCount; ++i)
                     testWorld.Tick();
@@ -947,7 +947,7 @@ namespace Unity.NetCode.Tests
                 var tick = SystemAPI.GetSingleton<NetworkTime>().ServerTick;
                 var deltaTime = SystemAPI.Time.DeltaTime;
                 var bufferFromEntity = GetBufferLookup<GhostPredictedOnlyBuffer>();
-                //FIXME: updating child entities is not efficient this way.
+                // FIXME：以这种方式更新子实体效率较低
                 Entities.WithAll<Simulate, GhostInstance>().ForEach((in DynamicBuffer<LinkedEntityGroup> group) =>
                 {
                     for (int i = 0; i < group.Length; ++i)
@@ -987,11 +987,11 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //Disable the prediction logic
+                // 暂时禁用预测逻辑
                 testWorld.ServerWorld.GetExistingSystemManaged<BufferTestPredictionSystem>().Enabled = false;
                 testWorld.ClientWorlds[0].GetExistingSystemManaged<BufferTestPredictionSystem>().Enabled = false;
 
-                //Spawn the entity and init the buffer
+                // 生成实体并初始化根实体和子实体的 Buffer
                 var serverEntity = testWorld.SpawnOnServer(ghostGameObject);
                 {
                     testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostOwner {NetworkId = 0});
@@ -1065,7 +1065,7 @@ namespace Unity.NetCode.Tests
                         Assert.AreEqual(expected, serverBuffers[1][(int)i.TickIndexForValidTick%serverBuffers[1].Length].Value);
                     }
                 }
-                //run a bit and check everything is in sync
+                // 继续运行并检查两端数据同步
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
@@ -1075,7 +1075,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(serverBuffers[1][i].Value, clientBuffers[1][i].Value);
                 }
 
-                //Check that if the buffer size change, the prediction buffer is resized and everything still works
+                // 修改 Buffer 长度，验证预测备份 Buffer 会同步调整且流程仍正常
                 serverBuffers[0].ResizeUninitialized(22);
                 serverBuffers[1].ResizeUninitialized(20);
                 for (int i = 0; i < 22; ++i)
@@ -1083,7 +1083,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 20; ++i)
                     serverBuffers[1][i] = new GhostPredictedOnlyBuffer {Value = 20.0f * i};
 
-                //run a bit and check everything is in sync
+                // 继续运行并检查变长后的 Buffer 同步
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
@@ -1207,11 +1207,11 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //run for a bit to sync server time and ghost collections
+                // 运行若干 Tick，同步服务端时间与 Ghost Collection
                 for (int i = 0; i < 32; ++i)
                     testWorld.Tick();
 
-                //Spawn entity on both client and server
+                // 在客户端与服务端的同一目标 Tick 预测生成实体
                 Entity clientEntity = Entity.Null;
                 Entity serverEntity = Entity.Null;
                 var networkTimeServer = testWorld.GetNetworkTime(testWorld.ServerWorld);
@@ -1230,16 +1230,16 @@ namespace Unity.NetCode.Tests
 
                 serverEntity = testWorld.ServerWorld.GetExistingSystemManaged<SpawnPredictedGhost>().spawnedEntity;
                 clientEntity = clientWorld.GetExistingSystemManaged<SpawnPredictedGhost>().spawnedEntity;
-                //Check that entities match
+                // 检查预测生成实体与权威 Ghost 是否匹配
                 Assert.AreNotEqual(serverEntity, Entity.Null);
                 Assert.AreNotEqual(clientEntity, Entity.Null);
                 var clientEntities = BufferTestHelper.GetClientEntities(testWorld, new [] {serverEntity});
                 Assert.AreEqual(clientEntity, clientEntities[0]);
-                //Check we classified correctly
+                // 检查预测生成分类结果
                 var classificationSystem = clientWorld.GetExistingSystemManaged<TestSpawnClassificationSystem>();
                 Assert.AreEqual(1, classificationSystem.m_PredictedEntities.Length);
                 Assert.AreEqual(clientEntity, classificationSystem.m_PredictedEntities[0]);
-                //And buffers are the same
+                // 检查两端 Buffer 数据一致
                 BufferTestHelper.CheckByteBufferValues(testWorld, serverEntity, clientEntity);
             }
         }

@@ -11,7 +11,9 @@ using Debug = UnityEngine.Debug;
 
 namespace Unity.NetCode.Editor
 {
-    /// <summary>Editor script managing the creation and registration of <see cref="NetCodeConfig"/> Global ScriptableObject.</summary>
+    /// <summary>
+    /// 管理全局 <see cref="NetCodeConfig"/> ScriptableObject 创建与登记的 Editor 脚本
+    /// </summary>
     [CustomEditor(typeof(NetCodeConfig), true, isFallback = false)]
     internal class NetcodeConfigEditor : UnityEditor.Editor
     {
@@ -35,15 +37,14 @@ namespace Unity.NetCode.Editor
         {
             var assetPath = AssetDatabase.GenerateUniqueAssetPath("Assets/NetcodeConfig.asset");
             var netCodeConfig = CreateInstance<NetCodeConfig>();
-            netCodeConfig.IsGlobalConfig = true; // Prevent warning when first creating it.
+            netCodeConfig.IsGlobalConfig = true; // 避免首次创建时出现警告
             AssetDatabase.CreateAsset(netCodeConfig, assetPath);
             Selection.activeObject = SavedConfig = AssetDatabase.LoadAssetAtPath<NetCodeConfig>(assetPath);
         }
 
         /// <summary>
-        /// Fixes an issue where any config added to the preloaded assets is not automatically initialized.
-        /// We (netcode) used the preloaded assets as our previous storage location for the global config.
-        /// Thus, users reported issues where the NetCodeConfig.Global would not reliably set when entering playmode.
+        /// 修复添加到 Preloaded Assets 的配置不会自动初始化的问题
+        /// NetCode 过去使用 Preloaded Assets 保存全局配置，因此用户报告进入 PlayMode 时 NetCodeConfig.Global 无法可靠设置
         /// https://forum.unity.com/threads/occasionally-netcodeconfig-fails-to-load.1535359/
         /// </summary>
         [InitializeOnLoadMethod]
@@ -51,15 +52,15 @@ namespace Unity.NetCode.Editor
         {
             if (SavedConfig)
             {
-                // Here we force the loading of the Global NetcodeConfig, thus fixing the Resources.Load boot issue in the editor.
+                // 强制加载全局 NetCodeConfig，修复 Editor 中 Resources.Load 的启动问题
                 ValidateConfig(SavedConfig);
             }
             else
             {
-                // Remove after Netcode 1.x.
-                // For a couple of minor netcode package versions, we saved this config into the preloaded assets.
-                // Now that we use our custom ProjectSettings, we don't need this anymore, but we do need to support auto-upgrading.
-               // UNFORTUNATE SIDE EFFECT: If you don't have a global config, this loads ALL Preloaded assets in the Editor, on first boot!
+                // NetCode 1.x 之后移除
+                // 部分 NetCode 次要版本曾将该配置保存到 Preloaded Assets
+                // 现在已改用自定义 ProjectSettings，不再需要这种方式，但仍需支持自动升级
+               // 副作用：若没有全局配置，Editor 首次启动时会加载所有 Preloaded Assets
                var found = PlayerSettings.GetPreloadedAssets().OfType<NetCodeConfig>().FirstOrDefault(x => x.IsGlobalConfig);
                if (found)
                {
@@ -69,18 +70,20 @@ namespace Unity.NetCode.Editor
             }
         }
 
-        /// <summary>Internal method to register the provider (with IMGUI for drawing).</summary>
+        /// <summary>
+        /// 登记使用 IMGUI 绘制的 Settings Provider
+        /// </summary>
         /// <returns></returns>
         [SettingsProvider]
         public static SettingsProvider CreateNetcodeConfigSettingsProvider()
         {
-            // First parameter is the path in the Settings window.
-            // Second parameter is the scope of this setting: it only appears in the Project Settings window.
+            // 第一个参数是 Settings 窗口中的路径
+            // 第二个参数是设置作用域，此处只显示在 Project Settings 窗口
             var provider = new SettingsProvider("Project/Multiplayer", SettingsScope.Project)
             {
-                // By default the last token of the path is used as display name if no label is provided.
+                // 未提供 Label 时，默认使用路径的最后一段作为显示名称
                 label = "Multiplayer",
-                // Create the SettingsProvider and initialize its drawing (IMGUI) function in place:
+                // 创建 SettingsProvider 并就地初始化其 IMGUI 绘制函数
                 guiHandler = (searchContext) =>
                 {
                     Links();
@@ -129,9 +132,9 @@ namespace Unity.NetCode.Editor
 
                     EditorGUILayout.Separator();
 
-                    // CurrentImportanceSuggestions:
+                    // 当前 Importance 建议
                     var prevFlags = inst.hideFlags;
-                    inst.hideFlags = HideFlags.None; // Allow editing of it.
+                    inst.hideFlags = HideFlags.None; // 允许编辑
                     var clientAndServerSettingsSO = new SerializedObject(inst, inst);
                     clientAndServerSettingsSO.Update();
                     var CurrentImportanceSuggestionsProperty = clientAndServerSettingsSO.FindProperty(nameof(inst.CurrentImportanceSuggestions));
@@ -143,14 +146,14 @@ namespace Unity.NetCode.Editor
                     inst.hideFlags = prevFlags;
                 },
 
-                // Populate the search keywords to enable smart search filtering and label highlighting:
+                // 填充搜索关键字以启用智能筛选和 Label 高亮
                 keywords = new HashSet<string>(new[] {"NetCode", "NetCodeConfig", "TickRate", "SimulationTickRate", "NetworkTickRate", "NetworkSendRate"}),
             };
             return provider;
         }
 
         /// <summary>
-        /// Slow, so we only do it when we actually set a new config.
+        /// 该操作开销较高，只在实际设置新配置时执行
         /// </summary>
         private static void LoadAllNetCodeConfigsAndSetGlobalFlags()
         {
@@ -192,28 +195,23 @@ namespace Unity.NetCode.Editor
             if (Application.isPlaying)
                 EditorGUILayout.HelpBox("Live tweaking is not supported for disabled values.", MessageType.Warning);
 
-            //.
             GUI.enabled = !Application.isPlaying;
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(NetCodeConfig.EnableClientServerBootstrap)));
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(NetCodeConfig.HostWorldModeSelection)));
 #endif
-            //.
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(NetCodeConfig.ClientServerTickRate)), s_ClientServerTickRate);
             GUI.enabled = true;
             ValidateClientServerTickRate(config.ClientServerTickRate);
             GUILayout.Space(15);
 
-            //.
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(NetCodeConfig.ClientTickRate)), s_ClientTickRate);
             GUILayout.Space(15);
 
-            //.
             EditorGUILayout.PropertyField(serializedObject.FindProperty(nameof(NetCodeConfig.GhostSendSystemData)), s_GhostSendSystemData);
             ValidateGhostSendSystemData(config.GhostSendSystemData);
             GUILayout.Space(15);
 
-            //.
             GUI.enabled = !Application.isPlaying;
             s_TransportSettingsFoldedOut = EditorGUILayout.Foldout(s_TransportSettingsFoldedOut, s_TransportSettings, toggleOnLabelClick: true);
             if (s_TransportSettingsFoldedOut)
@@ -235,7 +233,6 @@ namespace Unity.NetCode.Editor
 
             GUILayout.Space(15);
 
-            //.
             Links();
             serializedObject.ApplyModifiedProperties();
         }
@@ -261,12 +258,14 @@ namespace Unity.NetCode.Editor
             GUILayout.Space(15);
         }
 
-        /// <summary>Validation.</summary>
-        /// <param name="config">A copy, so that we don't clobber the config ScriptableObject.</param>
+        /// <summary>
+        /// 验证 ClientServerTickRate 配置
+        /// </summary>
+        /// <param name="config">配置副本，避免覆盖原始 ScriptableObject</param>
         private static void ValidateClientServerTickRate(ClientServerTickRate config)
         {
             var previous = config;
-            config.ResolveDefaults(); // Call this here (before validate) because this is what the netcode package does at runtime.
+            config.ResolveDefaults(); // 在验证前调用，与 NetCode 包运行时行为保持一致
 
             var s = "Each client will be sent a snapshot on ";
             var networkSendRateInterval = config.CalculateNetworkSendRateInterval();
@@ -292,12 +291,12 @@ namespace Unity.NetCode.Editor
                 EditorGUILayout.HelpBox($"The server can (and will) now distribute these packet sends across the send interval (i.e. a round-robin approach), distributing the GhostSendSystem CPU cost more evenly across frames, reducing CPU spikes. E.g. If you have 50 clients connected, we'll send ~{Math.Max(1, 50/networkSendRateInterval)} of them a snapshot every tick.", MessageType.Info);
             }
 
-            // Manual exceptions: We want to validate these RAW fields.
+            // 手动处理例外，因为需要验证这些原始字段
             {
                 if(previous.SimulationTickRate != 0) config.SimulationTickRate = previous.SimulationTickRate;
                 if(previous.NetworkTickRate != 0) config.NetworkTickRate = previous.NetworkTickRate;
             }
-            // Validate:
+            // 执行验证
             {
                 FixedList4096Bytes<FixedString64Bytes> errors = default;
                 config.ValidateAll(ref errors);
@@ -308,8 +307,10 @@ namespace Unity.NetCode.Editor
             }
         }
 
-        /// <summary>Validation.</summary>
-        /// <param name="config">A copy, so that we don't clobber the config ScriptableObject.</param>
+        /// <summary>
+        /// 验证 GhostSendSystemData 配置
+        /// </summary>
+        /// <param name="config">配置副本，避免覆盖原始 ScriptableObject</param>
         private void ValidateGhostSendSystemData(GhostSendSystemData config)
         {
             if (config.EnablePerComponentProfiling) EditorGUILayout.HelpBox("You've enabled EnablePerComponentProfiling, which will adversely impact performance.", MessageType.Warning);
@@ -319,22 +320,24 @@ namespace Unity.NetCode.Editor
 
 
         /// <summary>
-        /// Adding the Global config to the build using the same logic as the Localization package,
-        /// com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs.
+        /// 使用与 Localization 包相同的逻辑将全局配置加入构建
+        /// 参考 com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs
         /// </summary>
         internal class NetcodeConfigEditorBuildProcess : IPreprocessBuildWithReport, IPostprocessBuildWithReport
         {
             bool m_RemoveFromPreloadedAssets;
             public int callbackOrder => 0;
 
-           /// <summary>Copied almost verbatim from com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs.</summary>
+            /// <summary>
+            /// 基本原样复制自 com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs
+            /// </summary>
             public void OnPreprocessBuild(BuildReport report)
             {
                 m_RemoveFromPreloadedAssets = false;
                 if (SavedConfig == null)
                     return;
 
-                // Add the NETCODE settings to the preloaded assets.
+                // 将 NetCode 设置加入 Preloaded Assets
                 var preloadedAssets = PlayerSettings.GetPreloadedAssets();
                 bool wasDirty = IsPlayerSettingsDirty();
 
@@ -343,16 +346,18 @@ namespace Unity.NetCode.Editor
                     ArrayUtility.Add(ref preloadedAssets, SavedConfig);
                     PlayerSettings.SetPreloadedAssets(preloadedAssets);
 
-                    // If we have to add the settings then we should also remove them.
+                    // 若构建前加入了设置，构建后也应将其移除
                     m_RemoveFromPreloadedAssets = true;
 
-                    // Clear the dirty flag so we dont flush the modified file (case 1254502)
+                    // 清除 Dirty 标记，避免写回修改后的文件，参见 Case 1254502
                     if (!wasDirty)
                         ClearPlayerSettingsDirtyFlag();
                 }
             }
 
-            /// <summary>Copied almost verbatim from com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs.</summary>
+            /// <summary>
+            /// 基本原样复制自 com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs
+            /// </summary>
             public void OnPostprocessBuild(BuildReport report)
             {
                 if (SavedConfig == null || !m_RemoveFromPreloadedAssets)
@@ -364,12 +369,14 @@ namespace Unity.NetCode.Editor
                 ArrayUtility.Remove(ref preloadedAssets, SavedConfig);
                 PlayerSettings.SetPreloadedAssets(preloadedAssets);
 
-                // Clear the dirty flag so we dont flush the modified file (case 1254502)
+                // 清除 Dirty 标记，避免写回修改后的文件，参见 Case 1254502
                 if (!wasDirty)
                     ClearPlayerSettingsDirtyFlag();
             }
 
-            /// <summary>Copied almost verbatim from com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs.</summary>
+            /// <summary>
+            /// 基本原样复制自 com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs
+            /// </summary>
             static bool IsPlayerSettingsDirty()
             {
                 var settings = Resources.FindObjectsOfTypeAll<PlayerSettings>();
@@ -378,7 +385,9 @@ namespace Unity.NetCode.Editor
                 return false;
             }
 
-            /// <summary>Copied almost verbatim from com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs.</summary>
+            /// <summary>
+            /// 基本原样复制自 com.unity.localization/Editor/Asset Pipeline/LocalizationBuildPlayer.cs
+            /// </summary>
             static void ClearPlayerSettingsDirtyFlag()
             {
                 var settings = Resources.FindObjectsOfTypeAll<PlayerSettings>();

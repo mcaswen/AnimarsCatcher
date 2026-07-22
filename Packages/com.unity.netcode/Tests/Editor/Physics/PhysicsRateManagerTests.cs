@@ -91,7 +91,7 @@ namespace Unity.NetCode.Physics.Tests
             for (int i = 0; i < 128; ++i)
                 testWorld.Tick();
             var clientTime0 = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
-            // Ensure client is on a full tick so we know what will happen in future ticks
+            // 将客户端对齐到完整 Tick，使后续固定步次数可预测
             testWorld.TickClientWorld((1 - clientTime0.ServerTickFraction) / simulationTickRate);
             clientTime0 = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             Assert.IsFalse(clientTime0.IsPartialTick);
@@ -109,7 +109,7 @@ namespace Unity.NetCode.Physics.Tests
             var runOnPartial = testWorld.ServerWorld.GetExistingSystemManaged<CheckPhysicsRunOnPartial>();
             Assert.AreEqual(0, runOnPartial.numPartialTickUpdates);
             Assert.AreEqual(physicsFullTicks, runOnPartial.numFullTickUpdates);
-            //On the client side, the number of ticks can be slighty higher because of accumulated time for partial ticks and catchup.
+            // 客户端会累积部分 Tick 时间并执行 Catch-up，因此固定步次数可能略高
             runOnPartial = testWorld.ClientWorlds[0].GetExistingSystemManaged<CheckPhysicsRunOnPartial>();
             physicsFullTicks = clientTime1.ServerTick.TicksSince(runOnPartial.firstTick);
             physicsFullTicks *= physicsTickRate/simulationTickRate;

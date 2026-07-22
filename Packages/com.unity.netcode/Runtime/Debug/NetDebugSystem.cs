@@ -8,7 +8,7 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Systems responsible to initialize and create the <see cref="NetDebug"/> singleton and to flush all logs.
+    /// 负责初始化和创建 <see cref="NetDebug"/> Singleton，并刷新全部日志的系统
     /// </summary>
     [BurstCompile]
     [RequireMatchingQueriesForUpdate]
@@ -48,7 +48,7 @@ namespace Unity.NetCode
         public void OnCreate(ref SystemState state)
         {
             CreateNetDebugSingleton(ref state);
-            // Declare write dependency
+            // 声明写入依赖
             SystemAPI.GetSingletonRW<NetDebug>();
             m_GhostPrefabMetadata = state.GetComponentLookup<GhostPrefabMetaData>(true);
 #if NETCODE_DEBUG

@@ -8,8 +8,8 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The ServerTrackLoadedPrespawnSections is responsible for tracking when an initialized prespawn sections is unloaded
-    /// in order to release any allocated data and freeing ghost id ranges.
+    /// 负责跟踪已初始化 Prespawn Section 的卸载
+    /// 以释放已分配数据和 GhostId 范围
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PrespawnGhostSystemGroup))]
@@ -48,7 +48,7 @@ namespace Unity.NetCode
                 return;
 
             var entityCommandBuffer = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
-            //Only process scenes for which all prefabs has been already destroyed
+            // 仅处理所有 Prefab 都已销毁的场景
             var subsceneCollection = SystemAPI.GetSingletonBuffer<PrespawnSceneLoaded>();
             var allocatedRanges = SystemAPI.GetSingletonBuffer<PrespawnGhostIdRange>();
             var netDebug = SystemAPI.GetSingleton<NetDebug>();
@@ -58,14 +58,13 @@ namespace Unity.NetCode
                 var stateComponent = state.EntityManager.GetComponentData<SubSceneWithGhostCleanup>(unloadedSections[i]);
                 m_Prespawns.SetSharedComponentFilter(new SubSceneGhostComponentHash { Value = stateComponent.SubSceneHash });
 
-                //If there are still some ghosts present, don't remove the scene from the scene list yet
-                //NOTE:
-                //This check can only detect if the ghosts has been despawn. The entity however may be
-                //still pending for ack and tracked by the GhostSystemComponent.
+                // 如果仍有 Ghost 存在，则暂不从场景列表移除该场景
+                // 注意：此检查只能判断 Ghost 是否已 Despawn
+                // 对应 Entity 仍可能在等待 Ack，并由 GhostCleanup 跟踪
                 if (!m_Prespawns.IsEmpty)
                     continue;
 
-                //Lookup and remove the scene from the collection
+                // 查找场景并将其从集合移除
                 int idx = 0;
                 for (; idx < subsceneCollection.Length; ++idx)
                 {
@@ -81,8 +80,8 @@ namespace Unity.NetCode
                 {
                     netDebug.LogError($"Scene with hash {stateComponent.SubSceneHash} not found in active subscene list");
                 }
-                //Release the id range for later reuse. For now we allow reuse the same ghost ids for the same scene
-                //for sake of simplicity
+                // 释放 ID 范围以供后续复用
+                // 为保持简单，目前只允许同一场景复用自己的 GhostId
                 unloadedGhostRange.Add(new int2(stateComponent.FirstGhostId, stateComponent.PrespawnCount));
                 for (int rangeIdx = 0; i < allocatedRanges.Length; ++rangeIdx)
                 {
@@ -106,9 +105,8 @@ namespace Unity.NetCode
 
             if (unloadedGhostRange.Length == 0)
                 return;
-            //Schedule a cleanup job for the despawn list in case there are prespawn present
-            //Once the range has been release (Reserved == 0) the ghost witch belong to that range
-            //are not added to the queue in the GhostSendSystem.
+            // 如果存在 Prespawn，则为 Despawn 列表调度清理 Job
+            // 范围释放后，即 Reserved == 0，属于该范围的 Ghost 不会再由 GhostSendSystem 加入队列
             var cleanupJob = new PrespawnSceneCleanup
             {
                 unloadedGhostRange = unloadedGhostRange,
@@ -116,7 +114,7 @@ namespace Unity.NetCode
             };
             state.Dependency = cleanupJob.Schedule(state.Dependency);
 
-            //If no prespawn scenes present, destroy the prespawn scene list
+            // 如果已不存在 Prespawn 场景，则销毁 Prespawn 场景列表
             if(subsceneCollection.Length == 0 && m_AllPrespawnScenes.IsEmpty)
                 entityCommandBuffer.DestroyEntity(SystemAPI.GetSingletonEntity<PrespawnSceneLoaded>());
         }

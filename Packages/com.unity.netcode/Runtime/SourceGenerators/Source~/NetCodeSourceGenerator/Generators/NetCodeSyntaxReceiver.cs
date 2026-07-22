@@ -18,22 +18,20 @@ namespace Unity.NetCode.Generators
         }
 
         ///<summary>
-        /// Analyze the all the nodes and build a list of candidates
-        /// for rcps, commands and components
-        /// The minimal requirement for a type to be considered a potential candidates are:
-        /// - Must be a struct
-        /// - The struct declaration must be public
-        /// - Must implement either RpcCommandData, ICommandData, ComponentData or IBufferElementData
-        /// There are no check at that level for the ghost fields since it would require the ghost modifiers that
-        /// aren't available yet (until we can finally use a real config file in the unity editor that make the workflow cohese)
+        /// 分析全部语法节点，并构建 RPC、Command 与 Component 候选列表
+        /// 类型成为潜在候选的最低要求为：
+        /// - 必须是结构体
+        /// - 结构体声明必须为 public
+        /// - 必须实现 RpcCommandData、ICommandData、ComponentData 或 IBufferElementData 之一
+        /// 此阶段不检查 Ghost Field，因为所需 Ghost Modifier 尚不可用
+        /// 后续可通过 Unity Editor 中的正式配置文件完善该工作流
         ///
-        /// The check is a little limited at the moment since we can't test here for interface inheritance at syntax level. Witch means that,
-        /// with the current logic, we can't detect the type/category of a component if they implement an interface that inherit from IBufferElementData
-        /// or IComponentData.
+        /// 当前检查存在限制，因为在语法层无法判断接口继承
+        /// 如果 Component 实现了继承自 IBufferElementData 或 IComponentData 的接口
+        /// 当前逻辑无法直接判断其类型或分类
         ///
-        /// This is quite limiting and may be improved by just just collecting the structs that have at least one interface here
-        /// and do the proper checks via semantic model in the second pass. The code for doing that is pretty straightforward since all the utility are
-        /// present.
+        /// 可改为在此收集至少实现一个接口的全部结构体
+        /// 再在第二轮通过语义模型执行正确检查，所需辅助能力已经具备
         ///</summary>
         public void OnVisitSyntaxNode(SyntaxNode syntaxNode)
         {
@@ -41,7 +39,7 @@ namespace Unity.NetCode.Generators
             {
                 if (!(syntaxNode is StructDeclarationSyntax))
                 {
-                    // The node must be either a struct, or a class with a [GhostComponent] attribute
+                    // 节点必须是结构体，或具有 [GhostComponent] 特性的类
                     if (!(syntaxNode is ClassDeclarationSyntax))
                         return;
                     if (!ComponentFactory.HasGhostComponentAttribute((TypeDeclarationSyntax)syntaxNode))
@@ -53,7 +51,7 @@ namespace Unity.NetCode.Generators
                 if(structNode.TypeParameterList != null)
                     return;
 
-                //Check for Variant attributes
+                // 检查 Variant 特性
                 if (structNode.AttributeLists.Count > 0)
                 {
                     var attributes = structNode.AttributeLists.SelectMany(list => list.Attributes.Select(a =>
@@ -76,7 +74,7 @@ namespace Unity.NetCode.Generators
                     foreach (var b in structNode.BaseList.Types)
                     {
                         var interfaceType = b.Type;
-                        //discard qualification
+                        // 移除限定名
                         if(interfaceType.IsKind(SyntaxKind.QualifiedName))
                             interfaceType = ((QualifiedNameSyntax)interfaceType).Right;
 

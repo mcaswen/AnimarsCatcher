@@ -22,13 +22,13 @@ using Unity.Logging.Sinks;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Add this component to any connection entities (i.e. entities with the <see cref="NetworkStreamConnection"/> component)
-    /// to enable detailed netcode packet dump logging.
+    /// 把此组件添加到任意连接 Entity，即具有 <see cref="NetworkStreamConnection"/> 组件的 Entity，
+    /// 以启用详细的 NetCode 数据包转储日志
     /// </summary>
     /// <remarks>
-    /// Packet dumps can be enabled for all connections globally via the Playmode Tools Window.
-    /// Alternatively, you can add the <see cref="NetCodeDebugConfig"/> to any sub-scene (via the `NetCodeDebugConfigAuthoring`)
-    /// and set the <see cref="NetCodeDebugConfig.DumpPackets"/> flag to true.
+    /// 可以通过 PlayMode Tools Window 为全部连接全局启用数据包转储
+    /// 也可以通过 `NetCodeDebugConfigAuthoring` 向任意 SubScene 添加 <see cref="NetCodeDebugConfig"/>，
+    /// 并把 <see cref="NetCodeDebugConfig.DumpPackets"/> 标志设为 true
     /// </remarks>
     public struct EnablePacketLogging : IComponentData
     {
@@ -36,15 +36,15 @@ namespace Unity.NetCode
         internal PacketDumpLogger NetDebugPacketCache;
 
         /// <summary>
-        /// Check to ensure the packet cache is created, before use.
+        /// 使用前检查并确保数据包缓存已经创建
         /// </summary>
         public bool IsPacketCacheCreated => NetDebugPacketCache.IsCreated;
 
         /// <summary>
-        /// Add your own custom logs to Netcode's per-connection packet dump.
+        /// 向 NetCode 的逐连接数据包转储添加自定义日志
         /// </summary>
-        /// <remarks>For safety reasons, ensure you fetch this component with write access!</remarks>
-        /// <param name="msg">Message to append. Newlines are not automatically added!</param>
+        /// <remarks>出于安全考虑，必须以写入权限获取此组件</remarks>
+        /// <param name="msg">要追加的消息，不会自动添加换行符</param>
         public void LogToPacket(in FixedString512Bytes msg)
         {
             if (!NetDebugPacketCache.IsCreated)
@@ -55,14 +55,13 @@ namespace Unity.NetCode
 
 #if NETCODE_DEBUG
         /// <summary>
-        /// NetDebugPacket is a struct whose lifetime is maintained by other systems.
-        /// This method fetches whether or not it's enabled, and while doing so,
-        /// ensures the cache (<see cref="NetDebugPacketCache"/>) is setup.
+        /// NetDebugPacket 是由其他系统维护生命周期的结构体
+        /// 此方法获取它是否启用，并在此过程中确保缓存 <see cref="NetDebugPacketCache"/> 已设置
         /// </summary>
         /// <param name="entity"></param>
         /// <param name="lookup"></param>
         /// <param name="netDebugPacket"></param>
-        /// <returns>1 if the entity has an EnablePacketLogging component.</returns>
+        /// <returns>Entity 具有 EnablePacketLogging 组件时返回 1</returns>
         /// <exception cref="InvalidOperationException"></exception>
         internal static byte InitAndFetch(Entity entity, ComponentLookup<EnablePacketLogging> lookup, in PacketDumpLogger netDebugPacket)
         {
@@ -79,17 +78,17 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Convert disconnection reason error code into human readable error messages.
+    /// 把断开原因错误码转换为便于阅读的错误消息
     /// </summary>
     [Obsolete("Use ToFixedString extension methods. (RemovedAfter Entities 2.0)", false)]
     public struct DisconnectReasonEnumToString
     {
         /// <summary>
-        /// Translate the error code into a human friendly error message.
+        /// 把错误码转换为便于阅读的错误消息
         /// </summary>
-        /// <param name="index">The disconnect error reason</param>
+        /// <param name="index">断开连接的错误原因</param>
         /// <returns>
-        /// A string with the error message
+        /// 包含错误消息的字符串
         /// </returns>
         public static FixedString32Bytes Convert(int index)
         {
@@ -98,15 +97,15 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// ToFixedString utilities for enums.
+    /// 枚举的 ToFixedString 工具方法
     /// </summary>
     public static class NetCodeUtils
     {
         /// <summary>
-        /// Returns the Fixed String enum value name.
+        /// 返回 FixedString 格式的枚举值名称
         /// </summary>
-        /// <param name="reason">The source enum.</param>
-        /// <returns>Returns the Fixed String enum value name.</returns>
+        /// <param name="reason">源枚举</param>
+        /// <returns>FixedString 格式的枚举值名称</returns>
         public static FixedString32Bytes ToFixedString(this NetworkStreamDisconnectReason reason)
         {
             switch (reason)
@@ -124,20 +123,20 @@ namespace Unity.NetCode
         }
 
 
-        // TODO: This is used all the time to set the connection state, so not really a NetDebug method
+        // TODO 此方法一直用于设置连接状态，因此实际上不属于 NetDebug
         /// <summary>
-        /// Converts from the Transport state to ours.
+        /// 把 Transport 状态转换为 NetCode 状态
         /// </summary>
-        /// <param name="transportState">The source enum.</param>
-        /// <param name="hasHandshaked">True if the handshake process has been completed.</param>
-        /// <param name="hasApproval">True if (we have been approved AND the approval flow is enabled) OR if we don't need approval.</param>
-        /// <returns>Netcode connection state</returns>
-        /// <exception cref="ArgumentOutOfRangeException">If transport state is unknown.</exception>
+        /// <param name="transportState">源枚举</param>
+        /// <param name="hasHandshaked">Handshake 流程已完成时为 true</param>
+        /// <param name="hasApproval">已经获批且启用 Approval 流程，或无需 Approval 时为 true</param>
+        /// <returns>NetCode 连接状态</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Transport 状态未知时抛出</exception>
         public static ConnectionState.State ToNetcodeState(this NetworkConnection.State transportState, bool hasHandshaked, bool hasApproval = true)
         {
             switch (transportState)
             {
-                // See docs.
+                // 参见文档
                 case NetworkConnection.State.Connected:
                     if (Hint.Likely(hasHandshaked && hasApproval))
                         return ConnectionState.State.Connected;
@@ -151,10 +150,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Returns the Fixed String enum value name.
+        /// 返回 FixedString 格式的枚举值名称
         /// </summary>
-        /// <param name="state">The source enum.</param>
-        /// <returns>Returns the Fixed String enum value name.</returns>
+        /// <param name="state">源枚举</param>
+        /// <returns>FixedString 格式的枚举值名称</returns>
         public static FixedString32Bytes ToFixedString(this ConnectionState.State state)
         {
             switch (state)
@@ -170,10 +169,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Returns the Fixed String enum value name.
+        /// 返回 FixedString 格式的枚举值名称
         /// </summary>
-        /// <param name="state">The source enum.</param>
-        /// <returns>Returns the Fixed String enum value name.</returns>
+        /// <param name="state">源枚举</param>
+        /// <returns>FixedString 格式的枚举值名称</returns>
         public static FixedString32Bytes ToFixedString(this NetworkConnection.State state)
         {
             switch (state)
@@ -187,21 +186,22 @@ namespace Unity.NetCode
         }
     }
 
-    /// <summary>Singleton handling NetCode logging and log management.</summary>
+    /// <summary>
+    /// 处理 NetCode 日志记录与日志管理的 Singleton
+    /// </summary>
     public struct NetDebug : IComponentData
     {
         internal const LogLevelType DefaultLogLevel = LogLevelType.Notify;
 
         /// <summary>
-        /// Use this method to retrieve the platform specific folder where the NetCode logs files
-        /// will be stored.
-        /// On Desktop it use the <see cref="UnityEngine.Application.consoleLogPath"/> is used.
-        /// For mobile, the <see cref="UnityEngine.Application.persistentDataPath"/> is used.
-        /// For DOTS Runtime builds, it is possible to customise the output by using the -logfile command line switch.
+        /// 使用此方法获取保存 NetCode 日志文件的平台专用文件夹
+        /// 桌面平台使用 <see cref="UnityEngine.Application.consoleLogPath"/>
+        /// 移动平台使用 <see cref="UnityEngine.Application.persistentDataPath"/>
+        /// DOTS Runtime 构建可以通过 -logfile 命令行开关自定义输出位置
         ///
-        /// In all cases, if the log path is null or empty, the Logs folder in the current directory is used instead.
+        /// 无论哪种情况，如果日志路径为 null 或空，则改用当前目录下的 Logs 文件夹
         /// </summary>
-        /// <returns>A string containg the log folder full path</returns>
+        /// <returns>包含日志文件夹完整路径的字符串</returns>
         public static string LogFolderForPlatform()
         {
 #if UNITY_ANDROID || UNITY_IOS
@@ -209,7 +209,7 @@ namespace Unity.NetCode
             if (!string.IsNullOrEmpty(persistentLogPath))
                 return persistentLogPath;
 #else
-            //by default logs are output in the same location as player and console output does
+            // 默认把日志输出到 Player 和 Console 输出所在的位置
             var consoleLogPath = UnityEngine.Application.consoleLogPath;
             if (!string.IsNullOrEmpty(consoleLogPath))
                 return Path.GetDirectoryName(UnityEngine.Application.consoleLogPath);
@@ -217,7 +217,7 @@ namespace Unity.NetCode
             return "Logs";
         }
 
-        //TODO: logging should already give us a good folder for that purpose by default
+        // TODO Logging 默认应已为此用途提供合适的文件夹
         internal static FixedString512Bytes GetAndCreateLogFolder()
         {
             var logPath = LogFolderForPlatform();
@@ -248,7 +248,7 @@ namespace Unity.NetCode
                     .MinimumLevel.Set(m_CurrentLogLevel)
                     .CaptureStacktrace(false)
                     .RedirectUnityLogs(false)
-                    //Use correct format that is compatible with current unity logging
+                    // 使用与当前 Unity Logging 兼容的正确格式
                     .WriteTo.UnityDebugLog(minLevel: m_CurrentLogLevel, outputTemplate: new FixedString512Bytes("{Message}"))
                     .CreateLogger();
                 m_LoggerHandle = logger.Handle;
@@ -278,7 +278,7 @@ namespace Unity.NetCode
         {
             MaxRpcAgeFrames = 4;
             LogLevel = DefaultLogLevel;
-            // Suppressing by default because it leads to many test false positives.
+            // 默认抑制此警告，因为它会在测试中造成大量误报
             SuppressApprovalRpcSentWhenApprovalFlowDisabledWarning = true;
 
             WarnBatchedTicks = true;
@@ -287,7 +287,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Destroy the internal resources allocated by the debug logger and flush any pending messages.
+        /// 销毁调试 Logger 分配的内部资源，并刷新所有待处理消息
         /// </summary>
         public void Dispose()
         {
@@ -302,65 +302,68 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// If you disable <see cref="UnityEngine.Application.runInBackground"/>, users will experience client disconnects
-        /// when tabbing out of (or otherwise un-focusing) your game application.
-        /// It is therefore highly recommended to enable "Run in "Background" via ticking `Project Settings... Player... Resolution and Presentation... Run In Background`.
+        /// 如果禁用 <see cref="UnityEngine.Application.runInBackground"/>，用户切出游戏或游戏失去焦点时会发生客户端断线
+        /// 因此强烈建议在 `Project Settings... Player... Resolution and Presentation... Run In Background` 中启用 Run in Background
         /// </summary>
         /// <remarks>
-        /// Setting <see cref="SuppressApplicationRunInBackgroundWarning"/> to true will allow you to
-        /// toggle off "Run in Background" without triggering the advice log.
+        /// 把 <see cref="SuppressApplicationRunInBackgroundWarning"/> 设为 true，
+        /// 可以关闭 Run in Background 而不触发建议日志
         /// </remarks>
         [field: MarshalAs(UnmanagedType.U1)]
         public bool SuppressApplicationRunInBackgroundWarning { get; set; }
 
         /// <summary>
-        /// When debugging, it's helpful to treat 'sending an <see cref="IApprovalRpcCommand"/> RPC when approval is disabled' as a warning.
-        /// However, you may use approval RPCs to also send match join information, thus you may wish to suppress this warning.
-        /// Do so by setting this to true.
-        /// This log suppression is enabled by default! Set this flag to false to see the warning.
+        /// 调试时，把“Approval 禁用时发送 <see cref="IApprovalRpcCommand"/> RPC”视为警告会很有帮助
+        /// 但也可能使用 Approval RPC 发送加入对局信息，此时可以把该值设为 true 以抑制警告
+        /// 默认启用日志抑制，把此标志设为 false 才会显示警告
         /// </summary>
         [field: MarshalAs(UnmanagedType.U1)]
         public bool SuppressApprovalRpcSentWhenApprovalFlowDisabledWarning { get; set; }
 
-        /// <summary>Prevents log-spam for <see cref="SuppressApplicationRunInBackgroundWarning"/>.</summary>
+        /// <summary>
+        /// 防止 <see cref="SuppressApplicationRunInBackgroundWarning"/> 产生重复日志
+        /// </summary>
         [field: MarshalAs(UnmanagedType.U1)]
         internal bool HasWarnedAboutApplicationRunInBackground { get; set; }
 
         /// <summary>
-        ///     A NetCode RPC will trigger a warning if it hasn't been consumed or destroyed (which is a proxy for 'handled') after
-        ///     this many simulation frames (inclusive).
-        ///     <see cref="ReceiveRpcCommandRequest.Age" />.
-        ///     Set to 0 to opt out.
+        ///     如果 NetCode RPC 经过指定数量的模拟帧后仍未消费或销毁，即仍未处理，则触发警告
+        ///     该数量包含边界值，参见 <see cref="ReceiveRpcCommandRequest.Age" />
+        ///     设为 0 可禁用
         /// </summary>
         public ushort MaxRpcAgeFrames { get; set; }
 
-        // Frame time has exceeded the ability for fixed updates to 'catch up' to the simulation time, ticks will now be batched so instead of n ticks of fixedTimer per frame, we will have m ticks of  (n/m)*fixedTime per frame
-        // While this will allow the simulation to catch-up it will degrade interpolation performacne and can introduce predition errors since the server will simulate fewer frames than a client will predict and they may need to be adjusted.  This can be common in the editor and situations of poor performance.  With good interpolation and infrequent ocurrances this should have minimal visual impact.
-        // If its happening every frame you will observe severly degraded performance
+        // 当帧时间使 Fixed Update 无法追上模拟时间时，系统会批处理 Tick
+        // 每帧不再执行 N 个 fixedTime Tick，而是执行 M 个时长为 (N/M)*fixedTime 的 Tick
+        // 这样可以让模拟追上进度，但会降低插值性能并可能引入预测误差，因为服务器模拟帧数少于客户端预测帧数，需要进行调整
+        // 这种情况在编辑器和性能较差时很常见；如果插值良好且不频繁发生，视觉影响应很小
+        // 如果每帧都发生，性能会严重下降
 
         /// <summary>
-        ///     Display a warning if ticks have been bacthed
+        ///     Tick 被批处理时显示警告
         /// </summary>
         /// <remarks>
-        ///    Warning will be displayed when frame time has exceeded the ability for fixed updates to 'catch up' to the simulation time, ticks will be batched so instead of n ticks of fixedTimer per frame, we will have m ticks of  (n/m)*fixedTime per frame
-        ///    While this allows the simulation to catch-up it degrades interpolation performance and can introduce predition errors since the server will simulate fewer frames than a client will predict and they may need to be adjusted.  This can be common in the editor and situations of poor performance.  With good interpolation and infrequent ocurrances this should have minimal visual impact.
-        ///    If its happening every frame you will observe severly degraded performance
+        ///    当帧时间使 Fixed Update 无法追上模拟时间时会显示警告
+        ///    系统会批处理 Tick，每帧不再执行 N 个 fixedTime Tick，而是执行 M 个时长为 (N/M)*fixedTime 的 Tick
+        ///    这样可以让模拟追上进度，但会降低插值性能并可能引入预测误差，因为服务器模拟帧数少于客户端预测帧数，需要进行调整
+        ///    这种情况在编辑器和性能较差时很常见；如果插值良好且不频繁发生，视觉影响应很小
+        ///    如果每帧都发生，性能会严重下降
         /// </remarks>
         [field: MarshalAs(UnmanagedType.U1)]
         public bool WarnBatchedTicks;
 
         /// <summary>
-        ///     Size of the rolling window used to calculate the avergage for the number of frames which contained tick batching.
+        ///     计算包含 Tick Batching 的每帧 Tick 数量平均值时使用的滚动窗口大小
         /// </summary>
         public int WarnBatchedTicksRollingWindowSize;
 
         /// <summary>
-        ///     Display a warning if the average number if ticks per frame is above this number
+        ///     每帧平均 Tick 数量高于此值时显示警告
         /// </summary>
         public float WarnAboveAverageBatchedTicksPerFrame;
 
         /// <summary>
-        /// The current debug logging level. Default value is <see cref="LogLevelType.Notify"/>.
+        /// 当前调试日志级别，默认值为 <see cref="LogLevelType.Notify"/>
         /// </summary>
         [ExcludeFromBurstCompatTesting("may use managed objects")]
         public LogLevelType LogLevel
@@ -375,38 +378,38 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The available NetCode logging levels. <see cref="Notify"/> is the default. Use the
-        /// <see cref="NetCodeDebugConfig"/> component to configure the logging level.
+        /// 可用的 NetCode 日志级别，默认值为 <see cref="Notify"/>
+        /// 使用 <see cref="NetCodeDebugConfig"/> 组件配置日志级别
         /// </summary>
         public enum LogLevelType
         {
             /// <summary>
-            /// Debug level. This is the most verbose and only debug messages should use this.
+            /// Debug 级别，输出最详细，仅调试消息应使用此级别
             /// </summary>
             Debug = 1,
             /// <summary>
-            /// Default debug level. Non-spamming messages that contains useful information and that don't have measurable performance
-            /// impact can use this.
+            /// 默认调试级别
+            /// 包含有用信息、不会重复刷屏且没有可测量性能影响的消息可以使用此级别
             /// </summary>
             Notify = 2,
             /// <summary>
-            /// Level to use for non-critical errors or potential issues.
+            /// 用于非严重错误或潜在问题的级别
             /// </summary>
             Warning = 3,
             /// <summary>
-            /// Level to use for all error messages (critical or not).
+            /// 用于全部错误消息的级别，无论是否严重
             /// </summary>
             Error = 4,
             /// <summary>
-            /// When set, only exception will be output.
+            /// 设置后只输出异常
             /// </summary>
             Exception = 5,
         }
 
         /// <summary>
-        /// Print the log message with Debug level priority;
+        /// 以 Debug 级别输出日志消息
         /// </summary>
-        /// <param name="msg">The ascii message string. Unicode are not supported</param>
+        /// <param name="msg">ASCII 消息字符串，不支持 Unicode</param>
         public readonly void DebugLog(in FixedString512Bytes msg)
         {
 #if USING_UNITY_LOGGING
@@ -418,9 +421,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Print a log message with Notify level priority;
+        /// 以 Notify 级别输出日志消息
         /// </summary>
-        /// <param name="msg">The ascii message string. Unicode are not supported</param>
+        /// <param name="msg">ASCII 消息字符串，不支持 Unicode</param>
         public readonly void Log(in FixedString512Bytes msg)
         {
 #if USING_UNITY_LOGGING
@@ -432,9 +435,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Print a log message with warning priority
+        /// 以 Warning 级别输出日志消息
         /// </summary>
-        /// <param name="msg">The ascii message string. Unicode are not supported</param>
+        /// <param name="msg">ASCII 消息字符串，不支持 Unicode</param>
         public readonly void LogWarning(in FixedString512Bytes msg)
         {
 #if USING_UNITY_LOGGING
@@ -446,9 +449,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Print a log message with error priority
+        /// 以 Error 级别输出日志消息
         /// </summary>
-        /// <param name="msg">The ascii message string. Unicode are not supported</param>
+        /// <param name="msg">ASCII 消息字符串，不支持 Unicode</param>
         public readonly void LogError(in FixedString512Bytes msg)
         {
 #if USING_UNITY_LOGGING
@@ -460,13 +463,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method to print an unsigned integer bitmask as string.
-        /// All the MSB zeros before the first bit set are skipped.
-        /// Ex:
+        /// 把无符号整数 Bitmask 输出为字符串的工具方法
+        /// 会跳过首个置位 bit 之前的全部最高有效位零
+        /// 例如：
         /// mask: 00010 0001 0000 0010
-        /// will be printed as "10000100000010"
+        /// 输出为 "10000100000010"
         /// </summary>
-        /// <param name="mask">The bit mask to print</param>
+        /// <param name="mask">要输出的 Bitmask</param>
         /// <returns></returns>
         internal static FixedString64Bytes PrintMask(uint mask)
         {
@@ -486,10 +489,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Print an unsigned long integer in hexadecimal format.
+        /// 以十六进制格式输出无符号长整数
         /// </summary>
-        /// <param name="value">the integer number to convert</param>
-        /// <param name="bitSize">the number of bits we want to print. Must be a multiple of 4.</param>
+        /// <param name="value">要转换的整数</param>
+        /// <param name="bitSize">要输出的 bit 数量，必须是 4 的倍数</param>
         /// <returns></returns>
         internal static FixedString32Bytes PrintHex(ulong value, int bitSize)
         {
@@ -514,19 +517,19 @@ namespace Unity.NetCode
             return temp;
         }
         /// <summary>
-        /// Print an unsigned integer in hexadecimal format
+        /// 以十六进制格式输出无符号整数
         /// </summary>
-        /// <param name="value">The unsigned value to convert</param>
-        /// <returns>An unsigned integer in hexadecimal format</returns>
+        /// <param name="value">要转换的无符号值</param>
+        /// <returns>十六进制格式的无符号整数</returns>
         public static FixedString32Bytes PrintHex(uint value)
         {
             return PrintHex(value, 32);
         }
         /// <summary>
-        /// Print a unsigned long integer in hexadecimal format
+        /// 以十六进制格式输出无符号长整数
         /// </summary>
-        /// <param name="value">The unsigned value to convert</param>
-        /// <returns>a unsigned long integer in hexadecimal format</returns>
+        /// <param name="value">要转换的无符号值</param>
+        /// <returns>十六进制格式的无符号长整数</returns>
         public static FixedString32Bytes PrintHex(ulong value)
         {
             return PrintHex(value, 64);

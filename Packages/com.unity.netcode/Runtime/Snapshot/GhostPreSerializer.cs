@@ -13,12 +13,11 @@ namespace Unity.NetCode
 {
 
     /// <summary>
-    /// Adding this component to a ghost will trigger pre-serialization for that ghost.
-    /// Pre-serialization means that part of the serialization process happens before
-    /// the regular serialization pass and can be done once for all connections.
-    /// This can save some CPU time if the the ghost will generally be sent to more than
-    /// one player every frame and it contains complex serialization (serialized data on
-    /// child entities or buffers).
+    /// 将此组件添加到 Ghost 会触发该 Ghost 的预序列化
+    /// 预序列化会在常规序列化阶段之前执行部分序列化流程
+    /// 并且可以一次处理后供所有连接复用
+    /// 如果 Ghost 通常每帧都要发送给多个玩家，且包含子实体或 Buffer 等复杂序列化数据
+    /// 此方式可以节省部分 CPU 时间
     /// </summary>
     public struct PreSerializedGhost : IComponentData
     {}
@@ -44,13 +43,13 @@ namespace Unity.NetCode
         }
         void CleanupSnapshotData()
         {
-            // FIXME: this could be a job too
+            // FIXME：此清理也可以通过 Job 执行
             var chunks = PreviousSnapshotData.GetKeyArray(Allocator.Temp);
             for (int i = 0; i < chunks.Length; ++i)
             {
                 if (!SnapshotData.ContainsKey(chunks[i]))
                 {
-                    // Free the data stored for this key in PreviousSnapshotData
+                    // 释放 PreviousSnapshotData 中为此 Key 存储的数据
                     PreviousSnapshotData.TryGetValue(chunks[i], out var snapshot);
                     UnsafeUtility.Free(snapshot.Data, Allocator.Persistent);
                 }
@@ -144,13 +143,13 @@ namespace Unity.NetCode
                     return;
                 var GhostTypeCollection = GhostTypeCollectionFromEntity[GhostCollectionSingleton];
                 var ghosts = chunk.GetNativeArray(ref ghostComponentType);
-                //I need to check if the ghost has been processed in order to serialize the chunk data.
-                // Find the ghost type for this chunk
+                // 序列化 Chunk 数据前，需要检查 Ghost 是否已经处理
+                // 查找此 Chunk 的 Ghost 类型
                 var ghostType = ghosts[0].ghostType;
-                // Pre spawned ghosts might not have a proper ghost type index yet, we calculate it here for pre spawns
-                // This case should be almost impossible, given the fact all pre-spawned ghosts are initialized after the scene
-                // is loaded. Server either initialize them all or nothing, unless an error preven the GhostCollectionSystem to
-                // properly process and initialize the ghost prefabs.
+                // 预生成 Ghost 可能尚无正确的 Ghost 类型索引，因此在此为其计算
+                // 这种情况几乎不应发生，因为所有预生成 Ghost 都会在场景加载后初始化
+                // 除非错误阻止 GhostCollectionSystem 正确处理并初始化 Ghost Prefab
+                // 否则服务器应一次初始化全部预生成 Ghost
                 if (ghostType < 0)
                 {
                     var GhostCollection = GhostCollectionFromEntity[GhostCollectionSingleton];
@@ -166,26 +165,26 @@ namespace Unity.NetCode
                         netDebug.LogError($"Could not find ghost type {(Hash128)ghostTypeComponent} for a pre-spawned ghosts in the GhostCollectionPrefab list. This usually indicates the GhostCollection has not been able to process the ghost prefab or the prefab entity has not been loaded as depedency or has been deleted. Please check for error log in relation to the GhostCollectionSystem.");
                         return;
                     }
-                    //The prefab has been detected but the GhostCollectionPrefabSerializer entry has not been setup. The only conditions for this are
-                    //-an error during the initialization of another prefab
-                    //-the server has reset the collection (i.e no more connection in game),
+                    // 已检测到 Prefab，但尚未建立 GhostCollectionPrefabSerializer 条目，可能原因只有以下两种
+                    // - 初始化另一个 Prefab 时发生错误
+                    // - 服务器因游戏中已无连接而重置集合
                     if (ghostType >= GhostTypeCollection.Length)
                     {
                         netDebug.LogError($"Could not find ghost type {(Hash128)ghostTypeComponent} in the GhostCollectionPrefabSerializer list. The ghost prefab has been detected by the GhostCollectionSystem but the serialization data has not being initialized. That usually indicates some error during the initialization of the serialization data for some other prefab type. Please check for error log in relation to the GhostCollectionSystem.");
                         return;
                     }
                 }
-                //If the chunk is not a prespawn one and the ghost has invalid spanw tick means the chunk has been just spawned
-                //and there was not enough information to process it. As such, the chunk will be skipped.
+                // 如果 Chunk 不属于预生成内容且 Ghost 的 Spawn Tick 无效，说明该 Chunk 刚刚生成
+                // 当前信息不足以处理，因此跳过此 Chunk
                 else if(!ghosts[0].spawnTick.IsValid)
                     return;
 
-                //The type is not present in the collection. While an edge case this is still possible in certain scenario
+                // 该类型不在集合中，虽然属于边界情况，但在特定场景下仍可能发生
                 if(ghostType >= GhostTypeCollection.Length)
                     return;
 
-                //what if there are entities that are not valid (like spawn tick == 0)
-                //We should never be able to reach this point with an invalid ghost if the server has run its update.
+                // 如果存在 Spawn Tick 为 0 等无效实体，则需要进一步防御
+                // 服务器已经执行更新后，理论上不应有无效 Ghost 到达此处
                 var typeData = GhostTypeCollection[ghostType];
                 int dynamicDataCapacity = 0;
                 int dynamicDataHeaderSize = 0;
@@ -203,26 +202,26 @@ namespace Unity.NetCode
 
                 if (typeData.NumBuffers != 0)
                 {
-                    // figure out how much data is required for the buffer dynamic data
+                    // 计算 Buffer 动态数据所需空间
                     dynamicDataCapacity = helper.GatherBufferSize(chunk, 0, chunk.Count, typeData);
                     dynamicDataHeaderSize = GhostChunkSerializationState.GetDynamicDataHeaderSize(chunk.Capacity);
                 }
                 int snapshotDataCapacity = typeData.SnapshotSize * chunk.Capacity;
-                // Determine the required allocation size
+                // 确定所需分配大小
                 if (!PreviousSnapshotData.TryGetValue(chunk, out var snapshot) || snapshot.Capacity != snapshotDataCapacity || snapshot.DynamicCapacity < dynamicDataCapacity)
                 {
-                    // Allocate a new snapshot
+                    // 分配新的 Snapshot
                     if (snapshot.Data != null)
                     {
                         UnsafeUtility.Free(snapshot.Data, Allocator.Persistent);
                     }
                     snapshot.Capacity = snapshotDataCapacity;
-                    // Round up to an even number of kb
+                    // 向上取整到整数 KB
                     snapshot.DynamicCapacity = (dynamicDataCapacity + 1023) & (~1023);
                     snapshot.Data = UnsafeUtility.Malloc(snapshot.Capacity + snapshot.DynamicCapacity, 16, Allocator.Persistent);
                 }
                 snapshot.DynamicSize = dynamicDataCapacity;
-                // Add to the new snapshot data lookup
+                // 加入新的 Snapshot 数据查找表
                 if (!SnapshotData.TryAdd(chunk, snapshot))
                 {
                     netDebug.LogError("Could not register snapshot data for pre-serialization");
@@ -235,40 +234,39 @@ namespace Unity.NetCode
                 int changeMaskUints = GhostComponentSerializer.ChangeMaskArraySizeInUInts(typeData.ChangeMaskBits);
                 int enableableMaskUints = GhostComponentSerializer.ChangeMaskArraySizeInUInts(typeData.EnableableBits);
                 int snapshotOffset = GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + changeMaskUints*sizeof(uint) + enableableMaskUints*sizeof(uint));
-                // Go through all entities and serialize the data to the snapshot store
+                // 遍历所有实体并将数据序列化到 Snapshot 存储区
                 helper.snapshotPtr = (byte*)snapshot.Data;
                 helper.snapshotOffset = snapshotOffset;
                 helper.snapshotSize = snapshotSize;
                 helper.changeMaskUints = changeMaskUints;
                 if (typeData.NumBuffers != 0)
                 {
-                    //This require some explanation.
-                    // The data layout for the pre-serialized ghost snapshot looks like this:
+                    // 此处需要说明预序列化 Ghost Snapshot 的数据布局
                     //
                     //   snapshot.Capacity   snapshot.DynamicCapacity
-                    // [  SNAPSHOT DATA  ][      DYNAMIC DATA       ]
+                    // [  SNAPSHOT 数据  ][       动态数据          ]
                     //
-                    // The dynamic data will be copied/re-located by the GhostChunkSerializer
-                    // inside the chunk DynamicSnapshotBuffer, right after the header.
+                    // GhostChunkSerializer 会复制并重定位动态数据
+                    // 将其放入 Chunk 的 DynamicSnapshotBuffer 中，紧跟在 Header 之后
                     //
-                    //   chunk snapshot cap      chunk dynamic capacity
-                    // [  SNAPSHOT DATA     ][ HEADER][    DYNAMIC DATA   ]
+                    //   Chunk Snapshot 容量      Chunk 动态数据容量
+                    // [   SNAPSHOT 数据    ][ HEADER][      动态数据     ]
                     //
-                    // Because of that the relative offset that we store in the snapshot data
-                    // indicating where the dynamicbuffer contents start from, must be offset by the dynamic header size.
+                    // 因此，Snapshot 数据中用于指示 Dynamic Buffer 内容起点的相对偏移量
+                    // 必须再加上动态 Header 的大小
                     //
-                    //  [SNAPSHOT DATA]
-                    // ..  Buffer ...                Chunk Dynamic Data
-                    //   Len, Offset                  [Header][CONTENTS]
+                    //  [Snapshot 数据]
+                    // ..  Buffer ...                Chunk 动态数据
+                    //   长度, 偏移量                 [Header][内容]
                     //    X     |                                 |
                     //          |_________________________________|
                     //
-                    // Because the pre-serialized data is actually stored right after the snapshot but
-                    // the helper will write in memory at address snapshotDynamicPtr + dynamicSnapshotDataOffset,
-                    // we are offsetting the start position of the buffer back by the header capacity
+                    // 预序列化数据实际紧跟在 Snapshot 之后存储
+                    // 但辅助器会写入 snapshotDynamicPtr + dynamicSnapshotDataOffset 地址
+                    // 因此将 Buffer 起始位置向前偏移一个 Header 容量
                     helper.snapshotDynamicPtr = (byte*)snapshot.Data + snapshot.Capacity - dynamicDataHeaderSize;
                     helper.dynamicSnapshotDataOffset = dynamicDataHeaderSize;
-                    //The max capacity should also be larger (like it contains also the header) so all math make sense
+                    // 最大容量也必须包含 Header 大小，确保所有偏移量计算保持一致
                     helper.dynamicSnapshotCapacity = snapshot.DynamicCapacity + dynamicDataHeaderSize;
                 }
                 if (useCustomSerializer != 0 && typeData.CustomPreSerializer.Ptr.IsCreated)
@@ -288,7 +286,7 @@ namespace Unity.NetCode
                         dynamicDataCapacity = helper.dynamicSnapshotCapacity,
                         ghostChunkComponentTypes = (IntPtr)helper.ghostChunkComponentTypesPtr,
                         linkedEntityGroupTypeHandle = helper.linkedEntityGroupType,
-                        // irrelevant data
+                        // 与预序列化无关的数据
                         // networkId = default,
                         // hasPreserializedData = default,
                         // entityStartBit = default,

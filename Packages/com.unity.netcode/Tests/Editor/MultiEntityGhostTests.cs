@@ -52,17 +52,17 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntityGroup[0].Value, new ChildLevelComponent{Value = 42});
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntityGroup[1].Value, new ChildLevelComponent{Value = 42});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成多实体 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 验证根实体字段已复制，而子实体字段因 SendDataForChildEntity 为 false 保持默认值
                 var clientEnt = testWorld.TryGetSingletonEntity<TopLevelGhostEntity>(testWorld.ClientWorlds[0]);
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<LinkedEntityGroup>(clientEnt));
                 var clientEntityGroup = testWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEnt);
@@ -97,17 +97,17 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntityGroup[0].Value, new GhostOwner{NetworkId = 42});
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntityGroup[1].Value, new GhostOwner{NetworkId = 42});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成多实体 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 验证 GhostOwner 数据同时复制到根实体和子实体
                 var clientEnt = testWorld.TryGetSingletonEntity<TopLevelGhostEntity>(testWorld.ClientWorlds[0]);
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<LinkedEntityGroup>(clientEnt));
                 var clientEntityGroup = testWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEnt);

@@ -8,8 +8,8 @@ using System.Threading;
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// Simple hierarchical profiler
-    /// Used to track some performance of our code-generation suite
+    /// 简单的层级 Profiler
+    /// 用于跟踪代码生成工具链的性能
     /// </summary>
     public class Profiler
     {
@@ -45,7 +45,7 @@ namespace Unity.NetCode.Generators
         private List<Marker> timers = new List<Marker>();
         private int currentId;
 
-        //This is necessary since the instance is static but it can be called by multiple threads.
+        // 实例通过静态入口访问但可能由多个线程调用，因此必须按线程隔离
         private static ThreadLocal<Profiler> _instance = new ThreadLocal<Profiler>(() =>
         {
             return new Profiler();
@@ -141,7 +141,7 @@ namespace Unity.NetCode.Generators
             timers[0].ticks = Stopwatch.GetTimestamp() - timers[0].ticks;
             var builder = new System.Text.StringBuilder();
             builder.AppendLine("Timing:");
-            //Timers is a tree stored in depth first order
+            // Timer 以深度优先顺序存储为树
             builder.Append($"{timers[0].name}: {(1000.0*(timers[0].ticks - timers[0].overheadTicks))/Stopwatch.Frequency} msec\n");
             if (fullTiming)
             {

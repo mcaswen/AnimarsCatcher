@@ -92,8 +92,10 @@ namespace Unity.NetCode.Samples.Common
             }
         }
 
-        /// <summary>Rounds up to the next multiplier value (which must be a power of 2) in `multiplier` increments.</summary>
-        /// <remarks>This *linear* approach is better than an exponential (e.g. `math.ceilpow2`), as the latter is far too excessive in allocation (which slows down `Mesh.SetVertexBufferData`).</remarks>
+        /// <summary>
+        /// 以指定的 2 次幂倍数为步长，向上取整到下一个倍数值
+        /// </summary>
+        /// <remarks>这种线性增长方式优于 math.ceilpow2 等指数增长方式，后者会过量分配并拖慢 Mesh.SetVertexBufferData</remarks>
         public static int RoundTo(int value, int roundToWithPow2) => (value + roundToWithPow2 - 1) & ~(roundToWithPow2 - 1);
 
         [BurstCompile]
@@ -134,17 +136,17 @@ namespace Unity.NetCode.Samples.Common
             ref NativeList<int> indices, in LocalToWorld localToWorld, in Color color = default)
         {
             float3 center = (min + max) * 0.5f;
-            //X
+            // X 轴
             DrawLine(
                 TransformLocalToWorld(new float3(min.x, center.y, center.z), localToWorld),
                 TransformLocalToWorld(new float3(max.x, center.y, center.z), localToWorld),
                 ref verts, ref indices, color);
-            //Y
+            // Y 轴
             DrawLine(
                 TransformLocalToWorld(new float3(center.x, min.y, center.z), localToWorld),
                 TransformLocalToWorld(new float3(center.x, max.y, center.z), localToWorld),
                 ref verts, ref indices, color);
-            //Z
+            // Z 轴
             DrawLine(
                 TransformLocalToWorld(new float3(center.x, center.y, min.z), localToWorld),
                 TransformLocalToWorld(new float3(center.x, center.y, max.z), localToWorld),
@@ -164,7 +166,7 @@ namespace Unity.NetCode.Samples.Common
                 indexFormat = IndexFormat.UInt32,
                 hideFlags = HideFlags.HideAndDontSave,
 
-                // We do not want to have to constantly recalculate this debug drawer bounds, so set it to a huge value and leave it.
+                // 避免持续重算调试 Drawer 的 Bounds，因此设置为足够大的固定值
                 bounds = new Bounds(new float3(0), new float3(100_000_000)),
             };
             mesh.MarkDynamic();

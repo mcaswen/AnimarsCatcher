@@ -7,23 +7,23 @@ using Microsoft.CodeAnalysis;
 
 namespace Unity.NetCode.Generators
 {
-    //ComponentGenerator instances are created by CodeGenerator. The class itseld is not threadsafe but since every
-    //SourceGenerator has its own Context it is safe use. Avoid to use shared static variables or state here and verify
-    //that in case you need, they are immutable or thread safe.
-    //The GhostCodeGen is per context so no special handling is necessary
+    // ComponentSerializer 实例由 CodeGenerator 创建，此类本身不是线程安全的
+    // 但每个 SourceGenerator 都具有独立 Context，因此可以安全使用
+    // 此处应避免共享静态变量或状态；确有需要时，必须保证它们不可变或线程安全
+    // GhostCodeGen 按 Context 隔离，无需特殊处理
     internal class ComponentSerializer
     {
         private readonly TypeInformation m_TypeInformation;
         public GhostCodeGen m_TargetGenerator;
         private GhostCodeGen m_ActiveGenerator;
         private readonly TypeTemplate m_Template;
-        //The Regex is immutable and threadsafe. The match collection can be used by a single thread only
+        // Regex 不可变且线程安全，但 Match 集合只能由单个线程使用
         private static Regex m_usingRegex = new Regex("(\\w+)(?=;)");
         public TypeInformation TypeInformation => m_TypeInformation;
 
         private string[,] k_OverridableFragments =
         {
-            // fragment + alernative fragment in case of interpolation
+            // 原始片段以及启用插值时的替代片段
             {"GHOST_FIELD", "GHOST_FIELD"},
             {"GHOST_AGGREGATE_WRITE", "GHOST_AGGREGATE_WRITE"},
             {"GHOST_COPY_TO_SNAPSHOT", "GHOST_COPY_TO_SNAPSHOT"},
@@ -80,14 +80,14 @@ namespace Unity.NetCode.Generators
             float maxSmoothingDistSq = m_TypeInformation.Attribute.maxSmoothingDist * m_TypeInformation.Attribute.maxSmoothingDist;
             bool enableExtrapolation = m_TypeInformation.Attribute.smoothing == (uint)TypeAttribute.AttributeFlags.InterpolatedAndExtrapolated;
             generator.Replacements.Add("GHOST_MAX_INTERPOLATION_DISTSQ", maxSmoothingDistSq.ToString(CultureInfo.InvariantCulture));
-            // add any custom replacement but can't override internals. As such we use Add here to control that none of the current
-            // replacement can be overridden
+            // 添加自定义替换项，但不允许覆盖内部项
+            // 因此使用 Add，确保现有替换项无法被改写
             if (replacements != null)
             {
                 foreach (var replacement in replacements)
                     generator.Replacements.Add(replacement.Key, replacement.Value);
             }
-            // Skip fragments which have been overridden already
+            // 跳过已经被覆盖的片段
             for (int i = 0; i < k_OverridableFragments.GetLength(0); i++)
             {
                 if (overrides == null || !overrides.ContainsKey(k_OverridableFragments[i, 0]))
@@ -100,10 +100,10 @@ namespace Unity.NetCode.Generators
                         {
                             m_TargetGenerator.GenerateFragment(enableExtrapolation ? "GHOST_COPY_FROM_SNAPSHOT_ENABLE_EXTRAPOLATION" : "GHOST_COPY_FROM_SNAPSHOT_DISABLE_EXTRAPOLATION",
                                 generator.Replacements, m_TargetGenerator, "GHOST_COPY_FROM_SNAPSHOT");
-                            // The setup section is optional, so do not generate error if it is not present
+                            // Setup 区域可选，不存在时不生成错误
                             generator.GenerateFragment("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_SETUP", generator.Replacements, m_TargetGenerator,
                                 "GHOST_COPY_FROM_SNAPSHOT", null, true);
-                            // only generate max distance checks if clamp is enabled
+                            // 仅在启用 Clamp 时生成最大距离检查
                             if (maxSmoothingDistSq > 0)
                             {
                                 generator.GenerateFragment("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_DISTSQ", generator.Replacements, m_TargetGenerator,
@@ -121,7 +121,7 @@ namespace Unity.NetCode.Generators
                 }
             }
 
-            // Imports
+            // 收集 using 导入项
             var imports = generator.GetFragmentTemplate("GHOST_IMPORTS");
             if (!string.IsNullOrEmpty(imports))
             {
@@ -158,7 +158,7 @@ namespace Unity.NetCode.Generators
             var generator = context.codeGenCache.GetTemplate(m_Template.TemplateOverridePath);
             generator = generator.Clone();
 
-            // Prefix and Variable Replacements
+            // 前缀与变量替换
             SnapshotAndFieldReferencesName(rootPath, m_TypeInformation, generator);
             if (quantization > 0)
             {
@@ -170,24 +170,24 @@ namespace Unity.NetCode.Generators
             bool enableExtrapolation = m_TypeInformation.Attribute.smoothing == (uint)TypeAttribute.AttributeFlags.InterpolatedAndExtrapolated;
             generator.Replacements.Add("GHOST_MAX_INTERPOLATION_DISTSQ", maxSmoothingDistSq.ToString(CultureInfo.InvariantCulture));
 
-            // Type Info
+            // 类型信息
             if (generator.GenerateFragment("GHOST_FIELD", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_FIELD", m_TargetGenerator.Fragments["__GHOST_FIELD__"]);
-            // CopyToSnapshot
+            // 复制到 Snapshot
             if (generator.GenerateFragment("GHOST_COPY_TO_SNAPSHOT", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_COPY_TO_SNAPSHOT", m_TargetGenerator.Fragments["__GHOST_COPY_TO_SNAPSHOT__"]);
 
-            // CopyFromSnapshot
+            // 从 Snapshot 复制
             if (interpolate)
             {
                 if (generator.HasFragment("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE"))
                 {
                     m_TargetGenerator.GenerateFragment(enableExtrapolation ? "GHOST_COPY_FROM_SNAPSHOT_ENABLE_EXTRAPOLATION" : "GHOST_COPY_FROM_SNAPSHOT_DISABLE_EXTRAPOLATION",
                         generator.Replacements, m_TargetGenerator, "GHOST_COPY_FROM_SNAPSHOT");
-                    // The setup section is optional, so do not generate error if it is not present
+                    // Setup 区域可选，不存在时不生成错误
                     generator.GenerateFragment("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_SETUP", generator.Replacements, m_TargetGenerator,
                         "GHOST_COPY_FROM_SNAPSHOT", null, true);
-                    // only generate max distance checks if clamp is enabled
+                    // 仅在启用 Clamp 时生成最大距离检查
                     if (maxSmoothingDistSq > 0)
                     {
                         generator.GenerateFragment("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_DISTSQ", generator.Replacements, m_TargetGenerator,
@@ -210,17 +210,17 @@ namespace Unity.NetCode.Generators
                     fragments.Add("GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE", generator.Fragments["__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE__"]);
                 }
             }
-            // RestoreFromBackup
+            // 从备份恢复
             if (generator.GenerateFragment("GHOST_RESTORE_FROM_BACKUP", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_RESTORE_FROM_BACKUP", m_TargetGenerator.Fragments["__GHOST_RESTORE_FROM_BACKUP__"]);
-            // PredictDelta
+            // 预测差值
             if (generator.GenerateFragment("GHOST_PREDICT", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_PREDICT", m_TargetGenerator.Fragments["__GHOST_PREDICT__"]);
 
-            // ReportPredictionError
+            // 报告预测误差
             if (generator.GenerateFragment("GHOST_REPORT_PREDICTION_ERROR", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_REPORT_PREDICTION_ERROR", m_TargetGenerator.Fragments["__GHOST_REPORT_PREDICTION_ERROR__"]);
-            // GetPredictionErrorName
+            // 获取预测误差名称
             if (generator.GenerateFragment("GHOST_GET_PREDICTION_ERROR_NAME", generator.Replacements, m_TargetGenerator, null, null, true))
                 fragments.Add("GHOST_GET_PREDICTION_ERROR_NAME", m_TargetGenerator.Fragments["__GHOST_GET_PREDICTION_ERROR_NAME__"]);
 
@@ -285,14 +285,14 @@ namespace Unity.NetCode.Generators
                 if (!generator.HasFragment("GHOST_WRITE_COMBINED"))
                     generator.GenerateFragment(changeMaskFrag, generator.Replacements, target, "GHOST_WRITE_COMBINED");
             }
-            // Serialize
+            // 序列化
             generator.GenerateFragment(ghostWriteFrag, generator.Replacements, target, "GHOST_WRITE");
             var targetFrag = aggregateMask ? "GHOST_AGGREGATE_WRITE" : "GHOST_WRITE_COMBINED";
             if (generator.HasFragment("GHOST_WRITE_COMBINED"))
                 generator.GenerateFragment("GHOST_WRITE_COMBINED", generator.Replacements, target, targetFrag);
             else
                 generator.GenerateFragment(ghostWriteFrag, generator.Replacements, target, targetFrag);
-            // Deserialize
+            // 反序列化
             generator.GenerateFragment(ghostReadFrag, generator.Replacements, target, "GHOST_READ");
             return fieldChangeMaskBits;
         }
@@ -358,11 +358,11 @@ namespace Unity.NetCode.Generators
 
             replacements.Clear();
 
-            //getting the right fullyqualified typename to use for hash calculation.
-            //for non-generic type, it is namespace.[containtype].typename
-            //for generic type, it is namespace.containtype.typename`N[[fullyqualifiedname, assembly],[..]]
-            //Now, the assembly qualification is really annoying but this is how Entities at runtime calcule type hashes.
-            //so we need to do the same here (because we are not using Type or passing the Type at registration.. that would simplify everything)
+            // 获取用于 Hash 计算的正确完全限定类型名称
+            // 非泛型类型格式为 namespace.[containingtype].typename
+            // 泛型类型格式为 namespace.containingtype.typename`N[[fullyqualifiedname, assembly],[..]]
+            // 程序集限定信息较繁琐，但 Entities 运行时正是以此方式计算类型 Hash
+            // 因此这里必须保持一致；如果注册时能直接传递 Type，流程会简单得多
             string fullyQualifiedVariantName;
             if (string.IsNullOrWhiteSpace(context.variantTypeFullName))
             {
@@ -380,8 +380,8 @@ namespace Unity.NetCode.Generators
                 context.diagnostic.LogDebug($"{type.TypeFullName} had its type hash reset, so recalculating it to {context.variantHash}!");
             }
 
-            //Calculating the hash for the generic type is a little trickier.
-            //At runtime the CLR give names like XXX`1[FullName
+            // 泛型类型的 Hash 计算更复杂
+            // CLR 在运行时给出的名称形如 XXX`1[FullName
             replacements.Add("GHOST_NAME", context.generatorName.Replace(".", "").Replace('+', '_'));
             replacements.Add("GHOST_NAMESPACE", context.generatedNs);
             replacements.Add("GHOST_COMPONENT_TYPE", type.TypeFullName.Replace('+', '.'));

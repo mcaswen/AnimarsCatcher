@@ -3,82 +3,84 @@ using System;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Attribute used to specify how and which fields and properties of <see cref="Unity.Entities.IComponentData"/> or
-    /// <see cref="Unity.Entities.IBufferElementData"/> should be replicated.
-    /// When a component or buffer contains at least one field that is annotated with a <see cref="GhostFieldAttribute"/>,
-    /// a struct implementing the component serialization is automatically code-generated.
+    /// 用于指定应复制 <see cref="Unity.Entities.IComponentData"/> 或
+    /// <see cref="Unity.Entities.IBufferElementData"/> 的哪些字段和属性，以及如何复制
+    /// 当组件或 Buffer 至少包含一个使用 <see cref="GhostFieldAttribute"/> 标注的字段时，
+    /// 系统会自动生成实现该组件序列化的结构体代码
     /// </summary>
-    /// <remarks>Note that "enableable components" (<see cref="Unity.Entities.IEnableableComponent"/>) will still have their fields replicated, even when disabled.
-    /// See <see cref="GhostEnabledBitAttribute"/> to replicate the enabled flag itself.</remarks>
+    /// <remarks>请注意，即使可启用组件（<see cref="Unity.Entities.IEnableableComponent"/>）处于禁用状态，其字段仍会被复制
+    /// 如需复制启用标志本身，请参见 <see cref="GhostEnabledBitAttribute"/></remarks>
     [AttributeUsage(AttributeTargets.Field|AttributeTargets.Property)]
     public class GhostFieldAttribute : Attribute
     {
         /// <summary>
-        /// Floating point numbers will be multiplied by this number and rounded to an integer, enabling better delta-compression via huffman encoding.
-        /// Quantization is not supported for integer numbers and is disabled by default for floats.
-        /// To send a floating point number unquantized, use 0.
-        /// Examples:
-        /// Quantization=0 implies full precision.
-        /// Quantization=1 implies precision of 1f (i.e. round float values to integers).
-        /// Quantization=2 implies precision of 0.5f.
-        /// Quantization=10 implies precision of 0.1f.
-        /// Quantization=20 implies precision of 0.05f.
-        /// Quantization=1000 implies precision of 0.001f.
+        /// 浮点数会先乘以此数值再舍入为整数，以便通过 Huffman 编码获得更好的差分压缩效果
+        /// 整数不支持量化，浮点数默认也不启用量化
+        /// 如需发送未量化的浮点数，请使用 0
+        /// 示例：
+        /// Quantization=0 表示完整精度
+        /// Quantization=1 表示精度为 1f，即将浮点值舍入为整数
+        /// Quantization=2 表示精度为 0.5f
+        /// Quantization=10 表示精度为 0.1f
+        /// Quantization=20 表示精度为 0.05f
+        /// Quantization=1000 表示精度为 0.001f
         /// </summary>
         public int Quantization { get; set; } = -1;
 
         /// <summary>
-        /// Only applicable on GhostFieldAttributes applied to a non primitive struct containing multiple fields.
-        /// If this value is not set (a.k.a. false, the default), a 'change bit' will be included 'per field, for every field inside the nested struct'.
-        /// There will be no 'change bit' for the struct itself.
-        /// I.e. If a single field inside the sub-struct changes, only that fields 'change bit' will be set.
-        /// Otherwise (if this Composite bool is set, a.k.a. true), we instead use a single 'change bit' for 'the entire nested struct'.
-        /// I.e. If any fields inside the sub-struct change, the single 'change bit' for the entire struct will be set.
-        /// Check the Serialize/Deserialize code-generated methods in Library\NetCodeGenerated_Backup for examples.
+        /// 仅适用于添加到包含多个字段的非基元结构体上的 GhostFieldAttribute
+        /// 如果未设置此值，即使用默认值 false，则嵌套结构体中的每个字段都会分别包含一个变化位
+        /// 结构体本身不会拥有变化位
+        /// 也就是说，如果子结构体内只有一个字段发生变化，则只设置该字段的变化位
+        /// 如果将 Composite 设为 true，则改为对整个嵌套结构体使用一个变化位
+        /// 也就是说，只要子结构体内任一字段发生变化，就会设置整个结构体的单个变化位
+        /// 示例可查看 Library\NetCodeGenerated_Backup 中生成的 Serialize/Deserialize 方法
         /// </summary>
         public bool Composite { get; set; } = false;
 
         /// <summary>
-        /// Default is <see cref="SmoothingAction.Clamp"/>.
+        /// 默认值为 <see cref="SmoothingAction.Clamp"/>
         /// </summary>
         /// <inheritdoc cref="SmoothingAction"/>
         public SmoothingAction Smoothing { get; set; } = SmoothingAction.Clamp;
 
-        /// <summary>Allows you to specify a custom serializer for this GhostField using the <see cref="GhostFieldSubType"/> API.</summary>
+        /// <summary>
+
+        /// 允许使用 <see cref="GhostFieldSubType"/> API 为此 GhostField 指定自定义序列化器
+
+        /// </summary>
         /// <inheritdoc cref="GhostFieldSubType"/>
         public int SubType { get; set; } = GhostFieldSubType.None;
         /// <summary>
-        /// Default true. If unset (false), instructs code-generation to not include this field in the serialization data.
-        /// I.e. Do not replicate this field.
-        /// This is particularly useful for non primitive members (like structs), which will have all fields serialized by default.
+        /// 默认值为 true，如果设为 false，则指示代码生成器不要在序列化数据中包含此字段
+        /// 也就是说，不复制此字段
+        /// 这对于结构体等非基元成员尤其有用，因为它们默认会序列化所有字段
         /// </summary>
         public bool SendData { get; set; } = true;
 
         /// <summary>
-        /// The maximum distance between two snapshots for which smoothing will be applied.
-        /// If the value changes more than this between two received snapshots the smoothing
-        /// action will not be performed.
+        /// 允许在两个 Snapshot 之间应用平滑的最大距离
+        /// 如果两个已接收 Snapshot 之间的值变化超过此距离，则不会执行平滑操作
         /// </summary>
         /// <remarks>
-        /// For quaternions the value specified should be sin(theta / 2) - where theta is the maximum angle
-        /// you want to apply smoothing for.
+        /// 对于四元数，指定值应为 sin(theta / 2)，其中 theta 是需要应用平滑的最大角度
         /// </remarks>
         public float MaxSmoothingDistance { get; set; } = 0;
     }
 
     /// <summary>
-    /// Attribute denoting that an <see cref="Unity.Entities.IEnableableComponent"/> should have its enabled flag replicated.
-    /// And thus, this is only valid on enableable component types. You'll get compiler errors if it's not.
+    /// 表示应复制 <see cref="Unity.Entities.IEnableableComponent"/> 启用标志的特性
+    /// 因此该特性仅适用于可启用组件类型，否则会产生编译器错误
     /// </summary>
-    /// <remarks>A type will not replicate its enableable flag unless it has this attribute attached to the class.
-    /// This can (and should) also be added to variants that serialize enable bits.</remarks>
+    /// <remarks>只有在类上添加此特性，类型才会复制其启用标志
+    /// 对序列化启用位的变体，也可以且应该添加此特性</remarks>
     [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
     public sealed class GhostEnabledBitAttribute : Attribute
     {
     }
 
     /// <summary>
-    /// Add the attribute to prevent a field ICommandData struct to be serialized.
+    /// 添加此特性可阻止序列化 ICommandData 结构体中的字段
     /// </summary>
     [AttributeUsage(AttributeTargets.Field|AttributeTargets.Property, Inherited = true)]
     public class DontSerializeForCommandAttribute : Attribute

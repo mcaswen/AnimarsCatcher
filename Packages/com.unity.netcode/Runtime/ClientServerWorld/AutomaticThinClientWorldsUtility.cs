@@ -8,68 +8,78 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Have netcode automatically manage thin clients for you by assigning <see cref="NumThinClientsRequested"/>.
+    /// 通过设置 <see cref="NumThinClientsRequested"/>，让 NetCode 自动管理 Thin Client
     /// </summary>
     public class AutomaticThinClientWorldsUtility
     {
-        /// <summary>Set the desired number of thin client worlds.</summary>
+        /// <summary>
+        /// 设置所需的 Thin Client World 数量
+        /// </summary>
         /// <remarks>
-        /// If null (the default), it'll use <see cref="MultiplayerPlayModePreferences.RequestedNumThinClients"/> in the editor, else 0.
-        /// Worlds are only created in builds if you hook up <see cref="UpdateAutomaticThinClientWorlds"/>.
+        /// 如果为默认值 null，则在编辑器中使用 <see cref="MultiplayerPlayModePreferences.RequestedNumThinClients"/>，其他环境使用 0
+        /// 在构建版本中，只有接入 <see cref="UpdateAutomaticThinClientWorlds"/> 后才会创建 World
         /// </remarks>
         public static int? NumThinClientsRequested;
 
         /// <summary>
-        /// The frequency with which we should create the thin client worlds (in hertz i.e. worlds per second).
-        /// 0 denotes 'create all immediately'.
-        /// If null (the default), it'll use <see cref="MultiplayerPlayModePreferences.ThinClientCreationFrequency"/> in the editor, else 0.
+        /// 创建 Thin Client World 的频率，单位为 Hz，即每秒创建的 World 数量
+        /// 0 表示立即创建全部 World
+        /// 如果为默认值 null，则在编辑器中使用 <see cref="MultiplayerPlayModePreferences.ThinClientCreationFrequency"/>，其他环境使用 0
         /// </summary>
         public static float? CreationFrequency;
 
         /// <summary>
-        /// The world to use for data injection (like to know which sub-scene(s) to load).
-        /// If null, we'll try to use any existing client or server worlds, found via <see cref="ClientServerBootstrap.ClientWorld"/> etc.
+        /// 用于注入数据的 World，例如确定要加载哪些 SubScene
+        /// 如果为 null，则尝试使用通过 <see cref="ClientServerBootstrap.ClientWorld"/> 等入口找到的现有客户端或服务器 World
         /// </summary>
         public static World ReferenceWorld;
 
         /// <summary>
-        ///     If your automatic thin clients need custom initialization during bootstrap (e.g. due to custom scene management settings),
-        ///     modify this delegate. Uses <see cref="DefaultBootstrapThinClientWorldInitialization"/> by default.
-        ///     Set to null to disable the bootstrap initialization feature.
+        ///     如果自动 Thin Client 在 Bootstrap 期间需要自定义初始化，例如使用了自定义场景管理设置，请修改此委托
+        ///     默认使用 <see cref="DefaultBootstrapThinClientWorldInitialization"/>
+        ///     设为 null 可禁用 Bootstrap 初始化功能
         /// </summary>
         public static ThinClientWorldInitializationDelegate BootstrapInitialization = DefaultBootstrapThinClientWorldInitialization;
 
         /// <summary>
-        ///     If your automatic thin clients need custom initialization at runtime (e.g. due to custom scene management settings),
-        ///     modify this delegate. Uses <see cref="DefaultRuntimeThinClientWorldInitialization"/> by default.
-        ///     Set to null to disable the runtime initialization feature.
+        ///     如果自动 Thin Client 在运行时需要自定义初始化，例如使用了自定义场景管理设置，请修改此委托
+        ///     默认使用 <see cref="DefaultRuntimeThinClientWorldInitialization"/>
+        ///     设为 null 可禁用运行时初始化功能
         /// </summary>
         public static ThinClientWorldInitializationDelegate RuntimeInitialization = DefaultRuntimeThinClientWorldInitialization;
 
-        /// <summary>Denotes if automatic bootstrap thin client creation is enabled.</summary>
+        /// <summary>
+
+        /// 表示是否启用 Bootstrap 阶段的 Thin Client 自动创建
+
+        /// </summary>
         public static bool IsBootstrapInitializationEnabled => BootstrapInitialization != null;
 
-        /// <summary>Denotes if automatic RUNTIME thin client creation is enabled.</summary>
+        /// <summary>
+
+        /// 表示是否启用运行时 Thin Client 自动创建
+
+        /// </summary>
         public static bool IsRuntimeInitializationEnabled => RuntimeInitialization != null;
 
         /// <summary>
-        /// A list of all thin client worlds created by (and managed by) the netcode package itself.
-        /// If you add a thin client to this list, netcode will take ownership of it.
-        /// This list prevents the netcode package from deleting your thin client worlds.
+        /// 由 NetCode 包自身创建并管理的全部 Thin Client World 列表
+        /// 如果将 Thin Client 添加到此列表，NetCode 将接管其所有权
+        /// 只有此列表中的 Thin Client World 才会被 NetCode 包删除
         /// </summary>
         public static List<World> AutomaticallyManagedWorlds { get; } = new();
 
         private static double s_LastSpawnRealtime;
 
-        /// <summary>Delegate for <see cref="DefaultBootstrapThinClientWorldInitialization"/> and
-        /// <see cref="DefaultRuntimeThinClientWorldInitialization"/>.</summary>
-        /// <param name="referenceWorld">The world to reference when creating this one (for the purposes of scene loading etc.).</param>
-        /// <returns>The newly created world, otherwise null.</returns>
+        /// <summary><see cref="DefaultBootstrapThinClientWorldInitialization"/> 和
+        /// <see cref="DefaultRuntimeThinClientWorldInitialization"/> 使用的委托</summary>
+        /// <param name="referenceWorld">创建新 World 时引用的 World，用于场景加载等用途</param>
+        /// <returns>新创建的 World，否则返回 null</returns>
         public delegate World ThinClientWorldInitializationDelegate(World referenceWorld);
 
         /// <summary>
-        /// Resets the utility to starting values via <see cref="RuntimeInitializeOnLoadMethodAttribute"/>
-        /// and <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/>.
+        /// 通过 <see cref="RuntimeInitializeOnLoadMethodAttribute"/> 和
+        /// <see cref="RuntimeInitializeLoadType.SubsystemRegistration"/> 将此工具重置为初始值
         /// </summary>
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void Init()
@@ -83,24 +93,28 @@ namespace Unity.NetCode
             CleanupWorlds();
         }
 
-        /// <summary>Utility to remove all stale worlds from the list.</summary>
-        /// <returns>Num removed.</returns>
+        /// <summary>
+
+        /// 从列表中移除所有失效 World 的工具方法
+
+        /// </summary>
+        /// <returns>移除的数量</returns>
         public static int CleanupWorlds() => AutomaticallyManagedWorlds.RemoveAll(x => x == null || !x.IsCreated);
 
         /// <summary>
-        /// By default, thin clients created during the bootstrap will automatically be injected with the loaded scenes sub-scenes.
-        /// Thus, we do not need to do anything custom.
+        /// 默认情况下，Bootstrap 期间创建的 Thin Client 会自动注入已加载场景的 SubScene
+        /// 因此无需执行任何自定义处理
         /// </summary>
-        /// <param name="referenceWorld">The world to reference when creating this one (for the purposes of scene loading etc.).</param>
-        /// <returns>The newly created world, otherwise null.</returns>
+        /// <param name="referenceWorld">创建新 World 时引用的 World，用于场景加载等用途</param>
+        /// <returns>新创建的 World，否则返回 null</returns>
         public static World DefaultBootstrapThinClientWorldInitialization(World referenceWorld)
         {
             return ClientServerBootstrap.CreateThinClientWorld();
         }
 
         /// <inheritdoc cref="RuntimeInitialization"/>
-        /// <param name="referenceWorld">The world to reference when creating this one (for the purposes of scene loading etc.).</param>
-        /// <returns>The newly created world, otherwise null.</returns>
+        /// <param name="referenceWorld">创建新 World 时引用的 World，用于场景加载等用途</param>
+        /// <returns>新创建的 World，否则返回 null</returns>
         public static World DefaultRuntimeThinClientWorldInitialization(World referenceWorld)
         {
             if (referenceWorld?.IsCreated != true)
@@ -127,11 +141,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Use this method when inside the <see cref="ClientServerBootstrap.Initialize"/> flow.
+        /// 在 <see cref="ClientServerBootstrap.Initialize"/> 流程内使用此方法
         /// </summary>
         /// <remarks>
-        /// This has to exist because Entities/Netcode uses a fast-path, where it loads the entity scene data (for all
-        /// loaded scenes) once, and then auto-injects said data into all appropriate bootstrapping worlds.
+        /// 此方法必须存在，因为 Entities/NetCode 使用一条快速路径：
+        /// 一次性加载所有已加载场景的 Entity 场景数据，再自动把这些数据注入所有合适的 Bootstrap World
         /// </remarks>
         public static void BootstrapThinClientWorlds()
         {
@@ -150,10 +164,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// If you use this feature, call this method in a <see cref="MonoBehaviour"/> Update method.
-        /// It'll apply the current configured values.
+        /// 如果使用此功能，请在 <see cref="MonoBehaviour"/> 的 Update 方法中调用此方法
+        /// 它会应用当前配置值
         /// </summary>
-        /// <returns>True if any worlds were created or destroyed.</returns>
+        /// <returns>如果创建或销毁了任何 World，则返回 true</returns>
         public static bool UpdateAutomaticThinClientWorlds()
         {
             var requestedNumThinClients = NumThinClientsRequested ?? 0;
@@ -161,7 +175,7 @@ namespace Unity.NetCode
 #if UNITY_EDITOR
             if (!UnityEditor.EditorApplication.isPlaying || UnityEditor.EditorApplication.isCompiling || UnityEditor.EditorApplication.isPaused)
                 return false;
-            // Creating & destroying thin clients can be expensive, so prevent changes while editing the value.
+            // 创建和销毁 Thin Client 的开销较高，因此编辑数值时禁止发生变化
             if (UnityEditor.EditorGUIUtility.editingTextField)
                 return false;
             if(NumThinClientsRequested == null) requestedNumThinClients = MultiplayerPlayModePreferences.RequestedNumThinClients;
@@ -184,19 +198,19 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Creates and/or Disposes thin client worlds until the final count is equal to <see cref="targetThinClientCount"/>.
+        /// 创建或销毁 Thin Client World，直到最终数量等于 <see cref="targetThinClientCount"/>
         /// </summary>
-        /// <param name="referenceWorld">The desired world to use as a reference. If null, we'll try to use any existing client or server worlds.</param>
-        /// <param name="targetThinClientCount">The desired final count of thin clients.</param>
-        /// <param name="maxAllowedSpawn">Rate limiting feature. Worlds are disposed immediately, but only instantiated at this frequency.</param>
-        /// <param name="didCreateOrDestroy">True if worlds were created or destroyed.</param>
-        /// <returns>The list of successfully created worlds, otherwise default.</returns>
+        /// <param name="referenceWorld">要用作引用的 World，如果为 null，则尝试使用任意现有客户端或服务器 World</param>
+        /// <param name="targetThinClientCount">所需的 Thin Client 最终数量</param>
+        /// <param name="maxAllowedSpawn">频率限制，每次立即销毁 World，但只按此频率实例化</param>
+        /// <param name="didCreateOrDestroy">如果创建或销毁了 World，则为 true</param>
+        /// <returns>成功创建的 World 列表，否则返回默认值</returns>
         public static NativeList<WorldUnmanaged> UpdateAutomaticThinClientWorldsImmediate(World referenceWorld, int targetThinClientCount, int maxAllowedSpawn, out bool didCreateOrDestroy)
         {
             referenceWorld ??= ClientServerBootstrap.ServerWorld ?? ClientServerBootstrap.ClientWorld;
             didCreateOrDestroy = false;
 
-            // Dispose if too many:
+            // 数量过多时销毁
             didCreateOrDestroy |= CleanupWorlds() > 0;
             var autoWorlds = AutomaticallyManagedWorlds;
             while(autoWorlds.Count > targetThinClientCount)
@@ -209,7 +223,7 @@ namespace Unity.NetCode
                 didCreateOrDestroy = true;
             }
 
-            // Create new:
+            // 创建新 World
             var maxAllowedToSpawn = math.clamp(targetThinClientCount - autoWorlds.Count, 0, maxAllowedSpawn);
             NativeList<WorldUnmanaged> newWorlds = default;
             var runtimeCreationIsEnabled = RuntimeInitialization != null;

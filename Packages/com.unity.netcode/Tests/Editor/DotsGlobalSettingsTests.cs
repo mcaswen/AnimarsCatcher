@@ -16,7 +16,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 EditorUserBuildSettings.development = true;
                 var dotsSettings = DotsGlobalSettings.Instance;
-#if NETCODE_NDEBUG // Defining NETCODE_NDEBUG project-wide (via ProjectSettings) should disable it in builds, too.
+#if NETCODE_NDEBUG // 通过 ProjectSettings 在项目级定义 NETCODE_NDEBUG 时，构建中也应禁用调试功能
                 CollectionAssert.DoesNotContain(dotsSettings.ClientProvider.GetExtraScriptingDefines(), "NETCODE_DEBUG");
                 CollectionAssert.DoesNotContain(dotsSettings.ServerProvider.GetExtraScriptingDefines(), "NETCODE_DEBUG");
 #else

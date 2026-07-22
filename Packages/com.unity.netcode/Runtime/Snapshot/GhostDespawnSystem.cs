@@ -7,28 +7,25 @@ namespace Unity.NetCode
 {
     /// <summary>
     /// <para>
-    /// Present only in client worlds. Responsible for destroying spawned ghosts when a despawn
-    /// request/command is received from the server.
+    /// 仅存在于客户端 World，收到服务器的销毁请求或命令时负责销毁已生成 Ghost
     /// </para>
-    /// <para>Clients are not responsible for destroying ghost entities (and thus should never). The server is
-    /// responsible for notifying the client about which ghosts should be destroyed (as part of the snapshot protocol).
-    /// </para>
-    /// <para>
-    /// When a despawn command is received, the ghost entity is queued into a despawn queue. Two distinct despawn
-    /// queues exist: one for interpolated, and one for the predicted ghosts.
+    /// <para>客户端不负责也不应自行销毁 Ghost 实体
+    /// 服务器负责通过 Snapshot 协议通知客户端应销毁哪些 Ghost
     /// </para>
     /// <para>
-    /// The above distinction is necessary because interpolated ghosts timeline (<see cref="NetworkTime.InterpolationTick"/>)
-    /// is in the past in respect to both the server and client timeline (the current simulated tick).
-    /// When a snapshot with a despawn command (for an interpolated ghost) is received, the server tick at which the entity has been destroyed
-    /// (on the server) may be still in the future (for this client), and therefore the client must wait until the <see cref="NetworkTime.InterpolationTick"/>
-    /// is greater or equal the despawning tick to actually despawn the ghost.
+    /// 收到销毁命令后，Ghost 实体会进入销毁队列
+    /// 系统维护两个独立队列，分别用于插值 Ghost 和预测 Ghost
     /// </para>
     /// <para>
-    /// Predicted entities, on the other hand, can be despawned only when the current <see cref="NetworkTime.ServerTick"/> is
-    /// greater than or equal to the despawn tick of the server. Therefore, if the client is running ahead (as it should be),
-    /// predicted ghosts will be destroyed as soon as their despawn request is pulled out of the snapshot
-    /// (i.e. later on that same frame).
+    /// 必须区分两者，因为插值 Ghost 的时间线 <see cref="NetworkTime.InterpolationTick"/>
+    /// 相对于服务器和客户端当前模拟 Tick 都处于过去
+    /// 收到包含插值 Ghost 销毁命令的 Snapshot 时，服务器销毁该实体的 Tick 对此客户端可能仍在未来
+    /// 因此客户端必须等待 <see cref="NetworkTime.InterpolationTick"/> 大于或等于销毁 Tick，才能实际销毁 Ghost
+    /// </para>
+    /// <para>
+    /// 预测实体则只能在当前 <see cref="NetworkTime.ServerTick"/> 大于或等于服务器销毁 Tick 时销毁
+    /// 因此，如果客户端按预期领先运行，预测 Ghost 的销毁请求一旦从 Snapshot 中取出
+    /// 就会在同一帧稍后立即执行销毁
     /// </para>
     /// </summary>
     [BurstCompile]

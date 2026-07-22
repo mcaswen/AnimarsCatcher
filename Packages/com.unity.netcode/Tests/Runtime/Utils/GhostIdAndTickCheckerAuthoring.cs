@@ -3,14 +3,14 @@ using UnityEngine;
 
 namespace Unity.NetCode.Tests
 {
-    // used to verify ghost id's and spawn ticks are consistent across migrations
+    // 用于验证 Ghost ID 和 Spawn Tick 在迁移前后保持一致
     internal struct GhostIdAndTickChecker : IComponentData
     {
         [GhostField] public int originalGhostId;
         [GhostField] public NetworkTick originalSpawnTick;
     }
 
-    // used to mark ghosts spawned after a migration action (save/load) so they are easy to find
+    // 用于标记迁移操作（保存或加载）后生成的 Ghost，便于测试定位
     internal struct CreatedPostHostMigrationAction : IComponentData
     { }
 

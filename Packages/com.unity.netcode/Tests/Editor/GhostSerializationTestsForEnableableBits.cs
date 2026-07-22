@@ -11,19 +11,25 @@ using UnityEngine;
 namespace Unity.NetCode.Tests
 {
     /// <summary>
-    /// Used to test different baked values.
+    /// 用于测试不同的烘焙初始值
     /// </summary>
     internal enum EnabledBitBakedValue
     {
-        // No need to test this as it's covered by other tests.
-        ///// <summary>Bake the component as ENABLED, then write to it on Server on the first frame.</summary>
+        // 该情况已由其他测试覆盖，无需在此重复测试
+        ///// 将组件以启用状态烘焙，并在服务端首帧写入
         // StartEnabledAndWriteImmediately = 0,
 
-        /// <summary>Bake the component as DISABLED, then write to it on Server on the first frame.</summary>
+        /// <summary>
+        /// 将组件以禁用状态烘焙，并在服务端首帧写入
+        /// </summary>
         StartDisabledAndWriteImmediately = 1,
-        /// <summary>Bake the component as ENABLED, wait for the ghost to be created, then validate the baked value is replicated. Then continue the test by modify it.</summary>
+        /// <summary>
+        /// 将组件以启用状态烘焙，等待 Ghost 生成并验证烘焙值已复制，随后修改数据并继续测试
+        /// </summary>
         StartEnabledAndWaitForClientSpawn = 3,
-        /// <summary>Bake the component as DISABLED, wait for the ghost to be created, then validate the baked value is replicated. Then continue the test by modify it.</summary>
+        /// <summary>
+        /// 将组件以禁用状态烘焙，等待 Ghost 生成并验证烘焙值已复制，随后修改数据并继续测试
+        /// </summary>
         StartDisabledAndWaitForClientSpawn = 4,
     }
 
@@ -235,7 +241,7 @@ namespace Unity.NetCode.Tests
                 var isGhostGroupMember = !isGroupRoot;
                 var clientOwnsGhost = (i % 4) == 0;
                 var clientValue = m_TestWorld.ClientWorlds[0].EntityManager.GetComponentData<T>(clientEntity).GetValue();
-                if (IsExpectedToReplicateValue(ComponentType.ReadWrite<T>(), true, clientOwnsGhost)) // Ghost groups are root entities, by definition.
+                if (IsExpectedToReplicateValue(ComponentType.ReadWrite<T>(), true, clientOwnsGhost)) // GhostGroup 序列化时按根实体规则处理
                 {
                     Assert.AreEqual(m_IsValidatingBakedValues ? kBakedValue : m_ExpectedValueIfReplicated + i + (isGhostGroupMember ? kGhostGroupMemberValueOffset : 0), clientValue, $"[{typeof(T)}] Expect \"group {(isGroupRoot ? "root" : "member")}\" entity value when `{m_SendForChildrenTestCase}`!");
                     m_DidExpectAnyRootGhostFieldChanges = true;
@@ -252,12 +258,12 @@ namespace Unity.NetCode.Tests
         private void VerifyGhostGroupBufferValues<T>()
             where T : unmanaged, IBufferElementData, IComponentValue
         {
-            // When we iterate over all GhostGroup entries, we iterate:
-            // [0] GroupParent1,
-            // [1] GroupMember of [0],
-            // [2] GroupParent2,
-            // [3] GroupMember of [2],
-            // ...
+            // 遍历全部 GhostGroup 条目时，实体顺序如下
+            // [0] 第一个分组根实体
+            // [1] 属于 [0] 的分组成员
+            // [2] 第二个分组根实体
+            // [3] 属于 [2] 的分组成员
+            // 后续条目以相同规律排列
             for (int i = 0; i < m_ServerEntities.Length; i++)
             {
                 var serverEntity = m_ServerEntities[i];
@@ -311,7 +317,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(expectGroupRoot, !m_TestWorld.ClientWorlds[0].EntityManager.HasComponent<GhostChildEntity>(clientEntity));
 
                 var clientEnabled = m_TestWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<T>(clientEntity);
-                if (IsExpectedToReplicateEnabledBit(ComponentType.ReadWrite<T>(),true, clientOwnsGhost)) // Ghost groups are root entities, by definition.
+                if (IsExpectedToReplicateEnabledBit(ComponentType.ReadWrite<T>(),true, clientOwnsGhost)) // GhostGroup 序列化时按根实体规则处理
                 {
                     Assert.AreEqual(m_ExpectedEnabledIfReplicated, clientEnabled, $"[{typeof(T)}] Expect ghost group {(expectGroupRoot ? "root" : "member")} entity enabled IS replicated when `{m_SendForChildrenTestCase}`!");
                     m_DidExpectAnyRootGhostFieldChanges = true;
@@ -422,7 +428,7 @@ namespace Unity.NetCode.Tests
                 var clientEntityGroup = m_TestWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEntity, true);
                 Assert.AreEqual(2, clientEntityGroup.Length, "Client entity count should always be correct.");
 
-                // This method is exclusively to test behaviour of children.
+                // 此方法只验证子实体行为
 
                 var value = m_TestWorld.ClientWorlds[0].EntityManager.GetComponentData<T>(clientEntityGroup[1].Value).GetValue();
                 if (IsExpectedToReplicateValue(ComponentType.ReadWrite<T>(),false, clientOwnsGhost))
@@ -491,7 +497,7 @@ namespace Unity.NetCode.Tests
                 var clientEntityGroup = m_TestWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEntity, true);
                 Assert.AreEqual(2, clientEntityGroup.Length, $"[{typeof(T)}] Entities in the LinkedEntityGroup!");
 
-                // This method is exclusively to test behaviour of children.
+                // 此方法只验证子实体行为
 
                 var childEntityEnabled = m_TestWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<T>(clientEntityGroup[1].Value);
                 if (IsExpectedToReplicateEnabledBit(ComponentType.ReadWrite<T>(),false, clientOwnsGhost))
@@ -536,7 +542,7 @@ namespace Unity.NetCode.Tests
                 }
                 if (IsExpectedToReplicateValue(ComponentType.ReadWrite<T>(),true, clientOwnsGhost))
                 {
-                    // Note that values are replicated even if the component is disabled!
+                    // 即使组件处于禁用状态，其字段值仍会复制
                     Assert.AreEqual(m_IsValidatingBakedValues ? kBakedValue : m_ExpectedValueIfReplicated + i, clientValue, $"[{typeof(T)}] Test expects client value [{i}] IS replicated when using `{m_SendForChildrenTestCase}`!");
                     m_DidExpectAnyRootGhostFieldChanges = true;
                 }
@@ -562,8 +568,8 @@ namespace Unity.NetCode.Tests
             for (var i = 0; i < clientGhostEntities.Length; i++)
             {
                 var clientEntity = clientGhostEntities[i];
-                // GhostGroups and ghost's with replicated children don't support static-optimization, so our expectation
-                // of them is that they'll behave identically to dynamic ghosts:
+                // GhostGroup 和包含已复制子实体的 Ghost 不支持静态优化
+                // 因此它们应与动态 Ghost 的行为一致
                 var isRoot = !clientEm.HasComponent<GhostChildEntity>(clientEntity);
                 var hasChildEntities = clientEm.GetBuffer<LinkedEntityGroup>(clientEntity).Length > 1;
                 var ghostInstance = m_TestWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostInstance>(clientEntity);
@@ -573,7 +579,7 @@ namespace Unity.NetCode.Tests
                 var didExpectAnyGhostFieldChange = forceExpect ?? (isRoot ? m_DidExpectAnyRootGhostFieldChanges.Value : m_DidExpectAnyChildGhostFieldChanges.Value);
                 var didExpectSnapshotArrivedRecently = (!isEntityStatic || didExpectAnyGhostFieldChange);
 
-                if (clientEm.HasBuffer<SnapshotDataBuffer>(clientEntity)) // Child entities cannot be verified!
+                if (clientEm.HasBuffer<SnapshotDataBuffer>(clientEntity)) // 子实体没有独立 SnapshotDataBuffer，无法在此验证
                 {
                     var clientSnapshotBuffer = clientEm.GetBuffer<SnapshotDataBuffer>(clientEntity);
                     var clientSnapshot = clientEm.GetComponentData<SnapshotData>(clientEntity);
@@ -589,10 +595,12 @@ namespace Unity.NetCode.Tests
             m_ServerTickBeforeSend = NetworkTick.Invalid;
         }
 
-        /// <summary> Tests how Change Filtering works in the <see cref="GhostUpdateSystem"/>.</summary>
+        /// <summary>
+        /// 测试 <see cref="GhostUpdateSystem"/> 中的 Change Filtering 行为
+        /// </summary>
         private void ValidateChangeMask(ComponentType componentType, bool isPartOfGhostGroup)
         {
-            if (m_IsFirstRun) // On the first run, there will be inconsistencies. Not worth trying to handle.
+            if (m_IsFirstRun) // 首次运行存在初始化阶段的不一致，无需纳入 Change Filtering 验证
                 return;
 
             FixedList32Bytes<ComponentType> componentTypeSet = default;
@@ -635,7 +643,7 @@ namespace Unity.NetCode.Tests
             bool allNotOwned = true;
             foreach (var ghostEntity in entities)
             {
-                // Account for children:
+                // 子实体使用其根实体的所有权信息
                 var rootEntity = clientEm.HasComponent<GhostOwner>(ghostEntity)
                     ? ghostEntity
                     : clientEm.GetComponentData<Parent>(ghostEntity).Value;
@@ -1062,10 +1070,10 @@ namespace Unity.NetCode.Tests
                     VerifyLinkedEnabled<EnableableFlagComponent>();
                     VerifyLinkedComponentValues<ReplicatedFieldWithNonReplicatedEnableableComponent>();
                     VerifyLinkedComponentValues<ReplicatedEnableableComponentWithNonReplicatedField>();
-                    // We override variants for these two, so cannot test their "default variants" without massive complications.
+                    // 这两个类型的 Variant 已被覆盖，若要测试其默认 Variant 会显著增加测试复杂度
                     VerifyLinkedComponentValues<ComponentWithReplicatedVariant>();
                     VerifyLinkedEnabled<ComponentWithNonReplicatedVariant>();
-                    // Note: We don't test the component on the root here.
+                    // 此处不测试根实体上的组件
                     VerifyLinkedComponentValues<ComponentWithDontSendChildrenVariant>();
                     VerifyLinkedEnabled<NeverReplicatedEnableableFlagComponent>();
 
@@ -1090,10 +1098,10 @@ namespace Unity.NetCode.Tests
                     VerifyLinkedBufferValues<EnableableBufferWithNonGhostField>();
                     VerifyLinkedBufferValues<ReplicatedFieldWithNonReplicatedEnableableBuffer>();
                     VerifyLinkedBufferValues<ReplicatedEnableableBufferWithNonReplicatedField>();
-                    // We override variants for these two, so cannot test their "default variants" without massive complications.
+                    // 这两个类型的 Variant 已被覆盖，若要测试其默认 Variant 会显著增加测试复杂度
                     VerifyLinkedBufferValues<BufferWithReplicatedVariant>();
                     VerifyLinkedEnabled<BufferWithNonReplicatedVariant>();
-                    // Note: We don't test the component on the root here.
+                    // 此处不测试根实体上的组件
                     VerifyLinkedBufferValues<BufferWithDontSendChildrenVariant>();
 
                     VerifyLinkedBufferValues<SendForChildren_OnlyPredictedGhosts_SendToNone_EnableableBuffer>();
@@ -1109,14 +1117,14 @@ namespace Unity.NetCode.Tests
                     VerifyLinkedBufferValues<DontSendForChildren_OnlyPredictedGhosts_SendToNonOwner_EnableableBuffer>();
                     VerifyLinkedBufferValues<DontSendForChildren_OnlyInterpolatedGhosts_SendToNonOwner_EnableableBuffer>();
 
-                    //Should be these present? for what I see the setup does not add them.
+                    // TODO：确认这些组件是否应存在，当前测试环境似乎没有添加它们
                     //VerifyLinkedComponentEnabledOnChild<ChildOnlyComponent_1>();
                     //VerifyLinkedComponentEnabledOnChild<ChildOnlyComponent_2>();
                     //VerifyLinkedComponentValueOnChild<ChildOnlyComponent_3>();
                     //VerifyLinkedComponentValueOnChild<ChildOnlyComponent_4>();
                     break;
                 case GhostTypeConverter.GhostTypes.GhostGroup:
-                    // GhostGroup implies all of these are root entities! I.e. No children to worry about, so `_sendForChildrenTestCase` is ignored.
+                    // GhostGroup 中这些组件都按根实体规则处理，因此无需区分子实体并忽略 m_SendForChildrenTestCase
                     VerifyGhostGroupValues<EnableableComponent>();
                     VerifyGhostGroupValues<EnableableComponentWithNonGhostField>();
                     VerifyGhostGroupEnabledBits<EnableableFlagComponent>();
@@ -1165,13 +1173,21 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /// <summary>I.e. The expected value if the GhostField is NOT replicated.</summary>
+        /// <summary>
+        /// GhostField 未复制时预期保留的值
+        /// </summary>
         public const int kBakedValue = -33;
-        /// <summary>Ensures non-GhostFields values are not clobbered by replication or backup and restore processes.</summary>
+        /// <summary>
+        /// 用于确认非 GhostField 的值不会被复制或备份恢复流程覆盖
+        /// </summary>
         public const int kDefaultValueForNonGhostFields = -9205;
-        /// <summary>GhostGroup MEMBERS get different values (vs GhostGroup ROOT ghosts) to a) ensure test failure if testing the wrong entity and b) ensure replication correctness.</summary>
+        /// <summary>
+        /// GhostGroup 成员使用与根 Ghost 不同的值，既能暴露取错实体的问题，也能验证复制结果
+        /// </summary>
         public const int kGhostGroupMemberValueOffset = 10;
-        /// <summary>Modify the size of the buffer during our first write to ensure the buffer Length change is correctly replicated.</summary>
+        /// <summary>
+        /// 首次写入时修改 Buffer 长度，用于验证长度变化能够正确复制
+        /// </summary>
         const int kWrittenServerBufferSize = 13;
         internal const int kBakedBufferSize = 29;
 
@@ -1205,12 +1221,12 @@ namespace Unity.NetCode.Tests
 
         void RunTest(int numClients, GhostTypeConverter.GhostTypes type, int entityCount, GhostFlags flags, SendForChildrenTestCase sendForChildrenTestCase, PredictionSetting predictionSetting, EnabledBitBakedValue enabledBitBakedValue)
         {
-            // Save test vars:
+            // 保存本轮测试参数
             m_ExpectedEnabledIfNotReplicated = GhostTypeConverter.BakedEnabledBitValue(enabledBitBakedValue);
             m_SendForChildrenTestCase = sendForChildrenTestCase;
             m_PredictionSetting = predictionSetting;
 
-            // Create worlds:
+            // 创建 World
             switch (sendForChildrenTestCase)
             {
                 case SendForChildrenTestCase.YesViaExplicitVariantRule:
@@ -1227,7 +1243,7 @@ namespace Unity.NetCode.Tests
                     break;
             }
 
-            // Create ghosts:
+            // 创建 Ghost Prefab
             var prefabCount = 1;
             this.m_Type = type;
             if (type == GhostTypeConverter.GhostTypes.GhostGroup)
@@ -1293,15 +1309,15 @@ namespace Unity.NetCode.Tests
             ghostConfig.UsePreSerialization = (flags & GhostFlags.PreSerialize) != 0;
             if (type == GhostTypeConverter.GhostTypes.GhostGroup)
             {
-                // TODO: Ghost with BOTH Children and Group.
-                // TODO: Do we want to have the child the same as the root or different? This depend on what we want to test.
-                // For now let's make them identical (except for the values themselves) as the test logic right now are designed to work that way,
-                // but should be a little more flexible.
+                // TODO：补充同时包含 LinkedEntityGroup 子实体和 GhostGroup 成员的 Ghost 测试
+                // TODO：根据目标行为明确成员配置应与根实体相同还是不同
+                // 当前测试逻辑要求两者配置一致，仅字段值不同
+                // 后续应提高测试编排的灵活性
                 var groupElementGhostConfig = objects[1].AddComponent<GhostAuthoringComponent>();
                 groupElementGhostConfig.DefaultGhostMode = predictionSetting == PredictionSetting.WithPredictedEntities ? GhostMode.Predicted : GhostMode.Interpolated;
                 groupElementGhostConfig.SupportedGhostModes = GhostModeMask.All;
                 groupElementGhostConfig.HasOwner = true;
-                // Note: OptimizationMode on ghost group elements is ignored (while they're IN the group).
+                // Ghost Group 成员位于分组内时会忽略自身的 OptimizationMode
                 groupElementGhostConfig.OptimizationMode = (flags & GhostFlags.StaticOptimization) != 0 ? GhostOptimizationMode.Static : GhostOptimizationMode.Dynamic;
                 groupElementGhostConfig.UsePreSerialization = (flags & GhostFlags.PreSerialize) != 0;
             }
@@ -1341,7 +1357,7 @@ namespace Unity.NetCode.Tests
 
             m_TestWorld.Connect(maxSteps:16);
 
-            // Set every 4th to be the ghost owner.
+            // 每四个实体中将第一个设置为客户端 0 所有
             var networkIdOfClient0 = m_TestWorld.GetSingleton<NetworkId>(m_TestWorld.ServerWorld);
             for (int i = 0; i < m_ServerEntities.Length; i += 4)
             {
@@ -1353,7 +1369,7 @@ namespace Unity.NetCode.Tests
 
             m_TestWorld.GoInGame();
 
-            // Perform test:
+            // 执行测试阶段
             {
                 m_IsFirstRun = true;
                 m_ExpectChangeFilterToChange = true;
@@ -1377,19 +1393,18 @@ namespace Unity.NetCode.Tests
                 SingleTest(999, true, true);
                 VerifyStaticOptimization(flags, forceExpect: null);
 
-                // Testing Change Filtering: Expecting no change beyond this point!
+                // 验证 Change Filtering，此后不再修改数据，因此不应产生变更
                 m_ExpectChangeFilterToChange = false;
                 SingleTest(999, true, false);
-                VerifyStaticOptimization(flags, forceExpect: false); // No value changes means we expect NOT to
-                                                                     // have snapshots (in the case of static-optimization).
+                VerifyStaticOptimization(flags, forceExpect: false); // 没有字段变化时，静态优化模式下不应产生新的 Snapshot
             }
         }
 
         /// <summary>
-        /// To test whether or not a ghosts baked enabled bit status is properly respected, we need to:
-        /// 1. CREATE the entities WITHOUT writing their values on the server.
-        /// 2. WAIT for them to be spawned on the client.
-        /// 3. VERIFY that the baked value and enabled-bit matches the baked values on the prefab.
+        /// 要验证 Ghost 烘焙时的启用位是否得到正确保留，需要执行以下步骤
+        /// 1. 创建实体，但不在服务端写入其数据
+        /// 2. 等待实体在客户端生成
+        /// 3. 验证客户端字段值和启用位与 Prefab 的烘焙值一致
         /// </summary>
         private void ValidateBakedValues(GhostFlags flags, EnabledBitBakedValue enabledBitBakedValue, SendForChildrenTestCase sendForChildrenTestCase, GhostTypeConverter.GhostTypes type, PredictionSetting predictionSetting)
         {
@@ -1398,13 +1413,11 @@ namespace Unity.NetCode.Tests
                 m_IsValidatingBakedValues = true;
                 m_LastGlobalSystemVersion = m_TestWorld.ClientWorlds[0].EntityManager.GlobalSystemVersion;
                 m_ServerTickBeforeSend = m_TestWorld.GetSingleton<NetworkTime>(m_TestWorld.ServerWorld).ServerTick;
-                m_ExpectedServerBufferSize = kBakedBufferSize; // We haven't written to the server buffers yet.
+                m_ExpectedServerBufferSize = kBakedBufferSize; // 此时尚未写入服务端 Buffer
                 const int ticks = 32;
                 TickMultipleFrames(ticks);
                 VerifyGhostValues(m_Type, kBakedValue, GhostTypeConverter.BakedEnabledBitValue(enabledBitBakedValue));
-                VerifyStaticOptimization(flags, forceExpect: true);  // It's the first time sending the ghost, so we
-                                                                     // expect to receive a snapshot containing this
-                                                                     // ghost, even if it has no replicated components.
+                VerifyStaticOptimization(flags, forceExpect: true);  // 首次发送 Ghost 时，即使没有可复制组件，也应收到包含该 Ghost 的 Snapshot
             }
         }
 
@@ -1412,7 +1425,7 @@ namespace Unity.NetCode.Tests
         public void SetupTestsForEnableableBits()
         {
             m_TestWorld = new NetCodeTestWorld();
-            //We need a larger payload to handle the test
+            // 测试数据量较大，需要提高分片 Payload 容量
             m_TestWorld.DriverFragmentedPayloadCapacity = 32 * 1024;
         }
 
@@ -1505,8 +1518,8 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Checks attributes on component <see cref="T"/> to determine if this buffer's enable bit SHOULD be replicated.
-        /// NOTE & FIXME: DOES NOT CHECK GhostComponentAttribute CONFIGURATION!
+        /// 检查组件 <see cref="T"/> 上的特性，判断该 Buffer 的启用位是否应复制
+        /// 注意与 FIXME：此方法未完整检查 GhostComponentAttribute 配置
         /// </summary>
         internal static bool IsExpectedToReplicateBuffer<T>(SendForChildrenTestCase sendForChildrenTestCase, bool isRoot)
             where T : IBufferElementData
@@ -1542,13 +1555,10 @@ namespace Unity.NetCode.Tests
             if (!IsExpectedToReplicateGivenOwnerSendTypeAttribute(ghostComponent, clientOwnsGhost))
                 return false;
 
-            //this is a little wonky, and need a better handling. When we override per prefab,
-            //the correct value is not the setup of the GhostComponent but the overrides of the
-            //authoring that take precedence.
-            //As such, technically speaking we would need to get not the ghostComponent value for
-            //SendOptimisation but the value of the override for the prefab if present.
-            //The assumptions in many tests are anyway that everything is enabled in case of this override
-            //so we can simplify by only testing the SendOptimisation if there aren't ComponentOverride.
+            // 此处对 Prefab 级覆盖的处理仍不够完整
+            // Authoring 上的 ComponentOverride 优先级高于 GhostComponent 配置
+            // 因此存在覆盖时，理论上应读取 Prefab Override 中的 SendTypeOptimization，而不是 ghostComponent 的值
+            // 现有测试假定该覆盖会启用全部发送规则，所以仅在不存在 ComponentOverride 时检查 SendTypeOptimization
             if (m_SendForChildrenTestCase != SendForChildrenTestCase.YesViaInspectionComponentOverride
                 && !IsExpectedToReplicateGivenSendTypeOptimizationAttribute(ghostComponent))
                 return false;
@@ -1584,7 +1594,9 @@ namespace Unity.NetCode.Tests
             return variantType;
         }
 
-        /// <summary>Checks attributes on component <see cref="T"/> to determine if this components <see cref="IComponentValue.GetValue"/> backing field should be replicated.</summary>
+        /// <summary>
+        /// 检查组件 <see cref="T"/> 上的特性，判断 <see cref="IComponentValue.GetValue"/> 对应字段是否应复制
+        /// </summary>
         private bool IsExpectedToReplicateValue(ComponentType type, bool isRoot, bool? clientOwnsGhost)
         {
             var variantType = FindTestVariantForType(type);
@@ -1592,13 +1604,10 @@ namespace Unity.NetCode.Tests
 
             if (!IsExpectedToReplicateGivenOwnerSendTypeAttribute(ghostComponent, clientOwnsGhost))
                  return false;
-            //this is a little wonky, and need a better handling. When we override per prefab,
-            //the correct value is not the setup of the GhostComponent but the overrides of the
-            //authoring that take precedence.
-            //As such, technically speaking we would need to get not the ghostComponent value for
-            //SendOptimisation but the value of the override for the prefab if present.
-            //The assumptions in many tests are anyway that everything is enabled in case of this override
-            //so we can simplify by only testing the SendOptimisation if there aren't ComponentOverride.
+            // 此处对 Prefab 级覆盖的处理仍不够完整
+            // Authoring 上的 ComponentOverride 优先级高于 GhostComponent 配置
+            // 因此存在覆盖时，理论上应读取 Prefab Override 中的 SendTypeOptimization，而不是 ghostComponent 的值
+            // 现有测试假定该覆盖会启用全部发送规则，所以仅在不存在 ComponentOverride 时检查 SendTypeOptimization
             if (m_SendForChildrenTestCase != SendForChildrenTestCase.YesViaInspectionComponentOverride &&
                 !IsExpectedToReplicateGivenSendTypeOptimizationAttribute(ghostComponent))
                 return false;
@@ -1668,7 +1677,9 @@ namespace Unity.NetCode.Tests
             return ghostFieldAttribute != null && ghostFieldAttribute.SendData;
         }
 
-        /// <summary>Ensure the GhostUpdateSystem doesn't corrupt fields without the <see cref="GhostFieldAttribute"/>.</summary>
+        /// <summary>
+        /// 确保 GhostUpdateSystem 不会破坏未标记 <see cref="GhostFieldAttribute"/> 的字段
+        /// </summary>
         public static void EnsureNonGhostFieldValueIsNotClobbered(int nonGhostField)
         {
             Assert.AreEqual(kDefaultValueForNonGhostFields, nonGhostField, $"Expecting `nonGhostField` has not been clobbered by changes to this component!");

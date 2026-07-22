@@ -21,7 +21,7 @@ namespace Unity.NetCode.Tests
     {
         static public GameObject CreatePrefabVariant(GameObject prefab, string variantName = null)
         {
-            //Use default name with space
+            // 未指定名称时使用带空格的默认 Variant 名称
             if (string.IsNullOrEmpty(variantName))
                 variantName = $"{prefab.name} Variant.prefab";
             GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
@@ -51,7 +51,7 @@ namespace Unity.NetCode.Tests
                 world.Update();
                 if (ent != Entity.Null && world.EntityManager.HasComponent<ResolvedSectionEntity>(ent))
                     return;
-                //Just yield the current thread for a bit and respin.. at t
+                // 短暂让出当前线程后重新检查导入结果
                 Thread.Sleep(100);
                 timeoutMs -= 100;
             }
@@ -75,7 +75,7 @@ namespace Unity.NetCode.Tests
 
         static IEnumerable<GameObject> CreatePrefabInGrid(int numRows, int numCols, Vector3 startOffset, GameObject prefab)
         {
-            //Create a bunch of gameobject in the subscene
+            // 在 SubScene 中按网格创建一组 GameObject
             float xOffset = startOffset.x;
             float zOffset = startOffset.z;
             for (int i = 0; i < numRows; ++i)
@@ -89,8 +89,8 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        //Create a row for each prefab in the list along the X-axis by spacing each ghost 2 mt apart.
-        //Each row is offset along the Z-Axis by 2.0 mt
+        // 为列表中的每个 Prefab 沿 X 轴创建一行，每个 Ghost 间隔 2 米
+        // 各行沿 Z 轴间隔 2 米
         static public SubScene CreateSubSceneWithPrefabs(Scene parentScene, string scenePath, string subSceneName,
             GameObject[] prefabs, int countPerPrefabs, float startZOffset=0.0f)
         {
@@ -116,11 +116,11 @@ namespace Unity.NetCode.Tests
             return subSceneComponent;
         }
 
-        //Create a xz grid of object with 1 mt spacing starting from offset startOffset.
+        // 从 startOffsets 起点创建 XZ 网格，对象间隔 1 米
         static public SubScene CreateSubScene(Scene parentScene, string scenePath, string subSceneName, int numRows, int numCols, GameObject prefab,
             Vector3 startOffsets)
         {
-            //Create the sub and parent scenes
+            // 创建 SubScene 并将父场景设为活动场景
             var subScene = CreateSubScene($"{scenePath}/{subSceneName}.unity");
             subScene.isSubScene = true;
             SceneManager.SetActiveScene(parentScene);
@@ -151,7 +151,7 @@ namespace Unity.NetCode.Tests
 
         static public Scene CreateEmptyScene(string scenePath, string name)
         {
-            //Create the parent scene
+            // 创建父场景及同名资源目录
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             scene.name = name;
             EditorSceneManager.SaveScene(scene, $"{scenePath}/{name}.unity");
@@ -162,7 +162,7 @@ namespace Unity.NetCode.Tests
 
         static public GameObject CreateSimplePrefab(string path, string name, params System.Type[] componentTypes)
         {
-            //Create a prefab
+            // 创建并保存 Prefab
             GameObject go = new GameObject(name, componentTypes);
             return CreatePrefab(path, go);
         }
@@ -177,9 +177,9 @@ namespace Unity.NetCode.Tests
             return prefab;
         }
 
-        //Load into the terget world a list of subscene.
-        //if the subScenes list is empty, a list of all the SubScene gameobjects in the active scene is retrieved
-        //and loaded in the target world instead.
+        // 将 SubScene 列表加载到目标 World
+        // 如果 subScenes 为空，则查找活动场景中的全部 SubScene GameObject
+        // 并将它们加载到目标 World
         public static void LoadSubScene(World world, params SubScene[] subScenes)
         {
             if (subScenes.Length == 0)
@@ -229,9 +229,9 @@ namespace Unity.NetCode.Tests
             throw new System.Exception($"Failed to load subscene in world. {world.Name}");
         }
 
-        // Load the specified SubScene in the both clients and server world.
-        // if the subScenes list is empty, a list of all the SubScene GameObjects in the active scene is retrieved
-        // and loaded in the worlds.
+        // 将指定 SubScene 同时加载到客户端和服务端 World
+        // 如果 subScenes 为空，则查找活动场景中的全部 SubScene GameObject
+        // 并将它们加载到所有测试 World
         public static void LoadSubSceneInWorlds(in NetCodeTestWorld testWorld, params SubScene[] subScenes)
         {
             LoadSubScene(testWorld.ServerWorld, subScenes);
@@ -241,7 +241,7 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        //Load the scene entity and resolve the sections but not load the content.
+        // 加载场景实体并解析 Section，但不加载场景内容
         static public void LoadSceneSceneProxies(Hash128 subSceneGUID, NetCodeTestWorld testWorld, float frameTime, int maxTicks)
         {
             WaitUntilSceneEntityPresent(subSceneGUID, testWorld.ServerWorld);

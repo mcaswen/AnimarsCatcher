@@ -4,20 +4,19 @@ namespace Unity.NetCode
 {
     /// <summary>
     ///     <para>
-    ///         Similar to <see cref="LinkedEntityGroup" />, this buffer can be added to a ghost (via the
-    ///         <c>GhostAuthoringComponent</c>),
-    ///         and it denotes that a group of ghosts should all be serialized as part of this ghost.
-    ///         Note: <c>LinkedEntityGroup</c> stores the root entity in the list, GhostGroup does not!
+    /// 与 <see cref="LinkedEntityGroup"/> 类似，可以通过 <c>GhostAuthoringComponent</c>
+    /// 将此 Buffer 添加到 Ghost，表示组内所有 Ghost 都应作为该 Ghost 的一部分进行序列化
+    /// 注意：<c>LinkedEntityGroup</c> 会在列表中存储根实体，而 GhostGroup 不会
     ///     </para>
     ///     <para>
-    ///         For usage, nuances, and best practices, see: https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/manual/ghost-groups.md
+    /// 有关用法、细节和最佳实践，参见：https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/manual/ghost-groups.md
     ///     </para>
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct GhostGroup : IBufferElementData
     {
         /// <summary>
-        /// A child entity.
+        /// 子实体
         /// </summary>
         public Entity Value;
     };

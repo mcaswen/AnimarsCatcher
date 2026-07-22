@@ -1,13 +1,13 @@
-// IMPORTANT NOTE: This file is shared with NetCode source generators
-// NO UnityEngine, UnityEditore or other packages dll references are allowed here.
+// 重要提示：此文件由 NetCode 源码生成器共享
+// 此处不允许引用 UnityEngine、UnityEditor 或其他包的 DLL
 using System.Collections.Generic;
 
 namespace Unity.NetCode.Generators
 {
     ///<summary>
-    /// UserDefinedTemplates is used to add custom templates to the code-generation system.
-    /// Add a partial class definition to an AssemblyDefinitionReference (.asmref) referencing Unity.NetCode,
-    /// implement the <see cref="RegisterTemplates"/> method by adding your new typesto the templates list.
+    /// UserDefinedTemplates 用于向代码生成系统添加自定义模板
+    /// 在引用 Unity.NetCode 的 AssemblyDefinitionReference（.asmref）中添加 partial 类定义，
+    /// 并通过把新类型添加到模板列表来实现 <see cref="RegisterTemplates"/> 方法
     /// </summary>
     public static partial class UserDefinedTemplates
     {

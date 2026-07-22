@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -16,7 +16,9 @@ namespace Unity.NetCode.Tests
     {
         public int Horizontal;
         public int Vertical;
-        /// <summary>Unique value, ensuring deserialization on a per-tick basis is 100% correct.</summary>
+        /// <summary>
+        /// 每个 Tick 唯一的值，用于确认逐 Tick 反序列化结果完全正确
+        /// </summary>
         public NetworkTick SentinelTick;
         public uint Sentinel;
         public InputEvent Jump;
@@ -137,9 +139,9 @@ namespace Unity.NetCode.Tests
     internal partial class GatherInputsSystem : SystemBase
     {
         private const int k_WaitDuration = 5;
-        int m_WaitTicks = k_WaitDuration;   // Wait n ticks to ensure we read individual Input sends.
-        int m_EventCounter;                 // How many times have we set an input event so far
-        public static int TargetEventCount; // How many times total should we trigger events
+        int m_WaitTicks = k_WaitDuration;   // 间隔若干 Tick，确保每次读取独立发送的 Input
+        int m_EventCounter;                 // 当前已设置 InputEvent 的次数
+        public static int TargetEventCount; // 总共需要触发的事件次数
 
         protected override void OnCreate()
         {
@@ -188,8 +190,8 @@ namespace Unity.NetCode.Tests
         }
         protected override void OnUpdate()
         {
-            // Inputs are only gathered on the local player, so if any inputs are set on
-            // the remote player it's because they were fetched from the buffer (replicated via ghost system)
+            // 输入只会从本地玩家采集
+            // 远端玩家组件上出现输入时，说明数据来自 Ghost System 复制的 Input Buffer
             Entities
                 .WithAll<GhostOwnerIsLocal>()
                 .ForEach((ref InputRemoteTestComponentData inputData) =>
@@ -228,7 +230,7 @@ namespace Unity.NetCode.Tests
                         EventCountSumValue += input.Jump.Count;
                     }
 
-                    // Validate Sentinel (but only when inputs begin to arrive):
+                    // 输入开始到达后，验证每个 Tick 对应的 Sentinel
                     if (input.Horizontal != 0)
                     {
                         var deltaTicks = networkTime.ServerTick.TicksSince(input.SentinelTick);
@@ -301,42 +303,41 @@ namespace Unity.NetCode.Tests
             var clientInputSystem = testWorld.ClientWorlds[0].GetExistingSystemManaged<ProcessInputsSystem>();
             clientInputSystem.ExpectedInputDeltaTicks = (int)forcedInputLatency;
 
-            //.
             var clientTickRate = NetworkTimeSystem.DefaultClientTickRate;
             clientTickRate.ForcedInputLatencyTicks = (byte)forcedInputLatency;
             testWorld.ClientWorlds[0].EntityManager.CreateSingleton(clientTickRate);
 
-            // Ghost & GhostOwner.
+            // 创建 Ghost 并设置 GhostOwner
             var clientConnectionEnt = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ClientWorlds[0]);
             var netId = testWorld.ClientWorlds[0].EntityManager.GetComponentData<NetworkId>(clientConnectionEnt).Value;
             var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
             testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner {NetworkId = netId,});
 
-            // Wait for client spawn:
+            // 等待客户端生成 Ghost
             for (int i = 0; i < 16; ++i)
                 testWorld.Tick();
             var clientEnt = testWorld.TryGetSingletonEntity<InputComponentData>(testWorld.ClientWorlds[0]);
             Assert.AreNotEqual(Entity.Null, clientEnt, "Sanity!");
 
-            // Run test:
+            // 执行输入同步测试
             GatherInputsSystem.TargetEventCount = 5;
             for (int i = 0; i < 64; ++i)
                 testWorld.Tick();
 
-            // Event should only fire equal to TargetEventCount on the server (but can multiple times on client because of prediction loop)
+            // 服务端事件只应触发 TargetEventCount 次，客户端因预测重演可能触发更多次
             Assert.AreEqual(GatherInputsSystem.TargetEventCount, serverInputSystem.EventCounter, "serverInputSystem.TargetEventCount");
             Assert.AreEqual(GatherInputsSystem.TargetEventCount, serverInputSystem.EventCountSumValue, "serverInputSystem.TargetEventCount");
-            // Client prediction rollback & re-simulation means these counts will be higher.
+            // 客户端预测回滚与重新模拟会使计数不小于目标值
             Assert.GreaterOrEqual(clientInputSystem.EventCounter, GatherInputsSystem.TargetEventCount, "clientInputSystem.TargetEventCount");
             Assert.GreaterOrEqual(clientInputSystem.EventCountSumValue, GatherInputsSystem.TargetEventCount, "clientInputSystem.TargetEventCount");
 
-            // Assert input polling -> processing tick latency:
+            // 验证从输入采集到处理的 Tick 延迟
             Assert.That(clientInputSystem.ArrivedLateCounter, Is.LessThan(10), "clientInputSystem.ArrivedLateCounter");
             Assert.That(clientInputSystem.ArrivedOnTimeCounter, Is.GreaterThan(clientInputSystem.ArrivedLateCounter), "clientInputSystem.ArrivedOnTimeCounter");
             Assert.That(serverInputSystem.ArrivedLateCounter, Is.LessThan(10), "serverInputSystem.ArrivedLateCounter");
             Assert.That(serverInputSystem.ArrivedOnTimeCounter, Is.GreaterThan(serverInputSystem.ArrivedLateCounter), "serverInputSystem.ArrivedOnTimeCounter");
 
-            // Assert input logging is realistic:
+            // 验证输入到达统计数据处于合理范围
             var networkSnapshotAck = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ServerWorld);
             var cas = networkSnapshotAck.CommandArrivalStatistics;
             Debug.Log(cas.ToFixedString());
@@ -349,14 +350,12 @@ namespace Unity.NetCode.Tests
             Assert.IsTrue(math.abs(cas.AvgCommandsPerPacket - 4) < double.Epsilon, "Expected the default of 4 commands per packet!");
             Assert.GreaterOrEqual(cas.AvgCommandPayloadSizeInBits, 200, "Expected command bits to be ~200!");
 
-            //.
             var clientNetTime = testWorld.GetSingleton<NetworkTime>(testWorld.ClientWorlds[0]);
             Assert.AreEqual(clientNetTime.EffectiveInputLatencyTicks, (uint)forcedInputLatency, "EffectiveForcedInputLatencyTicks");
         }
 
-        /* Validate that remote predicted input is properly synchronized when input fields are
-         * marked as ghost fields. The input buffer should be present on all clients and be
-         * filled with the input values of each one as well.
+        /* 验证输入字段标记为 GhostField 时，远端预测输入能够正确同步
+         * Input Buffer 应存在于所有客户端，并包含各玩家的输入值
          */
         [Test]
         public void InputComponentData_InputBufferIsRemotePredictedWhenAppropriate()
@@ -392,7 +391,7 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntPlayer1, new GhostOwner {NetworkId = netId1});
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntPlayer2, new GhostOwner {NetworkId = netId2});
 
-                // Wait for client spawn
+                // 等待两个客户端都生成玩家 Ghost
                 using EntityQuery clientQuery1 = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<InputRemoteTestComponentData>());
                 using EntityQuery clientQuery2 = testWorld.ClientWorlds[1].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<InputRemoteTestComponentData>());
                 for (int i = 0; i < 16; ++i)
@@ -423,13 +422,13 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Input buffer must be added to the prefab
+                // Input Buffer 必须添加到 Prefab 及其实例
                 Assert.IsTrue(testWorld.ServerWorld.EntityManager.HasBuffer<InputBufferData<InputRemoteTestComponentData>>(serverEntPlayer1));
                 Assert.IsTrue(testWorld.ServerWorld.EntityManager.HasBuffer<InputBufferData<InputRemoteTestComponentData>>(serverEntPlayer2));
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasBuffer<InputBufferData<InputRemoteTestComponentData>>(clientEnt1OwnPlayer));
                 Assert.IsTrue(testWorld.ClientWorlds[1].EntityManager.HasBuffer<InputBufferData<InputRemoteTestComponentData>>(clientEnt2OwnPlayer));
 
-                // Validate that client 2 actually has input buffer data (copied to component) from client 1 and reversed
+                // 验证两个客户端都能从对方的 Input Buffer 取得输入并写入组件
                 testWorld.ClientWorlds[0].EntityManager.CompleteAllTrackedJobs();
                 testWorld.ClientWorlds[1].EntityManager.CompleteAllTrackedJobs();
                 var inputsOnClient1 = inputsQueryOnClient1.ToComponentDataArray<InputRemoteTestComponentData>(Allocator.Temp);
@@ -538,11 +537,10 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /* Test
-         *   - IInputComponent with GhostComponent attribute
-         *   - IInputComponent with GhostFields and GhostComponent attribute
-         * In all cases the ghost component config (like prefab type) from the input component
-         * should copy over to the generated input buffer.
+        /* 测试以下两类输入组件
+         *   - 带 GhostComponent 特性的 IInputComponent
+         *   - 同时带 GhostField 和 GhostComponent 特性的 IInputComponent
+         * 两种情况下，输入组件上的 Ghost 配置都应复制到生成的 Input Buffer，包括 PrefabType 等设置
          */
         [Test]
         public void InputComponentData_BufferCopiesGhostComponentConfigFromInputComponent()
@@ -566,9 +564,8 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // We can only validate the remote predicted component in the ghost component collection
-                // as the normal component does not get a buffer which is a ghost component (to be
-                // synced in snapshots) but is just handled as a command is
+                // Ghost Component Collection 中只能验证远端预测输入组件
+                // 普通输入组件生成的 Buffer 不属于通过 Snapshot 同步的 Ghost 组件，而是按 Command 处理
                 using var collectionQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostComponentSerializerCollectionData>());
                 var collectionData = collectionQuery.GetSingleton<GhostComponentSerializerCollectionData>();
                 GhostComponentSerializer.State inputBufferWithGhostFieldsSerializerState = default;
@@ -580,8 +577,8 @@ namespace Unity.NetCode.Tests
                         inputBufferWithGhostFieldsSerializerState = state;
                 }
 
-                // There should be empty variant configs for all the other types (input components and buffer without ghost fields)
-                // where we'll find the prefab type registered
+                // 其他类型应存在未序列化的空 Variant 配置
+                // 其中包括输入组件和不含 GhostField 的 Buffer，并在这些配置上记录 PrefabType
                 var foundVariantForInputBuffer = false;
                 var foundVariantForInputComponent = false;
                 var foundVariantForInputComponentWithFields = false;
@@ -612,12 +609,12 @@ namespace Unity.NetCode.Tests
 
                 Assert.AreEqual(GhostPrefabType.Client, inputBufferWithGhostFieldsSerializerState.PrefabType);
                 Assert.AreEqual((int)GhostSendType.OnlyInterpolatedClients, (int)inputBufferWithGhostFieldsSerializerState.SendMask);
-                // TODO: Fix test-case using new info that component data on child entities is NOT sent by default. Assert.AreEqual(0, inputBufferWithGhostFieldsSerializerState.SendForChildEntities);
-                // SendToOwnerType will be forced to SendToNonOwner (was set to SendToOwner)
+                // TODO：根据子实体组件默认不发送的新规则修正测试用例：Assert.AreEqual(0, inputBufferWithGhostFieldsSerializerState.SendForChildEntities);
+                // SendToOwnerType 会从配置的 SendToOwner 强制改为 SendToNonOwner
                 Assert.AreEqual(SendToOwnerType.SendToNonOwner, inputBufferWithGhostFieldsSerializerState.SendToOwner);
 
-                // A spawn on server should result in no input or buffer components as it was configured
-                // to be client only via the ghost component attributes on the input component struct
+                // 输入组件结构上的 GhostComponent 将其配置为仅客户端
+                // 因此服务端生成实例后不应包含对应输入组件或 Buffer
                 testWorld.SpawnOnServer(gameObject0);
                 testWorld.SpawnOnServer(gameObject1);
 

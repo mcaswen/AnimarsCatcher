@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Useful to abstract system update logic from business logic. Uses clear Enter/SubsequentEnter/Exit events instead of the single GroupUpdate
+    /// 将系统更新流程与业务逻辑分离，并以首次进入、后续迭代和退出事件替代单一的 GroupUpdate 回调
     /// </summary>
     internal abstract class TickRateManagerStrategy
     {

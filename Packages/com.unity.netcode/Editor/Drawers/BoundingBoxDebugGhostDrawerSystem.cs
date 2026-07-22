@@ -110,8 +110,8 @@ namespace Unity.NetCode.Samples.Common
         }
 
         /// <summary>
-        ///     Note that this shader must exist in the build. Add it to the 'Always Included Shaders' list in your project.
-        ///     TODO - Make this feature available in builds after the URP/Unlit DOTS_INSTANCING_ON 4.5 error lands.
+        /// 该 Shader 必须存在于构建中，请将其加入项目的 Always Included Shaders 列表
+        /// TODO 待 URP/Unlit 的 DOTS_INSTANCING_ON 4.5 错误修复后，让该功能可用于构建版本
         /// </summary>
         static string GetUnlitShader()
         {
@@ -259,11 +259,11 @@ namespace Unity.NetCode.Samples.Common
                 .WithNone<GhostDebugMeshBounds>()
                 .WithAll<GhostInstance, LocalToWorld, RenderBounds>().Build();
 
-            // GameObject side, this needs to be done at the GO's Initialization. You can use GhostDebugMeshBounds's Initialize
+            // GameObject 侧需要在初始化时完成该设置，可使用 GhostDebugMeshBounds.Initialize
             if (missingDebugMeshBoundsQuery.CalculateEntityCount() > 0)
             {
-                // Add a GhostDebugMeshBounds component to all predicted ghosts that don't have one.
-                // This way, we don't have our size changing as the bounds are moving around. We rely on rotation to tell us the real rotation
+                // 为所有缺少 GhostDebugMeshBounds 的 Predicted Ghost 添加该组件
+                // 这样 Bounds 移动时尺寸不会变化，实际旋转由 Rotation 表示
                 var entities = missingDebugMeshBoundsQuery.ToEntityArray(Allocator.Temp);
                 var renderBounds = missingDebugMeshBoundsQuery.ToComponentDataArray<RenderBounds>(Allocator.Temp);
                 for (var i = 0; i < entities.Length; i++)
@@ -278,7 +278,7 @@ namespace Unity.NetCode.Samples.Common
                 }
             }
 #endif
-            // doing the lookup update after the above setup to avoid structural changes errors when spawning new ghosts
+            // 在上述设置完成后更新 Lookup，避免 Spawn 新 Ghost 时发生结构变更错误
             var serverLocalToWorldMap = serverSystem.LocalToWorldsMapR0;
             serverLocalToWorldMap.Update(serverSystem);
 
@@ -338,7 +338,7 @@ namespace Unity.NetCode.Samples.Common
             }
             else m_InterpolatedClientMesh.Clear(true);
 
-            // For all server entities, also draw a cross.
+            // 为所有服务端 Entity 额外绘制十字标记
             if (GhostServerMarkerScale > 0)
             {
                 using (s_CreateGeometryJobMarker.Auto())
@@ -367,20 +367,20 @@ namespace Unity.NetCode.Samples.Common
         static void CreateLineGeometryWithGhosts(in AABB aabb, in LocalToWorld ghostL2Wtransform, in GhostInstance ghostInstance, in NativeParallelHashMap<SpawnedGhost, Entity>.ReadOnly serverSpawnedGhostEntityMap,
             in ComponentLookup<LocalToWorld> serverLocalToWorldMap, ref NativeList<DrawerHelpers.Vertex> clientVertices, ref NativeList<int> clientIndices, ref NativeList<DrawerHelpers.Vertex> serverVertices, ref NativeList<int> serverIndices)
         {
-            // Client AABB:
+            // 客户端 AABB
             DrawerHelpers.DrawWireCube(aabb.Min, aabb.Max, ref clientVertices, ref clientIndices, ghostL2Wtransform);
 
             if (serverSpawnedGhostEntityMap.TryGetValue(ghostInstance, out var serverEntity) && serverLocalToWorldMap.TryGetComponent(serverEntity, out var serverL2W))
             {
                 var serverPos = serverL2W.Position;
                 var serverRot = serverL2W.Rotation;
-                var angleDiff = 2 * math.acos(math.dot(serverRot, ghostL2Wtransform.Rotation)); // radians
+                var angleDiff = 2 * math.acos(math.dot(serverRot, ghostL2Wtransform.Rotation)); // 单位为弧度
                 if (math.distancesq(aabb.Center, serverPos) > 0.002f || angleDiff > 0.002f)
                 {
-                    // Server to Client Line:
+                    // 服务端到客户端的连线
                     DrawerHelpers.DrawLine(ghostL2Wtransform.Position, serverPos, ref serverVertices, ref serverIndices);
 
-                    // Server AABB:
+                    // 服务端 AABB
                     DrawerHelpers.DrawWireCube(aabb.Min, aabb.Max, ref serverVertices, ref serverIndices, serverL2W);
                 }
             }
@@ -405,7 +405,7 @@ namespace Unity.NetCode.Samples.Common
                 }
             }
 
-            // Draw client boxes on top of server boxes.
+            // 让客户端包围盒绘制在服务端包围盒之上
             m_ServerMat = new Material(unlitShader)
             {
                 name = m_ServerMesh.name,
@@ -473,10 +473,10 @@ namespace Unity.NetCode.Samples.Common
                 Value = float4x4.TRS(new float3(0, 0, 0), quaternion.identity, new float3(1))
             });
 
-            // See runtime-entity-creation.md for details on how this works.
-            // Note that the Entities Graphics package doesn't currently support an overload for AddComponents that DOESN'T require a custom RenderMeshArray.
+            // 工作原理详见 runtime-entity-creation.md
+            // Entities Graphics 包目前没有无需自定义 RenderMeshArray 的 AddComponents 重载
             // https://jira.unity3d.com/browse/PLAT-1272
-            // Ideally we'd register these materials + meshes into BatchRenderGroup and therefore not need a RenderMeshArray SharedComponent.
+            // 理想情况下应将这些 Material 与 Mesh 登记到 BatchRenderGroup，从而不再需要 RenderMeshArray SharedComponent
             var materials = new[] {m_ServerMat, m_PredictedClientMat, m_InterpolatedClientMat};
             var meshes = new[] {m_ServerMesh, m_PredictedClientMesh, m_InterpolatedClientMesh};
             RenderMeshUtility.AddComponents(m_ServerMeshRendererEntity, EntityManager,
@@ -498,7 +498,7 @@ namespace Unity.NetCode.Samples.Common
 
     }
 
-    // TODO - Exposing APIs on systems is an anti-pattern, but there is no clear alternative for 'world to world' communication.
+    // TODO 在 System 上公开 API 属于反模式，但目前没有明确的 World 间通信替代方案
     [DisableAutoCreation]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]

@@ -7,21 +7,29 @@ using Unity.Networking.Transport.Utilities;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     In the Editor, <see cref="MultiplayerPlayModePreferences"/> are used.
-    ///     In development builds, json params can be loaded and enabled via command line arg.
-    ///     In prod builds, the network simulator is always disabled.
+    ///     编辑器中使用 <see cref="MultiplayerPlayModePreferences"/>
+    ///     开发构建中可以通过命令行参数加载并启用 JSON 参数
+    ///     正式构建中 Network Simulator 始终禁用
     /// </summary>
     public static class NetworkSimulatorSettings
     {
 #if UNITY_EDITOR
-        /// <summary>Are the UTP Network Simulator stages in use? In the editor, the value comes from the 'Multiplayer PlayTools Window'.</summary>
+        /// <summary>
+        /// 是否正在使用 UTP Network Simulator Stage，编辑器中的值来自 Multiplayer PlayTools Window
+        /// </summary>
         public static bool Enabled => MultiplayerPlayModePreferences.SimulatorEnabled;
-        /// <summary>Values to use in simulation. Set values via 'Multiplayer PlayTools Window'.</summary>
+        /// <summary>
+        /// 模拟使用的参数值，通过 Multiplayer PlayTools Window 设置
+        /// </summary>
         public static SimulatorUtility.Parameters ClientSimulatorParameters => MultiplayerPlayModePreferences.ClientSimulatorParameters;
 #else
-        /// <summary>Are the UTP Network Simulator stages in use? Toggleable in development build.</summary>
+        /// <summary>
+        /// 是否正在使用 UTP Network Simulator Stage，可在开发构建中切换
+        /// </summary>
         public static bool Enabled { get; private set; }
-        /// <summary>Values to use in simulation. Set this to whatever you'd like in a development build.</summary>
+        /// <summary>
+        /// 模拟使用的参数值，可在开发构建中按需设置
+        /// </summary>
         public static SimulatorUtility.Parameters ClientSimulatorParameters { get; private set; }
 #endif
 
@@ -32,7 +40,9 @@ namespace Unity.NetCode
 #endif
         }
 
-        /// <summary>A decent default for testing realistic, poor network conditions.</summary>
+        /// <summary>
+        /// 用于测试真实弱网环境的一组合理默认值
+        /// </summary>
         public static SimulatorUtility.Parameters DefaultSimulatorParameters => new SimulatorUtility.Parameters
             {
                 Mode = ApplyMode.AllPackets, MaxPacketSize = NetworkParameterConstants.MaxMessageSize, MaxPacketCount = 200,
@@ -41,8 +51,10 @@ namespace Unity.NetCode
 
 #if !UNITY_EDITOR
         /// <summary>
-        ///     Checks for the existence of `--loadNetworkSimulatorJsonFile`, which, if set, will set <see cref="Enabled"/> to true, and write <see cref="ClientSimulatorParameters"/>.
-        ///     If no file is found, logs an error, and defaults to <see cref="DefaultSimulatorParameters"/>. Use `--createNetworkSimulatorJsonFile` to automatically generate the file instead.
+        ///     检查是否存在 `--loadNetworkSimulatorJsonFile`，如果已设置，则把 <see cref="Enabled"/> 设为 true，
+        ///     并写入 <see cref="ClientSimulatorParameters"/>
+        ///     如果找不到文件，则记录错误并改用 <see cref="DefaultSimulatorParameters"/>
+        ///     也可以使用 `--createNetworkSimulatorJsonFile` 自动生成文件
         /// </summary>
         public static void CheckCommandLineArgs()
         {
@@ -95,10 +107,10 @@ namespace Unity.NetCode
 #endif
 
         /// <summary>
-        ///     Utility to cycle through drivers and update their simulator pipelines with the inputted settings.
+        ///     遍历 Driver 并使用传入设置更新其 Simulator Pipeline 的工具方法
         /// </summary>
-        /// <param name="parameters">Settings to apply to live drivers.</param>
-        /// <param name="store">Store used to retrieve drivers from.</param>
+        /// <param name="parameters">要应用到运行中 Driver 的设置</param>
+        /// <param name="store">用于获取 Driver 的 Store</param>
         public static void RefreshSimulationPipelineParametersLive(in SimulatorUtility.Parameters parameters, ref NetworkDriverStore store)
         {
             for (var i = store.FirstDriver; i < store.LastDriver; ++i)
@@ -111,15 +123,15 @@ namespace Unity.NetCode
                 simParams.Mode = parameters.Mode;
                 simParams.PacketDelayMs = parameters.PacketDelayMs;
                 simParams.PacketJitterMs = parameters.PacketJitterMs;
-                simParams.PacketDropPercentage = 0; // // Set this to zero to avoid applying packet loss twice.
+                simParams.PacketDropPercentage = 0; // 设为零，避免重复应用丢包
                 simParams.PacketDropInterval = parameters.PacketDropInterval;
                 simParams.PacketDuplicationPercentage = parameters.PacketDuplicationPercentage;
                 simParams.FuzzFactor = parameters.FuzzFactor;
                 simParams.FuzzOffset = parameters.FuzzOffset;
                 driverInstance.driver.ModifySimulatorStageParameters(simParams);
 
-                // This new simulator has less features, but it does allow us to drop ALL packets (even low-level connection ones),
-                // allowing us to test timeouts etc. Setting it instead of on the "light simulator".
+                // 新 Simulator 的功能较少，但可以丢弃所有数据包，包括底层连接数据包，从而测试超时等场景
+                // 因此在这里配置它，而不是配置 Light Simulator
                 driverInstance.driver.ModifyNetworkSimulatorParameters(new NetworkSimulatorParameter
                 {
                     ReceivePacketLossPercent = parameters.PacketDropPercentage,
@@ -129,17 +141,17 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Convenience that handles the new nuance of `PacketDropPercentage` applying to two pipelines.
+        /// 处理 `PacketDropPercentage` 会应用到两个 Pipeline 这一新差异的便捷方法
         /// </summary>
-        /// <param name="settings">Settings to modify.</param>
+        /// <param name="settings">要修改的设置</param>
         public static void SetSimulatorSettings(ref NetworkSettings settings)
         {
             var parameters = ClientSimulatorParameters;
-            // This new simulator has less features, but it does allow us to drop ALL packets (even low-level connection ones),
-            // allowing us to test timeouts etc. Setting it instead of on the "light simulator".
+            // 新 Simulator 的功能较少，但可以丢弃所有数据包，包括底层连接数据包，从而测试超时等场景
+            // 因此在这里配置它，而不是配置 Light Simulator
             settings.WithNetworkSimulatorParameters(parameters.PacketDropPercentage, parameters.PacketDropPercentage);
 
-            // Thus, set this to zero to avoid applying packet loss twice.
+            // 设为零，避免重复应用丢包
             parameters.PacketDropPercentage = 0;
             settings.AddRawParameterStruct(ref parameters);
         }

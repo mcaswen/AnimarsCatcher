@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
@@ -114,19 +114,19 @@ namespace Unity.NetCode.Tests
 
                 var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<TestInput>(clientEnt[0]);
                 var serverBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<TestInput>(serverEnt);
-                // Server can drop commands which arrive too late, but it should get at least half of the commands
+                // 服务端可以丢弃到达过晚的 Command，但至少应收到一半
                 Assert.GreaterOrEqual(serverBuffer.Length, clientBuffer.Length / 2);
-                //Because of the redundancy the server always has more imputs
+                // 由于冗余发送，服务端始终拥有更多 Input
                 int firstServerTick = 0;
                 Assert.Less(firstServerTick, serverBuffer.Length);
                 Assert.AreNotEqual(0, serverBuffer[firstServerTick].Value);
-                // server cannot have commands which are older than what the client has
+                // 服务端不能包含比客户端现有数据更早的 Command
                 Assert.GreaterOrEqual(serverBuffer[firstServerTick].Tick.TicksSince(clientBuffer[0].Tick), 0);
                 for (int i = firstServerTick; i < serverBuffer.Length; ++i)
                     Assert.AreEqual(1, serverBuffer[i].Value);
                 for (int i = 0; i < clientBuffer.Length; ++i)
                     Assert.AreEqual(1, clientBuffer[i].Value);
-                //now rewrite the server buffer and confirm that is not changing on the client side
+                // 重写服务端 Buffer，并确认客户端数据不会随之变化
                 serverBuffer.Length = 4;
                 for (int i = 0; i < serverBuffer.Length; ++i)
                     serverBuffer[i] = new TestInput {Tick = serverBuffer[i].Tick, Value = 2};
@@ -167,7 +167,7 @@ namespace Unity.NetCode.Tests
                 var serverEnt = SpawnEntityAndAssignOwnerOnServer(testWorld, ghostGameObject, 0);
                 var clientEnt = WaitEntitySpawnedOnClientsAndAssignOwner(testWorld, 2, 0);
 
-                //Run a series of full ticks and check that the buffers are replicated to the non owner
+                // 运行一系列完整 Tick，检查 Buffer 是否复制到 NonOwner
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -180,7 +180,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(serverBuffer[i].Value, clientBuffer0[i-4].Value);
                 var bufferCopy = new TestInput[serverBuffer.Length];
                 serverBuffer.AsNativeArray().CopyTo(bufferCopy);
-                //run some partials tick and check that the buffer is preserved correctly
+                // 运行若干部分 Tick，检查 Buffer 是否正确保留
                 for (int i = 0; i < 3; ++i)
                 {
                     testWorld.Tick((1.0f / 60.0f) / 4.0f);
@@ -190,7 +190,7 @@ namespace Unity.NetCode.Tests
                     for (int k = 0; k < serverBuffer.Length; ++k)
                         Assert.AreEqual(bufferCopy[k].Value, clientBuffer1[k].Value);
                 }
-                //Do last partial tick and check the buffer are again in sync
+                // 执行最后一个部分 Tick，检查 Buffer 是否重新同步
                 testWorld.Tick((1.0f / 60.0f) / 4.0f);
                 Assert.AreEqual(serverBuffer.Length, clientBuffer1.Length);
                 Assert.Greater(clientBuffer1.Length, bufferCopy.Length);
@@ -225,7 +225,7 @@ namespace Unity.NetCode.Tests
                 var serverEnt = SpawnEntityAndAssignOwnerOnServer(testWorld, ghostGameObject, 0);
                 var clientEnt = WaitEntitySpawnedOnClientsAndAssignOwner(testWorld, numClients, 0);
 
-                //Run a series of full ticks and check that the buffers are replicated to the non owner
+                // 运行一系列完整 Tick，检查 Buffer 不会复制到 NonOwner
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -242,7 +242,7 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        //A extended version of the previous test, with an entity for each active client and one "spectator"
+        // 上一个测试的扩展版本，每个活跃客户端各有一个 Entity，并额外包含一个旁观客户端
         [Test]
         public void CommandDataBuffer_OwnerPredicted_InterpolatedClientes_ShouldNotReceiveTheBuffer()
         {
@@ -266,10 +266,10 @@ namespace Unity.NetCode.Tests
                 var serverEnt1 = SpawnEntityAndAssignOwnerOnServer(testWorld, ghostGameObject, 0);
                 var serverEnt2 = SpawnEntityAndAssignOwnerOnServer(testWorld, ghostGameObject, 1);
                 var clientEnt = new Entity[2];
-                //Tick a little and wait all entities spawns
+                // 执行若干 Tick，等待所有 Entity 完成 Spawn
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
-                //Assign the owner on the respective clients. Client3 is  passive (no entity)
+                // 在对应客户端上设置 Owner，Client 3 为无 Entity 的被动客户端
                 for(int i=0;i<2;++i)
                 {
                     using var query = testWorld.ClientWorlds[i].EntityManager.CreateEntityQuery(typeof(GhostOwner));
@@ -287,7 +287,7 @@ namespace Unity.NetCode.Tests
                         }
                     }
                 }
-                //Run a series of full ticks and check that the buffers are not replicated to the interpolated clients ghost
+                // 运行一系列完整 Tick，检查 Buffer 不会复制到客户端的 Interpolated Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -340,7 +340,6 @@ namespace Unity.NetCode.Tests
             var net1 = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ClientWorlds[clientOwner]);
             var netId1 = testWorld.ClientWorlds[clientOwner].EntityManager.GetComponentData<NetworkId>(net1);
 
-            //TODO: dispose this
             using var entitiesQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
             var entities = entitiesQuery.ToEntityArray(Allocator.Temp);
             testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner {NetworkId = netId1.Value});

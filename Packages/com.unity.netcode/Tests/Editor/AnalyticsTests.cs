@@ -82,7 +82,7 @@ namespace Unity.NetCode.Tests
         class FieldVerification
         {
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the schema.
+            /// 修改 Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]
@@ -109,7 +109,7 @@ namespace Unity.NetCode.Tests
             }
 
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the schema.
+            /// 修改 Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]
@@ -229,7 +229,7 @@ namespace Unity.NetCode.Tests
             }
 
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the n4eToolsMPMPrefsUpdated schema.
+            /// 修改 n4eToolsMPMPrefsUpdated Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]
@@ -285,7 +285,7 @@ namespace Unity.NetCode.Tests
 
 
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the n4eToolsPlayModeConnectionChanged schema.
+            /// 修改 n4eToolsPlayModeConnectionChanged Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]
@@ -300,7 +300,7 @@ namespace Unity.NetCode.Tests
             }
 
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the n4eToolsPlayModeLagSpikeTriggered schema.
+            /// 修改 n4eToolsPlayModeLagSpikeTriggered Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]
@@ -314,7 +314,7 @@ namespace Unity.NetCode.Tests
 
 
             /// <summary>
-            /// This test will fail because you have changed the layout of the analytics data in the n4eToolsDebugGhostDrawerPrefsUpdated schema.
+            /// 修改 n4eToolsDebugGhostDrawerPrefsUpdated Schema 中的 Analytics 数据布局时，该测试会失败
             /// https://schemata.prd.cds.internal.unity3d.com/onboarding
             /// </summary>
             [Test]

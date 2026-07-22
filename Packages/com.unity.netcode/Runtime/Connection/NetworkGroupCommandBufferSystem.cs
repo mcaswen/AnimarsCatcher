@@ -7,8 +7,8 @@ using Unity.Networking.Transport;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     The <see cref="EntityCommandBufferSystem" /> at the end of the <see cref="NetworkReceiveSystemGroup" /> that
-    ///     is used to sync connection entity state (like creation and destruction).
+    ///     位于 <see cref="NetworkReceiveSystemGroup" /> 末尾的 <see cref="EntityCommandBufferSystem" />，
+    ///     用于同步连接 Entity 的状态，例如创建与销毁
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation |
                        WorldSystemFilterFlags.ThinClientSimulation)]
@@ -22,12 +22,11 @@ namespace Unity.NetCode
         private EntityQuery m_PrespawnSubcenes;
 
         /// <summary>
-        ///     Call <see cref="SystemAPI.GetSingleton{T}" /> to get this component for this system, and then call
-        ///     <see cref="CreateCommandBuffer" /> on this singleton to create an ECB to be played back by this system.
+        ///     调用 <see cref="SystemAPI.GetSingleton{T}" /> 获取此系统的该组件，
+        ///     再对该 Singleton 调用 <see cref="CreateCommandBuffer" />，创建由此系统回放的 ECB
         /// </summary>
         /// <remarks>
-        ///     Useful if you want to record entity commands now, but play them back at a later point in
-        ///     the frame, or early in the next frame.
+        ///     适用于当前记录 Entity 命令，但希望在本帧稍后或下一帧早期回放的情况
         /// </remarks>
         public unsafe struct Singleton : IComponentData, IECBSingleton
         {
@@ -35,30 +34,27 @@ namespace Unity.NetCode
             internal AllocatorManager.AllocatorHandle allocator;
 
             /// <summary>
-            ///     Create a command buffer for the parent system to play back.
+            ///     创建由父系统回放的 Command Buffer
             /// </summary>
             /// <remarks>
-            ///     The command buffers created by this method are automatically added to the system's list of
-            ///     pending buffers.
+            ///     此方法创建的 Command Buffer 会自动添加到系统的待处理 Buffer 列表
             /// </remarks>
-            /// <param name="world">The world in which to play it back.</param>
-            /// <returns>The command buffer to record to.</returns>
+            /// <param name="world">回放 Command Buffer 的 World</param>
+            /// <returns>用于记录命令的 Command Buffer</returns>
             public EntityCommandBuffer CreateCommandBuffer(WorldUnmanaged world)
             {
                 return EntityCommandBufferSystem.CreateCommandBuffer(ref *pendingBuffers, allocator, world);
             }
 
             /// <summary>
-            ///     Sets the list of command buffers to play back when this system updates.
+            ///     设置此系统更新时要回放的 Command Buffer 列表
             /// </summary>
             /// <remarks>
-            ///     This method is only intended for internal use, but must be in the public API due to language
-            ///     restrictions. Command buffers created with <see cref="CreateCommandBuffer" /> are automatically added to
-            ///     the system's list of pending buffers to play back.
+            ///     此方法仅供内部使用，但受语言限制必须作为公共 API 暴露
+            ///     通过 <see cref="CreateCommandBuffer" /> 创建的 Command Buffer 会自动添加到系统的待回放 Buffer 列表
             /// </remarks>
             /// <param name="buffers">
-            ///     The list of buffers to play back. This list replaces any existing pending command buffers on this
-            ///     system.
+            ///     要回放的 Buffer 列表，该列表会替换此系统现有的全部待处理 Command Buffer
             /// </param>
             public void SetPendingBufferList(ref UnsafeList<EntityCommandBuffer> buffers)
             {
@@ -66,18 +62,18 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            ///     Set the allocator that command buffers created with this singleton should be allocated with.
+            ///     设置通过此 Singleton 创建 Command Buffer 时使用的 Allocator
             /// </summary>
-            /// <param name="allocatorIn">The allocator to use</param>
+            /// <param name="allocatorIn">要使用的 Allocator</param>
             public void SetAllocator(Allocator allocatorIn)
             {
                 allocator = allocatorIn;
             }
 
             /// <summary>
-            ///     Set the allocator that command buffers created with this singleton should be allocated with.
+            ///     设置通过此 Singleton 创建 Command Buffer 时使用的 Allocator
             /// </summary>
-            /// <param name="allocatorIn">The allocator to use</param>
+            /// <param name="allocatorIn">要使用的 Allocator</param>
             public void SetAllocator(AllocatorManager.AllocatorHandle allocatorIn)
             {
                 allocator = allocatorIn;
@@ -103,7 +99,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        ///     Patch up connectionEvent ECB entities from earlier in the frame, which now exist.
+        ///     修补本帧早些时候由 ECB 创建且现已存在的 Connection Event Entity
         /// </summary>
         /// <param name="state"></param>
         [BurstCompile]
@@ -156,12 +152,12 @@ namespace Unity.NetCode
             CleanupStaleReceivedRpcs(ref state, disconnected, netDebug);
             StopStreamingPrespawnSubscenes(ref state, disconnected);
 
-            // Apply these events!
-            // Re-fetching NetworkStreamDriver after structural change!
+            // 应用这些事件
+            // 结构变更后重新获取 NetworkStreamDriver
             networkStreamDriver = ref SystemAPI.GetSingletonRW<NetworkStreamDriver>().ValueRW;
             networkStreamDriver.ConnectionEventsForTick = connectionEvents.AsReadOnly();
 
-            // Detect incorrectly disposed NetworkConnection entities, and gracefully cleans them up.
+            // 检测被错误释放的 NetworkConnection Entity，并妥善清理
             if(!m_IncorrectlyDisposedConnectionsQuery.IsEmpty)
             {
                 var incorrectlyDisposedConnectionEntities = m_IncorrectlyDisposedConnectionsQuery.ToEntityArray(Allocator.Temp);
@@ -176,10 +172,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Clients will request that the server starts streaming prespawned ghosts in specific subscenes when
-        /// the subscene is loaded and ready. This it then toggled on and tracked in SubSceneWithGhostCleanup
-        /// attached to the subscene. When the client connection is disconnected, the toggle needs to be flipped
-        /// off, so that if it reconnects another request for prespawn streaming will be sent to the server.
+        /// 当指定 SubScene 加载完成并就绪时，客户端会请求服务器开始流式发送其中的 Prespawn Ghost
+        /// 随后会启用附加在该 SubScene 上的 SubSceneWithGhostCleanup 标志并跟踪状态
+        /// 客户端断开连接时需要关闭此标志，确保重新连接后再次向服务器发送 Prespawn 流式传输请求
         /// </summary>
         void StopStreamingPrespawnSubscenes(ref SystemState state, NativeList<NetCodeConnectionEvent> disconnected)
         {
@@ -197,8 +192,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Fixes an issue where RPCs may have arrived, but the Network Connection has been closed.
-        /// We clean up these 'stale' RPCs so user-code doesn't need to defensively guard all RPC handling logic.
+        /// 修复 RPC 已到达但 Network Connection 已关闭的问题
+        /// 系统会清理这些过期 RPC，使用户代码无需在所有 RPC 处理逻辑中防御此情况
         /// </summary>
         private void CleanupStaleReceivedRpcs(ref SystemState state, NativeList<NetCodeConnectionEvent> disconnectionEvents, in NetDebug netDebug)
         {

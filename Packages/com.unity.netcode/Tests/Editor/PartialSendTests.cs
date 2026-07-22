@@ -77,22 +77,22 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostInterpolatedOnly{Value = 1});
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner{NetworkId = predicted ? 1 : 2});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Check the clients network id
+                // 检查客户端在服务端对应连接的 NetworkId
                 var serverCon = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
                 Assert.AreNotEqual(Entity.Null, serverCon);
                 Assert.AreEqual(1, testWorld.ServerWorld.EntityManager.GetComponentData<NetworkId>(serverCon).Value);
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
 
-                // Check that the client world has the right thing and value
+                // 验证客户端模式正确，并且只接收到该模式对应的组件数据
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(predicted, testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhost>(clientEnt));

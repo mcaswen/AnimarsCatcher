@@ -8,13 +8,14 @@ using Unity.Assertions;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// This struct stores all component types we're reading from and writing to, in netcode serialization jobs.
-    /// It only exists because of an IJob limitation where <see cref="DynamicComponentTypeHandle"/>'s MUST be defined as fields.
-    /// I.e. Collections containing <see cref="DynamicComponentTypeHandle"/>'s are not valid.
+    /// 存储 NetCode 序列化 Job 中需要读取和写入的全部 Component 类型
+    /// 此结构体用于规避 IJob 的限制，即 <see cref="DynamicComponentTypeHandle"/> 必须定义为字段，
+    /// 包含 <see cref="DynamicComponentTypeHandle"/> 的集合无效
     /// </summary>
     /// <remarks>
-    /// Using the 256 version of this struct will lead to an "InvalidProgramException: Passing an argument of size ..." if you pass it as an parameter
-    /// including job's schedule (which is an extension method). This is a mono limitation. Use ScheduleByRef instead.
+    /// 使用此结构体的 256 项版本时，如果将其作为参数传递，包括传给作为扩展方法的 Job Schedule，
+    /// 会触发 "InvalidProgramException: Passing an argument of size ..."
+    /// 这是 Mono 的限制，应改用 ScheduleByRef
     /// </remarks>
     [StructLayout(LayoutKind.Sequential)]
     internal struct DynamicTypeList
@@ -101,8 +102,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// This struct only exists because of an IJob limitation where <see cref="DynamicComponentTypeHandle"/>'s MUST be defined as fields.
-    /// I.e. Collections containing <see cref="DynamicComponentTypeHandle"/>'s are not valid.
+    /// 此结构体用于规避 IJob 的限制，即 <see cref="DynamicComponentTypeHandle"/> 必须定义为字段，
+    /// 包含 <see cref="DynamicComponentTypeHandle"/> 的集合无效
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     internal struct DynamicComponentTypeHandle32

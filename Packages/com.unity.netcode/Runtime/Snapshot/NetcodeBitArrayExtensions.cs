@@ -7,17 +7,17 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     For <see cref="UnsafeBitArray" />.
-    ///     Only needed until those changes land in those packages.
+    /// 为 <see cref="UnsafeBitArray" /> 提供 NetCode 所需的扩展操作
+    /// 在相应变更合入依赖包之前临时使用
     /// </summary>
     public static class NetcodeBitArrayExtensions
     {
         /// <summary>
-        /// Shifts the entire bit array left (in other words: upwards away from 0, towards <see cref="UnsafeBitArray.Capacity"/>).
-        /// Discards all bits shifted off the top, and all new bits shifted into existence from the bottom are 0.
+        /// 将整个位数组左移，即从索引 0 向 <see cref="UnsafeBitArray.Capacity"/> 方向移动
+        /// 丢弃从高位移出的所有位，并将低位新产生的位全部置为 0
         /// </summary>
-        /// <param name="bitArray">Instance to apply the operation on.</param>
-        /// <param name="shiftBits">How far should all the bits be shifted (in number of bits i.e. bit indexes)?</param>
+        /// <param name="bitArray">执行操作的位数组实例</param>
+        /// <param name="shiftBits">所有位需要移动的位数</param>
         public static unsafe void ShiftLeftExt(ref this UnsafeBitArray bitArray, int shiftBits)
         {
             if (shiftBits >= bitArray.Capacity)
@@ -29,7 +29,7 @@ namespace Unity.NetCode
 
             var ptrLength = bitArray.Capacity >> 6;
 
-            // Shift entire 64bit blocks first:
+            // 先按完整的 64 位块移动
             {
                 var num64BitHops = shiftBits >> 6;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -37,13 +37,13 @@ namespace Unity.NetCode
 #endif
                 for (int i = ptrLength - num64BitHops - 1; i >= 0; i--)
                     bitArray.Ptr[i + num64BitHops] = bitArray.Ptr[i];
-                // Zero out bottom indexes.
+                // 将低位索引对应的块清零
                 for (int i = 0; i < num64BitHops; i++)
                     bitArray.Ptr[i] = 0;
                 shiftBits -= num64BitHops * 64;
             }
 
-            // Shift any remaining bits, running backwards (downwards) so we don't clobber previous values.
+            // 再移动剩余位，并从高位向低位反向遍历以免覆盖尚未读取的值
             if (shiftBits > 0)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -60,11 +60,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Shifts the entire bit array right (in other words: downwards towards 0, away from <see cref="UnsafeBitArray.Capacity"/>).
-        /// Discards all bits shifted off the bottom, and all new bits shifted into existence at the top are 0.
+        /// 将整个位数组右移，即从 <see cref="UnsafeBitArray.Capacity"/> 向索引 0 方向移动
+        /// 丢弃从低位移出的所有位，并将高位新产生的位全部置为 0
         /// </summary>
-        /// <param name="bitArray">Instance to apply the operation on.</param>
-        /// <param name="shiftBits">How far should all the bits be shifted (in number of bits i.e. bit indexes)?</param>
+        /// <param name="bitArray">执行操作的位数组实例</param>
+        /// <param name="shiftBits">所有位需要移动的位数</param>
         public static unsafe void ShiftRightExt(ref this UnsafeBitArray bitArray, int shiftBits)
         {
             if (shiftBits >= bitArray.Capacity)
@@ -76,7 +76,7 @@ namespace Unity.NetCode
             CheckShiftArgs(shiftBits);
             var ptrLength = bitArray.Capacity >> 6;
 
-            // Shift entire 64bit blocks first:
+            // 先按完整的 64 位块移动
             {
                 var num64BitHops = shiftBits >> 6;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -84,13 +84,13 @@ namespace Unity.NetCode
 #endif
                 for (int i = 0; i < ptrLength - num64BitHops; i++)
                     bitArray.Ptr[i] = bitArray.Ptr[i + num64BitHops];
-                // Zero out top indexes.
+                // 将高位索引对应的块清零
                 for (int i = ptrLength - num64BitHops; i < ptrLength; i++)
                     bitArray.Ptr[i] = 0;
                 shiftBits -= num64BitHops * 64;
             }
 
-            // Shift any remaining bits.
+            // 再移动剩余位
             if (shiftBits > 0)
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -113,10 +113,12 @@ namespace Unity.NetCode
                 throw new ArgumentOutOfRangeException($"Shift called with negative bits value {shiftBits}!");
         }
 
-        /// <summary>Logs a human-readable format for this bit array.</summary>
-        /// <param name="bitArray">Instance to apply the operation on.</param>
-        /// <param name="maxFixedStringLength">Denotes the max fixed string length, if you want a concatenated string.</param>
-        /// <returns>Example: <c>BitArray[num_bits,length,numTrueBits,indexOfLastTrueBit][10011100-00000000-00100000-00000000-00000000-00000000-00000000-0000000...]</c></returns>
+        /// <summary>
+        /// 将位数组转换为便于阅读和记录的格式
+        /// </summary>
+        /// <param name="bitArray">执行操作的位数组实例</param>
+        /// <param name="maxFixedStringLength">拼接结果允许使用的最大定长字符串长度</param>
+        /// <returns>示例：<c>BitArray[num_bits,length,numTrueBits,indexOfLastTrueBit][10011100-00000000-00100000-00000000-00000000-00000000-00000000-0000000...]</c></returns>
         public static unsafe FixedString4096Bytes ToDecimalFixedStringExt(ref this UnsafeBitArray bitArray, int maxFixedStringLength = 4093)
         {
             var ptrLength = bitArray.Capacity >> 6;
@@ -151,14 +153,16 @@ namespace Unity.NetCode
             return sb;
         }
 
-        /// <summary>Finds the index of the last true bit in the BitArray, and returns said bit index.</summary>
-        /// <param name="bitArray">The bitArray to query.</param>
-        /// <returns>-1 if no true bits found.</returns>
+        /// <summary>
+        /// 查找并返回 BitArray 中最后一个置位位的索引
+        /// </summary>
+        /// <param name="bitArray">要查询的位数组</param>
+        /// <returns>未找到置位位时返回 -1</returns>
         public static unsafe int FindLastSetBitExt(ref this UnsafeBitArray bitArray)
         {
             var ptrLength = bitArray.Capacity >> 6;
             var ptrIndex = ptrLength - 1;
-            // Special case for first index because of length:
+            // 数组长度可能未填满最后一个块，因此先单独处理最高索引块
             if (bitArray.Length != bitArray.Capacity)
             {
                 var maxIndex = bitArray.Length % 64;

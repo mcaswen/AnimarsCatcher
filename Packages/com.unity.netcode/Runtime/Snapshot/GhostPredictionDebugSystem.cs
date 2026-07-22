@@ -124,7 +124,7 @@ namespace Unity.NetCode
             state.Dependency = debugJob.ScheduleParallelByRef(m_PredictionQuery, state.Dependency);
 
             ref readonly var predictionErrorStats = ref SystemAPI.GetSingletonRW<GhostStatsCollectionPredictionError>().ValueRO;
-            // Resize job
+            // 调整输出数组大小的 Job
             var resizeJob = new PredictionErrorsOutpuResize
             {
                 PredictionErrorsOutput = predictionErrorStats.Data,
@@ -192,7 +192,7 @@ namespace Unity.NetCode
             [ReadOnly] public BufferTypeHandle<LinkedEntityGroup> linkedEntityGroupType;
 
             public NetworkTick tick;
-            // FIXME: placeholder to show the idea behind prediction smoothing
+            // FIXME：用于展示预测平滑思路的占位字段
             public ComponentType transformType;
 
             const GhostSendType requiredSendMask = GhostSendType.OnlyPredictedClients;
@@ -204,7 +204,7 @@ namespace Unity.NetCode
             public int numPredictionErrors;
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用组件类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 if (!predictionState.TryGetValue(chunk, out var state) ||
@@ -223,7 +223,7 @@ namespace Unity.NetCode
                 if (ghostTypeId < 0)
                     return;
                 if (ghostTypeId >= GhostTypeCollection.Length)
-                    return; // serialization data has not been loaded yet. This can only happen for prespawn objects
+                    return; // 序列化数据尚未加载，这只会发生在预生成对象上
                 var typeData = GhostTypeCollection[ghostTypeId];
                 int baseOffset = typeData.FirstComponent;
 
@@ -256,7 +256,7 @@ namespace Unity.NetCode
                             var compData = (byte*)chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize).GetUnsafeReadOnlyPtr();
                             for (int ent = 0; ent < entities.Length; ++ent)
                             {
-                                // If this entity did not predict anything there was no rollback and no need to debug it
+                                // 如果此实体未执行任何预测，就不会发生回滚，也无需统计其预测误差
                                 if (!PredictedGhosts[ent].ShouldPredict(tick))
                                     continue;
                                 if (entities[ent] == backupEntities[ent])
@@ -272,7 +272,7 @@ namespace Unity.NetCode
                         }
                         else
                         {
-                            //FIXME Buffers need to report error for the size and an aggregate for each element in the buffer
+                            // FIXME：Buffer 需要报告长度误差以及各元素误差的聚合值
                         }
                     }
 
@@ -302,7 +302,7 @@ namespace Unity.NetCode
                             var entityIdx = GhostComponentIndex[baseOffset + comp].EntityIndex;
                             for (int ent = 0, chunkEntityCount = chunk.Count; ent < chunkEntityCount; ++ent)
                             {
-                                // If this entity did not predict anything there was no rollback and no need to debug it
+                                // 如果此实体未执行任何预测，就不会发生回滚，也无需统计其预测误差
                                 if (!PredictedGhosts[ent].ShouldPredict(tick))
                                     continue;
                                 if (entities[ent] != backupEntities[ent])
@@ -323,7 +323,7 @@ namespace Unity.NetCode
                                     }
                                     else
                                     {
-                                        //FIXME Buffers need to report error for the size and an aggregate for each element in the buffer
+                                        // FIXME：Buffer 需要报告长度误差以及各元素误差的聚合值
                                     }
                                 }
                             }

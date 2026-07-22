@@ -13,11 +13,10 @@ namespace Unity.NetCode
 {
 
     /// <summary>
-    /// <para>Singleton used to register a <see cref="SmoothingAction"/> for a certain component type.
-    /// The <see cref="SmoothingAction"/> is used to change the component value over time to correct misprediction. Two different types of
-    /// smoothing action can be registered:</para>
-    /// <para>- A smoothing action without argument. See <see cref="RegisterSmoothingAction{T}"/></para>
-    /// <para>- A smoothing action that take a component data as argument. See <see cref="RegisterSmoothingAction{T,U}"/></para>
+    /// <para>用于为特定组件类型注册 <see cref="SmoothingAction"/> 的单例
+    /// <see cref="SmoothingAction"/> 通过随时间改变组件值来修正预测错误，可以注册以下两类平滑动作</para>
+    /// <para>- 不携带额外参数的平滑动作，参见 <see cref="RegisterSmoothingAction{T}"/></para>
+    /// <para>- 将组件数据作为参数的平滑动作，参见 <see cref="RegisterSmoothingAction{T,U}"/></para>
     /// </summary>
     public struct GhostPredictionSmoothing : IComponentData
     {
@@ -29,11 +28,11 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// All the smoothing action must have this signature. The smoothing actions must also be burst compatible.
+        /// 所有平滑动作都必须使用此签名，并且兼容 Burst
         /// </summary>
-        /// <param name="currentData">Current data</param>
-        /// <param name="previousData">Previous data</param>
-        /// <param name="userData">User data</param>
+        /// <param name="currentData">当前数据</param>
+        /// <param name="previousData">上一份数据</param>
+        /// <param name="userData">用户数据</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void SmoothingActionDelegate(IntPtr currentData, IntPtr previousData, IntPtr userData);
 
@@ -54,12 +53,12 @@ namespace Unity.NetCode
         EntityQuery m_SingletonQuery;
 
         /// <summary>
-        /// Register a smoothing function that does not take any argument for the specified component type.
+        /// 为指定组件类型注册不携带额外参数的平滑函数
         /// </summary>
-        /// <param name="entityManager">The EntityManager in the destination world</param>
-        /// <param name="action">A burstable function pointer to the method that implement the smooting</param>
-        /// <typeparam name="T">The component type. Must implement the IComponentData interface</typeparam>
-        /// <returns>True if the action has been registered. False, in case of error or if the action has been already registered</returns>
+        /// <param name="entityManager">目标 World 中的 EntityManager</param>
+        /// <param name="action">指向平滑实现方法且兼容 Burst 的函数指针</param>
+        /// <typeparam name="T">组件类型，必须实现 IComponentData 接口</typeparam>
+        /// <returns>动作注册成功时为 true，发生错误或动作已注册时为 false</returns>
         public bool RegisterSmoothingAction<T>(EntityManager entityManager, PortableFunctionPointer<SmoothingActionDelegate> action) where T : struct, IComponentData
         {
             var type = ComponentType.ReadWrite<T>();
@@ -95,15 +94,15 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Register a smoothing function that take a user specified component data as argument.
-        /// A maximum of 8 different component data type can be used to pass data to the smoothing functions.
-        /// There is no limitation in the number of smoothing action, component type pairs that can be registed.
+        /// 注册将用户指定组件数据作为参数的平滑函数
+        /// 最多可使用 8 种不同组件数据类型向平滑函数传递数据
+        /// 可注册的平滑动作与组件类型组合数量不受限制
         /// </summary>
-        /// <param name="entityManager">The EntityManager in the destination world</param>
-        /// <param name="action">A burstable function pointer to the method that implement the smooting</param>
-        /// <typeparam name="T">The component type. Must implement the IComponentData interface</typeparam>
-        /// <typeparam name="U">The user data type that should be passed as argument to the function</typeparam>
-        /// <returns>True if the action has been registered. False, in case of error or if the action has been already registered</returns>
+        /// <param name="entityManager">目标 World 中的 EntityManager</param>
+        /// <param name="action">指向平滑实现方法且兼容 Burst 的函数指针</param>
+        /// <typeparam name="T">组件类型，必须实现 IComponentData 接口</typeparam>
+        /// <typeparam name="U">作为参数传入函数的用户数据类型</typeparam>
+        /// <returns>动作注册成功时为 true，发生错误或动作已注册时为 false</returns>
         public bool RegisterSmoothingAction<T, U>(EntityManager entityManager, PortableFunctionPointer<SmoothingActionDelegate> action)
             where T : struct, IComponentData
             where U : struct, IComponentData
@@ -145,8 +144,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// System that corrects the client prediction errors, by applying the smoothing actions
-    /// registerd to the <see cref="GhostPredictionSmoothing"/> singleton to to all predicted ghost that miss-predict.
+    /// 通过向所有发生预测错误的预测 Ghost 应用注册到 <see cref="GhostPredictionSmoothing"/> 单例的平滑动作
+    /// 来修正客户端预测误差的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderLast = true)]
@@ -294,7 +293,7 @@ namespace Unity.NetCode
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用组件类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 if (!predictionState.TryGetValue(chunk, out var state) ||
@@ -316,7 +315,7 @@ namespace Unity.NetCode
                 if (ghostTypeId < 0)
                     return;
                 if (ghostTypeId >= GhostTypeCollection.Length)
-                    return; // serialization data has not been loaded yet. This can only happen for prespawn objects
+                    return; // 序列化数据尚未加载，这只会发生在预生成对象上
 
                 var typeData = GhostTypeCollection[ghostTypeId];
                 Entity* backupEntities = PredictionBackupState.GetEntities(state);
@@ -329,7 +328,7 @@ namespace Unity.NetCode
                 var childActions = new NativeList<GhostPredictionSmoothing.SmoothingActionState>(Allocator.Temp);
 
                 byte* dataPtr = PredictionBackupState.GetData(state);
-                // todo: this loop could be cached on chunk.capacity, because now we are re-calculating it everytime.
+                // TODO：可以按 Chunk Capacity 缓存此循环结果，当前每次都会重新计算
                 for (int comp = 0; comp < typeData.NumComponents; ++comp)
                 {
                     int index = typeData.FirstComponent + comp;
@@ -342,7 +341,7 @@ namespace Unity.NetCode
                     if ((GhostComponentIndex[index].SendMask&requiredSendMask) == 0)
                         continue;
 
-                    //Buffer does not have any smoothing
+                    // Buffer 不支持平滑动作
                     if (GhostComponentCollection[serializerIdx].ComponentType.IsBuffer)
                     {
                         dataPtr = PredictionBackupState.GetNextData(dataPtr, GhostComponentSerializer.DynamicBufferComponentSnapshotSize, chunk.Capacity);
@@ -371,7 +370,7 @@ namespace Unity.NetCode
                     {
                         for (int ent = 0; ent < entities.Length; ++ent)
                         {
-                            // If this entity did not predict anything there was no rollback and no need to debug it
+                            // 如果此实体未执行任何预测，就不会发生回滚，也无需进行平滑
                             if (!PredictedGhosts[ent].ShouldPredict(tick))
                                 continue;
 
@@ -398,7 +397,7 @@ namespace Unity.NetCode
                 {
                     for (int ent = 0, chunkEntityCount = chunk.Count; ent < chunkEntityCount; ++ent)
                     {
-                        // If this entity did not predict anything there was no rollback and no need to debug it
+                        // 如果此实体未执行任何预测，就不会发生回滚，也无需进行平滑
                         if (!PredictedGhosts[ent].ShouldPredict(tick))
                             continue;
                         if (entities[ent] != backupEntities[ent])

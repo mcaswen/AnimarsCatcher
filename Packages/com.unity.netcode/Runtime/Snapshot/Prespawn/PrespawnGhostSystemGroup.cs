@@ -3,7 +3,7 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The PrespawnGhostSystemGroup contains all the systems related to pre-spawned ghost.
+    /// 包含所有与预生成 Ghost 相关的 System
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]

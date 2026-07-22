@@ -4,28 +4,27 @@ using UnityEngine;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// If this component is added to a GameObject used as a GhostPresentationGameObjectPrefabReference
-    /// it will be setup with references to the entity and world owning this GameObject
-    /// instance.
+    /// 将此组件添加到 GhostPresentationGameObjectPrefabReference 使用的 GameObject 后，
+    /// 它会保存对此 GameObject 实例所属 Entity 和 World 的引用
     /// </summary>
     [DisallowMultipleComponent]
     [HelpURL(HelpURLs.GhostPresentationGameObjectEntityOwner)]
     public class GhostPresentationGameObjectEntityOwner : MonoBehaviour
     {
         /// <summary>
-        /// The world in which the entity owning this GameObject exists.
+        /// 此 GameObject 所属 Entity 所在的 World
         /// </summary>
         public World World {get; internal set;}
         /// <summary>
-        /// The entity owning this GameObject.
+        /// 此 GameObject 所属的 Entity
         /// </summary>
         public Entity Entity {get; internal set;}
 
         /// <summary>
-        /// Convenience method to initialize the debug mesh bounds.
+        /// 初始化调试 Mesh 边界的便捷方法
         /// </summary>
-        /// <param name="entity">The entity owning this GameObject.</param>
-        /// <param name="world">The world in which the entity owning this GameObject exists.</param>
+        /// <param name="entity">此 GameObject 所属的 Entity</param>
+        /// <param name="world">此 GameObject 所属 Entity 所在的 World</param>
         public void Initialize(Entity entity, World world)
         {
             Entity = entity;

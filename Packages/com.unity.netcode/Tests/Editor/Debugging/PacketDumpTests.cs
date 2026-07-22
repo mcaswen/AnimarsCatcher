@@ -18,8 +18,8 @@ namespace Unity.NetCode.Tests
             testWorld.CreateWorlds(true, 1);
             testWorld.Connect();
             testWorld.GoInGame();
-            testWorld.Tick(); // The loggers take one tick to init, as they are initialized
-                              // inside the GhostSendSystem & GhostReceiveSystem respectively.
+            testWorld.Tick(); // 日志器分别在 GhostSendSystem 和 GhostReceiveSystem 中初始化
+                              // 因此需要一个 Tick 才能完成准备
             RunTest(testWorld.ServerWorld);
             RunTest(testWorld.ClientWorlds[0]);
             void RunTest(World world)
@@ -27,8 +27,8 @@ namespace Unity.NetCode.Tests
                 ref var enablePacketLogging = ref testWorld.GetSingletonRW<EnablePacketLogging>(world).ValueRW;
                 Assert.IsTrue(enablePacketLogging.IsPacketCacheCreated);
                 enablePacketLogging.LogToPacket("Test that we can write to the packet dump!");
-                // Note: Actually reading the packet dump file is difficult as we don't have a path to it,
-                // and better profiling tools are coming, so I'm not too concerned about testing that here.
+                // 测试无法取得 Packet Dump 文件路径，因此这里只验证写入接口可用
+                // 文件内容留给后续更完善的分析工具验证
             }
         }
     }

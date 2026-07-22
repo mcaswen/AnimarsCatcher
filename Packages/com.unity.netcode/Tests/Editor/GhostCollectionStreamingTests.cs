@@ -25,7 +25,7 @@ namespace Unity.NetCode.Tests
             var collectionEntity = SystemAPI.GetSingletonEntity<GhostCollection>();
             var ghostCollection = EntityManager.GetBuffer<GhostCollectionPrefab>(collectionEntity);
 
-            // This must be done on the main thread for now
+            // 当前必须在主线程执行
             for (int i = 0; i < ghostCollection.Length; ++i)
             {
                 var ghost = ghostCollection[i];
@@ -51,7 +51,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Create the ghost colleciton after the worlds so we can control when they are converted
+                // 在 World 创建后再创建 Ghost Collection，以便控制其烘焙时机
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
                 testWorld.BakeGhostCollection(testWorld.ServerWorld);
                 var onDemandSystem = testWorld.ClientWorlds[0].GetExistingSystemManaged<OnDemandLoadTestSystem>();
@@ -60,19 +60,19 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端有机会生成 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
-                // Validate that the ghost was deleted on the client
+                // 验证 Prefab 尚未加载时客户端不会接收或实例化 Ghost
                 Assert.AreEqual(8, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
                 Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);
@@ -81,7 +81,7 @@ namespace Unity.NetCode.Tests
                 onDemandSystem.IsLoading = false;
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
-                // Validate that the ghost was deleted on the client
+                // 验证 Prefab 加载完成后客户端已接收并实例化全部 Ghost
                 Assert.AreEqual(8, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(8, ghostCount.GhostCountReceivedOnClient);
                 Assert.AreEqual(8, ghostCount.GhostCountInstantiatedOnClient);
@@ -99,7 +99,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Create the ghost colleciton after the worlds so we can control when they are converted
+                // 在 World 创建后再创建 Ghost Collection，以便控制其烘焙时机
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
                 testWorld.BakeGhostCollection(testWorld.ServerWorld);
                 var onDemandSystem = testWorld.ClientWorlds[0].GetExistingSystemManaged<OnDemandLoadTestSystem>();
@@ -108,19 +108,19 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端有机会生成 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
-                // Validate that the ghost was deleted on the client
+                // 验证 Prefab 尚未加载时客户端不会接收或实例化 Ghost
                 Assert.AreEqual(8, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(0, ghostCount.GhostCountInstantiatedOnClient);
                 Assert.AreEqual(0, ghostCount.GhostCountReceivedOnClient);

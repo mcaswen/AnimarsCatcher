@@ -33,22 +33,22 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
-                // Validate that the ghost was deleted on the cliet
+                // 验证客户端可见的服务端 Ghost 总数与已接收数量一致
                 Assert.AreEqual(8, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(8, ghostCount.GhostCountReceivedOnClient);
 
-                // Spawn a few more and verify taht the count is updated
+                // 再生成一批 Ghost，并验证计数随之更新
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
                 for (int i = 0; i < 4; ++i)
@@ -71,18 +71,18 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 testWorld.Tick();
 
-                // Setup relevancy
+                // 配置白名单相关性，只将前 6 个 Ghost 标记为相关
                 ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
                 ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
                 var serverConnectionEnt = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
@@ -93,16 +93,16 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 6; ++i)
                     ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection{Ghost = ghosts[i].ghostId, Connection = serverConnectionId}, 1);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成相关 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
-                // Validate that the ghost was deleted on the cliet
+                // 验证计数只包含白名单中的 6 个 Ghost
                 Assert.AreEqual(6, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(6, ghostCount.GhostCountReceivedOnClient);
 
-                // Spawn a few more and verify taht the count is updated
+                // 新生成的 Ghost 不在白名单中，因此计数应保持不变
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
                 for (int i = 0; i < 4; ++i)
@@ -125,18 +125,18 @@ namespace Unity.NetCode.Tests
 
                 testWorld.CreateWorlds(true, 1);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 testWorld.Tick();
 
-                // Setup relevancy
+                // 配置黑名单相关性，将前 6 个 Ghost 标记为不相关
                 ref var ghostRelevancy = ref testWorld.GetSingletonRW<GhostRelevancy>(testWorld.ServerWorld).ValueRW;
                 ghostRelevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsIrrelevant;
                 var serverConnectionEnt = testWorld.TryGetSingletonEntity<NetworkId>(testWorld.ServerWorld);
@@ -147,16 +147,16 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 6; ++i)
                     ghostRelevancy.GhostRelevancySet.TryAdd(new RelevantGhostForConnection{Ghost = ghosts[i].ghostId, Connection = serverConnectionId}, 1);
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成仍然相关的 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var ghostCount = testWorld.GetSingleton<GhostCount>(testWorld.ClientWorlds[0]);
-                // Validate that the ghost was deleted on the cliet
+                // 验证计数排除黑名单中的 6 个 Ghost
                 Assert.AreEqual(2, ghostCount.GhostCountOnServer);
                 Assert.AreEqual(2, ghostCount.GhostCountReceivedOnClient);
 
-                // Spawn a few more and verify taht the count is updated
+                // 新生成的 Ghost 默认相关，因此计数应增加 8
                 for (int i = 0; i < 8; ++i)
                     testWorld.SpawnOnServer(ghostGameObject);
                 for (int i = 0; i < 4; ++i)

@@ -29,14 +29,14 @@ namespace Unity.NetCode.Tests
             if (world == null)
                 world = new World(name, WorldFlags.GameServer);
             ClientServerBootstrap.AssignCurrentActiveWorldIfNotSet(world);
-            TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ServerSystems); // Ensure CreationOrder is respected.
+            TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ServerSystems); // 确保遵循 CreationOrder
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, NetCodeTestWorld.m_ServerSystems);
 #if !UNITY_CLIENT || UNITY_EDITOR
             AppendWorldToUpdateList(world);
 #endif
             if (!m_TestWorld.m_IncludeNetcodeSystems)
             {
-                // this also happens in Unity.NetCode.ConfigureServerWorldSystem.OnCreate, we need to register only if necessary
+                // 该注册通常由 ConfigureServerWorldSystem.OnCreate 完成，仅在未包含 NetCode 系统时手动补齐
                 ClientServerBootstrap.ServerWorlds.Add(world);
             }
 #if UNITY_EDITOR
@@ -52,14 +52,14 @@ namespace Unity.NetCode.Tests
                 world = new World(name, WorldFlags.GameServer | WorldFlags.GameClient);
             ClientServerBootstrap.AssignCurrentActiveWorldIfNotSet(world);
 
-            TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_HostSystems); // Ensure CreationOrder is respected.
+            TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_HostSystems); // 确保遵循 CreationOrder
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, NetCodeTestWorld.m_HostSystems);
 #if !UNITY_SERVER || UNITY_EDITOR
             AppendWorldToUpdateList(world);
 #endif
             if (!m_TestWorld.m_IncludeNetcodeSystems)
             {
-                // this also happens in Unity.NetCode.ConfigureClientWorldSystem.OnCreate, we need to register only if necessary
+                // 该注册通常由 ConfigureClientWorldSystem.OnCreate 完成，仅在未包含 NetCode 系统时手动补齐
                 ClientServerBootstrap.ClientWorlds.Add(world);
                 ClientServerBootstrap.ServerWorlds.Add(world);
             }
@@ -97,12 +97,12 @@ namespace Unity.NetCode.Tests
             ClientServerBootstrap.AssignCurrentActiveWorldIfNotSet(world);
             if (world.IsThinClient())
             {
-                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ThinClientSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ThinClientSystems); // 确保遵循 CreationOrder
                 DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, NetCodeTestWorld.m_ThinClientSystems);
             }
             else
             {
-                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ClientSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ClientSystems); // 确保遵循 CreationOrder
                 DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, NetCodeTestWorld.m_ClientSystems);
             }
 #if !UNITY_SERVER || UNITY_EDITOR
@@ -110,7 +110,7 @@ namespace Unity.NetCode.Tests
 #endif
             if (!m_TestWorld.m_IncludeNetcodeSystems)
             {
-                // this also happens in Unity.NetCode.ConfigureClientWorldSystem.OnCreate, we need to register only if necessary
+                // 该注册通常由 ConfigureClientWorldSystem.OnCreate 完成，仅在未包含 NetCode 系统时手动补齐
                 ClientServerBootstrap.ClientWorlds.Add(world);
             }
 #if UNITY_EDITOR
@@ -124,7 +124,7 @@ namespace Unity.NetCode.Tests
         {
             if (!m_DefaultWorldInitialized)
             {
-                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ControlSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(NetCodeTestWorld.m_ControlSystems); // 确保遵循 CreationOrder
                 DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(m_DefaultWorld,
                     NetCodeTestWorld.m_ControlSystems);
                 m_DefaultWorldInitialized = true;
@@ -150,7 +150,7 @@ namespace Unity.NetCode.Tests
                 {
                     ClientServerBootstrap.ClientWorlds.Remove(clientWorld);
                 }
-                if (m_TestWorld.AlwaysDispose || clientWorld.IsCreated) // issue with shutdown test, shutdown already destroys a world, no need to dispose it again
+                if (m_TestWorld.AlwaysDispose || clientWorld.IsCreated) // 关闭测试可能已销毁 World，无需再次 Dispose
                 {
                     clientWorld.Dispose();
                 }
@@ -170,12 +170,12 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        // This can't just call TickClientWorld or TickServerWorld because it needs to run the systems in the correct order
+        // 此处不能直接调用 TickClientWorld 或 TickServerWorld，因为必须按正确顺序交错更新各 World
         public void TickNoAwait(float dt)
         {
             m_TestWorld.ApplyDT(dt);
 
-            // Make sure the log flush does not run
+            // 逐个更新初始化组，避免由完整 PlayerLoop 隐式驱动日志刷新
             foreach (var world in m_WorldsToUpdate)
             {
                 var marker = world.IsClient()
@@ -185,7 +185,7 @@ namespace Unity.NetCode.Tests
             }
 
             FlushLogs();
-            //TODO: add proper marker
+            // TODO: 添加正确的 ProfilerMarker
             foreach (var world in m_WorldsToUpdate)
             {
                 var marker = world.IsClient()
@@ -218,16 +218,18 @@ namespace Unity.NetCode.Tests
             }
             FlushLogs();
 #if USING_UNITY_LOGGING
-            // Flush the pending logs since the system doing that might not have run yet which means Log.Expect does not work
+            // 主动刷新待处理日志，因为负责刷新的系统可能尚未运行，否则 Log.Expect 无法生效
             Logging.Internal.LoggerManager.ScheduleUpdateLoggers().Complete();
 #endif
         }
 
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+#pragma warning disable CS1998 // 异步方法不含 await，将同步运行
         public async Task TickAsync(float dt, NetcodeAwaitable waitInstruction = null)
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+#pragma warning restore CS1998 // 异步方法不含 await，将同步运行
         {
-            // This is called from the various methods that tick the world in NetcodeTestWorld, like TickUntilConnected. In order to have a single implementation, we use the TickAsync from them and then just Wait on them in edit mode. But this means TickAsync needs to work in edit mode so we just TickNoYield here.
+            // NetCodeTestWorld 的多种 Tick 方法都会调用此方法，例如 TickUntilConnected
+            // 为复用同一套实现，这些方法统一调用 TickAsync，并在 Edit Mode 中同步等待
+            // 因此 Edit Mode 下不执行异步等待，只直接调用 TickNoAwait
             Assert.IsNull(waitInstruction, "Awaitable not supported in edit mode");
             TickNoAwait(dt);
         }

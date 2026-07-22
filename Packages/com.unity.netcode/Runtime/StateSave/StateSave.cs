@@ -18,7 +18,7 @@ using UnityEngine;
 
 namespace Unity.NetCode.LowLevel.StateSave
 {
-    // if we want to handle non ghosts, we shouldn't tie our indexing to SpawnedGhost. Using a temporary type for this for now
+    // 若要处理非 Ghost 实体，索引就不应绑定到 SpawnedGhost，目前暂用该类型过渡
     internal struct SavedEntityID : IEquatable<SavedEntityID>
     {
         public SpawnedGhost value;
@@ -27,11 +27,11 @@ namespace Unity.NetCode.LowLevel.StateSave
         {
             value = new SpawnedGhost(ghostInstance);
         }
-        // TODO should have a way to have a few preceding bits to identify custom IDs vs ghost IDs
+        // TODO 应使用若干前置位区分自定义 ID 与 Ghost ID
         // public SavedEntityID(int customID)
         // {
         //     value = new SpawnedGhost();
-        //     value.ghostId = customID; // TODO this is a hack. Should just store int? if SavedEntityID doesn't mean a ghost anymore, this is misleading...
+        //     value.ghostId = customID; // TODO 这是临时方案，若 SavedEntityID 不再专指 Ghost，直接存储 int 会更合适
         // }
 
         public bool Equals(SavedEntityID other)
@@ -72,23 +72,23 @@ namespace Unity.NetCode.LowLevel.StateSave
     }
 
     /// <summary>
-    /// Buffer data offset and length data for buffer types used inside the entity component space in the container save.
+    /// 保存容器内实体组件区域所用的 Buffer 数据偏移和长度
     /// </summary>
     internal struct BufferHandle
     {
         /// <summary>
-        /// Length of the buffer or the buffer element count.
+        /// Buffer 长度，即 Buffer 元素数量
         /// </summary>
         public int Length;
 
         /// <summary>
-        /// Offset to the whole buffer stored behind the component data, size will be the entity count * buffer length
+        /// 完整 Buffer 在组件数据之后的偏移，其大小为实体数量乘以 Buffer 长度
         /// </summary>
         public int Offset;
     }
 
     /// <summary>
-    /// Some basic extension methods for configuring the state save. Could potentially add new extension methods in other assemblies to create more state save filters. e.g. WithAllGhosts could go through all ghost types and gather all ghost components
+    /// 用于配置状态保存的基础扩展方法，其他程序集可添加扩展方法以创建更多状态保存过滤器，例如 WithAllGhosts 可遍历所有 Ghost 类型并收集其组件
     /// </summary>
     internal static class WorldStateSaveExtensions
     {
@@ -112,8 +112,8 @@ namespace Unity.NetCode.LowLevel.StateSave
         }
     }
 
-    // Container in charge of tracking a world's state save given a set of component types to save
-    // design note: this should eventually be created on the main thread too and composed of non entities. I could save some random struct in there too.
+    // 根据指定的组件类型集合跟踪一个 World 的状态保存容器
+    // 设计说明：该容器最终也应能在主线程创建并包含非 Entity 数据，例如任意结构体
     [DebuggerDisplay("Entity Count = {m_EntityCount}, allocation size = {m_AllocationSize} B")]
     internal unsafe struct WorldStateSave : IDisposable, IEnumerable<WorldStateSave.StateSaveEntry>
     {
@@ -125,7 +125,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             static readonly  ProfilerMarker s_Marker = new ProfilerMarker("RegisterNewGhost");
             public void RegisterNewEntity(in SavedEntityID entity, in StateSaveContainer containerSave, int entIndex)
             {
-                // TODO do this from main thread? and avoid parallel hash map?
+                // TODO 考虑改到主线程执行，从而避免使用并行 HashMap
                 using var a = s_Marker.Auto();
                 var objAdrSpan = containerSave.GetObjectAdrInSave(entIndex);
                 byte* objAdr = (byte*)UnsafeUtility.AddressOf(ref objAdrSpan[0]);
@@ -137,15 +137,15 @@ namespace Unity.NetCode.LowLevel.StateSave
         readonly void CheckInitialized() { if (!Initialized) throw new ObjectDisposedException($"{nameof(WorldStateSave)} not initialized, don't forget to call {nameof(Initialize)}"); }
 
         #region Main Allocation
-        // Buffers: these are stored in the entity component data space as the buffer header, containing the offset to the buffer data.
-        //          buffer data is then stored behind all the component data (end of component data is the offset) for the current Container/chunk
-        // Enableable: types which are enableable will have their enabled status stored behind the component data (an extra byte)
-        // Main allocation
-        // Structure of the main allocation (B is an enableable component, C is a buffer type):
-        // |                       Main allocation                                                                             |
-        // |              container                              | buffer data | container      | buffer data| container           | // containers are ptrs to parts of the main alloc
-        // | component types list |  entity data                 |             |                |            |                       // the part has a header for the types list, then per entity data, then buffer data at the end
-        // |  A B C               |A1|   B1E   | C1B |A2|   B2E  | C1-12345    | C2B | AB       | C2-123     | |  | A C  |  | | |  | // types have different sizes. ordered by entity. 'E' is enabled status. 'B' is the buffer handle info
+        // Buffer：实体组件数据区域中只保存 Buffer Header，其中记录 Buffer 数据的偏移
+        //         当前 Container/Chunk 的 Buffer 数据统一存放在所有组件数据之后，组件数据末尾即其起始偏移
+        // Enableable：可启用类型会在组件数据之后用额外一个字节保存启用状态
+        // 主内存分配
+        // 主内存布局，其中 B 是可启用组件，C 是 Buffer 类型
+        // |                         主内存分配                                                                                 |
+        // |              Container                              | Buffer 数据 | Container      | Buffer 数据| Container           | // Container 指向主内存分配中的各个区段
+        // | 组件类型列表          | 实体数据                     |             |                |            |                       // 每个区段先用 Header 保存类型列表，再保存逐实体数据，最后保存 Buffer 数据
+        // |  A B C               |A1|   B1E   | C1B |A2|   B2E  | C1-12345    | C2B | AB       | C2-123     | |  | A C  |  | | |  | // 类型大小各异并按实体排序，E 表示启用状态，B 表示 Buffer Handle 信息
         [NativeDisableUnsafePtrRestriction]
         void* m_BaseStateSaveAddress;
         long m_AllocationSize;
@@ -161,22 +161,22 @@ namespace Unity.NetCode.LowLevel.StateSave
         Allocator m_Allocator;
         #endregion
 
-        // Main allocation is divided in sub containers
+        // 主内存分配由多个子 Container 构成
         NativeArray<StateSaveContainer> m_AllStateSaveContainers;
-        // index to access entity data directly without having to iterate through all entities
-        // TODO instead of hashmap, we can know the max ghost ID and then just have a native array of size maxCount, with the items the actual offset inside the container.
-        // this way no perf heavy hashmap. e.g.: if my max ghost ID is 1000, then I'd have a 1000 long array, each item in the array would be the above tuple, or some pointer to a part of the allocation
+        // 用于直接访问实体数据的索引，避免遍历所有实体
+        // TODO 可先确定最大 Ghost ID，再用长度为 maxCount 的 NativeArray 代替 HashMap，数组元素保存 Container 内的实际偏移
+        // 这样可以避免高开销 HashMap，例如最大 Ghost ID 为 1000 时，使用长度为 1000 的数组，每项保存上述元组或指向内存分配某一区段的指针
         NativeParallelHashMap<SavedEntityID, (StateSaveContainer stateSave, IntPtr entityPtr)> m_EntityIndex;
         bool m_IsEmpty;
         public NativeHashSet<ComponentType> RequiredTypesToSaveConfig;
         public NativeHashSet<ComponentType> OptionalTypesToSaveConfig;
-        NativeArray<ComponentType> m_RequiredTypesToSave; // order is important after initialization
-        NativeArray<ComponentType> m_OptionalTypesToSave; // order is important after initialization
+        NativeArray<ComponentType> m_RequiredTypesToSave; // 初始化后顺序不可随意改变
+        NativeArray<ComponentType> m_OptionalTypesToSave; // 初始化后顺序不可随意改变
         [NativeDisableUnsafePtrRestriction] EntityQuery m_ToSaveQuery;
         int m_EntityCount;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        AtomicSafetyHandle m_SafetyHandle; // TODO make sure we can't dispose while a job is not finished yet
-        // TODO make sure APIs check for safety using this ^^^
+        AtomicSafetyHandle m_SafetyHandle; // TODO 确保 Job 尚未完成时不能释放
+        // TODO 确保 API 使用该 Handle 执行安全检查
 #endif
 
         public int EntityCount
@@ -196,8 +196,8 @@ namespace Unity.NetCode.LowLevel.StateSave
         static readonly ProfilerMarker s_QueryMarker = new("To Arch Chunk Array");
         static readonly ProfilerMarker s_ChunkCalculation = new ProfilerMarker("Pre allocate destination memory");
 
-        // single chunk state save. helps creating state saves on main thread, with no need for job scheduling
-        // TODO really needed? for bisecting custom traces inside a system?
+        // 单 Chunk 状态保存，用于在主线程创建状态保存而无需调度 Job
+        // TODO 确认是否确有必要，例如用于定位 System 内的自定义性能追踪区段
         // public WorldStateSave(int allocationSizeBytes, int entityCount, in NativeArray<ComponentType> componentTypes, Allocator allocator)
         // {
         //     m_AllStateSaveContainers = new(1, allocator);
@@ -234,20 +234,20 @@ namespace Unity.NetCode.LowLevel.StateSave
         }
 
         /// <inheritdoc cref="Initialize"/>
-        /// Default Initialize
+        /// 使用默认策略初始化
         public WorldStateSave Initialize(ref SystemState state)
         {
             return Initialize(ref state, new DirectStateSaveStrategy());
         }
 
         static readonly ProfilerMarker s_InitializeMarker = new("WorldStateSave.Initialize");
-        // this can't be in the constructor, C# doesn't allow generic type parameters in constructor
+        // 不能放在构造函数中，因为 C# 构造函数不支持泛型类型参数
         /// <summary>
-        ///
+        /// 使用指定策略初始化 World 状态保存
         /// </summary>
         /// <param name="state"></param>
         /// <param name="requiredTypesToSave"></param>
-        /// <param name="optionalTypesToSave">If no required types is passed, uses WithAny filter in the background. Else, truly optional, you could have 0 entity matching these optional types and would still match witht he required types</param>
+        /// <param name="optionalTypesToSave">未传入必需类型时，内部使用 WithAny 过滤；否则这些类型为真正的可选项，即使没有实体包含它们，也仍可通过必需类型匹配</param>
         /// <param name="stateSaveStrategy"></param>
         /// <param name="allocator"></param>
         /// <typeparam name="TStrategy"></typeparam>
@@ -268,7 +268,7 @@ namespace Unity.NetCode.LowLevel.StateSave
 #endif
             stateSaveStrategy.UpdateTypesToTrack(ref this.RequiredTypesToSaveConfig, ref this.OptionalTypesToSaveConfig);
 
-            // Generating entity query for this state save
+            // 为本次状态保存创建 EntityQuery
             if (RequiredTypesToSaveConfig.Count > 0)
                 this.m_RequiredTypesToSave = RequiredTypesToSaveConfig.ToNativeArray(m_Allocator);
             else
@@ -309,13 +309,13 @@ namespace Unity.NetCode.LowLevel.StateSave
                 }
             }
 
-            // we're not exposing this builder since the order of required + optional needs to be controlled for when we save components. We instead rely on a limited set of filters like required and optional to simplify this
+            // 保存组件时必须控制必需类型与可选类型的顺序，因此不对外暴露该 Builder，而是仅提供必需和可选等有限过滤方式
             using var builder = new EntityQueryBuilder(Allocator.Temp);
-            // Using WithPresent will include entities which have disabled components, WithAll will completely omit the whole entity if one of the enablable components is disabled
+            // WithPresent 会包含组件已禁用的实体，WithAll 则会在任一可启用组件被禁用时完全排除该实体
             if (requiredTypesList.Length != 0)
                 builder.WithPresent(ref requiredTypesList);
             else
-                builder.WithAny(ref optionalTypesList); // we're already iterating over all required types and checking in the IJobChunk if it contains the optional types. However, if we want to track entities with completely different sets of components with no overlap, we can set no required and just iterate WithAny
+                builder.WithAny(ref optionalTypesList); // 已遍历全部必需类型，并在 IJobChunk 中检查可选类型；若要跟踪组件集合完全不同且没有交集的实体，可不设置必需类型并仅遍历 WithAny
             m_ToSaveQuery = state.EntityManager.CreateEntityQuery(builder);
 
             this.m_IsEmpty = m_ToSaveQuery.IsEmpty;
@@ -324,13 +324,13 @@ namespace Unity.NetCode.LowLevel.StateSave
             m_AllStateSaveContainers = new (chunkCount, m_Allocator);
             m_EntityIndex = new(m_EntityCount, m_Allocator);
 
-            // Pre calculating and pre allocating destination save state memory
-            // It's faster to do persistent allocations from the main thread, so doing all our allocs from here. See thread here https://unity.slack.com/archives/C3H8JSB5E/p1743427468083499
-            // It's going to be the case for Unity 6, improvements coming in U7, but need to work around it for now
+            // 预先计算并分配目标状态保存内存
+            // 在主线程执行持久分配更快，因此在此完成全部分配，相关讨论见 https://unity.slack.com/archives/C3H8JSB5E/p1743427468083499
+            // Unity 6 中仍需如此处理，Unity 7 将改进这一点
             s_ChunkCalculation.Begin();
             long totalSizeBytesNeeded = 0;
             long singleEntityRequiredSize = 0;
-            // First calculate requiredTypes component size (without buffer data, only buffer header)
+            // 先计算 requiredTypes 的组件大小，Buffer 只计入 Header 而不计入数据
             for (int i = 0; i < m_RequiredTypesToSave.Length; i++)
             {
                 if (m_RequiredTypesToSave[i].IsBuffer)
@@ -338,14 +338,14 @@ namespace Unity.NetCode.LowLevel.StateSave
                 else
                     singleEntityRequiredSize += TypeManager.GetTypeInfo(m_RequiredTypesToSave[i].TypeIndex).SizeInChunk;
                 if (m_RequiredTypesToSave[i].IsEnableable)
-                    singleEntityRequiredSize++; // save one byte at the end of the component data for enableable status. TODO could save chunk's bitfield instead?
+                    singleEntityRequiredSize++; // 在组件数据末尾用一个字节保存启用状态，TODO 可考虑改为保存 Chunk 的位域
             }
 
-            // this assumes the job will execute right after calculating this with no structural change
+            // 这里假定计算完成后立即执行 Job，期间不会发生结构变更
             s_QueryMarker.Begin();
             using var chunks = m_ToSaveQuery.ToArchetypeChunkArray(Allocator.Temp);
             s_QueryMarker.End();
-            EntityArchetype previousArchetype = default; // the order of each chunk is per archetype, so can fast path if the previous archetype is the same as the current one, just reuse the same sizes
+            EntityArchetype previousArchetype = default; // Chunk 按 Archetype 排序，若前后 Archetype 相同即可复用尺寸并走快速路径
             using var allComponentTypesInContainer = new NativeList<ComponentType>(Allocator.Temp);
             var singleEntityOptionalSize = 0;
             s_PerChunkMarker.Begin();
@@ -353,7 +353,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             {
                 ArchetypeChunk chunk = chunks[i];
                 var entityCountInChunk = chunk.Count;
-                // calculate optional size for current chunk
+                // 计算当前 Chunk 中可选组件所需的大小
                 if (chunk.Archetype != previousArchetype)
                 {
                     previousArchetype = chunk.Archetype;
@@ -364,7 +364,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                     for (int j = 0; j < chunkTypes.Length; j++)
                     {
                         var t = chunkTypes[j];
-                        t.AccessModeType = ComponentType.AccessMode.ReadOnly; // for the Contains() below
+                        t.AccessModeType = ComponentType.AccessMode.ReadOnly; // 供下方 Contains() 比较使用
                         if (m_OptionalTypesToSave.Contains(t))
                         {
                             if (t.IsBuffer)
@@ -378,7 +378,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                     }
                 }
 
-                // Collect buffer types and complete dependency them as we need to read their data
+                // 收集 Buffer 类型并完成其依赖，因为后续需要读取数据
                 var bufferTypes = new NativeList<ComponentType>(Allocator.Temp);
                 for (int j = 0; j < allComponentTypesInContainer.Length; j++)
                 {
@@ -391,7 +391,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                 using var bufferQuery = state.EntityManager.CreateEntityQuery(bufferQueryBuilder);
                 bufferQuery.CompleteDependency();
 
-                // Calculate buffer size used by this container, for each type check how many elements are present on each entity
+                // 计算该 Container 使用的 Buffer 大小，逐类型检查每个实体包含的元素数量
                 var bufferSizeForComponentTypes = 0;
                 for (int j = 0; j < bufferTypes.Length; j++)
                 {
@@ -402,8 +402,8 @@ namespace Unity.NetCode.LowLevel.StateSave
                         bufferSizeForComponentTypes += bufferData.GetBufferLength(k) * TypeManager.GetTypeInfo(type.TypeIndex).ElementSize;
                 }
 
-                // each state save chunk is actually pointing to consecutive parts of the same big memory allocation
-                // we initialize the container with an offset, then once we have the actual allocation later the container can use it with InitializeSaveAddress()
+                // 每个状态保存 Chunk 实际都指向同一大块内存中的连续区段
+                // 先用偏移初始化 Container，取得实际内存后再通过 InitializeSaveAddress() 设置地址
                 var containerOffset = totalSizeBytesNeeded;
                 var currentStateSave = new StateSaveContainer(allComponentTypesInContainer.AsArray(), containerOffset, entityCountInChunk, m_Allocator, state.WorldUnmanaged, chunk, bufferSizeForComponentTypes);
                 m_AllStateSaveContainers[i] = currentStateSave;
@@ -417,17 +417,17 @@ namespace Unity.NetCode.LowLevel.StateSave
             bool reuseAllocation = false;
             if (m_BaseStateSaveAddress != null && m_AllocationSize >= totalSizeBytesNeeded)
             {
-                // we have enough memory already allocated
+                // 已分配的内存足够使用
                 reuseAllocation = true;
                 if (m_AllocationSize > totalSizeBytesNeeded * 2)
                 {
-                    // we have too much memory allocated, we don't want this to grow forever. Shrinking it.
+                    // 已分配内存过多，为避免长期只增不减而执行收缩
                     reuseAllocation = false;
                 }
             }
             if (!reuseAllocation && m_BaseStateSaveAddress != null)
             {
-                // we tried to keep the allocation, but couldn't, so free existing allocation to avoid leak
+                // 无法复用原内存，因此释放它以避免泄漏
                 UnsafeUtility.Free(m_BaseStateSaveAddress, m_Allocator);
             }
 
@@ -437,7 +437,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             }
             else
             {
-                // main allocation for this state save
+                // 为本次状态保存分配主内存
                 m_BaseStateSaveAddress = UnsafeUtility.Malloc(totalSizeBytesNeeded, 16, m_Allocator);
                 m_AllocationSize = totalSizeBytesNeeded;
             }
@@ -445,7 +445,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             s_MainStateAlloc.End();
             for (int i = 0; i < m_AllStateSaveContainers.Length; i++)
             {
-                // we have the main allocation, now make the containers point to their right spot
+                // 主内存已分配，让各 Container 指向对应区段
                 var stateSaveContainer =  m_AllStateSaveContainers[i];
                 stateSaveContainer.InitializeSaveAddress((byte*)m_BaseStateSaveAddress);
                 m_AllStateSaveContainers[i] = stateSaveContainer;
@@ -459,11 +459,11 @@ namespace Unity.NetCode.LowLevel.StateSave
             return this;
         }
 
-        // disposes internal metadata but keeps the main allocation for future use
+        // 释放内部元数据，但保留主内存供后续复用
         public void Reset()
         {
             CheckInitialized();
-            // Keeps the main allocation there, but resets everything else
+            // 保留主内存并重置其他所有内容
             foreach (var oneContainer in m_AllStateSaveContainers)
             {
                 oneContainer.Dispose();
@@ -496,7 +496,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             Initialized = false;
         }
 
-        // TODO main thread state save
+        // TODO 支持主线程状态保存
         // public void RegisterNewGhost(in SavedEntityID savedEntityID, int entIndex)
         // {
         //     Assert.IsTrue(m_AllStateSaveContainers.Length == 1, "Assumes this API is used for single chunk, single thread state saves. Else please use the ParallelWriter");
@@ -519,10 +519,10 @@ namespace Unity.NetCode.LowLevel.StateSave
         }
 
         /// <summary>
-        ///
+        /// 调度状态保存 Job
         /// </summary>
         /// <param name="state"></param>
-        /// <param name="stateSaveStrategy">The strategy to use for saving individual components. Can be used to skip certain entities or do extra operations like indexing for example.</param>
+        /// <param name="stateSaveStrategy">保存单个组件所用的策略，可用于跳过特定实体或执行建立索引等附加操作</param>
         /// <typeparam name="TStrategy"></typeparam>
         /// <returns></returns>
         internal JobHandle ScheduleStateSaveJob<TStrategy>(ref SystemState state, TStrategy stateSaveStrategy) where TStrategy : IStateSaveStrategy
@@ -600,20 +600,20 @@ namespace Unity.NetCode.LowLevel.StateSave
             CheckInitialized();
             var containerStateSave = m_EntityIndex[savedEntityID].stateSave;
             byte* typesAdr = (byte*)UnsafeUtility.AddressOf(ref containerStateSave.ComponentTypesListHeader[0]);
-            var toReturn = CollectionHelper.ConvertExistingDataToNativeArray<ComponentType>(typesAdr, containerStateSave.ComponentTypesListHeader.Length, Allocator.None); // Allocator.None since this memory isn't allocated and shouldn't be disposed by users.
+            var toReturn = CollectionHelper.ConvertExistingDataToNativeArray<ComponentType>(typesAdr, containerStateSave.ComponentTypesListHeader.Length, Allocator.None); // 该内存并非由数组分配且不应由调用方释放，因此使用 Allocator.None
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref toReturn, m_SafetyHandle); // reusing safety handle so we don't have to create a temp one all the time
+            NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref toReturn, m_SafetyHandle); // 复用 Safety Handle，避免每次创建临时实例
 #endif
             return toReturn;
         }
 
         public struct StateSaveEntry : IEnumerable<StateSaveEntry.SavedComponentData>, IEnumerator<StateSaveEntry.SavedComponentData>
         {
-            // TODO add a way to get a specific component directly. Like GetComponentData<T>(). Could be useful for getting GhostInstance metadata before restoring a ghost for example
+            // TODO 增加直接获取指定组件的方式，例如 GetComponentData<T>()，可用于在恢复 Ghost 前读取 GhostInstance 元数据
             public byte* entityBaseAdr;
             public byte* containerBaseAdr;
-            public NativeArray<ComponentType> types; // points to existing memory in the main allocation. Shouldn't modify the content of this array.
+            public NativeArray<ComponentType> types; // 指向主内存中的现有数据，不应修改数组内容
 
             int m_CurrentIndex;
             int m_CurrentOffset;
@@ -682,7 +682,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                 m_CurrentIndex++;
                 if (m_CurrentIndex < types.Length && m_CurrentIndex > 0)
                 {
-                    m_CurrentOffset += SizeInSave(types[m_CurrentIndex - 1]); // we need to add the previous type's size to get the current offset
+                    m_CurrentOffset += SizeInSave(types[m_CurrentIndex - 1]); // 累加前一类型的大小以得到当前偏移
                 }
                 return m_CurrentIndex < types.Length;
             }
@@ -728,7 +728,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             int m_CurrentEntityIndexInContainer;
             NativeArray<StateSaveContainer> m_AllContainers;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            readonly AtomicSafetyHandle m_SafetyHandle; // TODO use this for the main world state save allocation as well?
+            readonly AtomicSafetyHandle m_SafetyHandle; // TODO 考虑让 World 状态保存的主内存也使用该 Handle
 #endif
             readonly WorldStateSave m_ParentStateSave;
 
@@ -762,7 +762,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             StateSaveContainer CurrentContainer => m_AllContainers[m_CurrentContainerIndex];
             public void Reset()
             {
-                throw new NotImplementedException(); // from microsoft's doc, sounds like Reset shouldn't be used anywhere, only there for COM interoperability
+                throw new NotImplementedException(); // 根据 Microsoft 文档，Reset 仅用于 COM 互操作，其他场景不应调用
 
                 // m_CurrentContainerIndex = 0;
                 // m_CurrentEntityIndexInContainer = -1;
@@ -778,10 +778,10 @@ namespace Unity.NetCode.LowLevel.StateSave
                     NativeArray<ComponentType> typesForCurrentContainer;
 
                     ComponentType* typesAdr = (ComponentType*)UnsafeUtility.AddressOf(ref componentTypesSpan[0]);
-                    typesForCurrentContainer = CollectionHelper.ConvertExistingDataToNativeArray<ComponentType>(typesAdr, componentTypesSpan.Length, Allocator.None); // None allocator, this should no-op
+                    typesForCurrentContainer = CollectionHelper.ConvertExistingDataToNativeArray<ComponentType>(typesAdr, componentTypesSpan.Length, Allocator.None); // 使用 Allocator.None，因此不会执行分配
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                    NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref typesForCurrentContainer, m_SafetyHandle); // reusing safety handle over all those generated native arrays.
+                    NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref typesForCurrentContainer, m_SafetyHandle); // 所有生成的 NativeArray 共用同一个 Safety Handle
 #endif
 
                     var currentAsSpan = saveContainerSpan.Slice(m_CurrentEntityIndexInContainer * currentContainer.SingleEntitySize, currentContainer.SingleEntitySize);
@@ -802,7 +802,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             }
         }
 
-        // to make this burst compatible, we need this explicit return type for GetEnumerator
+        // 为兼容 Burst，GetEnumerator 需要显式返回类型
         public StateIterator GetEnumerator()
         {
             return new StateIterator(this);
@@ -819,12 +819,12 @@ namespace Unity.NetCode.LowLevel.StateSave
         }
     }
 
-    // maps 1:1 to a chunk while saving. one chunk's content is copied to a container. That container is just a smart pointer for an address in the world state save
+    // 保存时与 Chunk 一一对应，每个 Chunk 的内容复制到一个 Container，而 Container 只是指向 World 状态保存中某个地址的智能指针
     internal unsafe struct StateSaveContainer : IDisposable
     {
-        // Data Layout
-        // Header --> list of ComponentType
-        // Data --> list of entities, each being a list of the same n component data. e.g.[compA for entity 1, compB for entity 1, compC for entity 1, compA for entity 2, compB for entity 2, compC for entity 2]
+        // 数据布局
+        // Header -> ComponentType 列表
+        // Data -> 实体列表，每个实体依次保存相同的 n 个组件数据，例如 [实体 1 的 compA、compB、compC，实体 2 的 compA、compB、compC]
         byte* m_ContainerStateSaveAdr;
         internal int HeaderSize;
 
@@ -839,7 +839,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                 return m_ContainerStateSaveAdr + HeaderSize;
             }
         }
-        long m_ContainerOffsetInParentAllocation; // the above pointer points to an allocation not owned by this container, so we need to know the offset in that allocation
+        long m_ContainerOffsetInParentAllocation; // 上述指针指向不归该 Container 所有的内存，因此需要记录它在该内存中的偏移
         bool m_Initialized;
         int m_NextBufferOffset;
 
@@ -864,11 +864,11 @@ namespace Unity.NetCode.LowLevel.StateSave
                 }
                 else
                 {
-                    offset += sizeof(BufferHandle); // Store length + offset for each buffer type in the entity component data part
+                    offset += sizeof(BufferHandle); // 在实体组件数据区域中为每种 Buffer 保存长度和偏移
                 }
                 if (type.IsEnableable)
                     offset++;
-                headerSize += UnsafeUtility.SizeOf<ComponentType>(); // a list of component types will be saved in the header at job time. data adr not known right now, so can't save it now.
+                headerSize += UnsafeUtility.SizeOf<ComponentType>(); // Job 执行时会把组件类型列表写入 Header，当前尚不知道数据地址，无法立即保存
             }
 
             HeaderSize = headerSize;
@@ -879,7 +879,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             this.m_ContainerStateSaveAdr = null;
             this.m_ContainerOffsetInParentAllocation = containerOffsetInParentAllocation;
             m_NextBufferOffset = 0;
-            m_Initialized = false; // only initialized once we call InitializeSaveAddress
+            m_Initialized = false; // 只有调用 InitializeSaveAddress 后才算初始化
         }
 
         internal void InitializeSaveAddress(byte* baseAddress)
@@ -891,7 +891,7 @@ namespace Unity.NetCode.LowLevel.StateSave
         public void Dispose()
         {
             CheckInitialized();
-            // container doesn't own the memory associated with it, so we don't touch it here
+            // Container 不拥有关联内存，因此此处不释放内存
             m_Initialized = false;
         }
 
@@ -899,7 +899,7 @@ namespace Unity.NetCode.LowLevel.StateSave
         {
             CheckInitialized();
             var found = TryGetOffsetForComponentType(componentType, out var compOffset);
-            // TODO cache these offsets and sizes
+            // TODO 缓存这些偏移与大小
             var size = TypeManager.GetTypeInfo(componentType.TypeIndex).SizeInChunk;
             var dstAdrSpan = GetObjectAdrInSave(entIndex).Slice(compOffset, size);
             byte* srcAdr = chunkCompData + entIndex * size;
@@ -908,7 +908,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             UnsafeUtility.MemCpy(dstAdr, srcAdr, size);
             if (componentType.IsEnableable)
             {
-                // Enabled state is written into the byte behind the component data
+                // 启用状态写入组件数据之后的一个字节
                 var enableBitAddress = dstAdr + size;
                 UnsafeUtility.MemCpy(enableBitAddress, &enableBitIsSet, 1);
             }
@@ -933,14 +933,14 @@ namespace Unity.NetCode.LowLevel.StateSave
 
             if (componentType.IsEnableable)
             {
-                // Enabled state is written into the byte behind the buffer header data
+                // 启用状态写入 Buffer Header 数据之后的一个字节
                 var enableBitAddress = dstAdr + sizeof(BufferHandle);
                 UnsafeUtility.MemCpy(enableBitAddress, &enableBitIsSet, 1);
             }
 
-            // Start at end of last buffer registered so we continue copying into buffer space for each entity index
+            // 从上一个已登记 Buffer 的末尾开始，以便按实体索引连续写入 Buffer 区域
             if (m_NextBufferOffset == 0)
-                m_NextBufferOffset = EntityCount * SingleEntitySize;  // Initialize to start of buffer space for the first copied buffer
+                m_NextBufferOffset = EntityCount * SingleEntitySize;  // 首次复制 Buffer 时初始化为 Buffer 区域起点
             bufferHeader->Offset = m_NextBufferOffset;
             bufferHeader->Length = bufferElementCount;
             m_NextBufferOffset += size;
@@ -974,7 +974,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             return found;
         }
 
-        // TODO save this in header too. really not great perf for this
+        // TODO 将该信息也保存到 Header，目前这种查找方式性能较差
         private bool TryGetOffsetForComponentType(ComponentType type, out int offset)
         {
             CheckInitialized();
@@ -985,7 +985,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                 if (containedType == type)
                     return true;
 
-                // Component part will contain the buffer header only (which will contain the offset into the buffer space)
+                // 组件区域只保存 Buffer Header，其中包含指向 Buffer 区域的偏移
                 if (containedType.IsBuffer)
                     offset += sizeof(BufferHandle);
                 else
@@ -1015,8 +1015,8 @@ namespace Unity.NetCode.LowLevel.StateSave
     }
 
     /// <summary>
-    /// Directly saves in the memory allocation, with no additional work done
-    /// No indexing here. Should spend less time setting hashmap entries and make state saving more performant when indexing isn't needed
+    /// 直接保存到已分配内存，不执行额外操作
+    /// 不建立索引，可减少写入 HashMap 的开销，在不需要索引时提升状态保存性能
     /// </summary>
     internal unsafe struct DirectStateSaveStrategy : IStateSaveStrategy
     {
@@ -1036,12 +1036,12 @@ namespace Unity.NetCode.LowLevel.StateSave
         }
     }
 
-    // TODO move the per ghost indexer hash map here? If registering is optional, shouldn't be handled by WorldStateSave at all?
+    // TODO 考虑将逐 Ghost 的索引 HashMap 移到此处，若登记是可选功能，就不应由 WorldStateSave 统一处理
     internal unsafe struct IndexedByGhostSaveStrategy : IStateSaveStrategy
     {
         [ReadOnly] public ComponentTypeHandle<GhostInstance> ghostInstanceHandle;
 
-        // required constructor, this strategy requires this handle to index by ghost id
+        // 该策略必须通过此构造函数取得 Handle，才能按 Ghost ID 建立索引
         public IndexedByGhostSaveStrategy(in ComponentTypeHandle<GhostInstance> handle)
         {
             ghostInstanceHandle = handle;
@@ -1071,14 +1071,14 @@ namespace Unity.NetCode.LowLevel.StateSave
     [BurstCompile]
     internal unsafe struct StateSaveJob<T> : IJobChunk where T : IStateSaveStrategy
     {
-        [ReadOnly] public DynamicTypeList dynamicTypeList; // for dependency management. Equivalent to required + optional, in that order
+        [ReadOnly] public DynamicTypeList dynamicTypeList; // 用于依赖管理，内容依次为必需类型和可选类型
         [ReadOnly] public NativeArray<ComponentType> requiredTypes;
         [ReadOnly] public NativeArray<ComponentType> optionalTypes;
         [ReadOnly] public EntityTypeHandle entityType;
         [ReadOnly] public EntityStorageInfoLookup entityStorageInfo;
 
-        // destination state save
-        public WorldStateSave.WorldSaveParallelWriter fullWorldStateSave; // includes all containers
+        // 目标状态保存
+        public WorldStateSave.WorldSaveParallelWriter fullWorldStateSave; // 包含所有 Container
 
         [ReadOnly] public T stateSaveStrategy;
 
@@ -1092,7 +1092,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             s_StateSaveJobMarker1.Begin();
             var entityCountInChunk = chunk.Count;
 
-            // determine which component types we should save from this chunk
+            // 确定当前 Chunk 中需要保存的组件类型
             using NativeList<int> optionalTypesPresentInChunk = new NativeList<int>(Allocator.Temp);
             using NativeList<ComponentType> allComponentTypesInChunk = new(Allocator.Temp);
             using NativeList<int> indicesInDynamicTypeList = new NativeList<int>(Allocator.Temp);
@@ -1102,8 +1102,8 @@ namespace Unity.NetCode.LowLevel.StateSave
                 indicesInDynamicTypeList.Add(i);
             }
 
-            // find the optional type's index inside the dynamicTypeList
-            // TODO cache this ^^^ ?
+            // 查找可选类型在 dynamicTypeList 中的索引
+            // TODO 缓存这些索引
             for (int i = 0; i < optionalTypes.Length; i++)
             {
                 var optionalIndex = i + requiredTypes.Length;
@@ -1119,7 +1119,7 @@ namespace Unity.NetCode.LowLevel.StateSave
             var currentStateSaveContainer = fullWorldStateSave.m_AllStateSaveContainers[unfilteredChunkIndex];
             s_StateSaveJobMarker2.End();
 
-            // start copying
+            // 开始复制数据
             for (int compIndex = 0; compIndex < allComponentTypesInChunk.Length; compIndex++)
             {
                 var currentCompType = allComponentTypesInChunk[compIndex];
@@ -1133,7 +1133,7 @@ namespace Unity.NetCode.LowLevel.StateSave
                     var enableBitIsSet = bitArray.IsSet(entIndex);
                     if (currentCompType.IsBuffer)
                     {
-                        // Save the whole buffer for current entity
+                        // 保存当前实体的完整 Buffer
                         var bufferData = chunk.GetUntypedBufferAccessor(ref typeHandle);
                         var bufferPtr = bufferData.GetUnsafeReadOnlyPtrAndLength(entIndex, out var length);
                         stateSaveStrategy.SaveEntity(ref currentStateSaveContainer, ref fullWorldStateSave, chunk, unfilteredChunkIndex, entIndex, currentCompType, (byte*)bufferPtr, length, compIndex, enableBitIsSet);

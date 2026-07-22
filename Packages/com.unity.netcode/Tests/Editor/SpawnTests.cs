@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
@@ -75,7 +75,7 @@ namespace Unity.NetCode.Tests
     [UpdateAfter(typeof(GhostSpawnClassificationSystem))]
     internal partial class TestSpawnClassificationSystem : SystemBase
     {
-        // Track which entities have been handled by this classification system
+        // 记录已由此分类系统处理的实体
         public NativeList<Entity> PredictedEntities;
         protected override void OnCreate()
         {
@@ -105,8 +105,8 @@ namespace Unity.NetCode.Tests
                         if (ghost.SpawnType != GhostSpawnBuffer.Type.Predicted || ghost.HasClassifiedPredictedSpawn || ghost.PredictedSpawnEntity != Entity.Null)
                             continue;
 
-                        // Only classify the first item in the list (default system will then catch the rest) and
-                        // handle it no matter what (no spawn tick checks etc)
+                        // 只分类列表中的第一项，其余项交给默认系统处理
+                        // 此处不检查 Spawn Tick 等匹配条件
                         if (spawnList.Length > 1)
                         {
                             if (ghost.GhostType == spawnList[0].ghostType)
@@ -136,7 +136,7 @@ namespace Unity.NetCode.Tests
         }
         public void OnUpdate(ref SystemState state)
         {
-            //We need to decode the snapshot data here and check it is correct.
+            // 在此解码快照数据并检查初始化结果
             var clientEntity = SystemAPI.GetSingletonEntity<GhostInstance>();
             var prefabType = SystemAPI.GetSingletonBuffer<GhostCollectionPrefab>()[0];
             var clientEntity2 = state.EntityManager.Instantiate(prefabType.GhostPrefab);
@@ -267,12 +267,12 @@ namespace Unity.NetCode.Tests
 
     class PredictedGhostSpawnTests
     {
-        /* Set up 2 prefabs with a predicted ghost and interpolated ghost
-         *  - Verify spawning the predicted one on the client works as expected
-         *  - Verify server spawning interpolated ghosts works as well
-         *  - Verify the prefabs on the clients have the right components set up
-         *  - Verify a locally spawned predicted ghost is properly synchronized to other clients.
-         *  - Uses default spawn classification system
+        /* 创建预测 Ghost 和插值 Ghost 两个 Prefab
+         *  - 验证客户端生成预测 Ghost 的行为符合预期
+         *  - 验证服务器生成插值 Ghost 的行为符合预期
+         *  - 验证客户端 Prefab 配置了正确的组件
+         *  - 验证本地生成的预测 Ghost 能正确同步给其他客户端
+         *  - 使用默认生成分类系统
          */
         [Test]
         public void PredictSpawnGhost()
@@ -283,7 +283,7 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true, typeof(UpdateDataSystem));
 
-                // Predicted ghost
+                // 预测 Ghost
                 var predictedGhostGO = new GameObject("PredictedGO");
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new DataConverter();
                 var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -291,12 +291,12 @@ namespace Unity.NetCode.Tests
                 ghostConfig.SupportedGhostModes = GhostModeMask.Predicted;
                 ghostConfig.HasOwner = true;
 
-                // One child nested on predicted ghost
+                // 在预测 Ghost 下嵌套一个子对象
                 var predictedGhostGOChild = new GameObject("PredictedGO-Child");
                 predictedGhostGOChild.AddComponent<TestNetCodeAuthoring>().Converter = new ChildDataConverter();
                 predictedGhostGOChild.transform.parent = predictedGhostGO.transform;
 
-                // Interpolated ghost
+                // 插值 Ghost
                 var interpolatedGhostGO = new GameObject("InterpolatedGO");
                 interpolatedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new DataConverter();
                 ghostConfig = interpolatedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -313,22 +313,22 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Predictively spawn ghost on client
+                // 在客户端预测生成 Ghost
                 var prefabsListQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 var prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 var prefabs = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
                 var predictedPrefab = prefabs[PREDICTED].Value;
                 var clientEntity = testWorld.ClientWorlds[0].EntityManager.Instantiate(predictedPrefab);
 
-                // Verify you've instantiated the predict spawn version of the prefab
+                // 验证实例化的是支持预测生成的 Prefab
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientEntity));
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientEntity));
 
-                // Verify the predicted ghost has a linked entity (the child on the GO)
+                // 验证预测 Ghost 的 LinkedEntityGroup 包含子对象实体
                 var linkedEntities = testWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEntity);
                 Assert.AreEqual(2, linkedEntities.Length);
 
-                // server spawns normal ghost for the client spawned one
+                // 服务器为客户端预测生成的实体生成对应权威 Ghost
                 prefabsListQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 prefabs = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
@@ -339,16 +339,16 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
 
-                //The request has been consumed.
+                // 预测生成请求已经消费
                 Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientEntity));
 
-                // Verify ghost field data has been updated on the clients instance, and we only have one entity spawned
+                // 验证客户端实例的 GhostField 已更新且只生成一个实体
                 var compQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<Data>());
                 var clientData = compQuery.ToComponentDataArray<Data>(Allocator.Temp);
                 Assert.AreEqual(1, clientData.Length);
                 Assert.IsTrue(clientData[0].Value > 1);
 
-                // server spawns normal interpolated ghost
+                // 服务器生成普通插值 Ghost
                 prefabsListQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 prefabs = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
@@ -358,7 +358,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
 
-                // Verify ghost field data has been updated on the clients instance for the predicted entity we spawned
+                // 验证客户端预测生成实例的 GhostField 已更新
                 compQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(new EntityQueryDesc
                 {
                     All = new ComponentType[] { typeof(Data), typeof(PredictedGhost) },
@@ -367,7 +367,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(1, clientData.Length);
                 Assert.IsTrue(clientData[0].Value > 1);
 
-                // Verify the interpolated ghost has also propagated to the client and updated
+                // 验证插值 Ghost 也已同步到客户端并完成更新
                 compQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(new EntityQueryDesc
                 {
                     All = new ComponentType[] { typeof(Data) },
@@ -377,7 +377,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(1, clientData.Length);
                 Assert.IsTrue(clientData[0].Value > 1);
 
-                // On client there are two predicted prefabs, one for predicted spawning and one normal server spawn
+                // 客户端使用同一个预测 Prefab 同时支持预测生成和普通服务器生成
                 var queryDesc = new EntityQueryDesc
                 {
                     All = new ComponentType[]
@@ -391,9 +391,9 @@ namespace Unity.NetCode.Tests
                 compQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(queryDesc);
                 Assert.AreEqual(1, compQuery.CalculateEntityCount());
 
-                // Verify children are correctly replicated in the prefab copy.
-                // Iterate though the LinkedEntityGroup of each predicted prefab
-                // check the child entity listed there and verify it's linking back to the parent
+                // 验证 Prefab 副本中的子实体复制正确
+                // 遍历每个预测 Prefab 的 LinkedEntityGroup
+                // 检查其中的子实体是否正确反向引用父实体
                 var entityPrefabs = compQuery.ToEntityArray(Allocator.Temp);
                 for (int i = 0; i < entityPrefabs.Length; ++i)
                 {
@@ -405,7 +405,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(parentEntity, parentLink);
                 }
 
-                // Server will have 2 prefabs (interpolated, predicted)
+                // 服务器应包含插值和预测两个 Prefab
                 compQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(queryDesc);
                 Assert.AreEqual(2, compQuery.CalculateEntityCount());
             }
@@ -418,7 +418,7 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true, typeof(TestSpawnClassificationSystem));
 
-                // Predicted ghost
+                // 预测 Ghost
                 var predictedGhostGO = new GameObject("PredictedGO");
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new DataConverter();
                 var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -436,33 +436,33 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Predictively spawn ghost on client
+                // 在客户端预测生成 Ghost
                 var prefabsListQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 var prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 var prefabs = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
                 var predictedPrefab = prefabs[0].Value;
 
-                // Instantiate two ghosts on the same frame
+                // 在同一帧实例化两个 Ghost
                 testWorld.ClientWorlds[0].EntityManager.Instantiate(predictedPrefab);
                 testWorld.ClientWorlds[0].EntityManager.Instantiate(predictedPrefab);
 
-                // Server spawns normal ghost for the client spawned one
+                // 服务器为客户端预测生成的实体生成对应权威 Ghost
                 prefabsListQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 prefabs = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
 
-                // Server also instantiates twice
+                // 服务器同样实例化两个 Ghost
                 testWorld.ServerWorld.EntityManager.Instantiate(prefabs[0].Value);
                 testWorld.ServerWorld.EntityManager.Instantiate(prefabs[0].Value);
 
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
 
-                // Verify the custom spawn classification system ran instead of the default only for the first spawn
+                // 验证只有第一个 Spawn 由自定义分类系统处理，其余项由默认系统处理
                 var classifiedGhosts = testWorld.ClientWorlds[0].GetExistingSystemManaged<TestSpawnClassificationSystem>();
                 Assert.AreEqual(1, classifiedGhosts.PredictedEntities.Length);
 
-                // Verify we have the right amount of total ghosts spawned
+                // 验证最终生成的 Ghost 总数正确
                 var compQuery = testWorld.ClientWorlds[0].EntityManager
                     .CreateEntityQuery(typeof(Data));
                 Assert.AreEqual(2, compQuery.CalculateEntityCount());
@@ -486,7 +486,7 @@ namespace Unity.NetCode.Tests
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true, typeof(VerifyInitialization));
 
-            // Predicted ghost:
+            // 预测 Ghost
             var predictedGhostGO = new GameObject("BadPredictedGO");
             predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new PredictedGhostDataConverter();
             var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -494,7 +494,7 @@ namespace Unity.NetCode.Tests
             ghostConfig.SupportedGhostModes = GhostModeMask.Predicted;
             Assert.IsTrue(testWorld.CreateGhostCollection(predictedGhostGO));
 
-            // Begin:
+            // 创建 World 并开始测试
             testWorld.CreateWorlds(true, 1);
             var clientTickRate = NetworkTimeSystem.DefaultClientTickRate;
             clientTickRate.NumAdditionalClientPredictedGhostLifetimeTicks = (ushort) additionalDespawnDelayTicks;
@@ -507,7 +507,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 16; ++i)
                 testWorld.Tick();
 
-            // Predictively spawn ghost on client:
+            // 在客户端预测生成 Ghost
             var expectedDespawnTick = testWorld.GetSingleton<NetworkTime>(testWorld.ClientWorlds[0]).ServerTick;
             expectedDespawnTick.Add(additionalDespawnDelayTicks);
             var prefabsListQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
@@ -517,15 +517,15 @@ namespace Unity.NetCode.Tests
             var clientEntity = testWorld.ClientWorlds[0].EntityManager.Instantiate(predictedPrefab);
 
 
-            // Wait for the interpolation tick to catch up to the spawn tick.
+            // 等待 Interpolation Tick 追上预期销毁 Tick
             var existedForTicks = 0;
             var entityExists = false;
             var previouslyExisted = true;
             NetworkTick currentInterpolationTick = testWorld.GetSingleton<NetworkTime>(testWorld.ClientWorlds[0]).InterpolationTick;
-            int numTicksToWait = expectedDespawnTick.TicksSince(currentInterpolationTick) + 6; // Margin of error.
+            int numTicksToWait = expectedDespawnTick.TicksSince(currentInterpolationTick) + 6; // 额外等待六个 Tick 作为误差余量
             for (int i = 0; i < numTicksToWait; i++)
             {
-                // Verify we have the predicted spawn version of the prefab:
+                // 验证预测生成实体从一开始就存在且销毁后不会再次出现
                 entityExists = testWorld.ClientWorlds[0].EntityManager.Exists(clientEntity);
                 if(i == 0) Assert.IsTrue(entityExists, $"Sanity: Client predicted spawn should be created from the outset!");
                 if (entityExists) existedForTicks++;
@@ -534,7 +534,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Tick();
             }
 
-            // Verify the despawn and alive duration:
+            // 验证销毁结果和实体存活时长
             Assert.IsFalse(entityExists, $"After {numTicksToWait} ticks, the client predicted spawn should have despawned, as despawn tick (of {expectedDespawnTick.ToFixedString()}) is != currentInterpolationTick:{currentInterpolationTick.ToFixedString()})!");
             Assert.IsTrue(existedForTicks >= interpolationBufferTimeInTicks + additionalDespawnDelayTicks, $"The client predicted spawn should have existed for at least interpolationBufferTimeInTicks:{interpolationBufferTimeInTicks} + NumAdditionalClientPredictedGhostLifetimeTicks:{additionalDespawnDelayTicks} ticks, but it only existed for {existedForTicks} ticks!");
         }
@@ -553,14 +553,14 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true, typeof(VerifyInitialization));
 
-                // Predicted ghost
+                // 预测 Ghost
                 var predictedGhostGO = new GameObject("PredictedGO");
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new PredictedGhostDataConverter();
                 var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
                 ghostConfig.DefaultGhostMode = GhostMode.Predicted;
                 ghostConfig.SupportedGhostModes = GhostModeMask.Predicted;
 
-                // One child nested on predicted ghost
+                // 在预测 Ghost 下嵌套一个子对象
                 var predictedGhostGOChild = new GameObject("PredictedGO-Child");
                 predictedGhostGOChild.AddComponent<TestNetCodeAuthoring>().Converter = new ChildDataConverter();
                 predictedGhostGOChild.transform.parent = predictedGhostGO.transform;
@@ -575,7 +575,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Predictively spawn ghost on client
+                // 在客户端预测生成 Ghost
                 var prefabsListQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetCodeTestPrefabCollection));
                 var prefabList = prefabsListQuery.ToEntityArray(Allocator.Temp)[0];
                 var prefabs = testWorld.ClientWorlds[0].EntityManager.GetBuffer<NetCodeTestPrefab>(prefabList);
@@ -584,18 +584,18 @@ namespace Unity.NetCode.Tests
 
                 InitializePredictedEntity(clientEntity, testWorld.ClientWorlds[0].EntityManager, enableComponents);
 
-                // Verify you've instantiated the predict spawn version of the prefab
+                // 验证实例化的是支持预测生成的 Prefab
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientEntity));
                 Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(clientEntity));
 
-                // Verify the predicted ghost has a linked entity (the child on the GO)
+                // 验证预测 Ghost 的 LinkedEntityGroup 包含子对象实体
                 var linkedEntities = testWorld.ClientWorlds[0].EntityManager.GetBuffer<LinkedEntityGroup>(clientEntity);
                 Assert.AreEqual(2, linkedEntities.Length);
 
-                //Do 1 tick: verify the spawned ghost is now been initialized on the client. Do a partial tick to also make a rollback once
+                // 执行一个部分 Tick，验证客户端完成预测 Ghost 初始化并触发一次回滚
                 testWorld.Tick(1f/180f);
                 {
-                    //the PredictedGhostSpawnRequest is still present (will be destroyed the next tick)
+                    // PredictedGhostSpawnRequest 仍存在并将在下一 Tick 移除
                     Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<PredictedGhostSpawnRequest>(clientEntity));
                     Assert.AreEqual(testWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<EnableableComponent_0>(clientEntity), enableComponents);
                     Assert.AreEqual(testWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<EnableableComponent_1>(clientEntity), true);
@@ -645,8 +645,7 @@ namespace Unity.NetCode.Tests
             childBuffer.Add(new EnableableBuffer{value = 20});
             childBuffer.Add(new EnableableBuffer{value = 30});
 
-            //Some of these components setters are commented to make the test using a mix of enable/disabled
-            //components
+            // 保留部分组件的默认启用状态，使测试同时覆盖启用和禁用组件
             entityManager.SetComponentEnabled<EnableableComponent_0>(clientEntity, enableComponents);
             //entityManager.SetComponentEnabled<EnableableComponent_1>(clientEntity, enableComponents);
             entityManager.SetComponentEnabled<EnableableComponent_2>(clientEntity, enableComponents);
@@ -696,7 +695,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 32; ++i)
                 testWorld.Tick();
 
-            //server spawn a predicted ghost such that every update predicted spawned ghost should rollback
+            // 服务器先生成一个预测 Ghost，使预测循环能够持续执行回滚
             testWorld.SpawnOnServer(0);
 
             SetupSpawner(testWorld, testWorld.ServerWorld, 0);
@@ -708,7 +707,7 @@ namespace Unity.NetCode.Tests
             var predictedGhosts = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
             Assert.AreEqual(1, predictedGhosts.CalculateEntityCount());
 
-            // Ensure client actually ticks fully in the next ticks so the prediction loop will run multiple times
+            // 确保客户端后续执行完整 Tick，让预测循环能够多次运行
             var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             var spawnTick = clientTime.ServerTick;
             if(!clientTime.IsPartialTick)
@@ -719,7 +718,7 @@ namespace Unity.NetCode.Tests
             testWorld.ServerWorld.GetExistingSystemManaged<PredictSpawnGhost>().spawnFromCommandBuffer = predictedGhostSpawnType;
             testWorld.ServerWorld.GetExistingSystemManaged<PredictSpawnGhost>().spawnTick = spawnTick;
 
-            //Spawn the ghost on the client. If from command buffer we need another tick to have it present
+            // 在客户端生成 Ghost，通过 CommandBuffer 生成时还需一个 Tick 才会实际出现
             testWorld.Tick();
             var predictedSpawnRequests = new EntityQueryBuilder(Allocator.Temp).WithPresent<PredictedGhostSpawnRequest>().Build(testWorld.ClientWorlds[0].EntityManager);
             if(predictedGhostSpawnType == PredictedGhostSpawnType.FromBeginFrame)
@@ -728,12 +727,11 @@ namespace Unity.NetCode.Tests
             var spawnedGhost = predictedSpawnRequests.GetSingletonEntity();
             Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<PredictedGhostSpawnRequest>(spawnedGhost));
             Assert.AreEqual(spawnTick, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostInstance>(spawnedGhost).spawnTick);
-            //Let's tick another bit and wait for the server spawning the same.
-            //if there is mispredicted spawn, the entity
+            // 继续推进并等待服务器生成对应 Ghost
             for (int i = 0; i < 16; ++i)
                 testWorld.Tick();
 
-            // Ensure that classification failed and the entity has been deleted.
+            // 验证预测生成请求已完成分类，实体保留并采用服务器的 Spawn Tick
             Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(spawnedGhost));
             Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.Exists(spawnedGhost));
             var expectServerTick = spawnTick;
@@ -763,7 +761,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 32; ++i)
                 testWorld.Tick();
 
-            //server spawn a predicted ghost such that every update predicted spawned ghost should rollback
+            // 服务器先生成一个预测 Ghost，使预测循环能够持续执行回滚
             testWorld.SpawnOnServer(0);
 
             SetupSpawner(testWorld, testWorld.ServerWorld, 0);
@@ -775,7 +773,7 @@ namespace Unity.NetCode.Tests
             var predictedGhosts = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
             Assert.AreEqual(1, predictedGhosts.CalculateEntityCount());
 
-            // Ensure client actually ticks fully in the next ticks so the prediction loop will run multiple times
+            // 将客户端推进到完整 Tick，让预测循环能够多次运行
             var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             testWorld.TickClientWorld((1 - clientTime.ServerTickFraction)/60f);
             clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
@@ -788,7 +786,7 @@ namespace Unity.NetCode.Tests
             testWorld.ServerWorld.GetExistingSystemManaged<PredictSpawnGhost>().spawnFromCommandBuffer = predictedGhostSpawnType;
             testWorld.ServerWorld.GetExistingSystemManaged<PredictSpawnGhost>().spawnTick = spawnTick;
 
-            //Spawn the ghost on the client. If from command buffer we need another tick to have it present
+            // 在客户端生成 Ghost，通过 CommandBuffer 生成时还需一个 Tick 才会实际出现
             testWorld.Tick();
             var predictedSpawnRequests = new EntityQueryBuilder(Allocator.Temp).WithPresent<PredictedGhostSpawnRequest>().Build(testWorld.ClientWorlds[0].EntityManager);
             if(predictedGhostSpawnType == PredictedGhostSpawnType.FromBeginFrame)
@@ -800,30 +798,30 @@ namespace Unity.NetCode.Tests
             testWorld.ClientWorlds[0].EntityManager.SetName(ghostWithRollback, "PredictedSpawnedGhost");
             Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.IsComponentEnabled<PredictedGhostSpawnRequest>(ghostWithRollback));
             Assert.AreEqual(spawnTick, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostInstance>(ghostWithRollback).spawnTick);
-            // we run a partial to ensure that we are not tight to full ticks. Client should not do an extra tick so we ensure the
-            // portion of tick is small enough
+            // 执行较短的部分 Tick 以覆盖非完整 Tick 行为
+            // 时间片必须足够小，避免客户端额外执行一个 Tick
             var partialTickFrac = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]).ServerTickFraction;
             partialTickFrac /= 3f;
             testWorld.Tick((1f + partialTickFrac)/60f);
             Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(ghostWithRollback));
             var fromSpawnTickCount = testWorld.ClientWorlds[0].EntityManager.GetComponentData<CountSimulationFromSpawnTick>(ghostWithRollback);
-            //we always start from the spawn tick, therefore should increase by 1
+            // 首次预测从 Spawn Tick 开始，因此计数增加一次
             Assert.AreEqual(1, fromSpawnTickCount.Value);
-            //do a structural change here. We will now have another rollback to the spawn tick if we can't keep the history
+            // 在此制造结构变化，无法保留历史时会再次回滚到 Spawn Tick
             testWorld.ClientWorlds[0].EntityManager.RemoveComponent<EnableableComponent_0>(ghostWithRollback);
             testWorld.Tick(partialTickFrac/60f);
             fromSpawnTickCount = testWorld.ClientWorlds[0].EntityManager.GetComponentData<CountSimulationFromSpawnTick>(ghostWithRollback);
-            //in both cases we have to forcibly restart from the spawn tick (in one case we have the backup for that tick, in the other the state)
-            //Therefore the count increase to 1
+            // 两种配置都必须从 Spawn Tick 重新开始，一种使用该 Tick 的备份，另一种使用初始状态
+            // 因此计数再增加一次并累计为二
             Assert.AreEqual(2, fromSpawnTickCount.Value);
 
-            //Let's tick another bit and wait for the server spawning the same.
+            // 继续推进并等待服务器生成对应 Ghost
             for (int i = 0; i < 16; ++i)
                 testWorld.Tick();
 
-            // Ensure that classification is correct. Also, based on spawning the spawn tick may have been changed!
+            // 验证分类结果正确，并考虑不同生成方式可能修正 Spawn Tick
             Assert.IsTrue(testWorld.ClientWorlds[0].EntityManager.Exists(ghostWithRollback));
-            //check we re-predict the number of times we expect
+            // 检查重新预测次数符合预期
             var expectedFromSpawnTickCount = fromSpawnTickCount.Value;
             var expectServerTick = spawnTick;
             if(predictedGhostSpawnType == PredictedGhostSpawnType.FromBeginFrame)
@@ -842,7 +840,7 @@ namespace Unity.NetCode.Tests
             var gameObjects = new GameObject[2];
             for (int i = 0; i < 2; ++i)
             {
-                // Predicted ghost. We create two types of the same
+                // 创建两个结构相同但回滚配置不同的预测 Ghost 类型
                 var predictedGhostGO = new GameObject($"PredictedGO-{i}");
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new PredictedGhostDataConverter();
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new GhostWithRollbackConverter();
@@ -854,7 +852,7 @@ namespace Unity.NetCode.Tests
                     ghostConfig.RollbackPredictedSpawnedGhostState = rollback == PredictedSpawnRollbackOptions.RollbackToSpawnTick;
                     ghostConfig.RollbackPredictionOnStructuralChanges = rollbackOnStructuralChanges == KeepHistoryBufferOptions.RollbackOnStructuralChanges;
                 }
-                // One child nested on predicted ghost
+                // 在预测 Ghost 下嵌套一个子对象
                 var predictedGhostGOChild = new GameObject("PredictedGO-Child");
                 predictedGhostGOChild.AddComponent<TestNetCodeAuthoring>().Converter = new ChildDataConverter();
                 predictedGhostGOChild.transform.parent = predictedGhostGO.transform;
@@ -878,7 +876,7 @@ namespace Unity.NetCode.Tests
             testWorld.Connect();
             testWorld.GoInGame();
 
-            //We need a predicted ghost in order to even spawn one from the prediction loop.
+            // 预测循环中必须先存在预测 Ghost，才能从循环内部生成另一个 Ghost
             testWorld.SpawnOnServer(0);
 
             SetupSpawner(testWorld, testWorld.ServerWorld, 1);
@@ -890,7 +888,7 @@ namespace Unity.NetCode.Tests
             var predictedGhosts = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
             Assert.AreEqual(1, predictedGhosts.CalculateEntityCount());
 
-            // Ensure we're in a known state on the client
+            // 将客户端推进到已知的完整 Tick 状态
             var time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             testWorld.TickClientWorld((1 - time.ServerTickFraction)/60f);
             time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
@@ -898,64 +896,59 @@ namespace Unity.NetCode.Tests
             var spawnTick = time.ServerTick;
             spawnTick.Add(1);
 
-            //spawn the ghost only on the client and verify that the ghost is
-            //- rewind correctly for partial ticks
-            //- the state of the Data component is the one of the last full tick
+            // 只在客户端生成 Ghost 并验证以下行为
+            // 部分 Tick 能正确回滚
+            // Data 组件状态来自最近一个完整 Tick
             testWorld.ClientWorlds[0].GetExistingSystemManaged<PredictSpawnGhost>().spawnTick = spawnTick;
             testWorld.ClientWorlds[0].GetExistingSystemManaged<PredictSpawnGhost>().spawnFromCommandBuffer = PredictedGhostSpawnType.InsidePredictionLoop;
 
             var predictedSpawnRequests = new EntityQueryBuilder(Allocator.Temp)
                 .WithPresent<PredictedGhostSpawnRequest>().Build(testWorld.ClientWorlds[0].EntityManager);
-            //Client will spawn the entity now. We will do a full tick + 1 partial tick. There will be a new backup
-            //for the spawnTick, that is when the entity is spawned. The predicted spawned ghost is not initialized yet.
+            // 客户端将在完整 Tick 中生成实体，随后再执行一个部分 Tick
+            // 生成时会为 Spawn Tick 建立新备份，但此时预测生成 Ghost 尚未完成初始化
             testWorld.Tick();
             var predictedSpawnEntity = predictedSpawnRequests.GetSingletonEntity();
             testWorld.TickClientWorld(.5f/60f);
-            //The intial value for the Data is 100. The data is always incremented every prediction update (partial or not).
-            //Request consumed. The predicted spawn entity should have 102 here.
-            //But in the snapshot buffer we should have 101. We verify this indirectly
+            // Data 初始值为 100，每次预测更新都会递增，无论 Tick 是否完整
+            // 请求消费后实体值应为 102，而快照缓冲中的备份值应为 101
+            // 此处通过后续恢复结果间接验证备份值
             Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(predictedSpawnEntity));
             Assert.AreEqual(102, testWorld.ClientWorlds[0].EntityManager.GetComponentData<Data>(predictedSpawnEntity).Value);
             var lastBackupTick = testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value;
             Assert.AreEqual(spawnTick.TickIndexForValidTick, lastBackupTick.TickIndexForValidTick);
-            //In the next tick we are receiving new state from the server for the other ghost.
-            //We have both a backup and the first state to go to so we always calculate 103 no matter what
+            // 下一 Tick 会收到服务器为另一个 Ghost 发送的新状态
+            // 此时已有备份和初始状态可供恢复，因此无论配置如何结果都应为 103
             testWorld.Tick();
             lastBackupTick = testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value;
             Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhostSpawnRequest>(predictedSpawnEntity));
             Assert.AreEqual(spawnTick.TickIndexForValidTick + 1, lastBackupTick.TickIndexForValidTick);
             Assert.AreEqual(103, testWorld.ClientWorlds[0].EntityManager.GetComponentData<Data>(predictedSpawnEntity).Value);
-            //Now we do a partial tick. Depending on the setting:
-            // - we restart from the spawn tick (27) and re-predict till now (29)
-            // - we continue from the backup (28) until now (29)
-            // in both cases we should still get 103.
+            // 接着执行部分 Tick，根据配置可能从 Spawn Tick 27 重新预测到 29
+            // 也可能从 Tick 28 的备份继续预测到 29，两种情况都应得到 103
 
-            // we are forcing here a structural change to verify backup is also found as expected and continue from there.
-            // This will move the entity into the other chunk, instead of reusing the same. This give the test
-            // more predictable results.
+            // 在此强制制造结构变化，验证系统仍能找到预期备份并从该处继续
+            // 这会将实体移动到另一个 Chunk，避免复用原 Chunk，使测试结果更稳定
             testWorld.ClientWorlds[0].EntityManager.RemoveComponent<EnableableComponent_0>(predictedSpawnEntity);
             testWorld.TickClientWorld(0.25f/60f);
             lastBackupTick = testWorld.GetSingleton<GhostSnapshotLastBackupTick>(testWorld.ClientWorlds[0]).Value;
             Assert.AreEqual(spawnTick.TickIndexForValidTick + 1, lastBackupTick.TickIndexForValidTick);
             time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             Assert.IsTrue(time.IsPartialTick);
-            //because of structural change if we are not keeping the history, we are doing 2 ticks of prediction (from the spawnTick)
+            // 结构变化后若不保留历史，需要从 Spawn Tick 执行两个预测 Tick
             var expectedPredictionCount = keepHistoryBufferOnStructuralChanges == KeepHistoryBufferOptions.RollbackOnStructuralChanges
                 ? 2
                 : 1;
             Assert.AreEqual(expectedPredictionCount, time.PredictedTickIndex);
             Assert.AreEqual(103, testWorld.ClientWorlds[0].EntityManager.GetComponentData<Data>(predictedSpawnEntity).Value);
-            //reset the counter. We are receiving new data from the server. We want verify we are either continue from prediction
-            //or rollback
+            // 重置计数器并接收服务器新数据，以验证系统是继续预测还是回滚
             testWorld.ClientWorlds[0].EntityManager.SetComponentData(predictedSpawnEntity, new CountSimulationFromSpawnTick{});
             testWorld.Tick();
-            //How many prediction tick we did? We received from the server a new ghost update, so at least the delta in respect
-            //the last received and the current client tick
+            // 收到新的服务器 Ghost 更新后，预测次数至少应等于最近接收 Tick 与当前客户端 Tick 的差值
             time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
             var lastReceivedTick = testWorld.GetSingleton<NetworkSnapshotAck>(testWorld.ClientWorlds[0]).LastReceivedSnapshotByLocal;
             var expectedPredictionTicks = time.ServerTick.TicksSince(lastReceivedTick);
             Assert.AreEqual(expectedPredictionTicks, time.PredictedTickIndex);
-            //We will either rollback from 101 or continue but always predict 104.
+            // 无论从 101 回滚还是继续预测，最终值都应为 104
             Assert.AreEqual(104, testWorld.ClientWorlds[0].EntityManager.GetComponentData<Data>(predictedSpawnEntity).Value);
             var expectedRewind = rollback == PredictedSpawnRollbackOptions.RollbackToSpawnTick ? 1 : 0;
             Assert.AreEqual(expectedRewind, testWorld.ClientWorlds[0].EntityManager.GetComponentData<CountSimulationFromSpawnTick>(predictedSpawnEntity).Value);
@@ -978,13 +971,13 @@ namespace Unity.NetCode.Tests
             testWorld.Connect();
             testWorld.GoInGame();
 
-            // Spawn server side
+            // 在服务器生成 Ghost
             var serverEnt = testWorld.SpawnOnServer(0);
 
-            // Let is spawn client side
+            // 推进 Tick 以便客户端生成 Ghost
             testWorld.TickMultiple(16);
 
-            // Destroy and check how much time it takes for the entity to be cleaned up
+            // 销毁 Ghost 并检查服务器清理实体所需时间
             testWorld.ServerWorld.EntityManager.DestroyEntity(serverEnt);
 
             for (int i = 0; i < 10; i++)
@@ -1023,13 +1016,13 @@ namespace Unity.NetCode.Tests
             testWorld.Connect();
             testWorld.GoInGame();
 
-            // Spawn server side
+            // 在服务器生成 Ghost
             var serverEnt = testWorld.SpawnOnServer(0);
 
-            // Let is spawn client side
+            // 推进 Tick 以便客户端生成 Ghost
             testWorld.TickMultiple(16);
 
-            // Destroy and check how much time it takes for the entity to be cleaned up
+            // 销毁 Ghost 并检查低网络频率下服务器清理实体所需时间
             testWorld.ServerWorld.EntityManager.DestroyEntity(serverEnt);
 
             for (int i = 0; i < 50; i++)
@@ -1046,8 +1039,8 @@ namespace Unity.NetCode.Tests
         [Test(Description = "Make sure that with lag and packet loss, the acking of despawns works properly.")]
         public void GhostDespawn_DespawnAck_WorksProperly()
         {
-            // There used to be an issue where we would release a ghost id before we received acks from all clients, which meant weird behaviour and asserts.
-            // This test reproduced the conditions for this to happen
+            // 过去曾在收到所有客户端确认前提前释放 Ghost ID，导致异常行为和断言失败
+            // 此测试通过延迟和丢包复现该问题的触发条件
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true);
             testWorld.DriverSimulatedDelay = 200;
@@ -1074,15 +1067,15 @@ namespace Unity.NetCode.Tests
             testWorld.Connect(maxSteps:100);
             testWorld.GoInGame();
 
-            // Spawn server side
+            // 在服务器生成 Ghost
             var serverEnt = testWorld.SpawnOnServer(0);
 
-            // Let it spawn client side
-            testWorld.TickMultiple(16); // make sure it's this count, we align ticks to the network tick rate to reproduce potential issues
+            // 推进 Tick 以便客户端生成 Ghost
+            testWorld.TickMultiple(16); // 保持该次数以对齐 Network Tick Rate 并复现潜在问题
 
             testWorld.ServerWorld.EntityManager.DestroyEntity(serverEnt);
 
-            // run this multiple times, since we have a drop rate chance
+            // 重复生成和销毁以覆盖随机丢包情况
             for (int i = 0; i < 100; i++)
             {
                 testWorld.TickMultiple(2);
@@ -1092,7 +1085,7 @@ namespace Unity.NetCode.Tests
             }
             testWorld.TickMultiple(500);
 
-            // make sure everything is cleaned up
+            // 确认服务器和客户端均已完成清理
             var existsServer = testWorld.ServerWorld.EntityManager.Exists(serverEnt);
             var existsClient = !testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance)).IsEmpty;
             Assert.IsFalse(existsClient);

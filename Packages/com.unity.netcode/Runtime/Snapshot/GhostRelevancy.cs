@@ -6,58 +6,61 @@ using Unity.Jobs;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Specify how the ghosts added to the relevancy set should be used.
+    /// 指定如何使用加入相关性集合的 Ghost
     /// </summary>
     public enum GhostRelevancyMode
     {
         /// <summary>
-        /// The default. No relevancy will applied under any circumstances.
+        /// 默认值，任何情况下都不应用相关性筛选
         /// </summary>
         Disabled,
         /// <summary>
-        /// Only ghosts added to relevancy set (`GhostRelevancySet`, below) are considered "relevant to that client", and thus serialized for the specified connection (where possible, obviously, as eventual consistency and importance scaling rules still apply).
+        /// 只有加入相关性集合 GhostRelevancySet 的 Ghost 才被视为与该客户端相关
+        /// 并在最终一致性和 Importance 缩放规则允许时为指定连接序列化
         /// </summary>
         /// <remarks>
-        /// Note that applying this setting will cause all ghosts to default to not be replicated to any client. It's a useful default when it's rare or impossible for a player to be viewing the entire world.
+        /// 注意，此设置会使所有 Ghost 默认不向任何客户端复制
+        /// 当玩家很少或不可能观察整个世界时，这是一个实用的默认策略
         /// </remarks>
         SetIsRelevant,
         /// <summary>
-        /// Ghosts added to relevancy set (<see cref="GhostRelevancy.GhostRelevancySet"/>) are considered "not-relevant to that client", and thus will be not serialized for the specified connection.
-        /// In other words: Set this mode if you want to specifically ignore specific entities for a given client.
+        /// 加入相关性集合 <see cref="GhostRelevancy.GhostRelevancySet"/> 的 Ghost 被视为与该客户端不相关
+        /// 因此不会为指定连接序列化
+        /// 如果需要让某个客户端明确忽略特定实体，请使用此模式
         /// </summary>
         SetIsIrrelevant
     }
 
     /// <summary>
-    /// A connection-ghost pair, used to populate the <see cref="GhostRelevancy"/> set at runtime, by declaring which ghosts are relevant for a given connection.
-    /// Behaviour is dependent upon on <see cref="GhostRelevancyMode"/>.
+    /// 连接与 Ghost 的组合，用于在运行时填充 <see cref="GhostRelevancy"/> 集合
+    /// 通过它声明哪些 Ghost 与给定连接相关，具体行为取决于 <see cref="GhostRelevancyMode"/>
     /// </summary>
     public struct RelevantGhostForConnection : IEquatable<RelevantGhostForConnection>, IComparable<RelevantGhostForConnection>
     {
         /// <summary>
-        /// Construct a new instance with the given connection id and ghost
+        /// 使用给定连接 ID 和 Ghost ID 构造新实例
         /// </summary>
-        /// <param name="connection">The connection id</param>
-        /// <param name="ghost">Ghost id</param>
+        /// <param name="connection">连接 ID</param>
+        /// <param name="ghost">Ghost ID 值</param>
         public RelevantGhostForConnection(int connection, int ghost)
         {
             Connection = connection;
             Ghost = ghost;
         }
         /// <summary>
-        /// return whenever the <paramref name="other"/> RelevantGhostForConnection is equals the current instance.
+        /// 返回 <paramref name="other"/> 是否与当前实例相等
         /// </summary>
-        /// <param name="other">Instance to compare with</param>
-        /// <returns>Whether connection and ghost id are identical</returns>
+        /// <param name="other">要比较的实例</param>
+        /// <returns>连接 ID 和 Ghost ID 是否相同</returns>
         public bool Equals(RelevantGhostForConnection other)
         {
             return Connection == other.Connection && Ghost == other.Ghost;
         }
         /// <summary>
-        /// Comparison operator, used for sorting.
+        /// 用于排序的比较方法
         /// </summary>
-        /// <param name="other">Instance to compare with</param>
-        /// <returns>Sorting order using ghost id and connection</returns>
+        /// <param name="other">要比较的实例</param>
+        /// <returns>按连接 ID 和 Ghost ID 得到的排序结果</returns>
         public int CompareTo(RelevantGhostForConnection other)
         {
             if (Connection == other.Connection)
@@ -65,30 +68,30 @@ namespace Unity.NetCode
             return Connection - other.Connection;
         }
         /// <summary>
-        /// A hash code suitable to insert the RelevantGhostForConnection into an hashmap or
-        /// other key-value pair containers. Is guarantee to be unique for the connection, ghost pairs.
+        /// 适合将 RelevantGhostForConnection 插入 HashMap 或其他键值容器的 Hash Code
+        /// 保证对连接与 Ghost 的组合唯一
         /// </summary>
-        /// <returns>Hash code basd on connection and ghost id</returns>
+        /// <returns>基于连接 ID 和 Ghost ID 的 Hash Code</returns>
         public override int GetHashCode()
         {
             return (Connection << 24) | Ghost;
         }
         /// <summary>
-        /// The connection for which this ghost is relevant.
+        /// 此 Ghost 相关的连接
         /// </summary>
         public int Connection;
         /// <summary>
-        /// the ghost id of the entity.
+        /// 实体的 Ghost ID
         /// </summary>
         public int Ghost;
     }
 
     /// <summary>
-    /// Singleton entity present on the server.
-    /// Every frame, collect the set of ghosts that should be (or should not be) replicated to a given client.
+    /// 存在于服务器上的单例组件
+    /// 每帧收集应向或不应向给定客户端复制的 Ghost 集合
     /// </summary>
     /// <remarks>
-    /// Use GhostRelevancy to avoid replicating entities that the player can neither see, nor interact with.
+    /// 使用 GhostRelevancy 避免复制玩家既看不到也无法交互的实体
     /// </remarks>
     public struct GhostRelevancy : IComponentData
     {
@@ -99,30 +102,29 @@ namespace Unity.NetCode
             DefaultRelevancyQuery = default;
         }
         /// <summary>
-        /// Specify if the ghosts present in the <see cref="GhostRelevancySet"/> should be replicated (relevant) or not replicated
-        /// (irrelevant) to the the client.
+        /// 指定 <see cref="GhostRelevancySet"/> 中的 Ghost 应向客户端复制，即相关
+        /// 还是不复制，即不相关
         /// </summary>
         public GhostRelevancyMode GhostRelevancyMode;
         /// <summary>
-        /// A sorted collection of (connection, ghost) pairs, that should be used to specify which ghosts, for a given
-        /// connection, should be replicated (or not replicated, based on the <see cref="GhostRelevancyMode"/>) for the current
-        /// simulated tick.
-        /// For per-component type rules, see <see cref="DefaultRelevancyQuery"/>.
+        /// 连接与 Ghost 组合的集合，用于指定当前模拟 Tick 中哪些 Ghost 应向给定连接复制
+        /// 或根据 <see cref="GhostRelevancyMode"/> 不向其复制
+        /// 组件类型级规则参见 <see cref="DefaultRelevancyQuery"/>
         /// </summary>
         public readonly NativeParallelHashMap<RelevantGhostForConnection, int> GhostRelevancySet;
 
         /// <summary>
-        /// Use this query to specify the default per-component type rules about which ghosts should be relevant.
-        /// Note, however, that this filter is overridden by <see cref="GhostRelevancySet"/>.
-        /// For example
+        /// 使用此查询指定哪些 Ghost 默认相关的组件类型级规则
+        /// 但 <see cref="GhostRelevancySet"/> 会覆盖此筛选结果
+        /// 例如
         /// Mode = SetIsRelevant, DefaultRelevancyQuery = Any&lt;MyComponentA&gt;, GhostRelevancySet = ghostWithComponentB
-        /// - All ghosts with MyComponentA + the single ghostWithComponentB will be relevant
+        /// - 所有具有 MyComponentA 的 Ghost，加上单个 ghostWithComponentB，均为相关
         /// Mode = SetIsIrrelevant, DefaultRelevancyQuery = Any&lt;MyComponentA&gt;, GhostRelevancySet = ghostWithComponentA
-        /// - All ghosts with MyComponentA will be relevant, except the single ghostWithComponentA
+        /// - 所有具有 MyComponentA 的 Ghost 均为相关，但单个 ghostWithComponentA 除外
         /// </summary>
         /// <remarks>
-        /// Since this is translating to a <see cref="EntityQueryMask"/> internally, the same restrictions apply for filtering.
-        /// Ensure your query uses the Any filter if you have multiple ghost types which should all be considered always relevant by default.
+        /// 此查询在内部转换为 <see cref="EntityQueryMask"/>，因此筛选时适用相同限制
+        /// 如果多个 Ghost 类型都应默认始终相关，请确保查询使用 Any 筛选器
         /// </remarks>
         public EntityQuery DefaultRelevancyQuery;
     }

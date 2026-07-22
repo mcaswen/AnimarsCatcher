@@ -11,9 +11,9 @@ using UnityEditor;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Allows game code to write its own custom ghost drawers and hook them up in the `MultiplayerPlayModeWindow`.
-    /// Implement your own <see cref="CustomDrawer"/> to add a custom debug drawer.
-    /// See `BoundingBoxDebugGhostDrawer` for reference.
+    /// 允许游戏代码编写自定义 Ghost Drawer，并将其接入 `MultiplayerPlayModeWindow`
+    /// 实现自己的 <see cref="CustomDrawer"/> 即可添加自定义调试 Drawer
+    /// 可参考 `BoundingBoxDebugGhostDrawer`
     /// </summary>
     public class DebugGhostDrawer
     {
@@ -30,7 +30,7 @@ namespace Unity.NetCode
         static ulong s_LastNextSequenceNumber;
 
         /// <summary>
-        ///     Replaces the existing DrawAction with the same name, if it already exists.
+        ///     如果已经存在同名 DrawAction，则替换它
         /// </summary>
         public static void RegisterDrawAction(CustomDrawer newDrawAction)
         {

@@ -6,30 +6,30 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新组件类型的临时类型，将在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("NetworkIdComponent has been deprecated. Use NetworkId instead (UnityUpgradable) -> NetworkId", true)]
     public struct NetworkIdComponent : IComponentData
     {}
 
     /// <summary>
-    /// The connection identifier assigned by the server to the incoming client connection.
-    /// The NetworkIdComponent is used as temporary client identifier for the current session. When a client disconnects,
-    /// its network id can be reused by the server, and assigned to a new, incoming connection (on a a "first come, first serve" basis).
-    /// Thus, there is no guarantee that a disconnecting client will receive the same network id once reconnected.
-    /// As such, the network identifier should never be used to persist - and then retrieve - information for a given client/player.
+    /// 服务器分配给入站客户端连接的连接标识符
+    /// NetworkIdComponent 是当前会话中的临时客户端标识符
+    /// 客户端断开后，服务器可以按先到先得的方式复用其 Network ID，并分配给新的入站连接
+    /// 因此无法保证断开连接的客户端重连后会获得相同 Network ID
+    /// 所以绝不能使用此网络标识符持久化并重新获取指定客户端或玩家的信息
     /// </summary>
     public struct NetworkId : IComponentData, IEquatable<NetworkId>
     {
         /// <summary>
-        /// The network identifier assigned by the server. A valid identifier it is always greater than 0.
+        /// 服务器分配的网络标识符，有效值始终大于 0
         /// </summary>
         public int Value;
 
         /// <summary>
-        /// Returns 'NID[value]'.
+        /// 返回 `NID[value]`
         /// </summary>
-        /// <returns>Returns 'NID[value]'.</returns>
+        /// <returns>`NID[value]`</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString32Bytes ToFixedString()
         {
@@ -59,12 +59,12 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// System RPC sent from the server to client to assign a <see cref="NetCode.NetworkId"/> to a newly accepted connection.
-    /// I.e. <see cref="ConnectionState.State.Handshake"/> and <see cref="ConnectionState.State.Approval"/> (if enabled) succeeded!
+    /// 服务器向客户端发送的系统 RPC，用于给新接受的连接分配 <see cref="NetCode.NetworkId"/>
+    /// 这表示 <see cref="ConnectionState.State.Handshake"/> 和启用时的 <see cref="ConnectionState.State.Approval"/> 已成功
     /// </summary>
     /// <remarks>
-    /// Also responsible for telling the client some additional server configuration information.
-    /// Previously called `RpcSetNetworkId`.
+    /// 还负责向客户端传递部分额外的服务器配置信息
+    /// 之前名为 `RpcSetNetworkId`
     /// </remarks>
     [BurstCompile]
     internal struct ServerApprovedConnection : IApprovalRpcCommand, IRpcCommandSerializer<ServerApprovedConnection>
@@ -94,11 +94,11 @@ namespace Unity.NetCode
         [AOT.MonoPInvokeCallback(typeof(RpcExecutor.ExecuteDelegate))]
         private static void InvokeExecute(ref RpcExecutor.Parameters parameters)
         {
-            // Client received confirmation that they've successfully connected to the server!
+            // 客户端收到已成功连接服务器的确认
             var rpcData = default(ServerApprovedConnection);
             rpcData.Deserialize(ref parameters.Reader, parameters.DeserializerState, ref rpcData);
 
-            // Validate this is allowed to execute but after deserialization to prevent deserialization errors
+            // 反序列化后再验证是否允许执行，避免产生反序列化错误
             if (parameters.IsServer)
             {
                 parameters.NetDebug.LogError($"[{parameters.WorldName}][Connection] Server received internal client-only RPC request '{ComponentType.ReadWrite<ServerApprovedConnection>().ToFixedString()}' from client. This is not allowed, and the client connection will be disconnected.");
@@ -109,7 +109,7 @@ namespace Unity.NetCode
                 return;
             }
 
-            // Set the connection unique ID as commanded by the server
+            // 按服务器指示设置连接唯一 ID
             if (parameters.ClientConnectionUniqueIdEntity == Entity.Null)
             {
                 var uniqueIdEntity = parameters.CommandBuffer.CreateEntity(parameters.JobIndex);

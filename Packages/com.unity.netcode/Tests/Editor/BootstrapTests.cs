@@ -38,34 +38,42 @@ namespace Unity.NetCode.Tests
         }
     }
 
-    /// <summary>The <see cref="GhostPredictionHistorySystem"/> does some additional saving and writing, which needs to be tested.</summary>
+    /// <summary>
+    /// <see cref="GhostPredictionHistorySystem"/> 会执行额外的保存与写入，需要覆盖该测试维度
+    /// </summary>
     internal enum PredictionSetting
     {
         WithPredictedEntities = 1,
         WithInterpolatedEntities = 2,
     }
 
-    /// <summary>Defines which variant to use during testing (and how that variant is applied), thus testing all user flows.</summary>
+    /// <summary>
+    /// 定义测试使用的 Variant 及其应用方式，以覆盖全部用户流程
+    /// </summary>
     internal enum SendForChildrenTestCase
     {
         /// <summary>
-        /// Creating a parent and child overload via <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/>
-        /// using the map from <see cref="GhostTypeConverter.FetchAllTestComponentTypesRequiringSendRuleOverride"/>.
+        /// 使用 <see cref="GhostTypeConverter.FetchAllTestComponentTypesRequiringSendRuleOverride"/> 提供的映射
+        /// 通过 <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/> 创建父 Entity 与子 Entity Override
         /// </summary>
         YesViaExplicitVariantRule,
         /// <summary>
-        /// Creating a child-only overload via <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/>.
-        /// Parents will default to <see cref="DontSerializeVariant"/>.
-        /// Note that components on children MAY STILL NOT replicate (due to their own child-replication rules).
+        /// 通过 <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/> 创建仅子 Entity 使用的 Override
+        /// 父 Entity 默认使用 <see cref="DontSerializeVariant"/>
+        /// 子 Entity 上的组件仍可能因自身的子 Entity 复制规则而不复制
         /// </summary>
         YesViaExplicitVariantOnlyAllowChildrenToReplicateRule,
-        /// <summary>Forcing the variant to DontSerializeVariant via <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/>.</summary>
+        /// <summary>
+        /// 通过 <see cref="DefaultVariantSystemBase.RegisterDefaultVariants"/> 强制使用 DontSerializeVariant
+        /// </summary>
         NoViaExplicitDontSerializeVariantRule,
-        /// <summary>Using the <see cref="GhostAuthoringInspectionComponent"/> to define an override on a child.</summary>
+        /// <summary>
+        /// 使用 <see cref="GhostAuthoringInspectionComponent"/> 为子 Entity 定义 Override
+        /// </summary>
         YesViaInspectionComponentOverride,
         /// <summary>
-        /// Children default to <see cref="DontSerializeVariant"/>.
-        /// Note that: If the type only has 1 variant, it'll default to it.
+        /// 子 Entity 默认使用 <see cref="DontSerializeVariant"/>
+        /// 若该类型只有一个 Variant，则默认使用该 Variant
         /// </summary>
         Default,
     }
@@ -140,7 +148,7 @@ namespace Unity.NetCode.Tests
             {
                 var serverDriver = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
                 var netDebug = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-                //Check it is possible to change the driver if the world is in a stable state and there are no connection or listening interfaces.
+                // World 状态稳定且没有连接或监听接口时，应允许更换 Driver
                 var driverStore = new NetworkDriverStore();
                 var constructor = testWorld;
                 constructor.CreateServerDriver(testWorld.ServerWorld, ref driverStore, netDebug);
@@ -149,7 +157,7 @@ namespace Unity.NetCode.Tests
             {
                 var clientDriver = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
                 var netDebug = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-                //Check it is possible to change the driver if the world is in a stable state and there are no connection or listening interfaces.
+                // World 状态稳定且没有连接或监听接口时，应允许更换 Driver
                 var driverStore = new NetworkDriverStore();
                 var constructor = testWorld;
                 constructor.CreateClientDriver(testWorld.ClientWorlds[0], ref driverStore, netDebug);
@@ -167,7 +175,7 @@ namespace Unity.NetCode.Tests
             {
                 var serverDriver = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
                 var netDebug = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-                //Check it is possible to change the driver if the world is in a stable state and there are no connection or listening interfaces.
+                // 已存在连接时，不应允许更换 Driver
                 var driverStore = new NetworkDriverStore();
                 var constructor = testWorld;
                 constructor.CreateServerDriver(testWorld.ServerWorld, ref driverStore, netDebug);
@@ -179,7 +187,7 @@ namespace Unity.NetCode.Tests
             {
                 var clientDriver = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
                 var netDebug = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-                //Check it is possible to change the driver if the world is in a stable state and there are no connection or listening interfaces.
+                // 已存在连接时，不应允许更换 Driver
                 var driverStore = new NetworkDriverStore();
                 var constructor = testWorld;
                 constructor.CreateClientDriver(testWorld.ClientWorlds[0], ref driverStore, netDebug);

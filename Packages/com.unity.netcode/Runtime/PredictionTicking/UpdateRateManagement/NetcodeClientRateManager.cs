@@ -5,7 +5,7 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Store the previous tick and fraction. Used by client to calculated the network elapsed deltatime
+    /// 保存上一个 Tick 及其小数进度，供客户端计算网络时间增量
     /// </summary>
     internal struct PreviousServerTick : IComponentData
     {
@@ -27,7 +27,7 @@ namespace Unity.NetCode
         private bool m_DidPushTime;
         internal NetcodeClientRateManager(ComponentSystemGroup group)
         {
-            // Create the queries for singletons
+            // 创建单例查询
             m_NetworkTimeQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkTime>());
             m_UnscaledTimeQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<UnscaledClientTime>());
             m_PreviousServerTickQuery = group.World.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<PreviousServerTick>());
@@ -64,7 +64,7 @@ namespace Unity.NetCode
                 m_PredictedFixedStepSimulationSystemGroup.ConfigureTimeStep(tickRate);
 
             var networkTimeSystemData = m_NetworkTimeSystemDataQuery.GetSingleton<NetworkTimeSystemData>();
-            // Calculate update time based on values received from the network time system
+            // 根据网络时间系统提供的值计算本次更新时间
             var curServerTick = networkTimeSystemData.predictTargetTick;
             var curInterpoationTick = networkTimeSystemData.interpolateTargetTick;
             var serverTickFraction = networkTimeSystemData.subPredictTargetTick;
@@ -75,7 +75,7 @@ namespace Unity.NetCode
             ref var previousServerTick = ref m_PreviousServerTickQuery.GetSingletonRW<PreviousServerTick>().ValueRW;
             var currentTime = group.World.Time;
 
-            // If the tick is within ±5% of a frame from matching a tick - just use the actual tick instead
+            // 如果部分 Tick 距完整 Tick 不超过一帧的 ±5%，则直接吸附到完整 Tick
             if (curServerTick.IsValid && tickRate.ClampPartialTicksThreshold > 0)
             {
                 var fClamp = tickRate.ClampPartialTicksThreshold * 0.01f;
@@ -101,7 +101,7 @@ namespace Unity.NetCode
                 var deltaTicks = curServerTick.TicksSince(previousServerTick.Value);
                 networkDeltaTime = (deltaTicks + serverTickFraction - previousServerTick.Fraction) * tickRate.SimulationFixedTimeStep;
                 networkTime.SimulationStepBatchSize = (int)deltaTicks;
-                // If last tick was fractional - consider this as re-doing that tick since it will be re-predicted
+                // 如果上一个 Tick 不完整，则本次会重新预测该 Tick，因此将其计入批处理步数
                 if (previousServerTick.Fraction < 1)
                     ++networkTime.SimulationStepBatchSize;
             }

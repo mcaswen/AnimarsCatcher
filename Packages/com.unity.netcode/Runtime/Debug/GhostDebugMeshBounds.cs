@@ -6,39 +6,41 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Self contained component to hold a mesh's bounds for debug drawing.
+    /// 保存 Mesh Bounds 以供调试绘制的自包含组件
     /// </summary>
     /// <remarks>
-    /// This should stay active even when the GameObject is inactive. This is really showing boxes for the netcode of your GameObject, which is linked to the entity lifecycle
-    /// If the entity is still moving and your GO is inactive, you'd potentially still want to know about it.
+    /// 即使 GameObject 处于非激活状态，此组件也应保持有效
+    /// 它实际显示的是与 Entity 生命周期关联的 GameObject NetCode 调试框
+    /// 如果 Entity 仍在移动而 GameObject 已失活，通常仍需要观察它
     /// </remarks>
     public struct GhostDebugMeshBounds : IComponentData
     {
         static List<Renderer> s_AllRenderers = new();
         /// <summary>
-        /// The bounds for this entity, used to draw a debug box. Should be in local space, with the center at the object's origin.
+        /// 此 Entity 的 Bounds，用于绘制调试框
+        /// 应位于局部空间，中心位于对象原点
         /// </summary>
         public Bounds GlobalBounds;
 
         /// <summary>
-        /// Convenience method to initialize the debug mesh bounds for GameObjects.
+        /// 初始化 GameObject 调试 Mesh Bounds 的便捷方法
         /// </summary>
-        /// <param name="gameObject">GameObject with debug mesh</param>
-        /// <param name="entity">Entity represenation of gameobject</param>
-        /// <param name="world">World containing entity</param>
-        /// <returns>Returns a mesh's bounds for debug drawing.</returns>
+        /// <param name="gameObject">具有调试 Mesh 的 GameObject</param>
+        /// <param name="entity">GameObject 对应的 Entity</param>
+        /// <param name="world">包含 Entity 的 World</param>
+        /// <returns>用于调试绘制的 Mesh Bounds</returns>
         public GhostDebugMeshBounds Initialize(GameObject gameObject, Entity entity, World world)
         {
             gameObject.GetComponentsInChildren<Renderer>(includeInactive: true, results: s_AllRenderers);
-            world.EntityManager.AddComponent<LocalToWorld>(entity); // required for rendering a little cross for debug drawer
+            world.EntityManager.AddComponent<LocalToWorld>(entity); // 调试 Drawer 渲染小十字标记时需要此组件
             if (s_AllRenderers.Count != 0)
             {
                 GlobalBounds = s_AllRenderers[0].localBounds;
-                GlobalBounds.center = gameObject.transform.InverseTransformPoint(s_AllRenderers[0].bounds.center); // with localBounds, center is zero, so we need to adjust
+                GlobalBounds.center = gameObject.transform.InverseTransformPoint(s_AllRenderers[0].bounds.center); // localBounds 的中心为零，因此需要校正
                 for (int i = 1; i < s_AllRenderers.Count; i++)
                 {
                     var currentBounds = s_AllRenderers[i].localBounds;
-                    currentBounds.center = gameObject.transform.InverseTransformPoint(s_AllRenderers[i].bounds.center); // with localBounds, center is zero, so we need to adjust
+                    currentBounds.center = gameObject.transform.InverseTransformPoint(s_AllRenderers[i].bounds.center); // localBounds 的中心为零，因此需要校正
                     GlobalBounds.Encapsulate(currentBounds);
                 }
             }

@@ -3,7 +3,7 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Singleton component used to enable/disable the built-in scene auto-tracking.
+    /// 用于启用或禁用内置场景自动跟踪的 Singleton Component
     /// </summary>
     public struct DisableAutomaticPrespawnSectionReporting : IComponentData {}
 }

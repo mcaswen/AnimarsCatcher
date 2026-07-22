@@ -28,10 +28,10 @@ namespace Unity.NetCode.Editor
         }
 
         /// <summary>
-        /// Formats bytes into a human-readable string with appropriate suffixes (B, KB, MB, etc.).
+        /// 使用合适的 B、KB、MB 等后缀，将字节数格式化为易读字符串
         /// </summary>
-        /// <param name="bytes">The number of bytes to format.</param>
-        /// <returns>A formatted string representing the size in bytes with appropriate suffixes.</returns>
+        /// <param name="bytes">待格式化的字节数</param>
+        /// <returns>带合适单位后缀的字节大小字符串</returns>
         internal static string FormatBytes(long bytes)
         {
             switch (bytes)

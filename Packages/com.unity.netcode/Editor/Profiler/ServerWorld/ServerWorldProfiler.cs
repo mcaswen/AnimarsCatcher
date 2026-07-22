@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// The profiler module for the server world in Netcode for Entities.
+    /// NetCode for Entities 的 Server World Profiler 模块
     /// </summary>
     [ProfilerModuleMetadata("Server World", IconPath = "Packages/com.unity.netcode/EditorIcons/GhostAuthoring.png")]
     class ServerWorldProfiler : ProfilerModule
@@ -16,7 +16,7 @@ namespace Unity.NetCode.Editor
             {
                 new ProfilerCounterDescriptor(ProfilerMetricsConstants.GhostSnapshotsCounterNameServer, ProfilerCategory.Network),
                 new ProfilerCounterDescriptor(ProfilerMetricsConstants.GhostInstancesCounterNameServer, ProfilerCategory.Network)
-            }, ProfilerModuleChartType.Line) { } // TODO: Make it a bar chart once it's available
+            }, ProfilerModuleChartType.Line) { } // TODO 支持后改用柱状图
 
         public override ProfilerModuleViewController CreateDetailsViewController()
             => new NetcodeForEntitiesProfilerModuleViewController(ProfilerWindow, NetworkRole.Server);

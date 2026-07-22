@@ -50,7 +50,7 @@ namespace Unity.NetCode.PrespawnTests
                 {
                     if (ghostComponents[i].ghostId != 0 && preSpawnedGhostIds.Length >= i)
                     {
-                        // Since ghost IDs will get patched across multiple scenes they might not match exactly
+                        // Ghost ID 会跨多个场景修补，因此不一定与预生成索引完全相等
                         var ghostId = (int)(ghostComponents[i].ghostId & ~PrespawnHelper.PrespawnGhostIdBase);
                         var diff = ghostId - preSpawnedGhostIds[i].Value - 1;
                         Assert.That(diff % GhostsPerScene == 0, "Prespawned ID not applied properly preID=" + preSpawnedGhostIds[i].Value + " ghostID=" + ghostId);
@@ -83,7 +83,7 @@ namespace Unity.NetCode.PrespawnTests
 
         void CheckAllPrefabsInWorld(World world)
         {
-            //TODO: dispose these
+            // TODO 释放这些查询
             Assert.IsFalse(world.EntityManager.CreateEntityQuery(new EntityQueryDesc
                 {
                     All = new [] {ComponentType.ReadOnly<PreSpawnedGhostIndex>()},
@@ -95,7 +95,7 @@ namespace Unity.NetCode.PrespawnTests
                     All = new [] {ComponentType.ReadOnly<NetCodePrespawnTag>()},
                     Options = EntityQueryOptions.IncludeDisabledEntities
                 }).IsEmptyIgnoreFilter);
-            //Check that prefab that does not have the NetCodePrespawnTag does not have any PreSpawnedGhostId
+            // 检查不含 NetCodePrespawnTag 的 Prefab 不会获得 PreSpawnedGhostIndex
             var query = world.EntityManager.CreateEntityQuery(
                 new EntityQueryDesc
                 {
@@ -113,7 +113,7 @@ namespace Unity.NetCode.PrespawnTests
             Assert.IsTrue(query.IsEmptyIgnoreFilter);
         }
 
-        // Checks that prefabs and runtime spawned ghosts don't get the prespawn id component applied to them
+        // 检查 Prefab 和运行时生成的 Ghost 不会误获预生成 ID 组件
         [Test]
         public void PrespawnIdComponentDoesntLeaksToOtherEntitiesInScene()
         {
@@ -171,7 +171,7 @@ namespace Unity.NetCode.PrespawnTests
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
                 testWorld.GoInGame();
-                // Give Prespawn ghosts processing a chance to run a bunch of times
+                // 推进若干 Tick 让预生成 Ghost 处理逻辑有机会运行
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(PrespawnsSceneInitialized));
@@ -227,9 +227,9 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.CreateWorlds(true, 2);
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld);
                 testWorld.Connect();
-                //Set in game the first client
+                // 让第一个客户端进入游戏
                 testWorld.SetInGame(0);
-                // Delete one prespawned entity on the server
+                // 在服务器删除一个预生成实体
                 var deletedId = 0;
                 var q = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance), ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                 var prespawnedQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance), ComponentType.ReadOnly<PreSpawnedGhostIndex>());
@@ -237,7 +237,7 @@ namespace Unity.NetCode.PrespawnTests
                 {
                     testWorld.Tick();
                     var prespawnedGhost = q.ToComponentDataArray<GhostInstance>(Allocator.Temp);
-                    // Filter for GhostComoponent and grab it after prespawn processing is done (ghost id valid)
+                    // 等待预生成处理完成并取得 Ghost ID 已有效的实体
                     if (prespawnedGhost.Length == 0 || (prespawnedGhost.Length > 0 && prespawnedGhost[0].ghostId == 0))
                     {
                         prespawnedGhost.Dispose();
@@ -252,9 +252,9 @@ namespace Unity.NetCode.PrespawnTests
                     break;
                 }
                 Assert.True(deletedId < 0);
-                // Server now has one less prespawned ghosts since one was deleted, updated the count
+                // 服务器删除一个预生成 Ghost 后数量应减少一
                 testWorld.SetInGame(1);
-                // Check that the deleted entity has been cleaned up on the second client
+                // 检查已删除实体在第二个客户端完成清理
                 bool exists = false;
                 int prespawnedCount = 0;
                 var query = testWorld.ClientWorlds[1].EntityManager.CreateEntityQuery(new EntityQueryDesc
@@ -271,7 +271,7 @@ namespace Unity.NetCode.PrespawnTests
                     prespawnedCount = prespawnedData.Length;
                     for (int j = 0; j < prespawnedData.Length; ++j)
                     {
-                        // Entity will be loaded from subscene data, wait until it goes missing after first ghost snapshot update
+                        // 实体会先从 SubScene 数据加载，等待首个 Ghost 快照更新后将其移除
                         if (prespawnedData[j].Value == deletedId)
                             exists = true;
                     }
@@ -285,11 +285,9 @@ namespace Unity.NetCode.PrespawnTests
             }
         }
 
-        // Checking expected behaviour:
-        // - 4 prespawns and 1 spawn created
-        // - client connects and disconnects
-        // - server retains that count, no cleanup (5)
-        // - client cleans runtime spawns only (4), prespawns are a part of the subscene
+        // 验证七个预生成 Ghost、一个运行时 Ghost 和一个场景列表 Ghost 的清理行为
+        // 客户端连接后断开，服务器保留全部九个 Ghost
+        // 客户端清理运行时和场景列表 Ghost，只保留 SubScene 中的七个预生成 Ghost
         [Test]
         public void GhostCleanup()
         {
@@ -310,8 +308,7 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.ClientWorlds[0].EntityManager.CreateEntity(typeof(EnableVerifyGhostIds));
                 testWorld.Connect();
                 testWorld.GoInGame();
-                // If servers spawns something before connection is in game it will be registered as a prespawned entity
-                // Wait until prespawned ghosts have been initialized
+                // 等待预生成 Ghost 完成初始化后再生成运行时实体
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(PreSpawnedGhostIndex),
                     typeof(GhostInstance));
                 for (int i = 0; i < 16; ++i)
@@ -322,10 +319,10 @@ namespace Unity.NetCode.PrespawnTests
                         break;
                 }
 
-                // Spawn something
+                // 生成一个运行时 Ghost
                 testWorld.SpawnOnServer(0);
                 var ghostCount = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance), typeof(PreSpawnedGhostIndex)).CalculateEntityCount();
-                // Wait until it's spawned on client
+                // 等待客户端生成该运行时 Ghost
                 int currentCount = 0;
                 var clientQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance), typeof(PreSpawnedGhostIndex));
                 for (int i = 0; i < 64 && currentCount != ghostCount; ++i)
@@ -335,7 +332,7 @@ namespace Unity.NetCode.PrespawnTests
                 }
                 Assert.That(ghostCount == currentCount, "Client did not spawn runtime entity (clientCount=" + currentCount + " serverCount=" + ghostCount + ")");
 
-                // Verify spawned entities to not contain the prespawn id component
+                // 验证运行时生成实体不包含预生成 ID 组件
                 var prespawnCount = testWorld.ServerWorld.EntityManager
                     .CreateEntityQuery(typeof(PreSpawnedGhostIndex), typeof(GhostInstance)).CalculateEntityCount();
                 Assert.AreEqual(VerifyGhostIds.GhostsPerScene, prespawnCount, "Runtime spawned server entity got prespawn component added");
@@ -346,17 +343,17 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.ClientWorlds[0].EntityManager.AddComponent<NetworkStreamRequestDisconnect>(
                     testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(NetworkStreamConnection)).GetSingletonEntity());
 
-                // Wait until ghosts have been cleaned up
+                // 等待客户端 Ghost 完成清理
                 int serverGhostCount = 0;
                 int clientGhostCount = 0;
-                int expectedServerGhostCount = VerifyGhostIds.GhostsPerScene + 2; //Also the ghost list
-                int expectedClientGhostCount = VerifyGhostIds.GhostsPerScene; //only the prespawn should remain
+                int expectedServerGhostCount = VerifyGhostIds.GhostsPerScene + 2; // 额外包含运行时 Ghost 和场景列表 Ghost
+                int expectedClientGhostCount = VerifyGhostIds.GhostsPerScene; // 只保留预生成 Ghost
                 var serverGhosts = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance));
                 var clientGhosts = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
                 for (int i = 0; i < 16; ++i)
                 {
                     testWorld.Tick();
-                    // clientGhostCount will be 6 for a bit as it creates an initial archetype ghost and later a delayed one when on the right tick
+                    // 客户端会短暂创建初始 Archetype Ghost，并在目标 Tick 延迟生成正式实例，因此计数会暂时波动
                     serverGhostCount = serverGhosts.CalculateEntityCount();
                     clientGhostCount = clientGhosts.CalculateEntityCount();
                     //Debug.Log("serverCount=" + serverGhostCount + " clientCount=" + clientGhostCount);
@@ -453,7 +450,7 @@ namespace Unity.NetCode.PrespawnTests
 
                 var serverPosLookup = new NativeParallelHashMap<int, (float3 pos, GhostInstance ghostInstance)>(serverGhostPos.Length, Allocator.Temp);
                 Assert.AreEqual(clientGhostPos.Length, serverGhostPos.Length);
-                // Fill a hashmap with mapping from server ghost id to server position
+                // 建立服务器 Ghost ID 到位置和 GhostInstance 的映射
                 for (int i = 0; i < serverGhosts.Length; ++i)
                 {
                     serverPosLookup.Add(serverGhosts[i].ghostId, (serverGhostPos[i].Position, serverGhosts[i]));
@@ -461,15 +458,15 @@ namespace Unity.NetCode.PrespawnTests
                 for (int i = 0; i < clientGhosts.Length; ++i)
                 {
                     Assert.IsTrue(PrespawnHelper.IsPrespawnGhostId(clientGhosts[i].ghostId), "Prespawned ghosts not initialized");
-                    // Verify that the client ghost id exists on the server with the same position and same ghostType
+                    // 验证客户端 Ghost ID 在服务器存在且位置与 GhostType 一致
                     Assert.IsTrue(serverPosLookup.TryGetValue(clientGhosts[i].ghostId, out var serverPos));
                     Assert.LessOrEqual(math.distance(clientGhostPos[i].Position, serverPos.pos), 0.001f);
                     Assert.AreEqual(clientGhosts[i].ghostType, serverPosLookup[clientGhosts[i].ghostId].ghostInstance.ghostType);
 
-                    // Remove the server ghost id which we already matched against to make sure htere are no duplicates
+                    // 移除已匹配的服务器 Ghost ID，以确认不存在重复项
                     serverPosLookup.Remove(clientGhosts[i].ghostId);
                 }
-                // Verify that there are no additional server entities
+                // 验证服务器没有多余实体
                 Assert.AreEqual(0, serverPosLookup.Count());
             }
         }
@@ -592,7 +589,7 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.CreateWorlds(true, 1);
                 SubSceneHelper.LoadSubSceneInWorlds(testWorld, subScene);
 
-                //Tamper some prespawn on the server or the client such that their data aren't the same.
+                // 篡改服务器预生成数据，使客户端与服务器 Baseline 不一致
                 var query = testWorld.ServerWorld.EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<PreSpawnedGhostIndex>(),
                     ComponentType.ReadOnly<Disabled>());
@@ -607,12 +604,12 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                // Only expect to get the error once, as we disconnect immediately after getting it.
+                // 收到错误后会立即断开，因此只应记录一次错误
                 UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new Regex(@"Subscene (\w+) baseline mismatch."));
                 for(int i=0;i<10;++i)
                     testWorld.Tick();
 
-                // Verify connection is now disconnected
+                // 验证连接已经断开
                 var conQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkId>());
                 Assert.AreEqual(0, conQuery.CalculateEntityCount());
             }
@@ -639,7 +636,7 @@ namespace Unity.NetCode.PrespawnTests
             testWorld.ServerWorld.EntityManager.CreateEntity(typeof(EnableVerifyGhostIds));
             testWorld.ClientWorlds[0].EntityManager.CreateEntity(typeof(EnableVerifyGhostIds));
 
-            // Spawn:
+            // 连接并生成预生成 Ghost
             testWorld.Connect();
             testWorld.GoInGame();
             for (int i = 0; i < 32; ++i)
@@ -658,19 +655,19 @@ namespace Unity.NetCode.PrespawnTests
             Assert.AreEqual(VerifyGhostIds.GhostsPerScene, testWorld.ClientWorlds[0].GetExistingSystemManaged<VerifyGhostIds>().Matches, "Prespawn components added but didn't get ghost ID applied at runtime on client");
             Assert.AreEqual(testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick.TickValue, testWorld.GetNetworkTime(testWorld.ServerWorld).InterpolationTick.TickValue, "ServerTick is not equal to InterpolationTick on server world");
 
-            // Modify some:
+            // 修改部分 LocalTransform
             const int numToModify = 10;
             var serverLocalTransQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(LocalTransform));
             Assert.IsTrue(serverLocalTransQuery.CalculateChunkCount() > 1, $"Sanity - At least 2 chunks! Capacity:{serverLocalTransQuery.ToArchetypeChunkArray(Allocator.Temp)[0].Capacity}");
             const float multiplierA = 1.11f;
             ModifySomeLocalTransforms(serverLocalTransQuery, multiplierA);
 
-            // Ensure nothing goes wrong:
+            // 推进并验证 Tick 回绕没有造成异常
             for (int i = 0; i < 32; i++)
                 testWorld.Tick();
             VerifyLocalTransforms(serverLocalTransQuery, multiplierA, "NetworkTick-WrapAround");
 
-            // Test MaxBaselineAge is handled correctly by jumping the server by at least MaxBaselineAge WHILE modifying the prefab:
+            // 修改实体的同时将服务器 Tick 跳过至少 MaxBaselineAge，以验证过期 Baseline 处理正确
             ref var networkTime = ref testWorld.GetSingletonRW<NetworkTime>(testWorld.ServerWorld).ValueRW;
             var prevServerTick = networkTime.ServerTick;
             Assert.IsTrue(prevServerTick.TickIndexForValidTick < 1000, "Sanity! Did wrap around!");
@@ -681,7 +678,7 @@ namespace Unity.NetCode.PrespawnTests
             const float multiplierB = 5.3f;
             ModifySomeLocalTransforms(serverLocalTransQuery, multiplierB);
 
-            // Ensure nothing goes wrong:
+            // 推进并验证 MaxBaselineAge 跳跃没有造成异常
             for (int i = 0; i < 64; i++)
                 testWorld.Tick();
 #if NETCODE_DEBUG
@@ -690,7 +687,7 @@ namespace Unity.NetCode.PrespawnTests
 #endif
             VerifyLocalTransforms(serverLocalTransQuery, multiplierB, "MaxBaselineAge");
 
-            // Done! Local funcs:
+            // 以下本地函数负责修改和验证 LocalTransform
             static void ModifySomeLocalTransforms(EntityQuery serverLocalTransQuery, float mul)
             {
                 var localTransforms = serverLocalTransQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
@@ -764,7 +761,7 @@ namespace Unity.NetCode.PrespawnTests
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                // Verify all ghosts have despawned
+                // 验证全部预生成 Ghost 已销毁
                 query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<PreSpawnedGhostIndex>());
                 Assert.AreEqual(0, query.CalculateEntityCount());
@@ -774,10 +771,10 @@ namespace Unity.NetCode.PrespawnTests
                 for(int i=0;i<16;++i)
                     testWorld.Tick();
 
-                // Verify all ghosts have been spawned again
+                // 验证全部预生成 Ghost 已重新生成
                 query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<GhostInstance>(), ComponentType.ReadOnly<PreSpawnedGhostIndex>());
-                //+1 because there is also the scene list
+                // 该查询只统计预生成业务 Ghost，不包含场景列表 Ghost
                 Assert.AreEqual(rows*columns, query.CalculateEntityCount());
             }
         }
@@ -802,18 +799,18 @@ namespace Unity.NetCode.PrespawnTests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                // Prespawns on the client and server have the same values, even before replication.
+                // 即使尚未复制，客户端与服务器的预生成数据也应一致
                 foreach (var clientWorld in testWorld.ClientWorlds)
                     ValidateClientVsServer(testWorld.ServerWorld, clientWorld);
 
-                // Ensure the values don't get corrupted by early replication.
+                // 验证早期复制不会破坏这些值
                 for(int i=0;i<8;++i)
                     testWorld.Tick();
 
                 foreach (var clientWorld in testWorld.ClientWorlds)
                     ValidateClientVsServer(testWorld.ServerWorld, clientWorld);
 
-                // Modify these prespawn ghost values on the server:
+                // 修改服务器上的预生成 Ghost 数据
                 {
                     using var builder = new EntityQueryBuilder(Allocator.Temp).WithAll<TestComponent1, TestComponent2, TestBuffer3>().WithOptions(EntityQueryOptions.IgnoreComponentEnabledState);
                     using var serverQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(builder);
@@ -850,7 +847,7 @@ namespace Unity.NetCode.PrespawnTests
                     serverQuery.CopyFromComponentDataArray(s2);
                 }
 
-                // Replicate new values, then test again to ensure they replicate properly:
+                // 复制新值后再次验证数据同步正确
                 for(int i=0;i<8;++i)
                     testWorld.Tick();
 
@@ -873,7 +870,7 @@ namespace Unity.NetCode.PrespawnTests
                     Assert.AreEqual(sEntities.Length, cEntities.Length, "Different number of ghosts on the server vs client!");
                     for (var i = 0; i < sEntities.Length; i++)
                     {
-                        // TestComponent1 is a flag component.
+                        // TestComponent1 是标记组件
                         Assert.IsTrue(s2[i].Equals(c2[i]), "TestComponent2 is not the same on client vs server!");
 
                         var sBuffer = serverWorld.EntityManager.GetBuffer<TestBuffer3>(sEntities[i]);
@@ -895,7 +892,7 @@ namespace Unity.NetCode.PrespawnTests
         [Test]
         public void DisconnectReconnectWithPrespawns()
         {
-            // Load prespawn scene client and server side
+            // 在客户端和服务器加载预生成场景
             var ghost = SubSceneHelper.CreateSimplePrefab(ScenePath, "ghost", typeof(GhostAuthoringComponent), typeof(NetCodePrespawnAuthoring));
             var scene = SubSceneHelper.CreateEmptyScene(ScenePath, "Parent");
             SubSceneHelper.CreateSubSceneWithPrefabs(scene, ScenePath, "subscene", new[] { ghost }, 5);
@@ -911,14 +908,14 @@ namespace Unity.NetCode.PrespawnTests
             for (int i = 0; i < 8; i++)
                 testWorld.Tick();
 
-            // PrespawnAckSection must be added to client connection on the server, which means it's received the client request to start streaming the prespawn ghosts
+            // 服务器连接上的 PrespawnSectionAck 表示已收到客户端开始流式同步预生成 Ghost 的请求
             var serverPrespawnAckQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<PrespawnSectionAck>());
             Assert.AreEqual(1, serverPrespawnAckQuery.GetSingletonBuffer<PrespawnSectionAck>().Length);
 
             for (int i = 0; i < 4; i++)
                 testWorld.Tick();
 
-            // Disconnect the client
+            // 断开客户端连接
             using var driverQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamDriver>());
             using var clientConnectionToServer = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
             var clientNetworkDriver = driverQuery.GetSingleton<NetworkStreamDriver>();
@@ -928,12 +925,12 @@ namespace Unity.NetCode.PrespawnTests
             for (int i = 0; i < 4; i++)
                 testWorld.Tick();
 
-            // The streaming request flag has been disabled on the client
+            // 客户端的流式同步请求标志应已禁用
             using var clientGhostCleanupComponentQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<SubSceneWithGhostCleanup>());
             var cleanupData = clientGhostCleanupComponentQuery.GetSingleton<SubSceneWithGhostCleanup>();
             Assert.AreEqual(0, cleanupData.Streaming);
 
-            // Change the prespawn data while client is disconnected
+            // 在客户端断开期间修改预生成数据
             var serverGhostQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<TestComponent2>());
             var serverGhostEntities = serverGhostQuery.ToEntityArray(Allocator.Temp);
             foreach (var testGhost in serverGhostEntities)
@@ -945,20 +942,20 @@ namespace Unity.NetCode.PrespawnTests
                 buf.Add(new TestBuffer3() { Test2 = 20 });
             }
 
-            // Reconnect the client
+            // 重新连接客户端
             clientNetworkDriver.Connect(testWorld.ClientWorlds[0].EntityManager, NetworkEndpoint.LoopbackIpv4.WithPort(7979));
             for (int i = 0; i < 5; i++)
                 testWorld.Tick();
             testWorld.GoInGame();
 
-            // Stream request flag has been enabled again
+            // 流式同步请求标志应再次启用
             cleanupData = clientGhostCleanupComponentQuery.GetSingleton<SubSceneWithGhostCleanup>();
             Assert.AreEqual(1, cleanupData.Streaming);
 
             for (int i = 0; i < 6; i++)
                 testWorld.Tick();
 
-            // Verify client has latest prespawn ghost data
+            // 验证客户端收到最新预生成 Ghost 数据
             using var clientGhostTest2Query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<TestComponent2>());
             using var clientGhostEntitiesQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<TestComponent2>(), ComponentType.ReadOnly<TestBuffer3>());
             var clientGhostTest2Data = clientGhostTest2Query.ToComponentDataArray<TestComponent2>(Allocator.Temp);
@@ -973,7 +970,7 @@ namespace Unity.NetCode.PrespawnTests
                 Assert.AreEqual(20, buf[^1].Test2);
             }
 
-            // Move prespawns again and verify the changes are transferred to the client
+            // 再次修改预生成数据并验证变更同步到客户端
             foreach (var testGhost in serverGhostEntities)
             {
                 testWorld.ServerWorld.EntityManager.SetComponentData(testGhost, new TestComponent2(){ Test2 = 20000 });
@@ -997,9 +994,9 @@ namespace Unity.NetCode.PrespawnTests
         [Test]
         public void TestPrespawnRelevancy()
         {
-            // Prespawn info is stored in a ghost. We want to make sure internal unity ghosts are always relevant
+            // 预生成场景信息存储在内部 Ghost 中，该 Ghost 必须始终相关
 
-            // load prespawn scene client and server side
+            // 在客户端和服务器加载预生成场景
             var ghost = SubSceneHelper.CreateSimplePrefab(ScenePath, "ghost", typeof(GhostAuthoringComponent));
             var scene = SubSceneHelper.CreateEmptyScene(ScenePath, "Parent");
             SubSceneHelper.CreateSubScene(scene, Path.GetDirectoryName(scene.path), $"Subscene", 2, 2, ghost, Vector3.zero);
@@ -1011,13 +1008,13 @@ namespace Unity.NetCode.PrespawnTests
 
             var serverRelevancyQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostRelevancy));
             var clientPrespawnSceneQuery = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(PrespawnSceneLoaded));
-            testWorld.ServerWorld.EntityManager.CompleteAllTrackedJobs(); // to access the relevancy set
+            testWorld.ServerWorld.EntityManager.CompleteAllTrackedJobs(); // 完成依赖以访问相关性集合
             var relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
 
-            // Test empty relevancy, so no ghosts should be relevant, except the internal prespawn tracking one
+            // 清空相关性集合，此时只有内部预生成跟踪 Ghost 仍应相关
             relevancy.ValueRW.GhostRelevancySet.Clear();
-            // Need to connect after relevancy is set to make sure we cover all cases and ghosts didn't get time to replicate by accident
+            // 设置相关性后再连接，避免 Ghost 在测试条件生效前意外完成复制
             testWorld.Connect();
             testWorld.GoInGame();
 
@@ -1028,7 +1025,7 @@ namespace Unity.NetCode.PrespawnTests
 
             Assert.That(clientPrespawnSceneQuery.CalculateEntityCount(), Is.EqualTo(1));
 
-            // Test set always relevant query to not include prespawn ghost and make sure it is still relevant
+            // 设置排除预生成跟踪 Ghost 的默认查询，并确认内部 Ghost 仍然相关
             relevancy = serverRelevancyQuery.GetSingletonRW<GhostRelevancy>();
             relevancy.ValueRW.DefaultRelevancyQuery = new EntityQueryBuilder(Allocator.Temp).WithNone<PrespawnSceneLoaded>().Build(testWorld.ServerWorld.EntityManager);
             for (int i = 0; i < 4; i++)
@@ -1037,7 +1034,7 @@ namespace Unity.NetCode.PrespawnTests
             }
             Assert.That(clientPrespawnSceneQuery.CalculateEntityCount(), Is.EqualTo(1));
 
-            // test that prespawned ghosts are spawned correctly
+            // 验证预生成业务 Ghost 正确生成
             Assert.That(testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance), typeof(LocalTransform)).CalculateEntityCount(), Is.EqualTo(4));
             Assert.That(testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance), typeof(LocalTransform)).CalculateEntityCount(), Is.EqualTo(4));
         }

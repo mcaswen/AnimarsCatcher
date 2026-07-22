@@ -82,10 +82,10 @@ namespace Unity.NetCode.Tests
                 SimulationTickRate = simulationTickRate,
                 PredictedFixedStepSimulationTickRatio = predictedFixedStepRatio,
                 NetworkTickRate = networkTickRate,
-                HandshakeApprovalTimeoutMS = 10_000, // Prevent timeout.
+                HandshakeApprovalTimeoutMS = 10_000, // 防止超时
             };
             SetupTickRate(tickRate, testWorld);
-            //Check that the predicted fixed step rate is also set accordingly.
+            // 检查预测固定步长频率是否同步设置
             LogAssert.NoUnexpectedReceived();
             Assert.AreEqual(tickRate.PredictedFixedStepSimulationTimeStep, testWorld.ServerWorld.GetExistingSystemManaged<PredictedFixedStepSimulationSystemGroup>().Timestep);
             Assert.AreEqual(tickRate.PredictedFixedStepSimulationTimeStep, testWorld.ClientWorlds[0].GetExistingSystemManaged<PredictedFixedStepSimulationSystemGroup>().Timestep);
@@ -98,10 +98,10 @@ namespace Unity.NetCode.Tests
             testWorld.ServerWorld.EntityManager.CreateSingleton(tickRate);
             tickRate.ResolveDefaults();
             tickRate.Validate();
-            // Connect and make sure the connection could be established
+            // 建立连接并确认连接成功
             testWorld.Connect();
 
-            //Check that the simulation tick rate are the same
+            // 检查 Simulation Tick Rate 是否一致
             var serverRate = testWorld.GetSingleton<ClientServerTickRate>(testWorld.ServerWorld);
             var clientRate = testWorld.GetSingleton<ClientServerTickRate>(testWorld.ClientWorlds[0]);
             Assert.AreEqual(tickRate.SimulationTickRate, serverRate.SimulationTickRate);
@@ -109,7 +109,7 @@ namespace Unity.NetCode.Tests
             Assert.AreEqual(tickRate.PredictedFixedStepSimulationTickRatio, serverRate.PredictedFixedStepSimulationTickRatio);
             Assert.AreEqual(tickRate.PredictedFixedStepSimulationTickRatio, clientRate.PredictedFixedStepSimulationTickRatio);
 
-            //Do one last step so all the new settings are applied
+            // 再推进一步以应用全部新设置
             testWorld.Tick();
         }
 
@@ -136,8 +136,8 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(worldBeingTested.EntityManager.Exists(connEntity));
                 LogAssert.Expect(LogType.Error, new Regex($@"(has been incorrectly disposed)(.*)({worldBeingTested.Name})"));
                 worldBeingTested.EntityManager.DestroyEntity(connEntity);
-                testWorld.Tick(); // This tick will raise the error.
-                testWorld.Tick(); // This tick should NOT raise it again.
+                testWorld.Tick(); // 该 Tick 会触发错误
+                testWorld.Tick(); // 该 Tick 不应再次触发错误
             }
         }
 
@@ -163,7 +163,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 3);
 
-                // Manually connect them:
+                // 手动建立连接
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
 
@@ -177,29 +177,29 @@ namespace Unity.NetCode.Tests
                     {
                         connectionEntities[i] = clientWorld.EntityManager.CreateEntity(typeof(ConnectionState));
                         testWorld.GetSingletonRW<NetworkStreamDriver>(clientWorld).ValueRW.Connect(clientWorld.EntityManager, ep, connectionEntities[i]);
-                        // Ensure the ConnectionState is correct even on tick zero.
+                        // 确保 Tick 0 时 ConnectionState 也正确
                         var cs = clientWorld.EntityManager.GetComponentData<ConnectionState>(connectionEntities[i]);
                         Assert.AreEqual(State.Connecting, cs.CurrentState);
                     }
                     else connectionEntities[i] = testWorld.GetSingletonRW<NetworkStreamDriver>(clientWorld).ValueRW.Connect(clientWorld.EntityManager, ep);
                 }
 
-                // Tick zero: Connect called! No events at all.
+                // Tick 0：已调用 Connect，但尚无任何事件
                 AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                // Tick one: Client connecting events only:
+                // Tick 1：仅客户端产生 Connecting 事件
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 1, testWorld.ClientWorlds);
                 WorldHasEventAtIndex(testWorld, testWorld.ClientWorlds, 0, ConnectionState.State.Connecting);
 
-                // Tick 2: Both the client and server should now get the handshake:
+                // Tick 2：客户端与服务端都应进入 Handshake
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 3, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 1, testWorld.ClientWorlds);
 
-                // Add connection states now:
+                // 此时添加 ConnectionState
                 if (isVerifyingConnState)
                 {
                     using var serverNetworkStreamConnectionsQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
@@ -207,41 +207,41 @@ namespace Unity.NetCode.Tests
                     testWorld.ServerWorld.EntityManager.AddComponent<ConnectionState>(serverNetworkStreamConnectionsQuery);
                 }
 
-                isVerifyingConnState = false; // ConnectionState is added THIS FRAME on the server, so won't be correct here!
+                isVerifyingConnState = false; // 服务端在当前帧才添加 ConnectionState，因此此处状态尚不正确
                 ServerHasEventForEachClient(testWorld, ConnectionState.State.Handshake);
                 isVerifyingConnState = connectionStateMode == ConnectionStateMode.UsingConnectionState;
                 WorldHasEventAtIndex(testWorld, testWorld.ClientWorlds, 0, ConnectionState.State.Handshake);
 
-                // Tick 3: Client is sending the RPC to the server, no events on either.
+                // Tick 3：客户端向服务端发送 RPC，双方都不产生事件
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                // Tick 4: This is where the flow diverges:
-                // - With approval flow - We enter `Approval` state on server and reply.
-                // - Without approval flow - We enter Connected` state on the server and reply.
-                // In both cases: The server should have events, but not client!
+                // Tick 4：连接流程在此分支
+                // - 需要审批时，服务端进入 Approval 状态并响应
+                // - 无需审批时，服务端进入 Connected 状态并响应
+                // 两种情况下都只有服务端产生事件，客户端不产生事件
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 3, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                if (isApproval) // DIVERGE!
+                if (isApproval) // 进入审批分支
                 {
                     using var serverCheckApprovalQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<ReceiveRpcCommandRequest>(), ComponentType.ReadOnly<CheckApproval>());
                     Assert.AreEqual(0, serverCheckApprovalQuery.CalculateEntityCount());
 
-                    // Server should have Approval state.
+                    // 服务端应处于 Approval 状态
                     ServerHasEventForEachClient(testWorld, ConnectionState.State.Approval);
 
-                    // Client must wait for `ServerRequestApprovalAfterHandshake` RPC.
-                    // Tick 5: Clients now move into Approval!
+                    // 客户端必须等待 ServerRequestApprovalAfterHandshake RPC
+                    // Tick 5：客户端进入 Approval 状态
                     testWorld.Tick();
                     Assert.AreEqual(0, serverCheckApprovalQuery.CalculateEntityCount());
                     AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                     AssertCorrectEventCount(testWorld, 1, testWorld.ClientWorlds);
                     WorldHasEventAtIndex(testWorld, testWorld.ClientWorlds, 0, ConnectionState.State.Approval);
 
-                    // Connection approval routine runs - Clients user-code now reacts to this event and send an approval RPC...
+                    // 执行连接审批流程，客户端用户代码响应事件并发送审批 RPC
                     for (var i = 0; i < testWorld.ClientWorlds.Length; i++)
                     {
                         var world = testWorld.ClientWorlds[i];
@@ -250,24 +250,24 @@ namespace Unity.NetCode.Tests
                         world.EntityManager.AddComponent<SendRpcCommandRequest>(approvalRpc);
                     }
 
-                    // Tick 6: Approval RPC in flight...
+                    // Tick 6：审批 RPC 正在传输
                     testWorld.Tick();
                     Assert.AreEqual(0, serverCheckApprovalQuery.CalculateEntityCount());
                     AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                     AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                    // Tick 7: Approval RPC arrives, RPC Entity spawn is queued...
+                    // Tick 7：审批 RPC 到达，RPC Entity 的 Spawn 已进入队列
                     testWorld.Tick();
                     Assert.AreEqual(0, serverCheckApprovalQuery.CalculateEntityCount());
                     AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                     AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                    // Tick 8: Approval RPC is queryable! Server processes it:
+                    // Tick 8：审批 RPC 可被查询，服务端开始处理
                     testWorld.Tick();
                     AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                     AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
 
-                    // Servers user-code now reacts, adding the `ConnectionApproved`...
+                    // 服务端用户代码响应并添加 ConnectionApproved
                     var rpcEntities = serverCheckApprovalQuery.ToEntityArray(Allocator.Temp);
                     var rpcData = serverCheckApprovalQuery.ToComponentDataArray<ReceiveRpcCommandRequest>(Allocator.Temp);
                     Assert.AreEqual(3, rpcEntities.Length, "Server expecting to have 3 CheckApproval RPCs from clients!");
@@ -279,24 +279,23 @@ namespace Unity.NetCode.Tests
                         testWorld.ServerWorld.EntityManager.AddComponent<ConnectionApproved>(rpcData[i].SourceConnection);
                     }
 
-                    // Tick 9: Now the new approval component will be registered by the server,
-                    // leading to server connect, realigning the two flows...
+                    // Tick 9：服务端登记新的审批组件并完成连接，两条流程重新汇合
                     testWorld.Tick();
                     Assert.AreEqual(0, serverCheckApprovalQuery.CalculateEntityCount());
                 }
 
-                // Server - Connected:
+                // 服务端进入 Connected 状态
                 AssertCorrectEventCount(testWorld, 3, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 0, testWorld.ClientWorlds);
                 ServerHasEventForEachClient(testWorld, ConnectionState.State.Connected, true);
 
-                // Next tick: The client should ALSO now receive the `Connected` state:
+                // 下一 Tick：客户端也应收到 Connected 状态
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 0, testWorld.ServerWorld);
                 AssertCorrectEventCount(testWorld, 1, testWorld.ClientWorlds);
                 WorldHasEventAtIndex(testWorld, testWorld.ClientWorlds, 0, ConnectionState.State.Connected, true);
 
-                // Then we expect quiet thereafter...
+                // 此后不应再产生事件
                 for (int i = 0; i < 3; i++)
                 {
                     testWorld.Tick();
@@ -311,14 +310,13 @@ namespace Unity.NetCode.Tests
                 var lastClientWorld = testWorld.ClientWorlds[^1];
                 var otherClients = testWorld.ClientWorlds.AsSpan(0, testWorld.ClientWorlds.Length - 1).ToArray();
 
-                // Disconnect the last client, but do it via a server kick, so that we can also test the disconnect reason:
+                // 通过服务端踢出断开最后一个客户端，以同时测试断开原因
                 {
                     var conn = testWorld.ServerWorld.EntityManager.GetComponentData<NetworkStreamConnection>(lastClientsConnectionEntity);
                     testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.DriverStore.Disconnect(conn);
                 }
 
-                // Next Tick: Disconnect is applied, event is raised later on the same frame (NetworkGroupCommandBufferSystem)
-                // for BOTH server and client.
+                // 下一 Tick：应用断开操作，并在同一帧稍后由 NetworkGroupCommandBufferSystem 为服务端和客户端触发事件
                 testWorld.Tick();
                 AssertCorrectEventCount(testWorld, 1, testWorld.ServerWorld);
                 WorldHasEventAtIndex(testWorld, testWorld.ServerWorld, 0, ConnectionState.State.Disconnected, true, NetworkStreamDisconnectReason.ConnectionClose);
@@ -326,7 +324,7 @@ namespace Unity.NetCode.Tests
                 AssertCorrectEventCount(testWorld, 1, lastClientWorld);
                 WorldHasEventAtIndex(testWorld, lastClientWorld, 0, ConnectionState.State.Disconnected, true, NetworkStreamDisconnectReason.ClosedByRemote);
 
-                // Now tick for a few more frames, ensuring there are no errant events:
+                // 再推进若干帧，确保没有意外事件
                 for (int i = 0; i < 3; i++)
                 {
                     testWorld.Tick();
@@ -436,7 +434,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, numClients);
 
-                // Connect every client except the last one which we'll connect later
+                // 连接除最后一个之外的所有客户端，最后一个稍后连接
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -455,7 +453,7 @@ namespace Unity.NetCode.Tests
                 var connectionUniqueId = testWorld.GetSingleton<ConnectionUniqueId>(firstClientWorld);
                 var originalClientId = connectionUniqueId.Value;
 
-                // Disconnect and reconnect first client
+                // 断开并重新连接第一个客户端
                 var firstClientConnectionQuery = firstClientWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamConnection));
                 testWorld.GetSingletonRW<NetworkStreamDriver>(firstClientWorld).ValueRW.DriverStore.Disconnect(firstClientConnectionQuery.GetSingleton<NetworkStreamConnection>());
                 for (int i = 0; i < 8; ++i)
@@ -465,11 +463,11 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Verify the client reported unique ID is used by the server (otherwise would generate a new one), unique ID persists across reconnections
+                // 确认服务端使用客户端上报的 Unique ID，否则会生成新 ID，并确认重连后 ID 保持不变
                 connectionUniqueId = testWorld.GetSingleton<ConnectionUniqueId>(firstClientWorld);
                 Assert.AreEqual(originalClientId, connectionUniqueId.Value);
 
-                // Make the last client duplicate the ID used by first client
+                // 让最后一个客户端使用与第一个客户端重复的 ID
                 var lastClientWorld = testWorld.ClientWorlds[numClients - 1];
                 lastClientWorld.EntityManager.CreateSingleton(new ConnectionUniqueId() { Value = originalClientId });
 
@@ -478,7 +476,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Server will detect duplicate unique ID and assign a new one
+                // 服务端检测到重复 Unique ID 后应分配新 ID
                 connectionUniqueId = testWorld.GetSingleton<ConnectionUniqueId>(lastClientWorld);
                 Assert.AreNotEqual(originalClientId, connectionUniqueId.Value);
             }
@@ -493,7 +491,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, numClients);
 
-                // Connect every client except the last one which we'll connect later
+                // 连接除最后一个之外的所有客户端，最后一个稍后连接
                 var ep = NetworkEndpoint.LoopbackIpv4;
                 ep.Port = 7979;
                 testWorld.GetSingletonRW<NetworkStreamDriver>(testWorld.ServerWorld).ValueRW.Listen(ep);
@@ -508,7 +506,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Disconnect and reconnect first client
+                // 断开并重新连接第一个客户端
                 var firstClientWorld = testWorld.ClientWorlds[0];
                 var client0ConnectionQuery = firstClientWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamConnection));
                 testWorld.GetSingletonRW<NetworkStreamDriver>(firstClientWorld).ValueRW.DriverStore.Disconnect(client0ConnectionQuery.GetSingleton<NetworkStreamConnection>());
@@ -520,13 +518,13 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Verify connections are detected as reconnected on both client and server
+                // 确认客户端与服务端都将该连接识别为重连
                 var clientIsReconnectedOnServerQuery = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkId), typeof(NetworkStreamIsReconnected));
                 Assert.IsTrue(clientIsReconnectedOnServerQuery.CalculateEntityCount() == 1);
                 var clientIsReconnectedQuery = firstClientWorld.EntityManager.CreateEntityQuery(typeof(NetworkId), typeof(NetworkStreamIsReconnected));
                 Assert.IsTrue(clientIsReconnectedQuery.CalculateEntityCount() == 1);
 
-                // Make the last client duplicate the ID used by first client
+                // 连接此前尚未连接的最后一个客户端
                 var lastClientWorld = testWorld.ClientWorlds[numClients - 1];
                 testWorld.GetSingletonRW<NetworkStreamDriver>(lastClientWorld).ValueRW.Connect(lastClientWorld.EntityManager, ep);
                 testWorld.GoInGame(lastClientWorld);
@@ -534,16 +532,15 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
 
-                // Last client should not be detected as reconnected as the unique IDs from the server and the local one
-                // on the client did not match.
+                // 最后一个客户端的本地 Unique ID 与服务端 ID 不匹配，因此不应被识别为重连
                 clientIsReconnectedQuery = lastClientWorld.EntityManager.CreateEntityQuery(typeof(NetworkId), typeof(NetworkStreamIsReconnected));
                 Assert.IsFalse(clientIsReconnectedQuery.CalculateEntityCount() == 1);
             }
         }
     }
 
-    // Without NETCODE_DEBUG, ALL error logs are logged to the console, thus we cannot turn on specific ones to test against.
-    // Hard to fix the tests to correctly expect, so simply disabled all of them.
+    // 未启用 NETCODE_DEBUG 时，所有错误日志都会输出到 Console，无法只开启测试所需的特定日志
+    // 难以为测试准确配置预期，因此直接禁用整组测试
 #if !NETCODE_NDEBUG
     internal class VersionTests
     {
@@ -553,8 +550,8 @@ namespace Unity.NetCode.Tests
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.Bootstrap(true);
-                //Don't tick the world after creation. that will generate the default protocol version.
-                //We want to use a custom one here
+                // 创建后不要推进 World，否则会生成默认协议版本
+                // 此处需要使用自定义版本
                 testWorld.CreateWorlds(true, 1, false);
                 var serverVersion = testWorld.ServerWorld.EntityManager.CreateEntity(typeof(NetworkProtocolVersion));
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverVersion, new NetworkProtocolVersion
@@ -601,12 +598,12 @@ namespace Unity.NetCode.Tests
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1, true);
 
-                // Setup `RequireStrictProtocolVersionValidation`:
+                // 设置 RequireStrictProtocolVersionValidation
                 var clientServerTickRate = new ClientServerTickRate();
                 clientServerTickRate.ResolveDefaults();
                 testWorld.ServerWorld.EntityManager.CreateSingleton(clientServerTickRate);
 
-                // Get the default protocol version:
+                // 获取默认协议版本
                 int maxTicks = 3;
                 Entity serverProtocolVersionEntity;
                 while ((serverProtocolVersionEntity = testWorld.TryGetSingletonEntity<NetworkProtocolVersion>(testWorld.ServerWorld)) == Entity.Null)
@@ -614,7 +611,7 @@ namespace Unity.NetCode.Tests
                     testWorld.Tick();
                     if(maxTicks-- <= 0) Assert.Fail("Sanity: Expected singleton creation!");
                 }
-                // Modify it on server:
+                // 在服务端修改协议版本
                 var serverProtocolVersion = testWorld.ServerWorld.EntityManager.GetComponentData<NetworkProtocolVersion>(serverProtocolVersionEntity);
                 switch (differenceType)
                 {
@@ -634,7 +631,7 @@ namespace Unity.NetCode.Tests
                 }
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverProtocolVersionEntity, serverProtocolVersion);
 
-                // The ordering of the protocol version error messages can be scrambled, so we can't log.expect exact ordering
+                // 协议版本错误消息的顺序可能交错，因此不能按精确顺序设置日志预期
                 LogAssert.ignoreFailingMessages = true;
                 LogAssert.Expect(LogType.Error, new Regex(@"\[ClientTest(.*)\] RpcSystem received bad protocol version from NetworkConnection"));
                 LogAssert.Expect(LogType.Error, new Regex(@"\[ServerTest(.*)\] RpcSystem received bad protocol version from NetworkConnection"));
@@ -657,7 +654,7 @@ namespace Unity.NetCode.Tests
                         throw new ArgumentOutOfRangeException(nameof(differenceType), differenceType, null);
                 }
 
-                // Connecting triggers the error, as it occurs during handshake.
+                // 错误发生在 Handshake 阶段，因此建立连接会触发错误
                 testWorld.Connect(failTestIfConnectionFails: false);
 
                 Assert.AreEqual(Entity.Null, testWorld.TryGetSingletonEntity<NetworkStreamConnection>(testWorld.ServerWorld), "Expected no connection left!");
@@ -672,9 +669,9 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                // Only print the protocol version debug errors in one world, so the output can be deterministically validated
-                // if it's printed in both worlds (client and server) the output can interweave and log checks will fail
-                testWorld.EnableLogsOnServer = debugServer;  // WARNING: DISABLE "Force Log Settings" TOOL OR THIS TEST WILL FAIL!
+                // 只在一个 World 中输出协议版本调试错误，确保输出可确定地验证
+                // 若客户端与服务端同时输出，日志会相互交错并导致检查失败
+                testWorld.EnableLogsOnServer = debugServer;  // 警告：必须禁用 Force Log Settings 工具，否则测试会失败
                 testWorld.EnableLogsOnClients = !debugServer;
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1, false);
@@ -692,11 +689,11 @@ namespace Unity.NetCode.Tests
 
                 LogExpectProtocolError(testWorld, testWorld.ServerWorld, debugServer);
 
-                // Allow disconnect to happen
+                // 等待断开连接完成
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
-                // Verify client connection is disconnected
+                // 确认客户端连接已断开
                 using var query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                 Assert.AreEqual(0, query.CalculateEntityCount());
             }
@@ -707,9 +704,9 @@ namespace Unity.NetCode.Tests
         {
             using (var testWorld = new NetCodeTestWorld())
             {
-                // Only print the protocol version debug errors in one world, so the output can be deterministically validated
-                // if it's printed in both worlds (client and server) the output can interweave and log checks will fail
-                testWorld.EnableLogsOnServer = checkServer; // WARNING: DISABLE "Force Log Settings" TOOL OR THIS TEST WILL FAIL!
+                // 只在一个 World 中输出协议版本调试错误，确保输出可确定地验证
+                // 若客户端与服务端同时输出，日志会相互交错并导致检查失败
+                testWorld.EnableLogsOnServer = checkServer; // 警告：必须禁用 Force Log Settings 工具，否则测试会失败
                 testWorld.EnableLogsOnClients = !checkServer;
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1, false);
@@ -727,7 +724,7 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick(dt);
 
-                // Verify client connection is disconnected
+                // 确认客户端连接已断开
                 using var query = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(ComponentType.ReadOnly<NetworkStreamConnection>());
                 Assert.AreEqual(0, query.CalculateEntityCount());
             }
@@ -745,7 +742,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < rpcs.Length; ++i)
                 LogAssert.Expect(LogType.Error, new Regex("Unity.NetCode"));
             using var collection = world.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollection>());
-            // GhostCollection serializers do not get reset to 0.
+            // GhostCollection Serializer 不会重置为 0
             ref var ghostCollection = ref testWorld.GetSingletonRW<GhostComponentSerializerCollectionData>(testWorld.ClientWorlds[0]).ValueRW;
             Assert.AreNotEqual(0, ghostCollection.Serializers.Length, $"Sanity: ghostCollection.Serializers.Length is zero");
             LogAssert.Expect(LogType.Error, $"Component serializer data (for above 'bad protocol version' error): {ghostCollection.Serializers.Length}");
@@ -760,7 +757,7 @@ namespace Unity.NetCode.Tests
                 var entity = baker.GetEntity(TransformUsageFlags.Dynamic);
                 baker.AddComponent(entity, new GhostOwner());
                 baker.AddComponent(entity, new GhostGenTestUtils.GhostGenTestType_IComponentData());
-                // TODO (flag in review): Add the other types (Input, RPC etc) to this test
+                // TODO 将 Input、RPC 等其他类型加入该测试
             }
         }
         [Test]
@@ -781,12 +778,12 @@ namespace Unity.NetCode.Tests
                 testWorld.CreateWorlds(true, 1);
                 var serverCollectionSingleton = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
                 var clientCollectionSingleton = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ClientWorlds[0]);
-                //First tick: compute on both client and server the ghost collection hash
+                // 第一个 Tick：在客户端与服务端分别计算 Ghost Collection Hash
                 testWorld.Tick();
                 Assert.AreEqual(GhostCollectionSystem.CalculateComponentCollectionHash(testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(serverCollectionSingleton)),
                     GhostCollectionSystem.CalculateComponentCollectionHash(testWorld.ClientWorlds[0].EntityManager.GetBuffer<GhostComponentSerializer.State>(clientCollectionSingleton)));
 
-                // compare the list of loaded prefabs
+                // 比较已加载 Prefab 列表
                 Assert.AreNotEqual(Entity.Null, serverCollectionSingleton);
                 Assert.AreNotEqual(Entity.Null, clientCollectionSingleton);
                 var serverCollection = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionPrefab>(serverCollectionSingleton);
@@ -798,7 +795,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual(serverCollection[i].Hash, clientCollection[i].Hash);
                 }
 
-                //Check that and server can connect (same component hash)
+                // 检查客户端与服务端在 Component Hash 相同时可以连接
                 testWorld.Connect();
 
                 testWorld.GoInGame();
@@ -836,12 +833,11 @@ namespace Unity.NetCode.Tests
             {
                 testWorld.Bootstrap(true);
                 testWorld.CreateWorlds(true, 1);
-                //Grab all the serializers we have and recalculate locally the hash and verify they match.
-                //TODO: to have a complete end-to-end test we have a missing piece: we don't have the original variant System.Type.
-                //Either we add that in code-gen (as string, for test/debug purpose only) or we need to store somehow the type
-                //when we register the serialiser itself. It is not a priority, but great to have.
-                //Right now I exposed a a VariantTypeFullHashName in the serialiser that allow at lest to do the most
-                //important verification: the hash matches!
+                // 取得全部 Serializer，在本地重新计算 Hash 并验证结果一致
+                // TODO 完整端到端测试仍缺少原始 Variant System.Type
+                // 可在代码生成时以仅供测试和调试的字符串保存，或在登记 Serializer 时存储该类型
+                // 该能力优先级不高，但有助于完善验证
+                // 当前 Serializer 暴露 VariantTypeFullHashName，至少可以完成最关键的 Hash 一致性检查
                 var data = testWorld.GetSingleton<GhostComponentSerializerCollectionData>(testWorld.ServerWorld);
                 for (int i = 0; i < data.Serializers.Length; ++i)
                 {

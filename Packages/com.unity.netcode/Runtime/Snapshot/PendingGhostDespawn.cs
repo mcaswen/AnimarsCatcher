@@ -14,7 +14,9 @@ using Unity.Profiling;
 
 namespace Unity.NetCode
 {
-    /// <summary>Handles sending of despawn messages in ghost snapshots.</summary>
+    /// <summary>
+    /// 处理 Ghost Snapshot 中 Despawn 消息的发送
+    /// </summary>
     internal struct PendingGhostDespawn : IComparable<PendingGhostDespawn>
     {
         private static readonly ProfilerMarker s_AckInFlightDespawns = new ("PendingGhostDespawn-AckInFlightDespawns");
@@ -25,37 +27,53 @@ namespace Unity.NetCode
         private static readonly ProfilerMarker s_WriteDespawnsMarker = new ("PendingGhostDespawn-WriteDespawns");
         private static readonly ProfilerMarker s_FindOldestMarker = new ("PendingGhostDespawn-FindOldestTick");
         /// <summary>
-        /// Denotes the maximum number of despawn messages that can be in-flight for this ghost despawn, at once.
-        /// Maps to <see cref="DespawnSlot0"/> and <see cref="DespawnSlot1"/>.
+        /// 表示单个 Ghost Despawn 同时允许处于传输中的最大消息数
+        /// 对应 <see cref="DespawnSlot0"/> 和 <see cref="DespawnSlot1"/>
         /// </summary>
         private const int k_MaxInFlight = 2;
 
         /// <summary>
-        /// This is a compression trick: When encoding ghostId deltas, we expect the next ghostId serialized to be the
-        /// last value plus at least one (in the common case), as they're sorted. Therefore, if we add this const
-        /// when writing the last ghostId value, our average delta will be smaller i.e. fewer bits i.e. better compressed.
+        /// 这是一个压缩技巧：由于 GhostId 已排序，编码 GhostId 差值时通常可以预期下一个值
+        /// 至少比上一个值大 1，因此记录上一个 GhostId 时加上该常量可以减小平均差值
+        /// 从而使用更少的位并获得更好的压缩率
         /// </summary>
         internal const int k_ExpectedGhostIdDelta = 1;
 
         public enum DespawnReason : byte
         {
-            /// <summary>The ghost entity was destroyed.</summary>
+            /// <summary>
+            /// Ghost Entity 已销毁
+            /// </summary>
             EntityDestroyed = 1,
-            /// <summary>The ghost became irrelevant to the current connection.</summary>
+            /// <summary>
+            /// Ghost 与当前连接不再相关
+            /// </summary>
             Irrelevant = 2,
-            /// <summary>The prespawn scene was unloaded on the server and/or client.</summary>
+            /// <summary>
+            /// 预生成场景已在服务器和客户端中的一端或两端卸载
+            /// </summary>
             PrespawnSceneUnloaded = 3,
         }
-        /// <summary>Despawn snapshot slot 0.</summary>
+        /// <summary>
+        /// Despawn Snapshot 槽位 0
+        /// </summary>
         internal NetworkTick DespawnSlot0;
-        /// <summary>Despawn snapshot slot 1.</summary>
+        /// <summary>
+        /// Despawn Snapshot 槽位 1
+        /// </summary>
         internal NetworkTick DespawnSlot1;
 
-        /// <summary>Details of the despawning ghost.</summary>
+        /// <summary>
+        /// 正在 Despawn 的 Ghost 详细信息
+        /// </summary>
         internal GhostCleanup Ghost;
-        /// <summary>Denotes how many in-flight despawns there are.</summary>
+        /// <summary>
+        /// 当前处于传输中的 Despawn 消息数量
+        /// </summary>
         internal byte CountInFlight;
-        /// <summary>Reason for despawn.</summary>
+        /// <summary>
+        /// Despawn 原因
+        /// </summary>
         public DespawnReason Reason;
 
         internal static uint WriteDespawns(NetworkTick currentTick, ref UnsafeList<PendingGhostDespawn> pending,
@@ -77,10 +95,10 @@ namespace Unity.NetCode
 #if NETCODE_DEBUG
             int despawnsAcked = pending.Length;
 #endif
-            // We first refresh the despawn list with acked despawns and new despawns discovered locally.
-            // We then sort the despawn list and send as many as we can
+            // 先用已确认的 Despawn 和本地新发现的 Despawn 刷新列表
+            // 然后对 Despawn 列表排序并尽可能多地发送
 
-            // Fetch the snapshot ack, and use it to remove (i.e. 'ack' or 'confirm') as many in-flight despawn messages as we can:
+            // 获取 Snapshot Ack，并据此移除尽可能多的已确认传输中 Despawn 消息
             if (!pending.IsEmpty)
             {
                 using var _ = s_AckInFlightDespawns.Auto();
@@ -107,7 +125,7 @@ namespace Unity.NetCode
             despawnsAcked = pending.Length - despawnsAcked;
 #endif
 
-            // Find new despawns inside despawnChunks:
+            // 在 despawnChunks 中查找新的 Despawn
             if (!despawnChunks.IsEmpty)
             {
                 using var _ = s_FindNewDespawns.Auto();
@@ -123,27 +141,27 @@ namespace Unity.NetCode
 
                         if (isRelevant && !isAlreadyDespawning)
                         {
-                            // TODO: Do we need to clear the snapshot history buffer?
+                            // TODO: 确认是否需要清空 Snapshot 历史 Buffer
                             AddNewPendingDespawn(ref pending, ref state.Flags, ghostCleanup, DespawnReason.EntityDestroyed);
                         }
                     }
                 }
             }
 
-            // Send out the current list of destroyed prespawned entities, for all new client's loaded scenes.
-            // TODO - Refactor prespawn despawns to remove the need for this.
+            // 针对所有新客户端已加载的场景，发送当前已销毁预生成 Entity 的列表
+            // TODO: 重构预生成 Entity 的 Despawn 逻辑以移除此流程
             if (prespawnDespawns.Length > 0 && newLoadedPrespawnRanges.Length > 0)
             {
                 using var _ = s_FindNewPrespawnDespawns.Auto();
                 for (int i = 0; i < prespawnDespawns.Length; ++i)
                 {
-                    //If not in range, skip:
+                    // 如果不在任何新区间中则跳过
                     var ghostId = prespawnDespawns[i];
                     if(ghostId < newLoadedPrespawnRanges[0].Begin ||
                        ghostId > newLoadedPrespawnRanges[newLoadedPrespawnRanges.Length-1].End)
                         continue;
 
-                    // TODO: can use a binary search, like lower-bound in c++
+                    // TODO: 可以使用类似 C++ lower_bound 的二分查找
                     int idx = 0;
                     while (idx < newLoadedPrespawnRanges.Length && ghostId > newLoadedPrespawnRanges[idx].End)
                         ++idx;
@@ -151,8 +169,8 @@ namespace Unity.NetCode
                     if (idx < newLoadedPrespawnRanges.Length)
                     {
                         ref var state = ref ghostStateData.GetPrespawnGhostState(ghostId);
-                        // Special case: We need to resend the despawn, as the sub-scene has been reloaded.
-                        // TODO: Clean this up by assigning all ghosts within newLoadedPrespawnRanges as relevant.
+                        // 特殊情况：SubScene 已重新加载，因此需要重新发送 Despawn
+                        // TODO: 可将 newLoadedPrespawnRanges 中的所有 Ghost 标记为相关以简化此逻辑
                         bool hasBeenDespawnedBefore = (state.Flags & ConnectionStateData.GhostStateFlags.HasBeenDespawnedAtLeastOnce) != 0;
                         if (hasBeenDespawnedBefore)
                         {
@@ -168,7 +186,7 @@ namespace Unity.NetCode
                 }
             }
 
-            // Now that we have an up to date pending despawn list, update oldestPendingGhostsDespawnTick from all pending despawns.
+            // Pending Despawn 列表更新完成后，根据所有待处理项更新 oldestPendingGhostsDespawnTick
             if (!pending.IsEmpty)
             {
                 using var a = s_FindOldestMarker.Auto();
@@ -184,7 +202,7 @@ namespace Unity.NetCode
                 }
             }
 
-            // Send as many despawns as we can:
+            // 尽可能多地发送 Despawn
             uint despawnLen = 0;
             if(!pending.IsEmpty)
             {
@@ -209,7 +227,7 @@ namespace Unity.NetCode
                 for (var i = 0; i < pending.Length; i++)
                 {
                     ref var pendingDespawn = ref pending.ElementAt(i);
-                    if (pendingDespawn.CountInFlight >= k_MaxInFlight // We've reached the (sorted) entries that already have their max number in-flight.
+                    if (pendingDespawn.CountInFlight >= k_MaxInFlight // 已到达排序后具有最大传输中消息数的条目
                         || dataStream.Length + minBytesLeftForSnapshotOverhead >= maxBytesUsedForDespawns)
                     {
 #if NETCODE_DEBUG
@@ -221,12 +239,11 @@ namespace Unity.NetCode
                         break;
                     }
 
-                    // Note: Even though these pending ghostIds are sorted by their ghostId (ascending),
-                    // they are FIRST sorted by how many messages are in-flight (with fewest sends prioritized first).
-                    // E.g.
-                    // [ServerTick:1] Send 3, 4, 5, which are new despawns.
-                    // [ServerTick:2] Send 10, 11, 12 (also new despawns, as they have not been sent yet), THEN 3, 4, 5 (which are being resent).
-                    // Therefore, we must use an `int` delta, we can't assume a `uint` delta.
+                    // 注意：虽然待处理 GhostId 会按 GhostId 升序排列，但首先按传输中消息数量排序
+                    // 发送次数较少的条目具有更高优先级，例如：
+                    // [ServerTick:1] 发送新的 Despawn 3、4、5
+                    // [ServerTick:2] 先发送尚未发送的 Despawn 10、11、12，再重发 3、4、5
+                    // 因此差值必须使用 `int`，不能假定其为 `uint`
                     dataStream.WritePackedIntDelta(pendingDespawn.Ghost.ghostId, nextExpectedGhostId, compressionModel);
                     nextExpectedGhostId = pendingDespawn.Ghost.ghostId + k_ExpectedGhostIdDelta;
                     pendingDespawn.TrackWriteOfDespawn(currentTick);
@@ -269,20 +286,19 @@ namespace Unity.NetCode
 #endif
             }
 
-            // Update OldestPendingDespawnTick: We can delete a despawnChunk once all clients have acked all despawns
-            // for the latest despawnTick in the chunk.
-            // So, we track the oldest un-acked ghost's despawnTick for this connection here.
+            // 当所有客户端都确认 Chunk 内最新 despawnTick 对应的全部 Despawn 后，才能删除 despawnChunk
+            // 因此这里为当前连接记录尚未确认 Ghost 中最旧的 despawnTick
             ghostStateData.OldestPendingDespawnTick = oldestPendingGhostsDespawnTick;
 
             return despawnLen;
         }
 
         /// <summary>
-        /// Try to ack any of the in-flight snapshots.
-        /// And reset all failed acks (from dropped snapshots).
+        /// 尝试确认任意处于传输中的 Snapshot
+        /// 同时重置因 Snapshot 丢失而确认失败的所有槽位
         /// </summary>
         /// <param name="ack"></param>
-        /// <returns>True if ack succeeded.</returns>
+        /// <returns>成功确认时返回 true</returns>
         private bool ClientAckedAnyInFlight(ref NetworkSnapshotAck ack)
         {
             if (CountInFlight == 0) return false;
@@ -295,22 +311,22 @@ namespace Unity.NetCode
             {
                 if (!slot.IsValid || !ack.LastReceivedSnapshotByRemote.IsValid)
                 {
-                    // Snapshot not even sent or ackable yet.
+                    // Snapshot 尚未发送或还不能确认
                     return false;
                 }
                 if (slot.IsNewerThan(ack.LastReceivedSnapshotByRemote))
                 {
-                    // Client not yet sent back an ack for this snapshot, nor any future snapshots,
-                    // so we must wait. I.e. Snapshots are still "in-flight".
+                    // 客户端尚未返回该 Snapshot 或任何后续 Snapshot 的 Ack，因此必须继续等待
+                    // 这些 Snapshot 仍处于传输中
                     return false;
                 }
                 if (ack.IsReceivedByRemote(slot))
                 {
-                    // Ack successful!
+                    // Ack 成功
                     return true;
                 }
 
-                // This slot's snapshot was unfortunately dropped by the client, so we reset its slot entry.
+                // 客户端丢失了该槽位的 Snapshot，因此重置槽位条目
                 slot = NetworkTick.Invalid;
                 countInFlight--;
                 return false;
@@ -318,9 +334,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Tracks that we have added a despawn message for this ghost into the snapshot (with id: <see cref="currentTick"/>).
+        /// 记录已经将此 Ghost 的 Despawn 消息写入由 <see cref="currentTick"/> 标识的 Snapshot
         /// </summary>
-        /// <param name="currentTick">The snapshot the despawn message was written into.</param>
+        /// <param name="currentTick">写入 Despawn 消息的 Snapshot Tick</param>
         /// <exception cref="InvalidOperationException"></exception>
         private void TrackWriteOfDespawn(NetworkTick currentTick)
         {
@@ -344,8 +360,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Ascending by how many times they've been sent.
-        /// Then ascending by ghostId.
+        /// 先按发送次数升序排列
+        /// 再按 GhostId 升序排列
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>
@@ -356,12 +372,12 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Called for each ghost we need to begin despawning.
+        /// 为每个需要开始 Despawn 的 Ghost 调用
         /// </summary>
-        /// <param name="pendingDespawns">List of pending despawns.</param>
-        /// <param name="flags">The flags for this ghost instance.</param>
-        /// <param name="ghostCleanup">A copy of details of the ghost.</param>
-        /// <param name="reason">The despawn reason. Only used for debugging!</param>
+        /// <param name="pendingDespawns">待处理 Despawn 列表</param>
+        /// <param name="flags">该 Ghost 实例的标志</param>
+        /// <param name="ghostCleanup">Ghost 详细信息的副本</param>
+        /// <param name="reason">仅用于调试的 Despawn 原因</param>
         public static void AddNewPendingDespawn(ref UnsafeList<PendingGhostDespawn> pendingDespawns,
             ref ConnectionStateData.GhostStateFlags flags, in GhostCleanup ghostCleanup, DespawnReason reason)
         {
@@ -370,14 +386,14 @@ namespace Unity.NetCode
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             UnityEngine.Debug.Assert(isRelevant, "isRelevant");
 #endif
-            // No need to add this new despawn, if already marked for despawn. However, we'll lose the reason.
+            // 如果已标记为 Despawn，则无需重复添加，但会丢失新的原因信息
             if (Hint.Unlikely(isAlreadyDespawning))
             {
-                // If we wanted to track destroyed ghosts vs irrelevant despawns, we'd need to handle this case.
+                // 如果需要区分已销毁 Ghost 与因不相关触发的 Despawn，则必须处理这种情况
                 return;
             }
 
-            // Update flags.
+            // 更新标志
             flags &= (~ConnectionStateData.GhostStateFlags.IsRelevant);
             flags |= ConnectionStateData.GhostStateFlags.IsDespawning | ConnectionStateData.GhostStateFlags.HasBeenDespawnedAtLeastOnce;
             pendingDespawns.Add(new PendingGhostDespawn
@@ -392,24 +408,26 @@ namespace Unity.NetCode
         [Conditional("UNITY_ASSERTIONS")]
         private void AssertValid()
         {
-            // Counts:
+            // 检查计数
             UnityEngine.Debug.Assert(CountInFlight <= k_MaxInFlight, "k_MaxInFlight");
             UnityEngine.Debug.Assert(CountInFlight ==
                                      (DespawnSlot0.IsValid ? 1 : 0) +
                                      (DespawnSlot1.IsValid ? 1 : 0), "CountInFlight");// +
                                      //(DespawnSlot2.IsValid ? 1 : 0);
-            // No duplicates:
+            // 检查重复槽位
             UnityEngine.Debug.Assert(!DespawnSlot0.IsValid || DespawnSlot0 != DespawnSlot1, "NoDup0vs1");
             // UnityEngine.Debug.Assert(!DespawnSlot0.IsValid || DespawnSlot0 != DespawnSlot2);
             // UnityEngine.Debug.Assert(!DespawnSlot1.IsValid || DespawnSlot1 != DespawnSlot2);
 
-            // Ghost is valid:
+            // 检查 Ghost 有效性
             UnityEngine.Debug.Assert(Reason != default, "Reason");
             UnityEngine.Debug.Assert(Ghost.ghostId != default, "ghostId");
-            // TODO - Make spawnTick & despawnTick always valid, so that we can assert on them!
+            // TODO: 保证 spawnTick 与 despawnTick 始终有效，以便在此断言
         }
 
-        /// <summary>Revert all snapshot despawn writes for the current tick.</summary>
+        /// <summary>
+        /// 撤销当前 Tick 的所有 Snapshot Despawn 写入
+        /// </summary>
         /// <param name="pendingDespawns"></param>
         /// <param name="currentTick"></param>
         public static void RevertSnapshotDespawnWrites(ref UnsafeList<PendingGhostDespawn> pendingDespawns, NetworkTick currentTick)

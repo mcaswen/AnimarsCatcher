@@ -1,13 +1,11 @@
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// <para>Used to configure the serialization/deserialization code-generation for a specific type (primitive or struct) and
-    /// combination of <see cref="GhostFieldAttribute"/> quantized, smooting and sub-type flags.
-    /// The tuple [<see cref="Type"/>, <see cref="Quantized"/>, <see cref="Smoothing"/>, <see cref="SubType"/>] is mapped to
-    /// a template file that contains the code to use to serialize/deserialize this specific type.
-    /// It is possible so to register for each individual type multiple serialization rules, that can be selected using the
-    /// <see cref="GhostFieldAttribute"/>.
-    /// For example, the default float type (subtype 0) has 4 different serialization rules:</para>
+    /// <para>用于配置特定类型（基元或结构体）及 <see cref="GhostFieldAttribute"/> 量化、平滑和子类型标志组合的序列化与反序列化代码生成
+    /// 元组 [<see cref="Type"/>, <see cref="Quantized"/>, <see cref="Smoothing"/>, <see cref="SubType"/>] 会映射到一个模板文件，
+    /// 该文件包含序列化和反序列化此特定类型所使用的代码
+    /// 因而可以为每种类型注册多条序列化规则，并通过 <see cref="GhostFieldAttribute"/> 选择
+    /// 例如，默认 float 类型（子类型 0）具有以下 4 条不同的序列化规则：</para>
     /// <para>(float, unquantized, Clamp, 0)</para>
     /// <para>(float, unquantized, InterpolateAndExtrapolate, 0)</para>
     /// <para>(float, quantized, Clamp, 0)</para>
@@ -16,48 +14,46 @@ namespace Unity.NetCode.Generators
     public class TypeRegistryEntry
     {
         /// <summary>
-        /// Mandatory, the qualified typename of the type (namespace + type name).
+        /// 必填，类型的限定名称，即命名空间加类型名称
         /// </summary>
         public string Type;
         /// <summary>
-        /// Mandatory, the template file to use. Must be relative path to the Asset or Package folder.
+        /// 必填，要使用的模板文件，必须是相对于 Asset 或 Package 文件夹的路径
         /// </summary>
         public string Template;
         /// <summary>
-        /// Optional, the template file to use to overrides/change the serializaton code present in the base <see cref="Template"/> file.
-        /// Must be relative path to the Asset or Package folder.
+        /// 可选，用于覆盖或修改基础 <see cref="Template"/> 文件中序列化代码的模板文件
+        /// 必须是相对于 Asset 或 Package 文件夹的路径
         /// </summary>
         public string TemplateOverride;
 #pragma warning disable 649
         /// <summary>
-        /// The sub-type value for this specific type=template combination. This is used to map the
-        /// [type, Quantized, Smooting, Suptype] tuple specified by the <see cref="GhostFieldAttribute"/>
-        /// properties to the correct serializer type.
+        /// 此特定类型与模板组合的子类型值
+        /// 用于把 <see cref="GhostFieldAttribute"/> 属性指定的 [type, Quantized, Smoothing, SubType] 元组
+        /// 映射到正确的序列化器类型
         /// </summary>
         public int SubType;
 #pragma warning restore 649
         /// <summary>
-        /// The smoothing supported by this template and type combination.
+        /// 此模板与类型组合支持的平滑方式
         /// </summary>
         public SmoothingAction Smoothing;
         /// <summary>
-        /// <para>floating point number can be serialized in two ways:</para>
-        /// <para>- as a full 32bit raw value</para>
-        /// <para>- as a fixed-point number, with a given precision (see <see cref="GhostFieldAttribute.Quantization"/>)</para>
-        /// <para>The use of quantization requires special handling by the code-generation and in particular the code in the template file
-        /// must uses certain rules.
-        /// You should set this flag to true if the type-template combination should be used for quantized types.</para>
+        /// <para>浮点数可以通过两种方式序列化：</para>
+        /// <para>- 作为完整的 32 bit 原始值</para>
+        /// <para>- 作为指定精度的定点数，参见 <see cref="GhostFieldAttribute.Quantization"/></para>
+        /// <para>使用量化需要代码生成器进行特殊处理，尤其要求模板文件中的代码遵循特定规则
+        /// 如果类型与模板组合应该用于量化类型，则应将此标志设为 true</para>
         /// </summary>
         public bool Quantized;
         /// <summary>
-        /// State if the type, template pairs can be used when serializing commands.
+        /// 表示序列化 Command 时能否使用此类型与模板配对
         /// </summary>
         public bool SupportCommand;
         /// <summary>
-        /// State if the type, template pair is a composite type. Must be used only for structs that contains multiple fields
-        /// of the same type (ex: float3). Whan a type is configured as composite,
-        /// the <see cref="Template"/> model is used recursively on all the fields to generate the serialization code, without
-        /// the need to crate a specific template for the struct itself.
+        /// 表示此类型与模板配对是否为复合类型，只能用于包含多个相同类型字段的结构体，例如 float3
+        /// 将类型配置为复合类型后，会在所有字段上递归使用 <see cref="Template"/> 模型生成序列化代码，
+        /// 无需为结构体本身创建专用模板
         /// </summary>
         public bool Composite;
     }

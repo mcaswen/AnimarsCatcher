@@ -19,7 +19,7 @@ namespace Unity.NetCode.Tests
             GhostGroup,
         }
 
-        // TODO - Tests for ClientOnlyVariant.
+        // TODO：补充 ClientOnlyVariant 测试
 
         GhostTypes _type;
         private EnabledBitBakedValue _enabledBitBakedValue;
@@ -67,7 +67,7 @@ namespace Unity.NetCode.Tests
                         baker.AddComponent(entity, new TopLevelGhostEntity());
                     break;
                 case GhostTypes.GhostGroup:
-                    // Dependency on the name
+                    // 烘焙结果依赖对象名称
                     baker.DependsOn(gameObject);
                     if (gameObject.name.StartsWith("ParentGhost"))
                     {
@@ -89,7 +89,7 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /// <returns>Item1 is the ComponentType. Item2 is the VariantType (or null if same as ComponentType).</returns>
+        /// <returns>Item1 为 ComponentType，Item2 为 VariantType；两者类型相同时 Item2 为 null</returns>
         internal static ValueTuple<Type, Type>[] FetchAllTestComponentTypesRequiringSendRuleOverride()
         {
             return new[]
@@ -102,9 +102,9 @@ namespace Unity.NetCode.Tests
                 (typeof(ComponentWithReplicatedVariant), typeof(ComponentWithVariantVariation)),
                 (typeof(ComponentWithDontSendChildrenVariant), typeof(ComponentWithDontSendChildrenVariantVariation)),
                 (typeof(ComponentWithNonReplicatedVariant), typeof(ComponentWithNonReplicatedVariantVariation)),
-                // Skipped as never replicated. (typeof(NeverReplicatedEnableableFlagComponent), null),
+                // 此类型永不复制，因此跳过：(typeof(NeverReplicatedEnableableFlagComponent), null),
 
-                // GhostComponent:
+                // GhostComponent 类型
                 (typeof(SendForChildren_OnlyPredictedGhosts_SendToNone_EnableableComponent), null),
                 (typeof(SendForChildren_DontSend_SendToOwner_EnableableComponent), null),
                 (typeof(SendForChildren_OnlyPredictedGhosts_SendToOwner_EnableableComponent), null),
@@ -163,7 +163,7 @@ namespace Unity.NetCode.Tests
                 (typeof(BufferWithDontSendChildrenVariant), typeof(BufferWithDontSendChildrenVariantVariation)),
                 (typeof(BufferWithNonReplicatedVariant), typeof(BufferWithNonReplicatedVariantVariation)),
 
-                // GhostBuffer:
+                // Ghost Buffer 类型
                 (typeof(SendForChildren_OnlyPredictedGhosts_SendToNone_EnableableBuffer), null),
                 (typeof(SendForChildren_DontSend_SendToOwner_EnableableBuffer), null),
                 (typeof(SendForChildren_OnlyPredictedGhosts_SendToOwner_EnableableBuffer), null),
@@ -211,7 +211,9 @@ namespace Unity.NetCode.Tests
             };
         }
 
-        /// <summary>Returns true if the component was baked with the component enabled, and vice-versa.</summary>
+        /// <summary>
+        /// 组件烘焙时处于启用状态则返回 true，否则返回 false
+        /// </summary>
         internal static bool BakedEnabledBitValue(EnabledBitBakedValue enabledBitBakedValue)
         {
             switch (enabledBitBakedValue)
@@ -227,7 +229,9 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        /// <summary>Returns true if this configuration waits for replication before checking values.</summary>
+        /// <summary>
+        /// 当前配置要求等待复制完成后再检查数据时返回 true
+        /// </summary>
         internal static bool WaitForClientEntitiesToSpawn(EnabledBitBakedValue enabledBitBakedValue)
         {
             switch (enabledBitBakedValue)
@@ -489,7 +493,7 @@ namespace Unity.NetCode.Tests
 
     ////////////////////////////////////////////////////////////////////////////
 
-    [GhostComponent(SendDataForChildEntity = true)] // We test this attribute flag too.
+    [GhostComponent(SendDataForChildEntity = true)] // 同时测试该特性参数
     [GhostEnabledBit]
     internal struct EnableableBuffer : IBufferElementData, IEnableableComponent, IComponentValue
     {
@@ -560,7 +564,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(BufferWithReplicatedVariant))]
     [GhostComponent(SendDataForChildEntity = true)]
     [GhostEnabledBit]
@@ -570,7 +574,7 @@ namespace Unity.NetCode.Tests
         public int value;
     }
 
-    [GhostComponent(SendDataForChildEntity = true)] // Testing this as well, as this should be clobbered by the Variant.
+    [GhostComponent(SendDataForChildEntity = true)] // 同时测试该设置是否会被 Variant 覆盖
     public struct BufferWithDontSendChildrenVariant  : IBufferElementData, IEnableableComponent, IComponentValue
     {
         public int value;
@@ -580,7 +584,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(BufferWithDontSendChildrenVariant))]
     [GhostComponent(SendDataForChildEntity = false)]
     [GhostEnabledBit]
@@ -601,7 +605,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(BufferWithNonReplicatedVariant))]
     public struct BufferWithNonReplicatedVariantVariation
     {
@@ -654,7 +658,9 @@ namespace Unity.NetCode.Tests
         }
     }
 
-    /// <summary>Enable flag should NOT BE replicated.</summary>
+    /// <summary>
+    /// 启用标记不应参与复制
+    /// </summary>
     internal struct NeverReplicatedEnableableFlagComponent : IComponentData, IEnableableComponent
     {
     }
@@ -690,7 +696,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(ComponentWithReplicatedVariant))]
     [GhostComponent(SendDataForChildEntity = true)]
     [GhostEnabledBit]
@@ -700,7 +706,7 @@ namespace Unity.NetCode.Tests
         public int value;
     }
 
-    [GhostComponent(SendDataForChildEntity = true)] // Testing this as well, as this should be clobbered by the Variant.
+    [GhostComponent(SendDataForChildEntity = true)] // 同时测试该设置是否会被 Variant 覆盖
     public struct ComponentWithDontSendChildrenVariant  : IComponentData, IEnableableComponent, IComponentValue
     {
         public int value;
@@ -710,7 +716,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(ComponentWithDontSendChildrenVariant))]
     [GhostComponent(SendDataForChildEntity = false)]
     [GhostEnabledBit]
@@ -731,14 +737,14 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // As this is the only variant, it becomes the default variant.
+    // 这是唯一的 Variant，因此会成为默认 Variant
     [GhostComponentVariation(typeof(ComponentWithNonReplicatedVariant))]
     public struct ComponentWithNonReplicatedVariantVariation
     {
         public int value;
     }
 
-    // Test child-only components:
+    // 测试仅存在于子实体上的组件
     [GhostComponent(SendDataForChildEntity = true)]
     [GhostEnabledBit]
     internal struct ChildOnlyComponent_1 : IComponentData, IEnableableComponent
@@ -779,7 +785,7 @@ namespace Unity.NetCode.Tests
         public int GetValue() => value;
     }
 
-    // Test components with lots of GhostComponentAttribute modifications (note: PrefabType stripping is tested elsewhere):
+    // 测试包含多种 GhostComponentAttribute 配置的组件，PrefabType 裁剪由其他测试覆盖
     [GhostComponent(SendDataForChildEntity = true, SendTypeOptimization = GhostSendType.OnlyPredictedClients, OwnerSendType = SendToOwnerType.None)]
     [GhostEnabledBit]
     internal struct SendForChildren_OnlyPredictedGhosts_SendToNone_EnableableComponent : IComponentData, IComponentValue, IEnableableComponent
@@ -1392,8 +1398,8 @@ namespace Unity.NetCode.Tests
 
         public int GetValue()
         {
-            // There is nothing to validate for private fields on buffers.
-            // Every time the buffer gets updated, these fields become undefined (NOT default).
+            // Buffer 的私有字段没有可验证的稳定值
+            // Buffer 每次更新后，这些字段都会变为未定义值，而不是默认值
             return value;
         }
     }

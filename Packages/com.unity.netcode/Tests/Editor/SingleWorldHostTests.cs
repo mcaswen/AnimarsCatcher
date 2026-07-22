@@ -5,10 +5,10 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
-// TODO most of these tests should be useless once we have a global flag for single world host testing
+// TODO: 支持 Single World Host 全局测试开关后，此处大多数测试应可移除
 namespace Unity.NetCode.Tests
 {
-    // little util to make test sequence clearer
+    // 用于让测试更新序列更清晰的轻量辅助系统
     // [AutoStaticsCleanup]
     [DisableAutoCreation]
     internal partial class GenericExecuteOnUpdateSystem : SystemBase
@@ -30,18 +30,18 @@ namespace Unity.NetCode.Tests
 
     internal class SingleWorldHostTests
     {
-        // TODO-release should add tests for
-        // GhostOwnerIsLocal behaviour change
-        // LocalConnection
-        // No NetworkStreamConnection
-        // Fake connection event
-        // Fake Disconnect events?
-        // Check client system executes in same world as server system
-        // input tick being +1 vs server tick when in off frames
-        // pending RPC for disconnected clients, while disconnecting the host?
-        // test passthrough RPCs, with custom serialization
-        // test stripping is done appropriately
-        // test spawn while in off frame, make sure spawn tick is set correctly
+        // TODO: 发布前补充以下测试
+        // GhostOwnerIsLocal 行为变化
+        // 本地连接
+        // 不存在 NetworkStreamConnection 的情况
+        // 模拟连接事件
+        // 模拟断线事件
+        // 验证客户端系统与服务端系统在同一 World 中执行
+        // 验证空闲帧中 Input Tick 比 Server Tick 大 1 的情况
+        // 验证 Host 断线时，已断开客户端仍有待处理 RPC 的情况
+        // 验证使用自定义序列化的透传 RPC
+        // 验证裁剪行为正确
+        // 验证空闲帧中的 Spawn，并确认 Spawn Tick 设置正确
 
 
         [Test]
@@ -89,7 +89,7 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        // TODO-next uncomment once we have ghost adapter backported
+        // TODO-next：Ghost Adapter 回移后取消注释
         // [UnityTest]
         // public IEnumerator SimpleTest([Values] bool useSingleWorld, [Values] bool useRemotes)
         // {
@@ -105,7 +105,7 @@ namespace Unity.NetCode.Tests
         //     {
         //         TestRPCSend.SendTestMessage(123);
         //         testWorld.RunTicks(3);
-        //         yield return testWorld.RunYieldUpdates(3); // requires yield since currently remotes don't update in systems, but using the internal main loop
+        //         yield return testWorld.RunYieldUpdates(3); // 当前 Remotes 尚未在系统中更新，而是使用内部主循环，因此需要 yield
         //         Assert.That(TestRPCSend.TestMessageReceivedCount, Is.EqualTo(1));
         //     }
         //     else
@@ -121,10 +121,10 @@ namespace Unity.NetCode.Tests
         //     testWorld.GetSingletonRW<NetworkStreamDriver>(pureClientWorld).ValueRW.Connect(NetworkEndpoint.LoopbackIpv4.WithPort(7979));
         //     testWorld.TickUntilConnected(pureClientWorld);
         //
-        //     // TODO remotes aren't built for multi world testing. reenable this once they do
+        //     // TODO：Remotes 尚不支持 Multi World 测试，支持后重新启用
         //     // if (useRemotes)
         //     // {
-        //     //     testWorld.GoInGame(pureClientWorld); // todo not required?
+        //     //     testWorld.GoInGame(pureClientWorld); // TODO：确认是否可以移除
         //     //     TestRPCSend.SendToClientsMessage(123);
         //     //     testWorld.RunTicks(3);
         //     //     yield return testWorld.RunYieldUpdates(3);
@@ -146,7 +146,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void RPCs_InSingleWorldHost_WorksTheSame([Values] bool useSingleWorld)
         {
-            // makes sure RPCs work the same way with both modes
+            // 验证 RPC 在双 World 和 Single World Host 模式下行为一致
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true);
             testWorld.CreateWorlds(server: !useSingleWorld, numClients: useSingleWorld ? 0 : 1, numHostWorlds: useSingleWorld ? 1 : 0);
@@ -175,12 +175,12 @@ namespace Unity.NetCode.Tests
             testWorld.CreateWorlds(server: false, numClients: 0, numHostWorlds: 1);
             // Assert.That(testWorld.ServerWorld, Is.EqualTo(testWorld.ClientWorlds[0]));
 
-            // Validate that there's no system duplicates
+            // 验证系统没有重复注册
             var allServerSystems = testWorld.ServerWorld.Unmanaged.GetAllSystems(Allocator.Temp);
             HashSet<SystemHandle> systemSet = new HashSet<SystemHandle>(allServerSystems);
             Assert.That(systemSet.Count, Is.EqualTo(allServerSystems.Length), "duplicate found!");
 
-            // check that a system ticks only once
+            // 验证系统每帧只更新一次
             var updateCount = 0;
 
             void CountUpdates(World _)
@@ -193,7 +193,7 @@ namespace Unity.NetCode.Tests
             GenericExecuteOnUpdateSystem.ExecOnUpdate -= CountUpdates;
             Assert.That(updateCount, Is.EqualTo(1));
             testWorld.Dispose();
-            // make sure this is cleaned up correctly
+            // 验证 World 列表已正确清理
             Assert.AreEqual(0, ClientServerBootstrap.ServerWorlds.Count);
             Assert.AreEqual(0, ClientServerBootstrap.ClientWorlds.Count);
         }
@@ -201,7 +201,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void SingleWorldHost_PartialSnapshot_Works([Values] bool useSingleWorld)
         {
-            // single world host changes the way GhostSendSystem works.
+            // Single World Host 会改变 GhostSendSystem 的工作方式
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(GenericExecuteOnUpdateSystem));
 
@@ -213,7 +213,7 @@ namespace Unity.NetCode.Tests
             var prefab = testWorld.ServerWorld.EntityManager.GetBuffer<NetCodeTestPrefab>(prefabCollection)[0].Value;
             testWorld.Connect(maxSteps: 16);
             testWorld.GoInGame();
-            testWorld.TickMultiple(100); // stabilize
+            testWorld.TickMultiple(100); // 等待状态稳定
 
             int ghostCount = 200;
             using var entities = testWorld.ServerWorld.EntityManager.Instantiate(prefab, ghostCount, Allocator.Persistent);

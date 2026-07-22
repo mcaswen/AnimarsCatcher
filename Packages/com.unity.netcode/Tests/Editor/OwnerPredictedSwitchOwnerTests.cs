@@ -67,14 +67,14 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //Spanw the ghost, no-owner is assigned yet. The spawned ghost on the client should be interpolated.
-                //and auto-command target should be set to disabled.
+                // 生成尚未分配所有者的 Ghost，客户端应按插值模式生成
+                // AutoCommandTarget 应保持禁用
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 Assert.AreNotEqual(Entity.Null, serverEnt);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = -1 });
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
-                //We should have a ghost and should have been spawn as interpolated
+                // 两个客户端都应生成插值 Ghost
                 var clientGhosts = new Entity[2];
                 for (var index = 0; index < testWorld.ClientWorlds.Length; index++)
                 {
@@ -87,24 +87,24 @@ namespace Unity.NetCode.Tests
 
                 for (var index = 0; index < testWorld.ClientWorlds.Length; index++)
                 {
-                    //Server change owner, but don't enable auto-command.
+                    // 服务端切换所有者，但不启用 AutoCommandTarget
                     var owner = index;
                     var nonowner = (index + 1) % 2;
                     testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt,
                         new GhostOwner { NetworkId = owner + 1 });
                     for (int i = 0; i < 8; ++i)
                         testWorld.Tick();
-                    //client should have changed the ghost to be predicted
+                    // 新所有者客户端应切换为预测模式，另一客户端保持插值模式
                     Assert.IsTrue(testWorld.ClientWorlds[index].EntityManager
                         .HasComponent<PredictedGhost>(clientGhosts[owner]));
                     Assert.IsFalse(testWorld.ClientWorlds[nonowner].EntityManager
                         .HasComponent<PredictedGhost>(clientGhosts[nonowner]));
-                    //Release ownership. Verify client become interpolated again
+                    // 释放所有权，验证客户端重新切换为插值模式
                     testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt,
                         new GhostOwner { NetworkId = -1 });
                     for (int i = 0; i < 8; ++i)
                         testWorld.Tick();
-                    //client should have changed the ghost to be interpolated
+                    // 两个客户端上的 Ghost 都应处于插值模式
                     Assert.IsFalse(testWorld.ClientWorlds[owner].EntityManager
                         .HasComponent<PredictedGhost>(clientGhosts[owner]));
                     Assert.IsFalse(testWorld.ClientWorlds[nonowner].EntityManager
@@ -132,8 +132,8 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //Spanw the ghost, no-owner is assigned yet. The spawned ghost on the client should be interpolated.
-                //and auto-command target start disabled
+                // 生成尚未分配所有者的 Ghost，客户端模式由 ghostMode 配置决定
+                // AutoCommandTarget 初始保持禁用
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 Assert.AreNotEqual(Entity.Null, serverEnt);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt,
@@ -141,12 +141,12 @@ namespace Unity.NetCode.Tests
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = -1 });
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
-                //We should have a ghost and should have been spawn as interpolated
+                // 客户端应生成 Ghost，并符合当前配置模式
                 var clientGhost = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientGhost);
                 Assert.AreEqual(ghostMode == GhostMode.Predicted, testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhost>(clientGhost),
                     "We don't currently own this ghost.");
-                //Server change owner and enable auto-command.
+                // 服务端分配所有者并启用 AutoCommandTarget
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = 1 });
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt,
                     new AutoCommandTarget { Enabled = true });
@@ -175,8 +175,8 @@ namespace Unity.NetCode.Tests
                 baker.AddComponent<InterpolatedComponentData>(entity);
                 baker.AddComponent<OwnedComponentData>(entity);
                 var buffer = baker.AddBuffer<PredictedOnlyBuffer>(entity);
-                //Both client and server has the same data in the buffer. No changes in lenght
-                //should be perceived.
+                // 客户端与服务端的 Buffer 初始数据相同
+                // 所有权切换期间不应观察到长度变化
                 buffer.Resize(8, NativeArrayOptions.ClearMemory);
                 for (int i = 0; i < 8; ++i)
                     buffer.ElementAt(i).Value = (i+1) * 10;
@@ -186,9 +186,8 @@ namespace Unity.NetCode.Tests
         [Test]
         public void SwitchingOwnerDeserializeComponentCorreclty()
         {
-            //The purpose of this test is to verify that when using prediction switching for a
-            //owner predicted ghost, the components that are targeting either the interpolated or the
-            //predicted ghosts are correctly deserialised and no errors should occurs.
+            // 验证 OwnerPredicted Ghost 切换预测模式时
+            // 仅插值和仅预测组件都能正确反序列化，并且不会产生错误
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.Bootstrap(true, typeof(OwnerPredictedWriteSystem));
@@ -204,20 +203,20 @@ namespace Unity.NetCode.Tests
                 testWorld.Connect();
                 testWorld.GoInGame();
 
-                //Spanw the ghost, no-owner is assigned yet. The spawned ghost on the client should be interpolated.
-                //and auto-command target start disabled
+                // 生成尚未分配所有者的 Ghost，客户端初始应使用插值模式
+                // AutoCommandTarget 初始保持禁用
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
-                //Setup some values for the component and change them every tick.
+                // 初始化组件数据，并由服务端 System 每 Tick 修改
                 Assert.AreNotEqual(Entity.Null, serverEnt);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = -1 });
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
-                //We should have a ghost and should have been spawn as interpolated
+                // 客户端应生成插值 Ghost
                 var clientGhost = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientGhost);
                 Assert.IsFalse(testWorld.ClientWorlds[0].EntityManager.HasComponent<PredictedGhost>(clientGhost));
-                //Even though data is for interpolated ghost the field is not interpolated. As such the value should
-                //be the server one minus the current interpolation delay (that default to 2)
+                // 该组件只发送给插值 Ghost，但字段本身未配置插值
+                // 因此客户端值应对应服务端历史值，并落后当前插值延迟，默认延迟为 2
                 {
                     var s1 = testWorld.ServerWorld.EntityManager.GetComponentData<InterpolatedComponentData>(serverEnt);
                     var s2 = testWorld.ServerWorld.EntityManager.GetComponentData<PredictedComponentData>(serverEnt);
@@ -255,7 +254,7 @@ namespace Unity.NetCode.Tests
                         Assert.AreEqual(bs1[i].Value, bc1[i].Value);
                 }
 
-                //And change it back
+                // 释放所有权，再切回插值模式
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = -1 });
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();
@@ -277,7 +276,7 @@ namespace Unity.NetCode.Tests
                         Assert.AreEqual(bs1[i].Value, bc1[i].Value);
                 }
 
-                //And change it again
+                // 再次分配所有权，切回预测模式
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = 1 });
                 for (int i = 0; i < 8; ++i)
                     testWorld.Tick();

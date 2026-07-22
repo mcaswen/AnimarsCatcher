@@ -12,7 +12,7 @@ namespace Tests.Editor
         [Test]
         public void CalculateSequenceIdDelta_Works()
         {
-            // Check SSId's that we've confirmed (via ServerTick) are NEW:
+            // 检查已通过 ServerTick 确认为较新的快照序列号
             const bool confirmedNewer = true;
             Assert.AreEqual(0, NetworkSnapshotAck.CalculateSequenceIdDelta(5, 5, confirmedNewer));
             Assert.AreEqual(0, NetworkSnapshotAck.CalculateSequenceIdDelta(250, 250, confirmedNewer));
@@ -22,7 +22,7 @@ namespace Tests.Editor
             Assert.AreEqual(10, NetworkSnapshotAck.CalculateSequenceIdDelta(130, 120, confirmedNewer));
             Assert.AreEqual(255, NetworkSnapshotAck.CalculateSequenceIdDelta(5, 6, confirmedNewer));
 
-            // Check SSId's that we've confirmed (via ServerTick) are OLD (i.e. stale):
+            // 检查已通过 ServerTick 确认为较旧的过期快照序列号
             const bool confirmedStale = false;
             Assert.AreEqual(0, NetworkSnapshotAck.CalculateSequenceIdDelta(5, 5, confirmedStale));
             Assert.AreEqual(0, NetworkSnapshotAck.CalculateSequenceIdDelta(250, 250, confirmedStale));
@@ -36,28 +36,25 @@ namespace Tests.Editor
         [Test]
         public void SnapshotSequenceId_Statistics_NetworkPacketLoss_Works()
         {
-            // Test transport packet loss:
+            // 测试 Transport 丢包统计
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.DriverSimulatedDelay = 50;
-                testWorld.DriverSimulatedDrop = 20; // Interval, so 5%.
-                //We need to set this to receive only, otherwise the packet receive and the send jobs will
-                //update the shared packet count internally, causing either more loss or less loss
-                //(depending what run first). And because we are not using a specific seed, the delay can affect
-                //that.
-                //this ensure only the Receive job increment the packet count using from dropping packet at the expected
-                //interval
+                testWorld.DriverSimulatedDrop = 20; // 丢包间隔为 20，因此丢包率为 5%
+                // 必须限制为只处理接收包，否则收包和发包 Job 都会更新内部共享包计数
+                // 先运行的 Job 会导致实际丢包率升高或降低，且未指定随机种子时延迟也会影响结果
+                // 此设置确保只有接收 Job 增加包计数，从而按预期间隔丢包
                 testWorld.DriverSimulatorPacketMode = ApplyMode.ReceivedPacketsOnly;
 
                 var stats = RunForAWhile(testWorld);
-                // Other kinds of packet loss should not have occurred:
+                // 不应出现其他类型的包损失
                 Assert.Zero(stats.NumPacketsCulledOutOfOrder);
                 Assert.Zero(stats.NumPacketsCulledAsArrivedOnSameFrame);
-                // Expecting loss here:
+                // 此处应检测到未到达的包
                 Assert.NotZero(stats.NumPacketsDroppedNeverArrived);
-                // This could be higher due to low number of samples.
+                // 样本数量较少时统计值可能偏高
                 AssertPercentInRange(stats.NetworkPacketLossPercent, 4, 8, "NetworkPacketLossPercent");
-                // Check combined:
+                // 检查综合包损失统计
                 Assert.AreEqual(stats.NumPacketsDroppedNeverArrived, stats.CombinedPacketLossCount);
                 AssertPercentInRange(stats.CombinedPacketLossPercent, 4, 8, "CombinedPacketLossPercent");
             }
@@ -66,25 +63,24 @@ namespace Tests.Editor
         [Test]
         public void SnapshotSequenceId_Statistics_OutOfOrderAndClobbered_Works()
         {
-            // Test jitter packet loss (out of order, and multiple arriving on the same frame):
+            // 测试抖动导致的乱序和多个包在同一帧到达
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.DriverSimulatedDelay = 50;
                 testWorld.DriverSimulatedJitter = 40;
 
                 var stats = RunForAWhile(testWorld);
-                // Other kind of packet loss should not have occurred:
+                // 不应出现其他类型的包损失
 
-                // NumPacketsDroppedNeverArrived will ASSUME there has been some loss,
-                // until we confirm it's actually just an out of order packet.
+                // 在确认包只是乱序之前，NumPacketsDroppedNeverArrived 会暂时将其计为丢失
                 Assert.LessOrEqual(stats.NumPacketsDroppedNeverArrived, 5, "NumPacketsDroppedNeverArrived");
                 AssertPercentInRange(stats.NetworkPacketLossPercent, 0, 1, "NetworkPacketLossPercent");
-                // Expecting loss here:
+                // 此处应检测到同帧覆盖和乱序淘汰
                 Assert.NotZero(stats.NumPacketsCulledAsArrivedOnSameFrame, "NumPacketsCulledAsArrivedOnSameFrame");
                 AssertPercentInRange(stats.ArrivedOnTheSameFrameClobberedPacketLossPercent, 4, 11, "ArrivedOnTheSameFrameClobberedPacketLossPercent");
                 Assert.NotZero(stats.NumPacketsCulledOutOfOrder, "NumPacketsCulledOutOfOrder");
                 AssertPercentInRange(stats.OutOfOrderPacketLossPercent, 35, 45, "OutOfOrderPacketLossPercent");
-                // Check combined:
+                // 检查综合包损失统计
                 AssertPercentInRange(stats.CombinedPacketLossPercent, 40, 60, "CombinedPacketLossPercent");
             }
         }
@@ -94,29 +90,26 @@ namespace Tests.Editor
         [Test]
         public void SnapshotSequenceId_Statistics_Combined_Works()
         {
-            // Test all of them together:
+            // 同时测试全部包损失类型
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.DriverSimulatedDelay = 50;
                 testWorld.DriverSimulatedJitter = 40;
-                testWorld.DriverSimulatedDrop = 20; // Interval, so 5%.
-                //We need to set this to receive only, otherwise the packet receive and the send jobs will
-                //update the shared packet count internally, causing either more loss or less loss
-                //(depending what run first). And because we are not using a specific seed, the delay can affect
-                //that.
-                //this ensure only the Receive job increment the packet count using from dropping packet at the expected
-                //interval
+                testWorld.DriverSimulatedDrop = 20; // 丢包间隔为 20，因此丢包率为 5%
+                // 必须限制为只处理接收包，否则收包和发包 Job 都会更新内部共享包计数
+                // 先运行的 Job 会导致实际丢包率升高或降低，且未指定随机种子时延迟也会影响结果
+                // 此设置确保只有接收 Job 增加包计数，从而按预期间隔丢包
                 testWorld.DriverSimulatorPacketMode = ApplyMode.ReceivedPacketsOnly;
 
                 var stats = RunForAWhile(testWorld);
-                // Expecting loss across all types:
+                // 所有包损失类型都应产生统计结果
                 Assert.NotZero(stats.NumPacketsDroppedNeverArrived);
                 AssertPercentInRange(stats.NetworkPacketLossPercent, 4, 8, "NetworkPacketLossPercent");
                 Assert.NotZero(stats.NumPacketsCulledAsArrivedOnSameFrame);
                 AssertPercentInRange(stats.ArrivedOnTheSameFrameClobberedPacketLossPercent, 7, 9, "ArrivedOnTheSameFrameClobberedPacketLossPercent");
                 Assert.NotZero(stats.NumPacketsCulledOutOfOrder);
                 AssertPercentInRange(stats.OutOfOrderPacketLossPercent, 30, 50, "OutOfOrderPacketLossPercent");
-                // Check combined:
+                // 检查综合包损失统计
                 AssertPercentInRange(stats.CombinedPacketLossPercent, 45, 55, "CombinedPacketLossPercent");
             }
         }
@@ -136,7 +129,7 @@ namespace Tests.Editor
             ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new GhostTypeConverter(GhostTypeConverter.GhostTypes.EnableableComponents, EnabledBitBakedValue.StartEnabledAndWaitForClientSpawn);
             Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
             testWorld.CreateWorlds(true, 1);
-            testWorld.Connect(frameTime, 32); // Packet loss can mess with this!
+            testWorld.Connect(frameTime, 32); // 丢包可能延迟连接建立，因此允许更多步数
             testWorld.GoInGame();
 
             const int seconds = 25;

@@ -19,8 +19,8 @@ namespace Unity.NetCode.Physics.Tests
         }
     }
 
-    //Increment a predicted ghost field inside fixed step prediction group by using the end command buffer.
-    //It uses the latest value on SomaData compoent and increment it by one each time the PredictedFixedStepSimulationSystemGroup run.
+    // 在预测固定步组中通过 CommandBuffer 递增预测 Ghost 字段
+    // 每次 PredictedFixedStepSimulationSystemGroup 运行时读取 SomeData 最新值并加一
     [DisableAutoCreation]
     [UpdateInGroup(typeof(PhysicsSimulationGroup))]
     partial class TestCmdBufferUpdate : SystemBase
@@ -39,7 +39,7 @@ namespace Unity.NetCode.Physics.Tests
         }
     }
 
-    //Increment a predicted ghost field in prediction loop.
+    // 在预测循环中递增预测 Ghost 字段
     [DisableAutoCreation]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
     partial class TestPredictionLoopSystem : SystemBase
@@ -137,7 +137,7 @@ namespace Unity.NetCode.Physics.Tests
             testWorld.Bootstrap(true,systemsToMove);
 
             testWorld.CreateWorlds(true, 1);
-            //check that all these systems has been moved
+            // 检查依赖物理组的系统均已迁移，独立系统则保持原位
             var predictedFixedGroup = testWorld.ServerWorld.GetExistingSystemManaged<PredictedFixedStepSimulationSystemGroup>();
             var fixedGroup = testWorld.ServerWorld.GetExistingSystemManaged<FixedStepSimulationSystemGroup>();
             var systems = predictedFixedGroup.GetAllSystems();
@@ -211,8 +211,7 @@ namespace Unity.NetCode.Physics.Tests
                 var serverTicks = serverTick.TicksSince(prevServerTick);
                 var clientTicks = clientTick.TicksSince(prevClientTick) + clientTick.TicksSince(serverTick);
                 var clientPhysicsTicks = ctr.PredictedFixedStepSimulationTickRatio*clientTicks;
-                //if the fractional part of the tick is sufficient to let the fixed step group to run, we need to include
-                //an extra +1
+                // 客户端处于部分 Tick 时，需要扣除尚未执行的预测固定步次数
                 if (clientTime.IsPartialTick)
                 {
                     if (clientTime.ServerTickFraction < 0.5f)
@@ -244,7 +243,7 @@ namespace Unity.NetCode.Physics.Tests
                 testWorld.TestSpecificAdditionalAssemblies.Add("Unity.Physics,");
                 testWorld.Bootstrap(true, typeof(PhysicCheck));
 
-                //Static ghost
+                // 静态 Ghost
                 var cubeGameObject = new GameObject();
                 cubeGameObject.name = "StaticGeo";
                 cubeGameObject.isStatic = true;
@@ -263,7 +262,7 @@ namespace Unity.NetCode.Physics.Tests
 
                 if (physicsRunMode == PhysicsRunMode.EnableLagCompensation)
                 {
-                    //for client we need to set the history size
+                    // 客户端需要显式配置历史缓冲大小
                     testWorld.ClientWorlds[0].EntityManager.AddComponentData(testWorld.ClientWorlds[0].EntityManager.CreateEntity(), new LagCompensationConfig
                     {
                         ServerHistorySize = 0,
@@ -287,14 +286,14 @@ namespace Unity.NetCode.Physics.Tests
 
                 testWorld.Connect();
                 testWorld.GoInGame();
-                //TODO we can add more coverage but the logic itself is simple enough to no justify adding more combinations
-                //create the non replicated world static geometry entity.
+                // TODO 可增加更多组合覆盖，但当前配置分支逻辑较简单
+                // 创建未复制的静态场景几何实体
                 testWorld.SpawnOnServer(0);
                 //var dynamicEnt = testWorld.SpawnOnServer(1);
                 for(int i=0;i<64;++i)
                     testWorld.Tick();
 
-                //On the server the loopMode setting does not matter.
+                // 服务器不受客户端 PredictionLoopUpdateMode 设置影响
                 if (physicsRunMode == PhysicsRunMode.EnableLagCompensation)
                 {
                     Assert.IsTrue(testWorld.ServerWorld.GetExistingSystemManaged<PhysicCheck>().lastTick ==
@@ -309,23 +308,22 @@ namespace Unity.NetCode.Physics.Tests
                 {
                     Assert.IsTrue(testWorld.ServerWorld.GetExistingSystemManaged<PhysicCheck>().lastTick == testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick);
                 }
-                //On the client if the loopMode is set to RunOnlyWhenPredictedGhostArePresent, the prediction loop does not run
-                //in case no predicted ghost is present. And so, no history should be recorded, nor physics loop run, nor prediction has run
+                // 客户端要求存在预测 Ghost 时，若当前没有预测 Ghost 则不运行预测循环
+                // 因而不会记录物理历史，也不会运行物理或预测逻辑
                 var clientNetworkTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 if (loopMode == PredictionLoopUpdateMode.RequirePredictedGhost)
                 {
                     Assert.AreEqual(0,clientNetworkTime.PredictedTickIndex);
                     Assert.IsFalse(testWorld.GetSingleton<PhysicsWorldHistorySingleton>(testWorld.ClientWorlds[0]).LatestStoredTick.IsValid, "history should not be recorded without ghost because prediction loop does not run");
-                    // no need to test further conditions
+                    // 该模式下无需继续检查其他运行条件
                     return;
                 }
-                //if the loopMode is set to AlwaysRun, the prediction loop should have run
+                // AlwaysRun 模式下预测循环应已运行
                 Assert.Greater(clientNetworkTime.PredictedTickIndex, 0);
 
-                // when lag compensation is set, physics however run only once, for firsttimepredicted tick condition only, that it is partially
-                //   incorrect in case we have high-frequency physics loop, because physics should be able to run also for partial ticks in case
-                //   on the client. But, does it make sense running the physics loop in that case, if there is nothing to actually predict? (everything
-                //   is kinematic and driven by server). Looks to me no, so the behaviour seems fine.
+                // 仅启用延迟补偿时，物理只在首次预测完整 Tick 的条件下运行一次
+                // 高频物理理论上也可在客户端部分 Tick 运行，但没有可预测对象时所有内容均由服务器驱动
+                // 因此当前不在部分 Tick 额外运行物理的行为可以接受
                 var time = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 if(time.IsPartialTick)
                     time.ServerTick.Decrement();

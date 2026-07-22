@@ -9,24 +9,24 @@ using System.Reflection;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// <para>DefaultVariantSystemBase is an abstract base class that should be used to update the default variants in
-    /// <see cref="GhostComponentSerializerCollectionData"/>, which contains what serialization variant to use
-    /// (<see cref="GhostComponentVariationAttribute"/>) for certain type.
-    /// A concrete implementation must implement the <see cref="RegisterDefaultVariants"/> method and add to the dictionary
-    /// the desired type-variant pairs.</para>
-    /// <para>The system must (and will be) created in both runtime and baking worlds. During baking, in particular,
-    /// the <see cref="GhostComponentSerializerCollectionSystemGroup" /> is used by the `GhostAuthoringBakingSystem` to configure the ghost
-    /// prefabs meta-data with the defaults values.</para>
-    /// <para>The abstract base class already has the correct flags / update in world attributes set.
-    /// It is not necessary for the concrete implementation to specify the flags, nor the <see cref="WorldSystemFilterAttribute"/>.</para>
-    /// <para><b>CREATION FLOW </b></para>
+    /// <para>DefaultVariantSystemBase 是一个抽象基类，用于更新
+    /// <see cref="GhostComponentSerializerCollectionData"/> 中的默认变体，该集合记录特定类型应使用的序列化变体
+    /// （<see cref="GhostComponentVariationAttribute"/>）
+    /// 具体实现必须实现 <see cref="RegisterDefaultVariants"/> 方法，并向字典中添加所需的类型与变体配对</para>
+    /// <para>该系统必须且会同时在运行时 World 和烘焙 World 中创建，尤其在烘焙期间，
+    /// `GhostAuthoringBakingSystem` 会使用 <see cref="GhostComponentSerializerCollectionSystemGroup" />，
+    /// 通过默认值配置 Ghost Prefab 的元数据</para>
+    /// <para>该抽象基类已经设置了正确的标志和 World 更新特性
+    /// 具体实现不需要再次指定这些标志或 <see cref="WorldSystemFilterAttribute"/></para>
+    /// <para><b>创建流程</b></para>
     /// <para>
-    /// All the default variant systems <b>must</b> be created after the <see cref="GhostComponentSerializerCollectionSystemGroup"/> (that is responsible
-    /// to create the the default ghost variant mapping singleton). The `DefaultVariantSystemBase` already has the the correct <see cref="CreateAfterAttribute"/>
-    /// set, and it is not necessary for the sub-class to add the explicitly add/set this creation order again.
+    /// 所有默认变体系统都<b>必须</b>在 <see cref="GhostComponentSerializerCollectionSystemGroup"/> 之后创建，
+    /// 后者负责创建默认 Ghost 变体映射 Singleton
+    /// `DefaultVariantSystemBase` 已设置正确的 <see cref="CreateAfterAttribute"/>，
+    /// 子类不需要再次显式添加或设置该创建顺序
     /// </para>
     /// </summary>
-    /// <remarks>You may have multiple derived systems. They'll all be read from, and conflicts will output errors at bake time, and the latest values will be used.</remarks>
+    /// <remarks>可以存在多个派生系统，系统会读取全部派生系统；发生冲突时会在烘焙阶段输出错误，并采用最新值</remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation |
                        WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.BakingSystem)]
     [CreateAfter(typeof(GhostComponentSerializerCollectionSystemGroup))]
@@ -34,45 +34,57 @@ namespace Unity.NetCode
     [UpdateInGroup(typeof(DefaultVariantSystemGroup))]
     public abstract partial class DefaultVariantSystemBase : SystemBase
     {
-        /// <summary>When defining default variants for a type, you must denote whether or not this variant will be applied to both parents and children.</summary>
+        /// <summary>
+        /// 为类型定义默认变体时，必须说明该变体是否同时应用于父实体和子实体
+        /// </summary>
         public readonly struct Rule
         {
-            /// <summary>The variant to use for all top-level (i.e. root/parent level) entities.</summary>
-            /// <remarks>Parent entities default to send (i.e. serialize all "Ghost Fields" using the settings defined in the <see cref="GhostFieldAttribute"/>).</remarks>
+            /// <summary>
+            /// 所有顶层实体（即根实体或父实体）使用的变体
+            /// </summary>
+            /// <remarks>父实体默认会发送，即使用 <see cref="GhostFieldAttribute"/> 中定义的设置序列化所有 Ghost Field</remarks>
             public readonly System.Type VariantForParents;
 
-            /// <summary>The variant to use for all child entities.</summary>
-            /// <remarks>Child entities default to <see cref="DontSerializeVariant"/> for performance reasons.</remarks>
+            /// <summary>
+
+            /// 所有子实体使用的变体
+
+            /// </summary>
+            /// <remarks>出于性能考虑，子实体默认使用 <see cref="DontSerializeVariant"/></remarks>
             public readonly System.Type VariantForChildren;
 
-            /// <summary>This rule will only add the variant to parent entities with this component type.
-            /// Children with this component will remain <see cref="DontSerializeVariant"/> (which is the default for children).
-            /// <b>This is the recommended approach.</b></summary>
-            /// <param name="variantForParentOnly">Parent entities with this component type will receive the variant</param>
-            /// <returns>Updated rule</returns>
+            /// <summary>该规则只会把变体添加到具有此组件类型的父实体
+            /// 具有此组件的子实体仍使用 <see cref="DontSerializeVariant"/>，这也是子实体的默认设置
+            /// <b>推荐使用这种方式</b></summary>
+            /// <param name="variantForParentOnly">具有此组件类型的父实体将使用的变体</param>
+            /// <returns>更新后的规则</returns>
             public static Rule OnlyParents(Type variantForParentOnly) => new Rule(variantForParentOnly, default);
 
-            /// <summary>This rule will add the same variant to all entities with this component type (i.e. both parent and children a.k.a. regardless of hierarchy).
-            /// <b>Note: It is not recommended to serialize child entities as it is relatively slow to serialize them!</b></summary>
-            /// <param name="variantForBoth">All entities with this component type will receive the variant</param>
-            /// <returns>Updated rule</returns>
+            /// <summary>该规则会把同一变体添加到所有具有此组件类型的实体，即同时应用于父实体和子实体，不考虑层级关系
+            /// <b>注意：序列化子实体的速度相对较慢，因此不建议这样做</b></summary>
+            /// <param name="variantForBoth">所有具有此组件类型的实体将使用的变体</param>
+            /// <returns>更新后的规则</returns>
             public static Rule ForAll(Type variantForBoth) => new Rule(variantForBoth, variantForBoth);
 
-            /// <summary>This rule will add one variant for parents, and another variant for children, by default.
-            /// <b>Note: It is not recommended to serialize child entities as it is relatively slow to serialize them!</b></summary>
-            /// <param name="variantForParents">Parent entities with this component type will receive the variant</param>
-            /// <param name="variantForChildren">Child entities with this component type will receive the variant</param>
-            /// <returns>Updated rule</returns>
+            /// <summary>该规则默认向父实体添加一种变体，并向子实体添加另一种变体
+            /// <b>注意：序列化子实体的速度相对较慢，因此不建议这样做</b></summary>
+            /// <param name="variantForParents">具有此组件类型的父实体将使用的变体</param>
+            /// <param name="variantForChildren">具有此组件类型的子实体将使用的变体</param>
+            /// <returns>更新后的规则</returns>
             public static Rule Unique(Type variantForParents, Type variantForChildren) => new Rule(variantForParents, variantForChildren);
 
-            /// <summary>This rule will only add this variant to child entities with this component.
-            /// The parent entities with this component will use the default serializer.
-            /// <b>Note: It is not recommended to serialize child entities as it is relatively slow to serialize them!</b></summary>
-            /// <param name="variantForChildrenOnly">Child entities with this component type will receive the variant</param>
-            /// <returns>Updated rule</returns>
+            /// <summary>该规则只会把此变体添加到具有此组件的子实体
+            /// 具有此组件的父实体将使用默认序列化器
+            /// <b>注意：序列化子实体的速度相对较慢，因此不建议这样做</b></summary>
+            /// <param name="variantForChildrenOnly">具有此组件类型的子实体将使用的变体</param>
+            /// <returns>更新后的规则</returns>
             public static Rule OnlyChildren(Type variantForChildrenOnly) => new Rule(default, variantForChildrenOnly);
 
-            /// <summary>Use the static builder methods instead!</summary>
+            /// <summary>
+
+            /// 请改用静态构建方法
+
+            /// </summary>
             /// <param name="variantForParents"><inheritdoc cref="VariantForParents"/></param>
             /// <param name="variantForChildren"><inheritdoc cref="VariantForChildren"/></param>
             private Rule(Type variantForParents, Type variantForChildren)
@@ -82,20 +94,24 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// The Rule string representation. Print the parent and child variant types.
+            /// Rule 的字符串表示形式，用于输出父实体和子实体的变体类型
             /// </summary>
             /// <returns></returns>
             public override string ToString() => $"Rule[parents: `{VariantForParents}`, children: `{VariantForChildren}`]";
 
             /// <summary>
-            /// Compare two rules ana check if their parent and child types are identical.
+            /// 比较两条规则，并检查它们的父实体和子实体类型是否相同
             /// </summary>
-            /// <param name="other">Rule to test equality against</param>
-            /// <returns>Whether they variant type for parents and children match.</returns>
+            /// <param name="other">用于相等性比较的规则</param>
+            /// <returns>父实体和子实体的变体类型是否匹配</returns>
             public bool Equals(Rule other) => VariantForParents == other.VariantForParents && VariantForChildren == other.VariantForChildren;
 
-            /// <summary>Unique HashCode if Variant fields are set.</summary>
-            /// <returns>A unique hashcode if variant fields are set. Otherwise 0.</returns>
+            /// <summary>
+
+            /// 设置 Variant 字段后生成唯一 HashCode
+
+            /// </summary>
+            /// <returns>设置 Variant 字段时返回唯一哈希码，否则返回 0</returns>
             public override int GetHashCode()
             {
                 unchecked
@@ -120,12 +136,20 @@ namespace Unity.NetCode
             }
         }
 
-        /// <summary>Hash version of <see cref="Rule"/> to allow it to be BurstCompatible.</summary>
+        /// <summary>
+
+        /// <see cref="Rule"/> 的哈希版本，使其兼容 Burst
+
+        /// </summary>
         internal readonly struct HashRule
         {
-            /// <summary>Hash version of <see cref="Rule.VariantForParents"/>.</summary>
+            /// <summary>
+            /// <see cref="Rule.VariantForParents"/> 的哈希版本
+            /// </summary>
             public readonly ulong VariantForParents;
-            /// <summary>Hash version of <see cref="Rule.VariantForChildren"/>.</summary>
+            /// <summary>
+            /// <see cref="Rule.VariantForChildren"/> 的哈希版本
+            /// </summary>
             public readonly ulong VariantForChildren;
 
             public HashRule(ulong variantForParents, ulong variantForChildren)
@@ -142,8 +166,8 @@ namespace Unity.NetCode
 
         protected sealed override void OnCreate()
         {
-            //A dictionary of ComponentType -> Type is not sufficient to guarantee correctness.
-            //Some sanity check here are necessary
+            // 仅使用 ComponentType -> Type 字典不足以保证正确性
+            // 因此需要在这里执行一些健全性检查
             var defaultVariants = new Dictionary<ComponentType, Rule>();
             RegisterDefaultVariants(defaultVariants);
 
@@ -164,16 +188,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Implement this method by adding to the <paramref name="defaultVariants"/> mapping your
-        /// default type->variant <see cref="Rule"/>.
+        /// 实现此方法，将默认的类型 -> 变体 <see cref="Rule"/> 添加到
+        /// <paramref name="defaultVariants"/> 映射中
         /// </summary>
-        /// <param name="defaultVariants">Mapping default types to a variant.</param>
+        /// <param name="defaultVariants">默认类型到变体的映射</param>
         protected abstract void RegisterDefaultVariants(Dictionary<ComponentType, Rule> defaultVariants);
     }
 
     /// <summary>
-    /// Store the default component type -> ghost variant mapping (see <see cref="GhostComponentVariationAttribute"/>).
-    /// Used by systems implementing the abstract <see cref="DefaultVariantSystemBase"/>.
+    /// 保存默认组件类型 -> Ghost 变体映射，参见 <see cref="GhostComponentVariationAttribute"/>
+    /// 供实现抽象类 <see cref="DefaultVariantSystemBase"/> 的系统使用
     /// </summary>
     internal class GhostVariantRules
     {
@@ -190,9 +214,8 @@ namespace Unity.NetCode
         private NativeHashMap<ComponentType, DefaultVariantSystemBase.HashRule> DefaultVariants;
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || NETCODE_DEBUG
-        //Used for debug purpose, track the latest assigned rule by each system. That help tracking
-        //down who is overwriting the the default rule, in case multiple systems responsible for assigning the default variants exists
-        //in the project.
+        // 用于调试，跟踪每个系统最近分配的规则
+        // 当项目中存在多个负责分配默认变体的系统时，可借此定位哪个系统覆盖了默认规则
         private readonly Dictionary<ComponentType, RuleAssignment> DefaultVariantsManaged;
 #endif
 
@@ -205,14 +228,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Set the current <see cref="GhostComponentVariationAttribute"/> variant to use by default
-        /// for the given component type.
-        /// <para>If an entry for the component is already present, the new <paramref name="rule"/> won't overwrite the current
-        /// assignment. Use this with CreateBefore on your registration system to set a priority between default variants.</para>
+        /// 为指定组件类型设置默认使用的当前 <see cref="GhostComponentVariationAttribute"/> 变体
+        /// <para>如果该组件的条目已经存在，新的 <paramref name="rule"/> 不会覆盖当前分配
+        /// 可在注册系统上配合 CreateBefore 使用，为默认变体设置优先级</para>
         /// </summary>
-        /// <param name="componentType">The component type for which you want to specify the variant to use.</param>
-        /// <param name="rule">The rule to assign.</param>
-        /// <param name="currentSystem">The system that want to assign the rule. Used almost for debugging purpose</param>
+        /// <param name="componentType">需要指定所用变体的组件类型</param>
+        /// <param name="rule">要分配的规则</param>
+        /// <param name="currentSystem">要分配该规则的系统，主要用于调试</param>
         /// <returns></returns>
         public bool TrySetDefaultVariant(ComponentType componentType, DefaultVariantSystemBase.Rule rule, SystemBase currentSystem)
         {
@@ -228,13 +250,13 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Will set the current <see cref="GhostComponentVariationAttribute"/> variant to use by default
-        /// for the given component type. Will log an error if a rule for the <paramref name="componentType"/> is already present, but will still override it.
-        /// Use TrySetDefaultVariant and CreateBefore to have a project with multiple default variants for the same type.
+        /// 为指定组件类型设置默认使用的当前 <see cref="GhostComponentVariationAttribute"/> 变体
+        /// 如果 <paramref name="componentType"/> 的规则已经存在，会记录错误但仍将其覆盖
+        /// 如果项目需要为同一类型提供多个默认变体，请使用 TrySetDefaultVariant 和 CreateBefore
         /// </summary>
-        /// <param name="componentType">The component type for which you want to specify the variant to use.</param>
-        /// <param name="rule">The rule to assign.</param>
-        /// <param name="currentSystem">The system that want to assign the rule. Used almost for debugging purpose</param>
+        /// <param name="componentType">需要指定所用变体的组件类型</param>
+        /// <param name="rule">要分配的规则</param>
+        /// <param name="currentSystem">要分配该规则的系统，主要用于调试</param>
         /// <returns></returns>
         public void SetDefaultVariant(ComponentType componentType, DefaultVariantSystemBase.Rule rule, SystemBase currentSystem)
         {
@@ -274,7 +296,7 @@ namespace Unity.NetCode
 
         void ValidateUserDefinedDefaultVariantRule(ComponentType componentType, Type variantType, ComponentSystemBase systemBase)
         {
-            // Nothing to validate if the variant is the "default serializer".
+            // 如果变体是默认序列化器，则无需验证
             if (variantType == default || variantType == componentType.GetManagedType())
                 return;
 

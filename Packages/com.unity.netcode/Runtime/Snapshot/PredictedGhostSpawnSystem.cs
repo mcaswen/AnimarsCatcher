@@ -12,37 +12,39 @@ using Unity.Jobs;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Tag added to the singleton entity that contains the <see cref="PredictedGhostSpawn"/> buffer.
+    /// 添加到包含 <see cref="PredictedGhostSpawn"/> Buffer 的 Singleton Entity 上的标签
     /// </summary>
     public struct PredictedGhostSpawnList : IComponentData
     {}
 
     /// <summary>
-    /// Added to a <see cref="PredictedGhostSpawnList"/> singleton entity.
-    /// Contains a transient list of ghosts that should be pre-spawned.
-    /// Expects to be handled during the <see cref="GhostSpawnClassificationSystem"/> step.
-    /// InternalBufferCapacity allocated to almost max out chunk memory.
-    /// In practice, this capacity just needs to hold the maximum number of client-authored
-    /// ghost entities per frame, which is typically in the range 0 - 1.
+    /// 添加到 <see cref="PredictedGhostSpawnList"/> Singleton Entity
+    /// 包含应当预生成的 Ghost 临时列表
+    /// 该列表应在 <see cref="GhostSpawnClassificationSystem"/> 阶段处理
+    /// InternalBufferCapacity 原本可以分配到接近占满 Chunk 内存
+    /// 实际只需容纳客户端每帧主动创建的最大 Ghost Entity 数，通常为 0 到 1 个
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct PredictedGhostSpawn : IBufferElementData
     {
         /// <summary>
-        /// The Entity that has been spawned.
+        /// 已生成的 Entity
         /// </summary>
         public Entity entity;
         /// <summary>
-        /// The index of the ghost type in the <see cref="GhostCollectionPrefab"/> collection. Used to classify the ghost (<see cref="GhostSpawnClassificationSystem"/>).
+        /// Ghost 类型在 <see cref="GhostCollectionPrefab"/> 集合中的索引
+        /// 供 <see cref="GhostSpawnClassificationSystem"/> 对 Ghost 分类
         /// </summary>
         public int ghostType;
         /// <summary>
-        /// The server tick the entity has been spawned.
+        /// 生成该 Entity 时的服务器 Tick
         /// </summary>
         public NetworkTick spawnTick;
 
-        /// <summary>Helper.</summary>
-        /// <returns>Formatted informational string.</returns>
+        /// <summary>
+        /// 返回便于诊断的格式化信息
+        /// </summary>
+        /// <returns>格式化后的信息字符串</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString128Bytes ToFixedString() => $"PredictedGhostSpawn[ghostType:{ghostType},st:{spawnTick.ToFixedString()},ent:{entity.ToFixedString()}]";
         /// <inheritdoc cref="ToFixedString"/>
@@ -50,10 +52,9 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Parent group of all systems that need to process predicted spawned ghost entities inside the prediction
-    /// group.
-    /// The group execute after the <see cref="EndPredictedSimulationEntityCommandBufferSystem"/> to ensure new predicted
-    /// ghost entities created by that command buffer are always initialized before the end of current the prediction tick.
+    /// 需要在预测组内处理预测生成 Ghost Entity 的所有 System 的父组
+    /// 该组在 <see cref="EndPredictedSimulationEntityCommandBufferSystem"/> 之后执行
+    /// 以确保该 Command Buffer 创建的新预测 Ghost Entity 总能在当前预测 Tick 结束前完成初始化
     /// </summary>
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup), OrderLast = true)]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -69,9 +70,9 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Consume all the <see cref="PredictedGhostSpawnRequest"/> requests by initializing the predicted spawned ghost
-    /// and adding it to the <see cref="PredictedGhostSpawn"/> buffer.
-    /// All the predicted spawned ghosts are initialized with a invalid ghost id (-1) but a valid ghost type and spawnTick.
+    /// 通过初始化预测生成 Ghost 并将其加入 <see cref="PredictedGhostSpawn"/> Buffer
+    /// 来消费所有 <see cref="PredictedGhostSpawnRequest"/> 请求
+    /// 所有预测生成 Ghost 都会使用无效 GhostId 初始化，同时具有有效的 Ghost 类型和 spawnTick
     /// </summary>
     [UpdateInGroup(typeof(GhostSpawnSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -111,7 +112,7 @@ namespace Unity.NetCode
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用 Component 类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 DynamicComponentTypeHandle* ghostChunkComponentTypesPtr = DynamicTypeList.GetData();
@@ -125,18 +126,16 @@ namespace Unity.NetCode
                 var ghostType = ghostTypeFromEntity[entityList[0]];
                 if (!GhostTypeToColletionIndex.TryGetValue(ghostType, out var ghostTypeIndex))
                 {
-                    //there is no mapping for this ghost yet. The warning is a little spamming but at least it will get noticed.
-                    //TODO Maybe limit to 3-4 time.
+                    // 当前还没有该 Ghost 的映射；此警告可能较频繁，但至少能确保问题被发现
+                    // TODO: 可以考虑限制为最多输出 3 到 4 次
                     netDebug.LogError($"Failed to initialize predicted spawned ghost with type {(Hash128)ghostType}.\nThe ghost has been spawed before the client received from the server the required mapping (`GhostType -> index`),\nand the associated prefab loaded and processed by the GhostCollectionSystem.\nTo prevent this error/warning, you can check before spawning predicted ghosts that the GhostCollection.GhostTypeToColletionIndex hashmap contains a entry or the `GhostType` component assigned on the prefab.");
-                    //Early exiting here will not add this ghost to the spawned list.
-                    //What that means? It means that if the client spawn a ghost from a prefab the server didn't load
-                    //this will never get detroyed and this error/warning continously reported.
-                    //This was already the case. No behaviour has changed.
+                    // 在此提前退出不会把该 Ghost 加入生成列表
+                    // 如果客户端从服务器未加载的 Prefab 生成 Ghost，该 Entity 将不会被销毁
+                    // 并且会持续报告此错误或警告；这是既有行为，此处没有改变语义
                     return;
                 }
-                //This condition can be true in case the prefab associated with the ghost is loaded but there are missing prefabs
-                //before this in the server list. The GhostCollectionPrefabSerializer collection is populated "in-order".
-                //So this condition it still hold.
+                // 当该 Ghost 对应 Prefab 已加载，但服务器列表中排在它之前的 Prefab 仍缺失时，此条件可能成立
+                // GhostCollectionPrefabSerializer 集合会按顺序填充，因此当前索引仍可能超出已处理范围
                 if(ghostTypeIndex >= GhostTypeCollection.Length)
                     return;
                 var spawnList = spawnListFromEntity[spawnListEntity];
@@ -168,15 +167,15 @@ namespace Unity.NetCode
                     var entity = entityList[i];
 
                     var ghostComponent = ghostFromEntity[entity];
-                    //Set a valid spawn tick but invalid ghost id for predicted spawned ghosts.
-                    //This will let distinguish them from invalid ghost instances
+                    // 为预测生成 Ghost 设置有效 spawnTick 和无效 GhostId
+                    // 这样可以将其与完全无效的 Ghost 实例区分开
                     ghostComponent.ghostId = 0;
                     ghostComponent.ghostType = ghostTypeIndex;
                     ghostComponent.spawnTick = spawnTick;
                     ghostFromEntity[entity] = ghostComponent;
                     predictedGhostFromEntity[entity] = new PredictedGhost{AppliedTick = spawnTick, PredictionStartTick = spawnTick};
-                    // Set initial snapshot data
-                    // Get the buffers, fill in snapshot size etc
+                    // 设置初始 Snapshot 数据
+                    // 获取各个 Buffer，并填入 Snapshot 大小等信息
                     snapshotDataList[i] = new SnapshotData{SnapshotSize = snapshotSize, LatestIndex = 0};
                     var snapshotDataBuffer = snapshotDataBufferList[i];
                     snapshotDataBuffer.ResizeUninitialized(snapshotSize * GhostSystemConstants.SnapshotHistorySize);
@@ -195,18 +194,16 @@ namespace Unity.NetCode
                         var headerSize = SnapshotDynamicBuffersHelper.GetHeaderSize();
                         snapshotDynamicDataBuffer.ResizeUninitialized((int)dynamicDataCapacity);
 
-                        //Explanation: on the client the dynamic buffer data offset is relative to the beginning of
-                        //the dynamic data slot, not to the header.
-                        //That means, the dynamicSnapshotDataOffset always start from 0, and the data instead
-                        //start right after the header (for the first slot).
+                        // 客户端的动态 Buffer 数据偏移相对于动态数据槽位起点，而不是 Header
+                        // 因此 dynamicSnapshotDataOffset 始终从 0 开始，而首个槽位的数据紧跟在 Header 之后
                         helper.snapshotDynamicPtr = (byte*)snapshotDynamicDataBuffer.GetUnsafePtr() + headerSize;
                         helper.snapshotDynamicHeaderPtr = (byte*)snapshotDynamicDataBuffer.GetUnsafePtr();
                         helper.dynamicSnapshotDataOffset = 0;
                         helper.dynamicSnapshotCapacity = (int)(dynamicSnapshotSize);
                     }
                     helper.CopyEntityToSnapshot(chunk, i, typeData, GhostSerializeHelper.ClearOption.DontClear);
-                    // Remove request component
-                    // Add to list of predictive spawn component - maybe use a singleton for this so spawn systems can just access it too
+                    // 移除请求 Component
+                    // 加入预测生成列表，后续可考虑使用 Singleton 让其他生成 System 直接访问
                     spawnList.Add(new PredictedGhostSpawn{entity = entity, ghostType = ghostTypeIndex, spawnTick = spawnTick});
                     commandBuffer.RemoveComponent<PredictedGhostSpawnRequest>(entity);
                 }
@@ -284,42 +281,30 @@ namespace Unity.NetCode
                 m_LastFrameFullTick = NetworkTimeHelper.LastFullServerTick(SystemAPI.GetSingleton<NetworkTime>());
                 return;
             }
-            //Edge case scenario when the predicted spawn is at the very very first tick.
-            //this can't happen if the ghost has been spawned inside a system in the
-            //PredictedSimulation but may occurs if that is done outside and before
-            //the first snapshot received.
+            // 边界情况：预测生成发生在最初的 Tick
+            // 如果 Ghost 由 PredictedSimulation 内的 System 生成便不会发生
+            // 但在预测循环之外且收到首个 Snapshot 前生成时可能出现
             if(!m_LastFrameFullTick.IsValid)
                 m_LastFrameFullTick = NetworkTimeHelper.LastFullServerTick(networkTime);
-            //We need to infer when the client spawned ghosts, because we don't have this information.
-            //The last full tick is the only value we can use here to match the last (or the first)
-            //IsFirstTimefullyPredictedTick. But we can have many (depend on the elapsed delta time).
-            //There are multiple cases (see documentation about problem with prediction) where
-            //it is possible a command for tick T, cause a spawn at tick T+1 or T+2 (i.e if you have
-            //a rate of fire). For those cases, we are assigning here a wrong spawning tick.
-            //(usually 1 or 2 tick off).
-            //In the normal (95% of the time) case scenerio where the game run at approximativel the
-            //simulation tick rate or faster, the spawn tick is assigned correctly.
+            // 由于没有客户端实际生成 Ghost 的时间信息，这里需要进行推断
+            // 能用于匹配最近一次或第一次 IsFirstTimeFullyPredictingTick 的值只有上一个完整 Tick
+            // 但一次经过时间可能推进多个这样的 Tick
+            // 某些预测场景中，Tick T 的 Command 可能在 T+1 或 T+2 才触发生成，例如受射速限制时
+            // 此时这里分配的生成 Tick 会有误差，通常相差 1 到 2 个 Tick
+            // 在游戏运行速率接近或高于 Simulation Tick Rate 的常见场景中，生成 Tick 通常可以正确分配
             NetworkTick spawnTick;
             if(networkTime.IsInPredictionLoop)
                 spawnTick = networkTime.ServerTick;
             else
             {
-                //Notice that the client and the server will always assign a different tick to entities when spawned outside
-                //the prediction loop
-                //The server assign the tick ath the end of the frame (GhostSendSystem)
-                //The client assign the tick always at the begging of the frame (this system).
-                //
-                //To is best knowledge (client), the tick at which the entities spawned should be the last full tick
-                //(done in the previous frame).
-                //In all cases, the spawn tick is going to be different (1 tick less normally) depending on the elapsed time,
-                //tick batching confituration etc.
-                //This is why the default tick-based check (apart for reason depending on the input applied at different time)
-                //use at leat a range of [-5,+5] ticks. That is quite a large window, but give the necesary room to match inconsistency
-                //in the timing.
-                //Why we can't increase here the spawn tick (so it will match) ? Because this is the tick associated with the
-                //current state of the entity, not necessarily when the entity was actually spawned.
-                //Because this tick is embedded into the snapshot, we are rewind and re-simulate from here for continuing prediction
-                //(when force to do so all the time). As such need to be consistent.
+                // 在预测循环之外生成 Entity 时，客户端与服务器始终会分配不同的 Tick
+                // 服务器在帧末的 GhostSendSystem 中分配 Tick，而客户端在帧初的本 System 中分配 Tick
+                // 按客户端当前掌握的信息，Entity 应生成于上一帧完成的最后一个完整 Tick
+                // 受经过时间和 Tick Batching 配置等因素影响，两端的生成 Tick 仍会不同，通常相差 1 个 Tick
+                // 因此默认的 Tick 匹配会使用至少 [-5,+5] 的范围，为时序不一致预留足够空间
+                // 这里不能简单增加 spawnTick 来强行匹配，因为该 Tick 表示 Entity 当前状态所在的 Tick
+                // 不一定是 Entity 实际生成的时刻；该 Tick 还会写入 Snapshot，并在继续预测时作为回退和重新模拟的起点
+                // 因此必须保持其状态语义一致
                 spawnTick = m_LastFrameFullTick;
             }
             m_LastFrameFullTick = NetworkTimeHelper.LastFullServerTick(networkTime);
@@ -370,15 +355,14 @@ namespace Unity.NetCode
             };
             var ghostComponentCollection = state.EntityManager.GetBuffer<GhostCollectionComponentType>(initJob.GhostCollectionSingleton);
             DynamicTypeList.PopulateList(ref state, ghostComponentCollection, true, ref initJob.DynamicTypeList);
-            // Intentionally using non-parallel .ScheduleByRef()
+            // 这里有意使用非并行的 ScheduleByRef
             state.Dependency = initJob.ScheduleByRef(m_GhostInitQuery, state.Dependency);
         }
     }
 
     /// <summary>
-    /// Consume all the <see cref="PredictedGhostSpawnRequest"/> requests by initializing the predicted spawned ghost
-    /// and adding it to the <see cref="PredictedGhostSpawn"/> buffer.
-    /// All the predicted spawned ghosts are initialized with a invalid ghost id (-1) but a valid ghost type and spawnTick.
+    /// 清理在有效期限内未与服务器 Ghost 完成分类匹配的预测生成 Ghost
+    /// 匹配成功的 Ghost 会提前从 <see cref="PredictedGhostSpawn"/> Buffer 移除
     /// </summary>
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -387,8 +371,8 @@ namespace Unity.NetCode
     public partial struct PredictedGhostDespawnSystem : ISystem
     {
         /// <summary>
-        ///     Destroy client predicted spawns which are too old.
-        ///     I.e. The ones which did NOT get classified, and therefore were not already removed from this list.
+        /// 销毁客户端上已经过期的预测生成 Entity
+        /// 即未完成分类匹配、因而仍留在列表中的 Entity
         /// </summary>
         [BurstCompile]
         struct CleanupPredictedSpawns : IJob
@@ -403,7 +387,7 @@ namespace Unity.NetCode
                     var ghost = spawnList[i];
                     if (Hint.Unlikely(destroyTick.IsNewerThan(ghost.spawnTick)))
                     {
-                        // Destroy entity and remove from list
+                        // 销毁 Entity 并从列表移除
                         commandBuffer.DestroyEntity(ghost.entity);
                         spawnList.RemoveAtSwapBack(i);
                         --i;
@@ -433,7 +417,7 @@ namespace Unity.NetCode
                 return;
             EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
             var destroyTick = networkTime.InterpolationTick;
-            //WE SHOULD DESPAWN AT FULL INTERPOLATION TICKS
+            // 应在完整插值 Tick 上执行 Despawn
             if(networkTime.InterpolationTickFraction < 1)
                 destroyTick.Decrement();
             if(!SystemAPI.TryGetSingleton(out ClientTickRate clientTickRate))

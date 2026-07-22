@@ -7,7 +7,7 @@ using UnityEngine.Scripting;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The default serialization strategy for the <see cref="Unity.Transforms.LocalTransform"/> components provided by the NetCode package.
+    /// NetCode 包为 <see cref="Unity.Transforms.LocalTransform"/> 组件提供的默认序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "Transform - 3D")]
@@ -15,28 +15,28 @@ namespace Unity.NetCode
     public struct TransformDefaultVariant
     {
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 1000 (so roughly 1mm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Position 默认按 1000 的量化单位复制，即每个分量约有 1 毫米精度
+        /// 复制的 Position 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float3 Position;
 
         /// <summary>
-        /// The scale value is replicated with a default quantization unit of 1000.
-        /// The replicated scale value support both interpolation and extrapolation
+        /// Scale 默认按 1000 的量化单位复制
+        /// 复制的 Scale 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float Scale;
 
         /// <summary>
-        /// The rotation quaternion is replicated and the resulting floating point data use for replication the rotation is quantized with good precision (10 or more bits per component)
+        /// 复制 Rotation 四元数，其浮点数据采用较高精度量化，即每个分量使用 10 位或更多位
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public quaternion Rotation;
     }
     /// <summary>
-    /// A serialization strategy for <see cref="Unity.Transforms.LocalTransform"/> that replicates only the entity
-    /// <see cref="Unity.Transforms.LocalTransform.Position"/>.
+    /// 仅复制实体 <see cref="Unity.Transforms.LocalTransform.Position"/> 的
+    /// <see cref="Unity.Transforms.LocalTransform"/> 序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "PositionOnly - 3D")]
@@ -44,15 +44,15 @@ namespace Unity.NetCode
     public struct PositionOnlyVariant
     {
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 1000 (so roughly 1mm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Position 默认按 1000 的量化单位复制，即每个分量约有 1 毫米精度
+        /// 复制的 Position 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float3 Position;
     }
     /// <summary>
-    /// A serialization strategy for <see cref="Unity.Transforms.LocalTransform"/> that replicates only the entity
-    /// <see cref="Unity.Transforms.LocalTransform.Rotation"/>.
+    /// 仅复制实体 <see cref="Unity.Transforms.LocalTransform.Rotation"/> 的
+    /// <see cref="Unity.Transforms.LocalTransform"/> 序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "RotationOnly - 3D")]
@@ -60,14 +60,14 @@ namespace Unity.NetCode
     public struct RotationOnlyVariant
     {
         /// <summary>
-        /// The rotation quaternion is replicated and the resulting floating point data use for replication the rotation is quantized with good precision (10 or more bits per component)
+        /// 复制 Rotation 四元数，其浮点数据采用较高精度量化，即每个分量使用 10 位或更多位
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public quaternion Rotation;
     }
     /// <summary>
-    /// A serialization strategy that replicates the entity <see cref="Unity.Transforms.LocalTransform.Position"/> and
-    /// <see cref="Unity.Transforms.LocalTransform.Rotation"/> properties.
+    /// 复制实体 <see cref="Unity.Transforms.LocalTransform.Position"/> 和
+    /// <see cref="Unity.Transforms.LocalTransform.Rotation"/> 属性的序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "PositionAndRotation - 3D")]
@@ -75,22 +75,22 @@ namespace Unity.NetCode
     public struct PositionRotationVariant
     {
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 1000 (so roughly 1mm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Position 默认按 1000 的量化单位复制，即每个分量约有 1 毫米精度
+        /// 复制的 Position 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float3 Position;
 
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 100 (so roughly 1cm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Rotation 默认按 1000 的量化单位复制
+        /// 复制的 Rotation 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public quaternion Rotation;
     }
     /// <summary>
-    /// A serialization strategy that replicates the entity <see cref="Unity.Transforms.LocalTransform.Position"/> and
-    /// <see cref="Unity.Transforms.LocalTransform.Scale"/> properties.
+    /// 复制实体 <see cref="Unity.Transforms.LocalTransform.Position"/> 和
+    /// <see cref="Unity.Transforms.LocalTransform.Scale"/> 属性的序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "PositionScale - 3D")]
@@ -98,21 +98,21 @@ namespace Unity.NetCode
     public struct PositionScaleVariant
     {
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 1000 (so roughly 1mm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Position 默认按 1000 的量化单位复制，即每个分量约有 1 毫米精度
+        /// 复制的 Position 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float3 Position;
 
         /// <summary>
-        /// The scale value is replicated with a default quantization unit of 1000, and support both interpolation and exrapolation.
+        /// Scale 默认按 1000 的量化单位复制，并同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float Scale;
     }
     /// <summary>
-    /// A serialization strategy that replicates the entity <see cref="Unity.Transforms.LocalTransform.Rotation"/> and
-    /// <see cref="Unity.Transforms.LocalTransform.Scale"/> properties.
+    /// 复制实体 <see cref="Unity.Transforms.LocalTransform.Rotation"/> 和
+    /// <see cref="Unity.Transforms.LocalTransform.Scale"/> 属性的序列化策略
     /// </summary>
     [Preserve]
     [GhostComponentVariation(typeof(Transforms.LocalTransform), "RotationScale - 3D")]
@@ -120,31 +120,29 @@ namespace Unity.NetCode
     public struct RotationScaleVariant
     {
         /// <summary>
-        /// The position value is replicated with a default quantization unit of 1000 (so roughly 1mm precision per component).
-        /// The replicated position value support both interpolation and extrapolation
+        /// Rotation 默认按 1000 的量化单位复制
+        /// 复制的 Rotation 同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public quaternion Rotation;
 
         /// <summary>
-        /// The scale value is replicated with a default quantization unit of 1000, and support both interpolation and exrapolation.
+        /// Scale 默认按 1000 的量化单位复制，并同时支持插值与外推
         /// </summary>
         [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate)]
         public float Scale;
     }
 
     /// <summary>
-    /// System that optionally setup the Netcode default variants used for transform components in case a default is not already present.
-    /// The following variants are set by default by the package:
+    /// 当 Transform 组件尚未配置默认 Variant 时，按需设置 NetCode 默认 Variant 的 System
+    /// 包默认设置以下 Variant：
     /// - <see cref="Unity.Transforms.LocalTransform"/>
     /// - <see cref="Unity.Transforms.Translation"/>
     /// - <see cref="Unity.Transforms.Rotation"/>
     /// </summary>
     /// <remarks>
-    /// <para>It will never override the default assignment for the transform components if they are already present in the
-    /// <see cref="GhostComponentSerializerCollectionData.DefaultVariants"/> map.</para>
-    /// <para>Any system deriving from <see cref="DefaultVariantSystemBase"/> will take precedence, even if they are created
-    /// after this system.</para>
+    /// <para>若 <see cref="GhostComponentSerializerCollectionData.DefaultVariants"/> 映射中已存在 Transform 组件的默认分配，本 System 不会覆盖它</para>
+    /// <para>所有继承自 <see cref="DefaultVariantSystemBase"/> 的 System 优先级都更高，即使它们在本 System 之后创建</para>
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation |
                        WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.BakingSystem)]

@@ -8,37 +8,46 @@ using Unity.Transforms;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Singleton component with APIs and collections required for converting client ghosts <see cref="GhostMode"/> to <see cref="GhostMode.Predicted"/> &amp; <see cref="GhostMode.Interpolated"/>.
-    /// <see cref="GhostPredictionSwitchingSystem"/>
+    /// 包含将客户端 Ghost <see cref="GhostMode"/> 转换为 <see cref="GhostMode.Predicted"/> 或 <see cref="GhostMode.Interpolated"/> 所需 API 和集合的单例组件
+    /// 参见 <see cref="GhostPredictionSwitchingSystem"/>
     /// </summary>
     public struct GhostPredictionSwitchingQueues : IComponentData
     {
-        /// <summary><see cref="PredictionSwitchingUtilities.ConvertGhostToPredicted"/></summary>
+        /// <summary>
+        /// 参见 <see cref="PredictionSwitchingUtilities.ConvertGhostToPredicted"/>
+        /// </summary>
         public NativeQueue<ConvertPredictionEntry>.ParallelWriter ConvertToPredictedQueue;
-        /// <summary><see cref="PredictionSwitchingUtilities.ConvertGhostToInterpolated"/></summary>
+        /// <summary>
+        /// 参见 <see cref="PredictionSwitchingUtilities.ConvertGhostToInterpolated"/>
+        /// </summary>
         public NativeQueue<ConvertPredictionEntry>.ParallelWriter ConvertToInterpolatedQueue;
     }
 
-    /// <summary>Struct storing settings for an individual queue entry in the <see cref="GhostPredictionSwitchingQueues"/>.</summary>
+    /// <summary>
+    /// 存储 <see cref="GhostPredictionSwitchingQueues"/> 单个队列条目设置的结构
+    /// </summary>
     [NoAlias]
     public struct ConvertPredictionEntry
     {
-        /// <summary>The entity you are converting.</summary>
+        /// <summary>
+        /// 要转换的实体
+        /// </summary>
         public Entity TargetEntity;
 
         /// <summary>
-        /// We smooth the <see cref="LocalToWorld"/> of the target entity via <see cref="GhostPredictionSmoothing"/> system (and component <see cref="SwitchPredictionSmoothing"/>).
-        /// How gentle should this smooth transformation be? Sensible default: 1.0s.
-        /// Note: Also prevents converting the ghost again until complete.
+        /// 通过 <see cref="GhostPredictionSmoothing"/> 系统和 <see cref="SwitchPredictionSmoothing"/> 组件
+        /// 对目标实体的 <see cref="LocalToWorld"/> 进行平滑
+        /// 此值控制转换过渡的缓和程度，建议默认值为 1.0 秒
+        /// 注意：过渡完成前也会阻止再次转换该 Ghost
         /// </summary>
         public float TransitionDurationSeconds;
     }
 
     /// <summary>
-    /// Optional component that can be added either on a per entity or on per-chunk basis that allow
-    /// to customise the transition time when converting from predicted to interpolated <see cref="GhostMode"/>.
-    /// If the component is present, the <see cref="TransitionDurationSeconds"/> take precendence over the settings passed to
-    /// the <see cref="ConvertPredictionEntry.TransitionDurationSeconds"/>.
+    /// 可按实体或按 Chunk 添加的可选组件
+    /// 用于自定义从预测模式转换到插值 <see cref="GhostMode"/> 时的过渡时间
+    /// 如果存在此组件，其 <see cref="TransitionDurationSeconds"/> 优先于
+    /// 传给 <see cref="ConvertPredictionEntry.TransitionDurationSeconds"/> 的设置
     /// </summary>
     public struct PredictionSwitchingSmoothing : IComponentData
     {
@@ -47,39 +56,38 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Struct storing the setting for the <see cref="GhostOwnerPredictedSwitchingQueue"/> queue.
+    /// 存储 <see cref="GhostOwnerPredictedSwitchingQueue"/> 队列条目设置的结构
     /// </summary>
     internal struct OwnerSwithchingEntry
     {
         /// <summary>
-        /// The current value of the <see cref="GhostOwner"/> component.
+        /// <see cref="GhostOwner"/> 组件的当前值
         /// </summary>
         public int CurrentOwner;
 
         /// <summary>
-        /// The new ghost owner. Can be either a valid <see cref="NetworkId"/> or invalid one (0 or negative).
+        /// 新的 Ghost 所有者，可以是有效 <see cref="NetworkId"/>，也可以是 0 或负数等无效值
         /// </summary>
         public int NewOwner;
 
         /// <summary>
-        /// The ghost that will need to be converted to either predicted or interpolated.
+        /// 需要转换为预测或插值模式的 Ghost
         /// </summary>
         public Entity TargetEntity;
     }
 
     /// <summary>
-    /// Singleton component, used to track when an ghost with mode set to <see cref="GhostMode.OwnerPredicted"/> has changed
-    /// owner and require changing how it is simulated on the client. In particular:
+    /// 用于跟踪 <see cref="GhostMode.OwnerPredicted"/> Ghost 所有者变化的单例组件
+    /// 所有者变化后需要调整该 Ghost 在客户端上的模拟方式，具体规则如下
     /// <list type="bullet">
-    /// <item>If the owner is the same as client <see cref="NetworkId"/> the ghost will become predicted</item>
-    /// <item>If the owner is not the same as client <see cref="NetworkId"/> the ghost will become interpolated</item>
+    /// <item>所有者与客户端 <see cref="NetworkId"/> 相同时，Ghost 转为预测模式</item>
+    /// <item>所有者与客户端 <see cref="NetworkId"/> 不同时，Ghost 转为插值模式</item>
     /// </list>
     /// </summary>
     internal struct GhostOwnerPredictedSwitchingQueue : IComponentData
     {
         /// <summary>
-        /// The list of owner-predicted ghosts for which the <see cref="GhostOwner"/> has changed and that
-        /// requires to be converted to the respective interpolated or predicted version.
+        /// <see cref="GhostOwner"/> 已变化且需要转换为相应插值或预测版本的所有者预测 Ghost 列表
         /// </summary>
         public NativeQueue<OwnerSwithchingEntry> SwitchOwnerQueue;
     }
@@ -89,12 +97,14 @@ namespace Unity.NetCode
     {
         public long NumTimesSwitchedToPredicted;
         public long NumTimesSwitchedToInterpolated;
-        //TODO: this field need to have changes in the Analytics schema in order to be reported. JIRA MTT-7267
+        // TODO：需要修改 Analytics Schema 后才能上报此字段，参见 JIRA MTT-7267
         public long NumTimesSwitchedOwner;
     }
 #endif
 
-    /// <summary>System that applies the prediction switching on the queued entities (via <see cref="GhostPredictionSwitchingQueues"/>).</summary>
+    /// <summary>
+    /// 对 <see cref="GhostPredictionSwitchingQueues"/> 中排队实体应用预测模式切换的系统
+    /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
@@ -157,15 +167,14 @@ namespace Unity.NetCode
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            //Checking the value for this queues on the main thread requires we are waiting for writers.
+            // 在主线程检查这些队列前必须等待所有写入者完成
             state.CompleteDependency();
             FixedList64Bytes<Entity> batchedDeletedWarnings = default;
             uint batchedDeletedCount = 0;
-            //if the client is not connected to the server, or not in game the queue should be empty. Worst case scenario,
-            //the client disconnect and in that case the GhostReceiveSystem already destroy all the entities.
-            //This is then detected in the ConvertOwnerPredictedGhost method, so it is safe.
-            //However, if the client is not in game and asking for converting or switching owner should just skipped and the queues
-            //cleared
+            // 客户端未连接服务器或尚未进入游戏时，队列应为空
+            // 最坏情况下客户端断开连接，此时 GhostReceiveSystem 已销毁所有实体
+            // ConvertOwnerPredictedGhost 会检测这种情况，因此不会造成错误
+            // 但客户端不在游戏中时，应跳过转换或所有者切换请求并清空队列
             if (!SystemAPI.HasSingleton<NetworkStreamInGame>())
             {
                 m_ConvertToPredictedQueue.Clear();
@@ -184,9 +193,8 @@ namespace Unity.NetCode
                 var networkId = SystemAPI.GetSingleton<NetworkId>();
                 while (m_OwnerPredictedQueue.TryDequeue(out var ownerSwitching))
                 {
-                    //This is unfortunately necessary because components are added and removed
-                    //invalidating the lookup safety handle. That is really mostly a restriction
-                    //(almost a bug i would say).
+                    // 添加和移除组件会使 Lookup 的安全句柄失效，因此必须在每次结构变更后更新 Lookup
+                    // 这主要是底层安全限制，行为上接近一个缺陷
                     m_PredictionSwitchingSmoothingLookup.Update(ref state);
                     m_PredictionSwitchingSmoothingLookup.TryGetComponent(ownerSwitching.TargetEntity, out var smoothing);
                     PredictionSwitchingUtilities.ConvertOwnerPredictedGhost(state.EntityManager,
@@ -235,9 +243,9 @@ namespace Unity.NetCode
     static internal class PredictionSwitchingUtilities
     {
         /// <summary>
-        /// Convert an owner predicted ghost to either an interpolated or predicted ghost, based on the owner.
-        /// The ghost must support both interpolated and predicted mode, The new components added as a result of this
-        /// operation will have the inital values from the ghost prefab.
+        /// 根据所有者将所有者预测 Ghost 转换为插值或预测 Ghost
+        /// 该 Ghost 必须同时支持插值和预测模式
+        /// 此操作新增的组件会使用 Ghost Prefab 中的初始值
         /// </summary>
         static public void ConvertOwnerPredictedGhost(EntityManager entityManager,
             Entity entity, int newOwner, int localNetworkId,
@@ -299,9 +307,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Convert an interpolated ghost to a predicted ghost. The ghost must support both interpolated and predicted mode,
-        /// and it cannot be owner predicted. The new components added as a result of this operation will have the inital
-        /// values from the ghost prefab.
+        /// 将插值 Ghost 转换为预测 Ghost
+        /// 该 Ghost 必须同时支持插值和预测模式，并且不能是所有者预测 Ghost
+        /// 此操作新增的组件会使用 Ghost Prefab 中的初始值
         /// </summary>
         static public void ConvertGhostToPredicted(EntityManager entityManager, GhostUpdateVersion ghostUpdateVersion,
             NetDebug netDbg, NativeArray<GhostCollectionPrefab> ghostCollectionPrefabs, Entity entity, float transitionDuration,
@@ -356,9 +364,9 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Convert a predicted ghost to an interpolated ghost. The ghost must support both interpolated and predicted mode,
-        /// and it cannot be owner predicted. The new components added as a result of this operation will have the inital
-        /// values from the ghost prefab.
+        /// 将预测 Ghost 转换为插值 Ghost
+        /// 该 Ghost 必须同时支持插值和预测模式，并且不能是所有者预测 Ghost
+        /// 此操作新增的组件会使用 Ghost Prefab 中的初始值
         /// </summary>
         static public void ConvertGhostToInterpolated(EntityManager entityManager, GhostUpdateVersion ghostUpdateVersion, NetDebug netDbg, NativeArray<GhostCollectionPrefab> ghostCollectionPrefabs, Entity entity, float transitionDuration, ref FixedList64Bytes<Entity> destroyedEntities, ref uint batchedDeletedCount)
         {
@@ -416,7 +424,7 @@ namespace Unity.NetCode
         {
             var linkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(entity).ToNativeArray(Allocator.Temp);
             var prefabLinkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(prefab).ToNativeArray(Allocator.Temp);
-            //Need copy because removing component will invalidate the buffer pointer, since introduce structural changes
+            // 移除组件会产生结构变更并使 Buffer 指针失效，因此需要先复制 LinkedEntityGroup
             for (int add = 0; add < toAdd.Length; ++add)
             {
                 var compType = ComponentType.ReadWrite(TypeManager.GetTypeIndexFromStableTypeHash(toAdd[add].StableHash));
@@ -426,7 +434,7 @@ namespace Unity.NetCode
                     throw new InvalidOperationException($"Ghosts with chunk or shared components cannot switch prediction. {entity.ToFixedString()}");
                 }
 #endif
-                // TODO: Investigate batched AddComponent (i.e. 2 passes).
+                // TODO：研究分两轮批量执行 AddComponent
                 entityManager.AddComponent(linkedEntityGroup[toAdd[add].EntityIndex].Value, compType);
                 if (compType.IsZeroSized)
                     continue;
@@ -439,9 +447,9 @@ namespace Unity.NetCode
                 {
                     var srcBufferChunkAccessor = srcInfo.Chunk.GetUntypedBufferAccessor(ref typeHandle);
                     var dstBufferChunkAccessor = dstInfo.Chunk.GetUntypedBufferAccessor(ref typeHandle);
-                    // srcBuffer.Length is the number of entities in that chunk. We need to get srcPrefabBufferLength instead
+                    // srcBuffer.Length 表示该 Chunk 中的实体数量，此处需要的是 srcPrefabBufferLength
                     var srcDataPtr = srcBufferChunkAccessor.GetUnsafeReadOnlyPtrAndLength(srcInfo.IndexInChunk, out var srcPrefabBufferLength);
-                    dstBufferChunkAccessor.ResizeUninitialized(dstInfo.IndexInChunk, srcPrefabBufferLength); // resize entity's buffer to fit all prefab's original buffer elements
+                    dstBufferChunkAccessor.ResizeUninitialized(dstInfo.IndexInChunk, srcPrefabBufferLength); // 调整实体 Buffer 大小以容纳 Prefab 的全部原始 Buffer 元素
                     var dstDataPtr = dstBufferChunkAccessor.GetUnsafeReadOnlyPtr(dstInfo.IndexInChunk);
                     UnsafeUtility.MemCpy(dstDataPtr, srcDataPtr, typeInfo.ElementSize * srcPrefabBufferLength);
                 }
@@ -454,7 +462,7 @@ namespace Unity.NetCode
             }
             for (int rm = 0; rm < toRemove.Length; ++rm)
             {
-                // TODO: Investigate batched RemoveComponent (i.e. 2 passes).
+                // TODO：研究分两轮批量执行 RemoveComponent
                 var compType = ComponentType.ReadWrite(TypeManager.GetTypeIndexFromStableTypeHash(toRemove[rm].StableHash));
                 entityManager.RemoveComponent(linkedEntityGroup[toRemove[rm].EntityIndex].Value, compType);
             }

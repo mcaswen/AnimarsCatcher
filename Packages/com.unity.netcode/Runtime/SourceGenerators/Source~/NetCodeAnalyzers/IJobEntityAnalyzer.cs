@@ -33,8 +33,8 @@ namespace NetCodeAnalyzer
 
         private void AnalyzeNetC0001(SyntaxNodeAnalysisContext context, StructDeclarationSyntax structDeclaration)
         {
-            // In the other analyzers, we check whether we're in a prediction system group
-            // We cannot do that here because IJobEntity structs are not necessarily part of a system, so just always throw the warning.
+            // 其他 Analyzer 会检查当前是否位于预测 System Group 中
+            // IJobEntity 结构体不一定属于某个 System，因此这里无法进行该检查并始终报告警告
 
             Location ignoreLocation = structDeclaration.Identifier.GetLocation();
 
@@ -44,7 +44,7 @@ namespace NetCodeAnalyzer
 
             var hasSimulate = HasSimulateInAttributes(structDeclaration, context);
 
-            // If not found in attributes, check the Execute method parameters
+            // 如果特性中未找到，则检查 Execute 方法参数
             if (!hasSimulate)
             {
                 var executeMethod = GetExecuteMethod(structDeclaration);
@@ -89,10 +89,10 @@ namespace NetCodeAnalyzer
                 {
                     string attributeName = attribute.Name.ToString();
 
-                    // Check for [WithOptions] attribute
+                    // 检查 [WithOptions] 特性
                     if (attributeName == "WithOptions" || attributeName == "WithOptionsAttribute")
                     {
-                        // Check if any of the arguments contains EntityQueryOptions.IgnoreComponentEnabledState
+                        // 检查是否有参数包含 EntityQueryOptions.IgnoreComponentEnabledState
                         foreach (var arg in attribute.ArgumentList?.Arguments ?? Enumerable.Empty<AttributeArgumentSyntax>())
                         {
                             if (arg.Expression.ToString().Contains("EntityQueryOptions.IgnoreComponentEnabledState"))

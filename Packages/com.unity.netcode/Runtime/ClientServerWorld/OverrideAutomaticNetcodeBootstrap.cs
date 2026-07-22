@@ -4,15 +4,15 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    ///     Add this to your Scene (on a root GameObject only!) to replace the automatic bootstrapping setting specified in
-    ///     your <see cref="NetCodeConfig" /> ProjectSettings asset. Note: Netcode will only search the Active scene for
-    ///     this MonoBehaviour, and only during bootstrap (which occurs only on game boot, before the first MonoBehaviour Awake).
+    ///     将此组件添加到 Scene 的根 GameObject，可替换 <see cref="NetCodeConfig" /> ProjectSettings 资源中指定的自动 Bootstrap 设置
+    ///     注意：NetCode 只会在 Active Scene 中搜索此 MonoBehaviour，并且只在 Bootstrap 期间搜索
+    ///     Bootstrap 仅在游戏启动时发生，早于第一个 MonoBehaviour Awake
     /// </summary>
     /// <remarks>
-    ///     Our <see cref="Unity.Entities.ICustomBootstrap" /> (<see cref="ClientServerBootstrap" />) will use the first
-    ///     one it finds in any scenes. 2 (or more) will err.
-    ///     Also note: This will not work if you use your own bootstrapper, unless you call
-    ///     <see cref="ClientServerBootstrap.DetermineIfBootstrappingEnabled" /> early, and return false if false.
+    ///     NetCode 的 <see cref="Unity.Entities.ICustomBootstrap" />，即 <see cref="ClientServerBootstrap" />，
+    ///     会使用在任意 Scene 中找到的第一个实例，存在两个或更多实例时会报错
+    ///     另请注意：使用自定义 Bootstrapper 时，此组件不会自动生效
+    ///     除非尽早调用 <see cref="ClientServerBootstrap.DetermineIfBootstrappingEnabled" />，并在其返回 false 时同样返回 false
     /// </remarks>
     public sealed class OverrideAutomaticNetcodeBootstrap : MonoBehaviour, IComparable<OverrideAutomaticNetcodeBootstrap>
     {
@@ -27,7 +27,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Tries to ensure deterministic-ish sort ordering, for reliable bootstrapping behaviour.
+        /// 尽量确保排序顺序具有确定性，使 Bootstrap 行为可靠
         /// </summary>
         /// <param name="other"></param>
         /// <returns></returns>

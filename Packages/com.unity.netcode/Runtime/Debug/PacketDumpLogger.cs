@@ -33,8 +33,8 @@ namespace Unity.NetCode.LowLevel.Unsafe
     }
 
     /// <summary>
-    /// Internal class, used to append packet dumps logs to file. Detect and ses Unity.Logging if present, ortherwise the
-    /// System.IO.File api is used by default.
+    /// 仅供内部使用的类，用于把数据包转储日志追加到文件
+    /// 如果存在 Unity.Logging 则使用它，否则默认使用 System.IO.File API
     /// </summary>
     unsafe struct PacketDumpLogger : IDisposable
     {

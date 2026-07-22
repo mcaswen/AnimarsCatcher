@@ -11,33 +11,33 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Helper class used by code-gen to setup the serialisation function pointers.
+    /// 代码生成用于配置序列化函数指针的辅助类
     /// </summary>
-    /// <typeparam name="TComponentType">The unmanaged buffer the helper serialise</typeparam>
-    /// <typeparam name="TSnapshot">The snaphost data struct that contains the <see cref="IBufferElementData"/> data.</typeparam>
-    /// <typeparam name="TSerializer">A concrete type that implement the <see cref="IGhostSerializer"/> interface.</typeparam>
+    /// <typeparam name="TComponentType">此辅助类要序列化的 Unmanaged Buffer</typeparam>
+    /// <typeparam name="TSnapshot">包含 <see cref="IBufferElementData"/> 数据的 Snapshot Data 结构体</typeparam>
+    /// <typeparam name="TSerializer">实现 <see cref="IGhostSerializer"/> 接口的具体类型</typeparam>
     public static class BufferSerializationHelper<TComponentType, TSnapshot, TSerializer>
         where TComponentType: unmanaged
         where TSnapshot: unmanaged
         where TSerializer: unmanaged, IGhostSerializer
     {
         /// <summary>
-        /// Copy the pre-serialized dynamic buffer data to data stream <paramref name="writer"/> using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略将预序列化的动态 Buffer 数据复制到 Data Stream <paramref name="writer"/>
         /// </summary>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to each individual entity</param>
-        /// <param name="maskOffsetInBits">the offset in the changemask bit array</param>
-        /// <param name="changeMaskBits">the changemask bit array</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="baselines">the baselines for each entity</param>
-        /// <param name="writer">the output data stream</param>
-        /// <param name="compressionModel">the compression model used to compressed the stream</param>
-        /// <param name="entityStartBit">an array of start/end offset in the data stream, that denote for each individual component where their compressed data is stored in the data stream.</param>
-        /// <param name="snapshotDynamicDataPtr">storage for the buffer snapshot</param>
-        /// <param name="dynamicSizePerEntity">the total buffer size (in bytes) written into the snapshot buffer for each entity.</param>
-        /// <param name="dynamicSnapshotMaxOffset">the dynamic snapshot buffer capacity</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">应用于每个 Entity 的 Stride</param>
+        /// <param name="maskOffsetInBits">ChangeMask 位数组中的 Offset</param>
+        /// <param name="changeMaskBits">ChangeMask 位数组</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="baselines">每个 Entity 的 Baseline</param>
+        /// <param name="writer">输出 Data Stream</param>
+        /// <param name="compressionModel">用于压缩数据流的 Compression Model</param>
+        /// <param name="entityStartBit">Data Stream 中起止 Offset 的数组，表示每个 Component 的压缩数据存储位置</param>
+        /// <param name="snapshotDynamicDataPtr">Buffer Snapshot 的存储位置</param>
+        /// <param name="dynamicSizePerEntity">每个 Entity 写入 Snapshot Buffer 的总 Buffer 大小，单位为字节</param>
+        /// <param name="dynamicSnapshotMaxOffset">动态 Snapshot Buffer 容量</param>
+        /// <param name="serializer">用于序列化 Buffer 内容的 IGhostSerialized 实例</param>
         public static void PostSerializeBuffers(IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             int maskOffsetInBits, int changeMaskBits, int count, IntPtr baselines, ref DataStreamWriter writer,
             StreamCompressionModel compressionModel, IntPtr entityStartBit, IntPtr snapshotDynamicDataPtr,
@@ -58,7 +58,7 @@ namespace Unity.NetCode
             }
             for (int i = 0; i < count; ++i)
             {
-                // Get the elements count and the buffer content offset inside the dynamic data history buffer from the pre-serialized snapshot
+                // 从预序列化 Snapshot 获取元素数量和 Buffer 内容在动态数据历史缓冲区中的 Offset
                 int len = GhostComponentSerializer.TypeCast<int>(snapshotData + snapshotStride*i, snapshotOffset);
                 int dynamicSnapshotDataOffset = GhostComponentSerializer.TypeCast<int>(snapshotData + snapshotStride*i, snapshotOffset+4);
                 var maskSize = SnapshotDynamicBuffersHelper.GetDynamicDataChangeMaskSize(changeMaskBits, len);
@@ -70,26 +70,26 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Serialize the dynamic buffer content to the <paramref name="writer"/> stream using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略将动态 Buffer 内容序列化到 <paramref name="writer"/> 数据流
         /// </summary>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to each individual entity</param>
-        /// <param name="maskOffsetInBits">the offset in the changemask bit array</param>
-        /// <param name="changeMaskBits">the changemask bit array</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="componentDataLen">the len of each individual buffer</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="baselines">the baselines for each entity</param>
-        /// <param name="writer">the output data stream</param>
-        /// <param name="compressionModel">the compression model used to compressed the stream</param>
-        /// <param name="entityStartBit">an array of start/end offset in the data stream, that denote for each individual component where their compressed data is stored in the data stream.</param>
-        /// <param name="snapshotDynamicDataPtr">storage for the buffer snapshot</param>
-        /// <param name="dynamicSnapshotDataOffset">the current offset in the dynamic snapshot buffer</param>
-        /// <param name="dynamicSizePerEntity">the total buffer size (in bytes) written into the snapshot buffer for each entity.</param>
-        /// <param name="dynamicSnapshotMaxOffset">the dynamic snapshot buffer capacity</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">应用于每个 Entity 的 Stride</param>
+        /// <param name="maskOffsetInBits">ChangeMask 位数组中的 Offset</param>
+        /// <param name="changeMaskBits">ChangeMask 位数组</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="componentDataLen">每个 Buffer 的长度</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="baselines">每个 Entity 的 Baseline</param>
+        /// <param name="writer">输出 Data Stream</param>
+        /// <param name="compressionModel">用于压缩数据流的 Compression Model</param>
+        /// <param name="entityStartBit">Data Stream 中起止 Offset 的数组，表示每个 Component 的压缩数据存储位置</param>
+        /// <param name="snapshotDynamicDataPtr">Buffer Snapshot 的存储位置</param>
+        /// <param name="dynamicSnapshotDataOffset">动态 Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="dynamicSizePerEntity">每个 Entity 写入 Snapshot Buffer 的总 Buffer 大小，单位为字节</param>
+        /// <param name="dynamicSnapshotMaxOffset">动态 Snapshot Buffer 容量</param>
+        /// <param name="serializer">用于序列化 Buffer 内容的 IGhostSerialized 实例</param>
         public static void SerializeBuffers(IntPtr stateData, IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             int maskOffsetInBits, int changeMaskBits, IntPtr componentData, IntPtr componentDataLen, int count,
             IntPtr baselines, ref DataStreamWriter writer, StreamCompressionModel compressionModel, IntPtr entityStartBit,
@@ -102,7 +102,7 @@ namespace Unity.NetCode
             for (int i = 0; i < count; ++i)
             {
                 int len = GhostComponentSerializer.TypeCast<int>(componentDataLen, i*4);
-                //Set the elements count and the buffer content offset inside the dynamic data history buffer
+                // 设置元素数量和 Buffer 内容在动态数据历史缓冲区中的 Offset
                 GhostComponentSerializer.TypeCast<uint>(snapshotData + snapshotStride*i, snapshotOffset) = (uint)len;
                 GhostComponentSerializer.TypeCast<uint>(snapshotData + snapshotStride*i, snapshotOffset+4) = (uint)dynamicSnapshotDataOffset;
 
@@ -111,7 +111,7 @@ namespace Unity.NetCode
 
                 if (len > 0)
                 {
-                    //Copy the buffer contents
+                    // 复制 Buffer 内容
                     IntPtr curCompData = GhostComponentSerializer.TypeCast<IntPtr>(componentData, UnsafeUtility.SizeOf<IntPtr>()*i);
                     IntPtr snapshotData1 = snapshotDynamicDataPtr + maskSize;
                     ref readonly var serializerState1 = ref GhostComponentSerializer.TypeCastReadonly<GhostSerializerState>(stateData);
@@ -130,16 +130,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Copy the dynamic buffers content to the snapshot, using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略将动态 Buffer 内容复制到 Snapshot
         /// </summary>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to snapshot pointer for each individual entity</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="componentStride">the stride to apply to component pointer for each individual entity</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">每个 Entity 应用于 Snapshot 指针的 Stride</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="componentStride">每个 Entity 应用于 Component 指针的 Stride</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="serializer">用于序列化 Buffer 内容的 IGhostSerialized 实例</param>
         public static void CopyBuffersToSnapshot(IntPtr stateData, IntPtr snapshotData, int snapshotOffset,
             int snapshotStride, IntPtr componentData, int componentStride, int count, TSerializer serializer)
         {
@@ -151,16 +151,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Copy the dynamic buffers content from the snapshot, using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略从 Snapshot 复制动态 Buffer 内容
         /// </summary>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to snapshot pointer for each individual entity</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="componentStride">the stride to apply to component pointer for each individual entity</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">每个 Entity 应用于 Snapshot 指针的 Stride</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="componentStride">每个 Entity 应用于 Component 指针的 Stride</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="serializer">用于序列化 Buffer 内容的 IGhostSerialized 实例</param>
         public static void CopyBuffersFromSnapshot(IntPtr stateData, IntPtr snapshotData, int snapshotOffset,
             int snapshotStride, IntPtr componentData, int componentStride, int count, TSerializer serializer)
         {
@@ -169,7 +169,7 @@ namespace Unity.NetCode
             deserializerState.SnapshotTick = snapshotInterpolationData.Tick;
             for (int i = 0; i < count; ++i)
             {
-                //For buffers the function iterate over the element in the buffers not entities.
+                // 对 Buffer 而言，此函数遍历的是 Buffer 中的元素而不是 Entity
                 var snapshotBefore = snapshotInterpolationData.SnapshotBefore + snapshotOffset +snapshotStride * i;
                 serializer.CopyFromSnapshot(deserializerState, componentData + componentStride*i,
                     snapshotInterpolationData.InterpolationFactor, snapshotInterpolationData.InterpolationFactor,

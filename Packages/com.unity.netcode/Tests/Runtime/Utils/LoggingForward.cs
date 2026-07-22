@@ -7,14 +7,14 @@ namespace Unity.NetCode.Tests
     internal static class LoggingForward
     {
         /// <summary>
-        /// Forwards loggings to the Unity DebugLog sink to ensure that errors in tests actually cause the tests to fail.
-        /// The test framework does not by default pick up logging package errors as errors.
+        /// 将日志转发到 Unity DebugLog Sink，确保测试中的错误会实际导致测试失败
+        /// 测试框架默认不会把 Logging 包的错误识别为测试错误
         /// </summary>
         public static void ForwardUnityLoggingToDebugLog()
         {
             static void AddUnityDebugLogSink(Unity.Logging.Logger logger)
             {
-                // This is a bit of a hack since we can't disable a logger sink.
+                // 由于无法禁用 Logger Sink，此处通过调整日志级别实现近似效果
                 logger.GetOrCreateSink<UnityDebugLogSink>(new UnityDebugLogSink.Configuration(logger.Config.WriteTo, LogFormatterText.Formatter,
                     minLevelOverride: logger.MinimalLogLevelAcrossAllSystems, outputTemplateOverride: "{Message}"));
                 logger.GetSink<StdOutSinkSystem>()?.SetMinimalLogLevel(LogLevel.Fatal);
@@ -24,7 +24,7 @@ namespace Unity.NetCode.Tests
             Unity.Logging.Internal.LoggerManager.OnNewLoggerCreated(AddUnityDebugLogSink);
             Unity.Logging.Internal.LoggerManager.CallForEveryLogger(AddUnityDebugLogSink);
 
-            // Self log enabled, so any error inside logging will cause Debug.LogError -> failed test
+            // 启用 Self Log，使 Logging 内部错误通过 Debug.LogError 导致测试失败
             Unity.Logging.Internal.Debug.SelfLog.SetMode(Unity.Logging.Internal.Debug.SelfLog.Mode.EnabledInUnityEngineDebugLogError);
         }
     }

@@ -4,20 +4,19 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Add this component to a gameobject present in a sub-scene to configure the <see cref="NetDebug"/> logging level and
-    /// enable packet dumps.
+    /// 将此组件添加到 SubScene 中的 GameObject，以配置 <see cref="NetDebug"/> 日志级别并启用数据包转储
     /// </summary>
     [HelpURL(Authoring.HelpURLs.NetCodeDebugConfigAuthoring)]
     public class NetCodeDebugConfigAuthoring : MonoBehaviour
     {
         /// <summary>
-        /// The current debug level used by netcode.
+        /// NetCode 当前使用的调试级别
         /// </summary>
         public NetDebug.LogLevelType LogLevel = NetDebug.LogLevelType.Notify;
         /// <summary>
-        /// Enable/Disable per connection packet dumps. When enabled, for each connection a file is created containing all the packet sent
-        /// (for the server) or received (for the client).
-        /// The packet dump use quite a lot of resources and should be used mostly (if not only) for debugging replication issues.
+        /// 启用或禁用每个连接的数据包转储
+        /// 启用后，会为每个连接创建一个文件，其中包含服务器发送或客户端接收的全部数据包
+        /// 数据包转储会占用大量资源，主要且最好只用于调试复制问题
         /// </summary>
         public bool DumpPackets;
     }

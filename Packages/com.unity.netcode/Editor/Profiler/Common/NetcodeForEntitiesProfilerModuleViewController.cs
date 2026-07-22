@@ -31,7 +31,7 @@ namespace Unity.NetCode.Editor
             m_NetworkRole = networkRole;
         }
 
-        // Initialization of the view controller for events and UI.
+        // 初始化 View Controller 的事件与 UI
         protected override VisualElement CreateView()
         {
             ProfilerWindow.SelectedFrameIndexChanged += OnSelectedFrameIndexChanged;
@@ -63,8 +63,7 @@ namespace Unity.NetCode.Editor
 
             var frameToSelect = ProfilerWindow.selectedFrameIndex == -1 ? ProfilerWindow.lastAvailableFrameIndex : ProfilerWindow.selectedFrameIndex;
 
-            // unfortunately we need to wait a bit before we can select the frame index
-            // because the profiler window is not fully initialized yet.
+            // Profiler 窗口尚未完全初始化，因此需要稍作等待后再选择帧索引
             container.schedule.Execute(() =>
             {
                 OnSelectedFrameIndexChanged(frameToSelect);
@@ -105,8 +104,8 @@ namespace Unity.NetCode.Editor
             base.Dispose(true);
         }
 
-        // Called when the selected frame index changes in the profiler window.
-        // Also called continuously during a profiler run.
+        // Profiler 窗口中选中帧索引变化时调用
+        // Profiler 运行期间也会持续调用
         void OnSelectedFrameIndexChanged(long selectedFrameIndex)
         {
             if (selectedFrameIndex == -1)
@@ -115,7 +114,7 @@ namespace Unity.NetCode.Editor
             UpdateTabs(frameData);
         }
 
-        // Main method to build the relevant netcode frame data based on the selected frame.
+        // 根据选中帧构建相关 NetCode 帧数据的主方法
         NetcodeFrameData BuildFrameData(long selectedFrameIndex)
         {
             using (var frameDataView = ProfilerDriver.GetRawFrameDataView((int)selectedFrameIndex, 0))
@@ -125,18 +124,18 @@ namespace Unity.NetCode.Editor
                     return default;
                 }
 
-                // Get the correct GUID to get frame metadata based on the active profiler module
+                // 根据当前 Profiler 模块选择用于获取 Frame Metadata 的 GUID
                 var guid = m_NetworkRole == NetworkRole.Server ? ProfilerMetricsConstants.ServerGuid : ProfilerMetricsConstants.ClientGuid;
 
-                // Get the serialized ghost stats
+                // 获取已序列化的 Ghost 统计
                 var serializedGhostStatsSnapshot = frameDataView.GetFrameMetaData<byte>(guid, ProfilerMetricsConstants.SerializedGhostStatsSnapshotTag);
                 if (serializedGhostStatsSnapshot.Length == 0)
                 {
-                    // TODO: In this case we didn't receive a snapshot but we should highlight this in the UI, we can also keep accumulated stats from the previous frame
+                    // TODO 此时没有收到 Snapshot，应在 UI 中突出显示，也可保留上一帧的累计统计
                     return default;
                 }
 
-                // Deserialize the ghost stats
+                // 反序列化 Ghost 统计
                 var ghostStatsSnapshot = UnsafeGhostStatsSnapshot.FromBlittableData(Allocator.Temp, serializedGhostStatsSnapshot);
                 var perGhostTypeStats = ghostStatsSnapshot.PerGhostTypeStatsListRO;
 
@@ -147,7 +146,7 @@ namespace Unity.NetCode.Editor
                 uint ghostTypesSizeInBits = 0;
                 uint totalInstanceCount = 0;
 
-                // Iterate ghosts
+                // 遍历 Ghost
                 for (var ghostIndex = 0; ghostIndex < profilerFrameMetaData.GhostNames.Length; ghostIndex++)
                 {
                     var ghostTypeStats = perGhostTypeStats[ghostIndex];
@@ -156,7 +155,7 @@ namespace Unity.NetCode.Editor
                     ghostTypesSizeInBits += ghostTypeStats.SizeInBits;
                     totalInstanceCount += ghostTypeStats.EntityCount;
 
-                    // Get component stats for this ghost type
+                    // 获取该 Ghost 类型的组件统计
                     var componentTypesData = CreateComponentTypesData(ghostTypeStats,
                         profilerFrameMetaData,
                         ghostIndex,
@@ -171,7 +170,7 @@ namespace Unity.NetCode.Editor
                 tickData.overheadSize = ghostStatsSnapshot.SnapshotTotalSizeInBits - ghostTypesSizeInBits;
                 tickData.totalInstanceCount = totalInstanceCount;
 
-                // Prediction errors
+                // 预测误差
                 for (var i = 0; i < profilerFrameMetaData.PredictionErrors.Length; i++)
                 {
                     var predictionErrorData = new PredictionErrorData();
@@ -190,7 +189,7 @@ namespace Unity.NetCode.Editor
                     {
                         [0] = tickData
                     },
-                    frameCount = (uint)(ProfilerDriver.lastFrameIndex - ProfilerDriver.firstFrameIndex), // TODO: do we need this? Maybe for computing averages.
+                    frameCount = (uint)(ProfilerDriver.lastFrameIndex - ProfilerDriver.firstFrameIndex), // TODO 确认是否仍需该值，可能用于计算平均值
                     jitter = profilerFrameMetaData.NetworkMetrics.Jitter,
                     rtt = profilerFrameMetaData.NetworkMetrics.Rtt,
                     serverTickSent = profilerFrameMetaData.ProfilerMetrics.ServerTick,
@@ -204,7 +203,7 @@ namespace Unity.NetCode.Editor
             }
         }
 
-        // Helper methods to build ProfilerGhostTypeData from per-frame emitted profiler data.
+        // 根据逐帧发送的 Profiler 数据构建 ProfilerGhostTypeData
         static ProfilerGhostTypeData CreateGhostTypeData(ProfilerFrameMetadata profilerFrameMetaData, int ghostIndex, UnsafeGhostStatsSnapshot.PerGhostTypeStats ghostTypeStats, NativeArray<ProfilerGhostTypeData> componentsStats, NativeArray<UncompressedSizesPerType> uncompressedSizes, uint sumComponentTypeSizePerType)
         {
             var ghostTypeData = new ProfilerGhostTypeData
@@ -220,7 +219,7 @@ namespace Unity.NetCode.Editor
             {
                 var sizePerInstance = (float)ghostTypeStats.SizeInBits / ghostTypeStats.EntityCount;
                 ghostTypeData.avgSizePerEntity = (float)Math.Round(sizePerInstance, 2);
-                // It can happen that the buffer for uncompressed sizes is not created yet, in that case we just skip the compression efficiency calculation.
+                // 未压缩尺寸 Buffer 可能尚未创建，此时跳过压缩效率计算
                 if (uncompressedSizes.Length > ghostIndex && uncompressedSizes[ghostIndex].SizeInBytes > 0)
                     ghostTypeData.combinedCompressionEfficiency = (float)Math.Round(1f - sizePerInstance / (uncompressedSizes[ghostIndex].SizeInBytes * 8f), 2) * 100f;
             }
@@ -229,12 +228,12 @@ namespace Unity.NetCode.Editor
             return ghostTypeData;
         }
 
-        // Helper methods to build data for component types from per-frame emitted profiler data.
+        // 根据逐帧发送的 Profiler 数据构建组件类型数据
         static NativeArray<ProfilerGhostTypeData> CreateComponentTypesData(UnsafeGhostStatsSnapshot.PerGhostTypeStats ghostTypeStats, ProfilerFrameMetadata profilerFrameMetaData, int ghostIndex, ref uint sumComponentTypeSizePerType)
         {
             var componentsPerType = new NativeArray<ProfilerGhostTypeData>(ghostTypeStats.PerComponentStatsList.Length, Allocator.Temp);
 
-            // Iterate components per ghost type
+            // 遍历每种 Ghost 类型的组件
             for (var componentIndex = 0; componentIndex < ghostTypeStats.PerComponentStatsList.Length; componentIndex++)
             {
                 var componentTypeStat = ghostTypeStats.PerComponentStatsList[componentIndex];
@@ -266,7 +265,7 @@ namespace Unity.NetCode.Editor
             return componentsPerType;
         }
 
-        // Helper method to create TickData from per-frame emitted profiler data.
+        // 根据逐帧发送的 Profiler 数据创建 TickData
         static TickData CreateTickData(UnsafeGhostStatsSnapshot ghostStatsSnapshot, ProfilerFrameMetadata profilerFrameMetaData)
         {
             var inputTargetTick = new NetworkTick { SerializedData = profilerFrameMetaData.CommandStats[0] };
@@ -289,10 +288,10 @@ namespace Unity.NetCode.Editor
             return tickData;
         }
 
-        // Get all the stats data that we emitted per frame for the profiler.
+        // 获取每帧发送给 Profiler 的全部统计数据
         internal static ProfilerFrameMetadata GetProfilerFrameMetaData(RawFrameDataView frameDataView, Guid guid)
         {
-            // Get the profiler metrics and other metadata
+            // 获取 Profiler 指标与其他 Metadata
             var profilerFrameMetaData = new ProfilerFrameMetadata();
             profilerFrameMetaData.ProfilerMetrics = frameDataView.GetFrameMetaData<ProfilerMetrics>(guid, ProfilerMetricsConstants.ProfilerMetricsTag)[0];
             profilerFrameMetaData.UncompressedSizesPerType = frameDataView.GetFrameMetaData<UncompressedSizesPerType>(guid, ProfilerMetricsConstants.UncompressedSizesPerTypeTag);
@@ -307,10 +306,10 @@ namespace Unity.NetCode.Editor
             return profilerFrameMetaData;
         }
 
-        // Helper method to get uncompressed sizes per type for either server or client.
+        // 获取服务端或客户端各类型的未压缩大小
         NativeArray<UncompressedSizesPerType> GetUncompressedSizes(NativeArray<UncompressedSizesPerType> uncompressedSizesPerType)
         {
-            // Per-session data, get uncompressed sizes only if it's not already created
+            // 这是会话级数据，仅在尚未创建时获取未压缩大小
             NativeArray<UncompressedSizesPerType> uncompressedSizes;
             switch (m_NetworkRole)
             {

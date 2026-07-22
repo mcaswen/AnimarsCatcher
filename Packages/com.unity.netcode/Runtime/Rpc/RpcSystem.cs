@@ -14,78 +14,78 @@ using Unity.Networking.Transport.Error;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Struct that can be used to simplify writing systems and jobs that deserialize and execute received rpc commands.
+    /// 用于简化接收 RPC Command 的反序列化与执行系统和 Job 编写工作的结构体
     /// </summary>
     public struct RpcExecutor
     {
         /// <summary>
-        /// Struct used as argument to the rpc execute method (see the <see cref="ExecuteDelegate"/> delegate).
-        /// Contains the input data stream, the receiving connection, and other useful data that can be used
-        /// to decode and write your rpc logic.
+        /// 用作 RPC 执行方法参数的结构体，参见 <see cref="ExecuteDelegate"/> 委托
+        /// 包含输入 Data Stream、接收连接以及可用于解码和编写 RPC 逻辑的其他数据
         /// </summary>
         public struct Parameters
         {
             /// <summary>
-            /// The data-stream that contains the rpc data.
+            /// 包含 RPC 数据的 Data Stream
             /// </summary>
             public DataStreamReader Reader;
             /// <summary>
-            /// The connection that received the rpc.
+            /// 收到 RPC 的连接
             /// </summary>
             public Entity Connection;
             /// <summary>
-            /// On clients this will be the singleton entity which stores the client connection uniqueId. If Entity.Null
-            /// it means no such entity has been created yet (and it should be created).
+            /// 在客户端上表示存储客户端连接 UniqueId 的 Singleton Entity
+            /// 值为 Entity.Null 时表示尚未创建该 Entity，此时应进行创建
             /// </summary>
             internal Entity ClientConnectionUniqueIdEntity;
             /// <summary>
-            /// On clients this will be the current unique ID of the client connection to the server, if any has been
-            /// set already. Will be 0 otherwise.
+            /// 在客户端上表示当前客户端到服务器连接的唯一 ID
+            /// 尚未设置时为 0
             /// </summary>
             internal uint ClientCurrentConnectionUniqueId;
             /// <summary>
-            /// The cached component state of said <see cref="Connection"/>, written back automatically!
+            /// 上述 <see cref="Connection"/> 的缓存 Component 状态，会自动写回
             /// </summary>
             internal NetworkStreamConnection ConnectionStateRef;
             /// <summary>
-            /// A command buffer that be used to make structural changes.
+            /// 可用于执行结构性变更的 Command Buffer
             /// </summary>
             public EntityCommandBuffer.ParallelWriter CommandBuffer;
             /// <summary>
-            /// The sort order that must be used to add commands to command buffer.
+            /// 向 Command Buffer 添加 Command 时必须使用的排序顺序
             /// </summary>
             public int JobIndex;
             /// <summary>
-            /// A pointer to a <see cref="RpcDeserializerState"/> instance.
+            /// 指向 <see cref="RpcDeserializerState"/> 实例的指针
             /// </summary>
             internal IntPtr State;
             /// <summary>
-            /// Logger.
+            /// 日志记录器
             /// </summary>
             public NetDebug NetDebug;
             /// <summary>
-            /// Cache of this components value.
+            /// 此 Component 值的缓存
             /// </summary>
             public NetworkProtocolVersion ProtocolVersion;
             /// <summary>
-            /// Cache of this World's name.
+            /// 此 World 名称的缓存
             /// </summary>
             public FixedString128Bytes WorldName;
             /// <summary>
-            /// True if this world is using <see cref="RpcCollection.DynamicAssemblyList"/>.
+            /// 此 World 使用 <see cref="RpcCollection.DynamicAssemblyList"/> 时为 true
             /// </summary>
             [MarshalAs(UnmanagedType.U1)]
             public bool UseDynamicAssemblyList;
             /// <summary>
-            /// Is this executing in a server world.
+            /// 当前是否在服务器 World 中执行
             /// </summary>
             [MarshalAs(UnmanagedType.U1)]
             public bool IsServer;
 
             /// <summary>
-            /// Whether this RPC is a loopback RPC that's bypassing serialization. Your RPC execution code shouldn't need to serialize in this case for performance reasons and should just read data from <see cref="GetPassthroughActionData"/>
+            /// 此 RPC 是否为绕过序列化的 Loopback RPC
+            /// 出于性能考虑，此时 RPC 执行代码不应进行序列化，只需从 <see cref="GetPassthroughActionData"/> 读取数据
             /// </summary>
-            // TODO-release new doc entry for adding this use case (plus some samples)
+            // TODO-release：为此使用场景补充新的文档条目和示例
             [MarshalAs(UnmanagedType.U1)]
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
             public bool IsPassthroughRPC;
@@ -94,23 +94,23 @@ namespace Unity.NetCode
 #endif
 
             /// <summary>
-            /// Ptr to the action data passthrough. Useful for single world host where we bypass the serialization flow
+            /// 指向直通 Action Data 的指针，用于绕过序列化流程的 Single World Host
             /// </summary>
             internal IntPtr actionDataOverridePtr;
 
             /// <summary>
-            /// An instance of <see cref="RpcDeserializerState"/> that can be used to deserialize the rpcs.
+            /// 可用于反序列化 RPC 的 <see cref="RpcDeserializerState"/> 实例
             /// </summary>
             public RpcDeserializerState DeserializerState
             {
                 get { unsafe { return UnsafeUtility.AsRef<RpcDeserializerState>((void*)State); } }
             }
 
-            // TODO-release better name
+            // TODO-release：改用更合适的名称
             /// <summary>
-            /// In a single world host scenario, rpc data doesn't need to be deserialized and is instead already available here, bypassing serialization/deserialization logic
+            /// 在 Single World Host 场景中，RPC 数据无需反序列化，可直接从此处获取，从而绕过序列化与反序列化逻辑
             /// </summary>
-            /// <typeparam name="TActionData">RPC component type</typeparam>
+            /// <typeparam name="TActionData">RPC Component 类型</typeparam>
             /// <returns></returns>
 #if NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST
             public unsafe TActionData GetPassthroughActionData<TActionData>() where TActionData : unmanaged, IComponentData
@@ -123,8 +123,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// <para>The reference to static burst-compatible method that is invoked when an rpc has been received.
-        /// For example:
+        /// <para>收到 RPC 时调用的 Burst 兼容静态方法引用
+        /// 例如
         /// </para>
         /// <code>
         ///     [BurstCompile(DisableDirectCall = true)]
@@ -133,19 +133,18 @@ namespace Unity.NetCode
         /// </code>
         /// </summary>
         /// <remarks>
-        /// The <c>DisableDirectCall = true</c> was necessary to workaround an issue with burst and function delegate.
-        /// If you are implementing your custom rpc serializer, please remember to disable the direct call.
+        /// 为规避 Burst 与函数委托的问题，必须设置 <c>DisableDirectCall = true</c>
+        /// 实现自定义 RPC Serializer 时，请记得禁用直接调用
         /// </remarks>
-        /// <param name="parameters">Parameters for custom rpc serializer</param>
+        /// <param name="parameters">自定义 RPC Serializer 的参数</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void ExecuteDelegate(ref Parameters parameters);
 
         /// <summary>
-        /// <para>Helper method that can be used to implement the execute method for the <see cref="IRpcCommandSerializer{T}"/>
-        /// interface.
-        /// By calling the ExecuteCreateRequestComponent, a new entity (with a <typeparamref name="TActionRequest"/> and
-        /// a <see cref="ReceiveRpcCommandRequest"/> component) is created.
-        /// It is the users responsibility to write a system that consumes the created rpcs entities. For example:
+        /// <para>用于实现 <see cref="IRpcCommandSerializer{T}"/> 接口执行方法的辅助方法
+        /// 调用 ExecuteCreateRequestComponent 会创建一个带有 <typeparamref name="TActionRequest"/>
+        /// 和 <see cref="ReceiveRpcCommandRequest"/> Component 的新 Entity
+        /// 用户需要自行编写系统消费所创建的 RPC Entity，例如
         /// </para>
         /// <code>
         /// public struct MyRpcConsumeSystem : ISystem
@@ -160,18 +159,18 @@ namespace Unity.NetCode
         ///    {
         ///         foreach(var rpc in SystemAPI.Query&lt;MyRpc&gt;().WithAll&lt;ReceiveRpcCommandRequestComponent&gt;())
         ///         {
-        ///             //do something with the rpc
+        ///             // 使用 RPC 执行业务逻辑
         ///         }
-        ///         //Consumes all of them
+        ///         // 消费全部 RPC
         ///         state.EntityManager.DestroyEntity(rpcQuery);
         ///    }
         /// }
         /// </code>
         /// </summary>
-        /// <param name="parameters">Container for <see cref="EntityCommandBuffer"/>, JobIndex, as well as connection entity.</param>
-        /// <typeparam name="TActionSerializer">Struct of type <see cref="IRpcCommandSerializer{TActionRequest}"/>.</typeparam>
-        /// <typeparam name="TActionRequest">Unmanaged type of <see cref="IComponentData"/>.</typeparam>
-        /// <returns>Created entity for RPC request. Name of the Entity is set as 'NetCodeRPC'.</returns>
+        /// <param name="parameters">包含 <see cref="EntityCommandBuffer"/>、JobIndex 和 Connection Entity 的容器</param>
+        /// <typeparam name="TActionSerializer"><see cref="IRpcCommandSerializer{TActionRequest}"/> 类型的结构体</typeparam>
+        /// <typeparam name="TActionRequest"><see cref="IComponentData"/> 的 Unmanaged 类型</typeparam>
+        /// <returns>为 RPC 请求创建的 Entity，其名称设为 'NetCodeRPC'</returns>
         public static Entity ExecuteCreateRequestComponent<TActionSerializer, TActionRequest>(ref Parameters parameters)
             where TActionRequest : unmanaged, IComponentData
             where TActionSerializer : struct, IRpcCommandSerializer<TActionRequest>
@@ -203,23 +202,23 @@ namespace Unity.NetCode
 
     /// <summary>
     /// <para>
-    /// The system responsible for sending and receiving RPCs.
+    /// 负责发送和接收 RPC 的系统
     /// </para>
     /// <para>
-    /// The RpcSystem flushes all the outgoing RPCs scheduled in the <see cref="OutgoingRpcDataStreamBuffer"/> for all the active connections.
-    /// Multiple RPCs can be raised by a world (to be sent in a single frame) to each connection. Therefore, in order to reduce the number of in-flight reliable messages,
-    /// the system tries to coalesce multiple RPCs into a single packet.
+    /// RpcSystem 会为所有活动连接 Flush <see cref="OutgoingRpcDataStreamBuffer"/> 中已调度的全部出站 RPC
+    /// 一个 World 可以在单帧内为每条连接触发多个 RPC
+    /// 为减少在途可靠消息数量，系统会尝试将多个 RPC 合并到单个数据包中
     /// </para>
     /// <para>
-    /// Because packet queue size is limited (<see cref="NetworkParameterConstants.SendQueueCapacity"/> and <see cref="NetworkConfigParameter"/>), the
-    /// number of available packets may not be sufficient to flush the queue entirely. In that case, the pending messages are going to attempt to be
-    /// sent during the next frame (recursively) (or when a resource is available).
+    /// 数据包队列大小有限，参见 <see cref="NetworkParameterConstants.SendQueueCapacity"/> 和 <see cref="NetworkConfigParameter"/>，
+    /// 因此可用数据包数量可能不足以完全 Flush 队列
+    /// 此时待处理消息会在下一帧或资源可用时继续尝试发送
     /// </para>
     /// <para>
-    /// When an rpc packet is received, it is first handled by the <see cref="NetworkStreamReceiveSystem"/>, which decodes the incoming network packet
-    /// and appends it to the <see cref="IncomingRpcDataStreamBuffer"/> for the connection that received the message.
-    /// The RpcSystem will then dequeue all the received messages, and dispatch them by invoking their execute method (<see cref="IRpcCommandSerializer{T}"/>
-    /// and <see cref="RpcExecutor"/>).
+    /// 收到 RPC 数据包后，首先由 <see cref="NetworkStreamReceiveSystem"/> 处理
+    /// 该系统解码传入网络数据包，并将其追加到接收消息连接的 <see cref="IncomingRpcDataStreamBuffer"/>
+    /// 随后 RpcSystem 会让全部已收消息出队，并通过调用其执行方法进行分发，
+    /// 参见 <see cref="IRpcCommandSerializer{T}"/> 和 <see cref="RpcExecutor"/>
     /// </para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
@@ -229,11 +228,10 @@ namespace Unity.NetCode
     public partial struct RpcSystem : ISystem
     {
         /// <summary>
-        /// During the initial handshake, the client and server exchanges their respective <see cref="NetworkProtocolVersion"/> by using
-        /// a internal rpc.
-        /// When received, the RpcSystem will perform a protocol check, that verifies that the versions are compatible.
-        /// If the verification fails, a new entity with a <see cref="ProtocolVersionError"/> component is created;
-        /// the generated error is then handled by the <see cref="RpcSystemErrors"/> system.
+        /// 初始 Handshake 期间，客户端和服务器通过内部 RPC 交换各自的 <see cref="NetworkProtocolVersion"/>
+        /// 收到后，RpcSystem 会进行协议检查，验证版本是否兼容
+        /// 验证失败时会创建带 <see cref="ProtocolVersionError"/> Component 的新 Entity，
+        /// 随后由 <see cref="RpcSystemErrors"/> 系统处理生成的错误
         /// </summary>
         internal struct ProtocolVersionError : IComponentData
         {
@@ -276,7 +274,7 @@ namespace Unity.NetCode
             m_RpcBufferGroup = state.GetEntityQuery(
                 ComponentType.ReadWrite<IncomingRpcDataStreamBuffer>(),
                 ComponentType.ReadWrite<OutgoingRpcDataStreamBuffer>(),
-                ComponentType.ReadWrite<NetworkStreamConnection>() // single world host has a connection with no NetworkStreamConnection. TODO-release handle disconnected clients
+                ComponentType.ReadWrite<NetworkStreamConnection>() // Single World Host 存在没有 NetworkStreamConnection 的连接，TODO-release：处理已断开客户端
                 );
             state.RequireForUpdate(m_RpcBufferGroup);
 
@@ -301,7 +299,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Calls RPC's execute methods. By default, those will have deserialization logic from <see cref="RpcExecutor.ExecuteCreateRequestComponent"/>
+        /// 调用 RPC 执行方法，默认包含来自 <see cref="RpcExecutor.ExecuteCreateRequestComponent"/> 的反序列化逻辑
         /// </summary>
         [BurstCompile]
         struct RpcExecJob : IJobChunk
@@ -314,7 +312,7 @@ namespace Unity.NetCode
             public Entity connectionUniqueIdEntity;
             public uint connectionUniqueId;
             [ReadOnly] public NativeList<RpcCollection.RpcData> execute;
-            [ReadOnly] public NativeParallelHashMap<ulong, int> hashToIndex; // TODO - int > ushort.
+            [ReadOnly] public NativeParallelHashMap<ulong, int> hashToIndex; // TODO：int 范围大于 ushort
             [ReadOnly] public NativeParallelHashMap<SpawnedGhost, Entity>.ReadOnly ghostMap;
 
             public uint localTime;
@@ -328,7 +326,7 @@ namespace Unity.NetCode
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持带 Enableable Component 类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 var entities = chunk.GetNativeArray(entityType);
@@ -338,7 +336,7 @@ namespace Unity.NetCode
                 var deserializeState = new RpcDeserializerState
                 {
                     ghostMap = ghostMap,
-                    CompressionModel = StreamCompressionModel.Default, // TODO - Hook-up when (eventually) customizable.
+                    CompressionModel = StreamCompressionModel.Default, // TODO：未来支持自定义时接入
                 };
                 for (int i = 0; i < rpcInBuffer.Length; ++i)
                 {
@@ -348,7 +346,7 @@ namespace Unity.NetCode
                     ref var driver = ref concurrentDriver.driver;
                     var conState = concurrentDriver.driver.GetConnectionState(conn.Value);
 
-                    // If we're now in a disconnected state check if the protocol version RPC is in the incoming buffer so we can process it and report an error if it's mismatched (reason for the disconnect)
+                    // 当前处于断开状态时，检查传入缓冲区是否包含协议版本 RPC，以便处理并在版本不匹配时报告断开原因
                     if (conState == NetworkConnection.State.Disconnected && rpcInBuffer[i].Length > 0)
                     {
                         ushort rpcIndex = 0;
@@ -371,9 +369,8 @@ namespace Unity.NetCode
                     }
                     else if (conState != NetworkConnection.State.Connected)
                     {
-                        // We're not connected at the transport level yet, so we'll wait until we are before processing
-                        // outgoing and incoming RPCs. Note: We don't discard them in this case either, we just hold
-                        // onto them.
+                        // Transport 层尚未连接，因此需要等到连接后再处理出站和入站 RPC
+                        // 此时不会丢弃 RPC，只会继续保留
                         continue;
                     }
 
@@ -418,9 +415,9 @@ namespace Unity.NetCode
                         var rpcSizeBits = parameters.Reader.ReadUShort();
                         var rpcSizeBytes = (rpcSizeBits + 7) >> 3;
 
-                        // Normal RPCs are not allowed during the approval connection phase
-                        // On clients both ProtocolVersion and NetworkID RPCs should be ok as they are sent by server after approval is done
-                        // as part of the next phase (handshake)
+                        // 连接审批阶段不允许常规 RPC
+                        // 在客户端上，ProtocolVersion 和 NetworkID RPC 可以通过，
+                        // 因为它们由服务器在审批完成后的下一阶段 Handshake 中发送
                         if (conn.IsHandshakeOrApproval)
                         {
                             if (execute[rpcIndex].IsApprovalType == 0)
@@ -444,9 +441,9 @@ namespace Unity.NetCode
                         }
 
                         execute[rpcIndex].Execute.Ptr.Invoke(ref parameters);
-                        // TODO - Possible defensive guard here: We can check to see if execute[rpcIndex].Execute.Ptr.Invoke encountered a fatal error, and early out.
+                        // TODO：可在此增加防御性检查，判断 execute[rpcIndex].Execute.Ptr.Invoke 是否遇到致命错误并提前退出
 
-                        // Validate rpcSizeBits matches our deserialization:
+                        // 验证 rpcSizeBits 是否与反序列化读取量一致
                         var rpcBitsRead = parameters.Reader.GetBitsRead() - rpcBitStart;
                         if (parameters.Reader.HasFailedReads || rpcSizeBits != rpcBitsRead)
                         {
@@ -456,10 +453,9 @@ namespace Unity.NetCode
                             break;
                         }
 
-                        parameters.Reader.Flush(); // We have to pad any unused bits,
-                                                   // as we byte-align each packed RPC.
+                        parameters.Reader.Flush(); // 每个打包 RPC 都按字节对齐，因此必须填充所有未使用的位
 
-                        // Write ConnectionStateRef back in:
+                        // 写回 ConnectionStateRef
                         conn = parameters.ConnectionStateRef;
                         connections[i] = parameters.ConnectionStateRef;
                     }
@@ -469,8 +465,8 @@ namespace Unity.NetCode
                     var sendBuffer = rpcOutBuffer[i];
                     while (sendBuffer.Length > 0)
                     {
-                        // The writer will return a buffer with a size defined by the Transport.
-                        // I.e. It's not netcode who decides the max RPC size.
+                        // Writer 返回的缓冲区大小由 Transport 定义
+                        // 最大 RPC 大小并非由 NetCode 决定
                         int result;
                         if ((result = driver.BeginSend(concurrentDriver.reliablePipeline, conn.Value, out var rpcPacketWriter)) < 0)
                         {
@@ -488,7 +484,7 @@ namespace Unity.NetCode
                         UnityEngine.Debug.Assert(headerLengthBytes == RpcCollection.k_RpcCommonHeaderLengthBytes);
 #endif
 
-                        // If we have too many RPCs queued in our sendBuffer, send as many as we can:
+                        // sendBuffer 中排队的 RPC 过多时，尽可能多地发送
                         if (sendBuffer.Length + headerLengthBytes > rpcPacketWriter.Capacity)
                         {
                             var sendArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<byte>(sendBuffer.GetUnsafePtr(), sendBuffer.Length, Allocator.Invalid);
@@ -520,14 +516,14 @@ namespace Unity.NetCode
                             {
                                 sendBuffer.Clear();
                                 driver.AbortSend(rpcPacketWriter);
-                                // Could not fit a single message in the packet, this is a serious error
+                                // 数据包连一条消息都无法容纳，这是严重错误
                                 var rpcName = rpcIndex < execute.Length ? execute[rpcIndex].ToFixedString() : $"Rpc[{rpcHash}, ??, index: {rpcIndex}]";
                                 throw new InvalidOperationException($"[{worldName}][RpcSystem] RPC '{rpcName}' was too big to be sent! It was {totalLengthBytes} bytes [netcode header: {headerLengthBytes}B, rpc message header: {msgHeaderLen}B, payload: {payloadLengthBits} bits], but UTP only offered a packet buffer of {rpcPacketWriter.Capacity}B! Reduce the size of this RPC payload!");
                             }
 
                             rpcPacketWriter.WriteBytesUnsafe((byte*) sendBuffer.GetUnsafePtr(), rpcLengthBytes);
 
-                            // Now try to fit as many more messages in this packet as we can:
+                            // 继续尝试在此数据包中容纳尽可能多的消息
                             while (true)
                             {
                                 var curTmpDataLength = rpcPacketWriter.Length - headerLengthBytes;
@@ -548,7 +544,7 @@ namespace Unity.NetCode
                         else
                             rpcPacketWriter.WriteBytesUnsafe((byte*) sendBuffer.GetUnsafePtr(), sendBuffer.Length);
 
-                        // If sending failed we stop and wait until next frame
+                        // 发送失败时停止处理并等待下一帧
                         if ((result = driver.EndSend(rpcPacketWriter)) <= 0)
                         {
                             if (result == (int) StatusCode.NetworkSendQueueFull)
@@ -560,7 +556,7 @@ namespace Unity.NetCode
                         var tmpDataLength = rpcPacketWriter.Length - headerLengthBytes;
                         if (tmpDataLength < sendBuffer.Length)
                         {
-                            // Compact the buffer, removing the rpcs we did send
+                            // 压缩缓冲区，移除已经发送的 RPC
                             for (int cpy = tmpDataLength; cpy < sendBuffer.Length; ++cpy)
                                 sendBuffer[cpy - tmpDataLength] = sendBuffer[cpy];
                             sendBuffer.ResizeUninitialized(sendBuffer.Length - tmpDataLength);
@@ -576,8 +572,8 @@ namespace Unity.NetCode
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            // Deserialize the command type from the reader stream
-            // Execute the RPC
+            // 从 Reader Stream 反序列化 Command 类型
+            // 执行 RPC
             ref readonly var networkStreamDriver = ref SystemAPI.GetSingletonRW<NetworkStreamDriver>().ValueRO;
             SystemAPI.TryGetSingleton(out NetworkProtocolVersion protocolVersion);
             var connectionUniqueIdEntity = Entity.Null;
@@ -618,18 +614,18 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// <para>A system responsible for handling all the <see cref="RpcSystem.ProtocolVersionError"/> created by the
-    /// <see cref="RpcSystem"/> while receiving rpcs.
+    /// <para>负责处理 <see cref="RpcSystem"/> 接收 RPC 时创建的全部
+    /// <see cref="RpcSystem.ProtocolVersionError"/> 的系统
     /// </para>
     /// <para>
-    /// The connection that generated the <see cref="RpcSystem.ProtocolVersionError"/> will be disconnected, by adding
-    /// a <see cref="NetworkStreamRequestDisconnect"/> component, and a verbose error message containing the following
-    /// is reported to the application:
+    /// 系统会向产生 <see cref="RpcSystem.ProtocolVersionError"/> 的连接添加
+    /// <see cref="NetworkStreamRequestDisconnect"/> Component 以断开连接，
+    /// 并向应用程序报告包含以下内容的详细错误消息
     /// </para>
-    /// <para> - The local protocol.</para>
-    /// <para> - The remote protocol.</para>
-    /// <para> - The list of all registered rpc.</para>
-    /// <para> - The list of all registered serializer.</para>
+    /// <para> - 本地协议</para>
+    /// <para> - 远端协议</para>
+    /// <para> - 全部已注册 RPC 的列表</para>
+    /// <para> - 全部已注册 Serializer 的列表</para>
     /// </summary>
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
     [BurstCompile]

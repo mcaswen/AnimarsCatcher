@@ -20,11 +20,11 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// <para>System present only in client worlds, and responsible for:</para>
-    /// <para>- updating the state of interpolated ghosts, by copying and intepolating data from the received snapshosts.</para>
-    /// <para>- restore the predicted ghost state from the <see cref="GhostPredictionHistoryState"/> before running the next prediction loop (until new snapshot aren't received).</para>
-    /// <para>- updating the <see cref="PredictedGhost"/> properties for all predicted ghost, by reflecting the latest received snapshot (see <see cref="PredictedGhost.AppliedTick"/>)
-    /// and setting up the correct tick from which the ghost should start predicting (see <see cref="PredictedGhost.PredictionStartTick"/></para>
+    /// <para>仅存在于客户端 World 中，负责以下工作：</para>
+    /// <para>- 从接收到的 Snapshot 复制并插值数据，以更新插值 Ghost 的状态</para>
+    /// <para>- 在运行下一轮预测循环前，从 <see cref="GhostPredictionHistoryState"/> 恢复预测 Ghost 的状态，直到收到新的 Snapshot</para>
+    /// <para>- 根据最新收到的 Snapshot 更新所有预测 Ghost 的 <see cref="PredictedGhost"/> 属性，包括反映最新已应用 Snapshot 的 <see cref="PredictedGhost.AppliedTick"/>
+    /// 以及设置 Ghost 开始预测的正确 Tick，参见 <see cref="PredictedGhost.PredictionStartTick"/></para>
     /// </summary>
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
     [UpdateAfter(typeof(GhostReceiveSystem))]
@@ -34,8 +34,7 @@ namespace Unity.NetCode
     [BurstCompile]
     public unsafe partial struct GhostUpdateSystem : ISystem
     {
-        // There will be burst/IL problems with using generic job structs, so we're
-        // laying out each job size type here manually
+        // 使用泛型 Job 结构体会产生 Burst 或 IL 问题，因此在这里手动列出每种 Job 大小类型
         [BurstCompile]
         struct UpdateJob : IJobChunk
         {
@@ -88,12 +87,12 @@ namespace Unity.NetCode
 
             private void AddPredictionStartTick(NetworkTick targetTick, NetworkTick predictionStartTick)
             {
-                // Add a tick a ghost is predicting from, but avoid setting the start tick to something newer (or same tick) as the target tick
-                // since the we don't need to predict in that case and having it newer can cause an almost infinate loop (loop until a uint wraps around)
-                // Ticks in the buffer which are newer than target tick usually do not happen but it can happen when time goes out of sync and cannot adjust fast enough
+                // 加入 Ghost 开始预测的 Tick，但不能把起始 Tick 设为不早于目标 Tick 的值
+                // 这种情况下无需预测，而起始 Tick 比目标 Tick 更新还可能导致循环一直执行到 uint 回绕
+                // Buffer 中通常不会出现比目标 Tick 更新的 Tick，但时间失去同步且无法及时校正时仍可能发生
                 if (targetTick.IsNewerThan(predictionStartTick))
                 {
-                    // The prediction loop does not run for more ticks than we have inputs for, so clamp the start tick to keep a max hashmap size
+                    // 预测循环不会运行超过输入历史所覆盖的 Tick 数，因此限制起始 Tick 以控制 HashMap 的最大容量
                     var startTick = predictionStartTick;
                     if ((uint)targetTick.TicksSince(startTick) > CommandDataUtility.k_CommandDataMaxSize)
                     {
@@ -125,7 +124,7 @@ namespace Unity.NetCode
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用 Component 类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 DynamicComponentTypeHandle* ghostChunkComponentTypesPtr = DynamicTypeList.GetData();
@@ -149,14 +148,14 @@ namespace Unity.NetCode
                 var ghostTypeId = ghostComponents[0].ghostType;
                 if (chunk.Has(ref predictedGhostRequestType) || chunk.Has(ref prespawnGhostIndexType))
                 {
-                    //Check if the pre-spawned ghost and predicted ghost has a valid prefab and serializer.
-                    //if they don't skip the chunk.
+                    // 检查预生成 Ghost 和预测 Ghost 是否具有有效的 Prefab 与 Serializer
+                    // 如果无效则跳过该 Chunk
                     var ghostType = ghostTypes[0];
                     if (!GhostTypeToCollectionIndex.TryGetValue(ghostType, out ghostTypeId))
                         return;
                 }
-                // serialization data has not been loaded yet. This can happen if the prefab has been loaded but
-                // not processed yet (i.e previous prefab in the GhostCollectionPrefab is still missing).
+                // 序列化数据尚未加载完成，这可能发生在 Prefab 已加载但还未处理时
+                // 例如 GhostCollectionPrefab 中排在前面的 Prefab 仍然缺失
                 if (ghostTypeId >= GhostTypeCollection.Length)
                     return;
                 var typeData = GhostTypeCollection[ghostTypeId];
@@ -188,10 +187,10 @@ namespace Unity.NetCode
                     for (int i = 0; i < JobsUtility.ThreadIndexCount; ++i)
                         shouldRewindAndResimulate += numPredictedGhostWithNewData[i*JobsUtility.CacheLineSize/sizeof(int)];
                 }
-                // Find the ranges of entities which have data to apply, store the data to apply in an array while doing so
+                // 找出存在待应用数据的 Entity 区间，并在查找过程中把待应用数据存入数组
                 for (int ent = 0; ent < ghostComponents.Length; ++ent)
                 {
-                    // Pre spawned ghosts might not have the ghost type set yet - in that case we need to skip them until the GHostReceiveSystem has assigned the ghost type
+                    // 预生成 Ghost 可能尚未设置 Ghost 类型，此时需要跳过，直到 GhostReceiveSystem 为其分配类型
                     if (isPrespawn && ghostComponents[ent].ghostType != ghostTypeId)
                     {
                         if (nextRange.y != 0)
@@ -200,8 +199,8 @@ namespace Unity.NetCode
                         continue;
                     }
 #if UNITY_EDITOR || NETCODE_DEBUG
-                    // Validate that the ghost entity has been spawned by the client as predicted spawn or because a ghost as been
-                    // received. In any case, validate that the ghost component contains pertinent data.
+                    // 验证 Ghost Entity 是由客户端预测生成，或因收到 Ghost 而生成
+                    // 无论哪种情况，都要确认 Ghost Component 包含与当前 Entity 对应的数据
                     if((ghostComponents[ent].ghostId == 0) && (isPrespawn || !ghostComponents[ent].spawnTick.IsValid))
                     {
                         var invalidEntity = chunk.GetNativeArray(entityType)[ent];
@@ -209,15 +208,15 @@ namespace Unity.NetCode
                             netDebug.LogError($"Entity {invalidEntity.ToFixedString()} is not a valid prespawned ghost (ghostId == {ghostComponents[ent].ghostId}).");
                         else
                             netDebug.LogError($"Entity {invalidEntity.ToFixedString()} is not a valid ghost (ghostId == {ghostComponents[ent].ghostId}) (i.e. it is not a real 'replicated ghost', nor is it a 'predicted spawn' ghost). This can happen if you instantiate a ghost entity on the client manually (without marking it as a predicted spawn).");
-                        //skip the entity
+                        // 跳过该 Entity
                         if (nextRange.y != 0)
                             entityRange.Add(nextRange);
                         nextRange = default;
                         continue;
                     }
 #endif
-                    //GhostId == 0 means it is a predicted spawn.
-                    //TODO: change the ghostId to use some high bits (or low) to denote predicted spawn for example
+                    // GhostId == 0 表示这是预测生成的 Ghost
+                    // TODO: 可考虑使用 GhostId 的若干高位或低位标识预测生成
                     var snapshotDataBuffer = ghostSnapshotDataBufferArray[ent];
                     var ghostSnapshotData = ghostSnapshotDataArray[ent];
                     var latestTick = ghostSnapshotData.GetLatestTick(snapshotDataBuffer);
@@ -232,19 +231,19 @@ namespace Unity.NetCode
                     }
 #endif
 
-                    //For predicted ghosts there will be never a snapshot for the predicted tick, unless:
-                    // - The client is behind the server
-                    // - The predicted tick rolled back
-                    // - Forced Input Latency is enabled.
-                    // This method is quite heavy, and inside is doing a bunch of logic to retrieve:
-                    // - the received snapshot ticks and indices before and after the targetTick
+                    // 预测 Ghost 通常不会具有预测 Tick 对应的 Snapshot，以下情况除外：
+                    // - 客户端落后于服务器
+                    // - 预测 Tick 发生回滚
+                    // - 启用了强制输入延迟
+                    // 此方法开销较大，内部需要执行多项逻辑以获取：
+                    // - 目标 Tick 前后已接收 Snapshot 的 Tick 与索引
                     bool hasSnapshot = ghostSnapshotData.GetDataAtTick(targetTick, typeData.PredictionOwnerOffset, ghostOwnerId,
                         targetTickFraction, snapshotDataBuffer, out var data, MaxExtrapolationTicks);
                     if (!hasSnapshot)
                     {
-                        //This is also quite heavy work. In general this is doing two linear search (nothing bad but for all ghosts all the time is plenty an overhead).
-                        // If there is no snapshot before our target tick, try to get the oldest tick we do have and use that
-                        // This deals better with ticks moving backwards and clamps ghosts at the oldest state we do have data for
+                        // 此处开销也较大，通常会执行两次线性搜索；单次并不严重，但持续对所有 Ghost 执行会产生明显负担
+                        // 如果目标 Tick 之前没有 Snapshot，则尝试获取并使用现存最旧的 Tick
+                        // 这样能更好地处理 Tick 后退，并把 Ghost 限制在仍有数据的最旧状态
                         var oldestSnapshot = ghostSnapshotData.GetOldestTick(snapshotDataBuffer);
                         hasSnapshot = (oldestSnapshot.IsValid && ghostSnapshotData.GetDataAtTick(oldestSnapshot, typeData.PredictionOwnerOffset, ghostOwnerId, 1, snapshotDataBuffer, out data, MaxExtrapolationTicks));
                     }
@@ -252,50 +251,46 @@ namespace Unity.NetCode
                     {
                         if (predicted)
                         {
-                            // We might get an interpolation between the tick before and after our target - we have to apply the tick right before our target so we set interpolation to 0
+                            // 结果可能是目标 Tick 前后两个 Tick 之间的插值，但这里必须应用目标之前的 Tick，因此将插值系数设为 0
                             data.InterpolationFactor = 0;
                             var snapshotTick = new NetworkTick{SerializedData = *(uint*)data.SnapshotBefore};
                             var predictedData = PredictedGhostArray[ent];
-                            // We want to contiue prediction from the last full tick we predicted last time
+                            // 尝试从上次完成预测的最后一个完整 Tick 继续预测
                             var predictionStartTick = predictionStateBackupTick;
-                            // If there is no history, try to use the tick where we left off last time, will only be a valid tick if we ended with a full prediction tick as opposed to a fractional one
+                            // 如果没有历史记录，则尝试使用上次停止处的 Tick；只有上次结束于完整预测 Tick 而非部分 Tick 时该值才有效
                             if (!predictionStartTick.IsValid)
                                 predictionStartTick = lastPredictedTick;
                             var hasBackup = predictionStartTick.IsValid;
-                            // If we do not have a backup or we got more data since last time we run from the tick we have snapshot data for
+                            // 如果没有备份，或上次运行后收到了更多数据，则从具有 Snapshot 数据的 Tick 开始
                             if (!hasBackup || predictedData.AppliedTick != snapshotTick)
                                 predictionStartTick = snapshotTick;
-                            // If we have newer or equally new data in the snapshot buffer, start from the new data instead
+                            // 如果 Snapshot Buffer 中存在更新或同样新的数据，则改为从新数据开始
                             else if (!predictionStartTick.IsNewerThan(snapshotTick))
                                 predictionStartTick = snapshotTick;
 
-                            //we should try to restore from backup if a backup is available, and if we want to continue prediction, and the last
-                            //predicted tick was a full tick (we avoid a rollback in this case).
+                            // 如果备份可用、需要继续预测且上一个预测 Tick 是完整 Tick，则应尝试从备份恢复
+                            // 这种情况下可以避免回滚
                             bool continuePrediction = predictionStartTick != snapshotTick;
 
-                            //For predicted spawned ghosts (that have ghostId = 0), if user selected to always start
-                            //re-predicting from the spawn tick, we always honour that if there is at least another predicted ghost
-                            //that will rollback.
-                            //Otherwise we try to continue prediction from the backup if available.
+                            // 对于 GhostId 为 0 的预测生成 Ghost，如果用户选择始终从生成 Tick 重新预测
+                            // 且至少还有另一个预测 Ghost 将要回滚，则始终遵循该设置
+                            // 否则在备份可用时尝试从备份继续预测
                             if (ghostComponents[ent].ghostId == 0 && shouldRewindAndResimulate != 0)
                             {
-                                //Force rewind to the snapshot tick the PredictedGhpstSpawnSystem saved in the snapshot buffer.
+                                // 强制回退到 PredictedGhostSpawnSystem 保存在 Snapshot Buffer 中的 Snapshot Tick
                                 predictionStartTick = snapshotTick;
                                 continuePrediction = false;
                             }
 
-                            // Optimization
-                            // If we want to continue prediction, but the last tick was a full tick and therefore the state
-                            // it is going to be identical to the backup, we avoid restoring from it (cpu optimization).
-                            // NOTE:
-                            // This case for client that aren't v-sync is quite rare (or let's say occasional). However, for
-                            // mobile or devices that run at fixed tick rate (v-synced) this is the norm, and therefore the backup
-                            // is useless (never used pretty much).
-                            // We are also wasting CPU time for the backup as well for nothing in these scenario.
+                            // 优化：如果需要继续预测，且上一个 Tick 是完整 Tick，则当前状态将与备份完全一致
+                            // 此时跳过备份恢复以节省 CPU
+                            // 注意：未启用垂直同步的客户端较少遇到这种情况，但在移动设备或以固定 Tick Rate
+                            // 运行的垂直同步设备上，这是常态，因此备份几乎不会被使用
+                            // 在这些场景中，创建备份本身也会无谓消耗 CPU 时间
                             var restoreFromBackup = continuePrediction && (!lastPredictedTick.IsValid || predictionStartTick != lastPredictedTick);
                             if (restoreFromBackup)
                             {
-                                // If we cannot restore the backup and continue prediction, we roll back and resimulate
+                                // 如果无法恢复备份并继续预测，则回滚后重新模拟
                                 if (TryGetChunkBackupState(chunk, ent, typeData.RollbackPredictionOnStructuralChanges,
                                         chunkEntities[ent], out var backupState, out var indexInBackup))
                                 {
@@ -335,8 +330,8 @@ namespace Unity.NetCode
                         }
                         else
                         {
-                            // If this snapshot is static, and the data for the latest tick was applied during last interpolation update, we can just skip copying data.
-                            // Note: This also disables extrapolation on static-optimized, interpolated ghosts.
+                            // 如果该 Snapshot 是静态的，且最新 Tick 数据已在上次插值更新中应用，则可以跳过数据复制
+                            // 注意：这也会禁用静态优化插值 Ghost 的外推
                             if (isStatic && latestTick.IsValid && lastInterpolatedTick.IsValid && !latestTick.IsNewerThan(lastInterpolatedTick))
                             {
                                 if (nextRange.y != 0)
@@ -361,13 +356,13 @@ namespace Unity.NetCode
                         }
                         if (predicted)
                         {
-                            //predicted - pre-spawned ghost may not have a valid snapshot until we receive the first snapshot from the server.
-                            //This is also happening for static optimized - prespawned ghosts until they change
+                            // 预测模式的预生成 Ghost 在收到服务器首个 Snapshot 前可能没有有效 Snapshot
+                            // 静态优化的预生成 Ghost 在发生变化前也会出现这种情况
                             if(!isPrespawn)
                                 netDebug.LogWarning($"Trying to predict a ghost without having a state to roll back to {ghostSnapshotData.GetOldestTick(snapshotDataBuffer)} / {targetTick}");
-                            // This is a predicted snapshot which does not have any state at all to roll back to, just let it continue from it's last state if possible
+                            // 这是完全没有可回滚状态的预测 Snapshot，如有可能则让它从上一个状态继续
                             var predictionStartTick = lastPredictedTick;
-                            // Try to restore from backup if last tick was a partial tick
+                            // 如果上一个 Tick 是部分 Tick，则尝试从备份恢复
                             if (predictionStateBackupTick.IsValid && TryGetChunkBackupState(chunk, ent, typeData.RollbackPredictionOnStructuralChanges,
                                     chunkEntities[ent], out var backupState, out var indexInBackup))
                             {
@@ -381,7 +376,7 @@ namespace Unity.NetCode
                             }
                             else if (!predictionStartTick.IsValid)
                             {
-                                // There was no last state to continue from, so do not run prediction at all
+                                // 没有可供继续的上一状态，因此完全不运行预测
                                 predictionStartTick = targetTick;
                             }
                             AddPredictionStartTick(targetTick, predictionStartTick);
@@ -397,7 +392,7 @@ namespace Unity.NetCode
                 var requiredSendMask = predicted ? GhostSendType.OnlyPredictedClients : GhostSendType.OnlyInterpolatedClients;
                 int numBaseComponents = typeData.NumComponents - typeData.NumChildComponents;
 
-                // This buffer allowing us to MemCmp changes, which allows us to support change filtering.
+                // 此 Buffer 用于通过 MemCmp 比较变化，从而支持变更过滤
                 var tempChangeBufferSize = 1_500;
                 byte* tempChangeBuffer = stackalloc byte[tempChangeBufferSize];
                 NativeArray<byte> tempChangeBufferLarge = default;
@@ -439,14 +434,14 @@ namespace Unity.NetCode
                         if (ghostSerializer.HasGhostFields)
                         {
                             var roDynamicComponentTypeHandle = ghostChunkComponentTypesPtr[compIdx].CopyToReadOnly();
-                            // 1. Get Readonly version from chunk. We always reaad/write from/to this pointer. It is stable and does not change.
+                            // 1. 从 Chunk 获取只读版本，后续始终通过这个稳定且不会变化的指针读写
                             var compDataPtr = (byte*)chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref roDynamicComponentTypeHandle, compSize).GetUnsafeReadOnlyPtr();
                             for (var rangeIdx = 0; rangeIdx < entityRange.Length; ++rangeIdx)
                             {
                                 var range = entityRange[rangeIdx];
                                 var snapshotData = (byte*)dataAtTick.GetUnsafeReadOnlyPtr();
                                 snapshotData += snapshotDataAtTickSize * range.x;
-                                // Fast path: If we already have changes, just fetch the RW version and write directly.
+                                // 快速路径：如果已经检测到变化，则直接获取读写版本并写入
                                 if (componentHasChanges)
                                 {
                                     var rwCompData = compDataPtr + range.x * compSize;
@@ -455,18 +450,18 @@ namespace Unity.NetCode
                                 }
 
                                 var roCompData = compDataPtr + range.x * compSize;
-                                // 2. Copy it into a temp buffer large enough to hold values (inside the range loop).
+                                // 2. 在区间循环内将其复制到足以容纳数据的临时 Buffer
                                 var requiredNumBytes = (range.y - range.x) * compSize;
                                 CopyRODataIntoTempChangeBuffer(requiredNumBytes, ref tempChangeBuffer, ref tempChangeBufferSize, ref tempChangeBufferLarge, roCompData);
 
-                                // 3. Invoke CopyFromSnapshot with the ro buffer as destination (yes, hacky!).
+                                // 3. 调用 CopyFromSnapshot，并把只读 Buffer 作为写入目标，这是一种绕过方式
                                 ghostSerializer.CopyFromSnapshot.Invoke((System.IntPtr) UnsafeUtility.AddressOf(ref deserializerState), (System.IntPtr) snapshotData, snapshotDataOffset, snapshotDataAtTickSize, (System.IntPtr) roCompData, compSize, range.y - range.x);
 
-                                // 4. Compare the two buffers (for changes).
+                                // 4. 比较两个 Buffer 以检测变化
                                 k_ChangeFiltering.Begin();
                                 if (UnsafeUtility.MemCmp(roCompData, tempChangeBuffer, requiredNumBytes) != 0)
                                 {
-                                    // 5. Fetch as RW to bump change version. We've already written to it, so nothing to do.
+                                    // 5. 以读写方式获取数据以推进变更版本；数据已经写入，无需再次复制
                                     componentHasChanges = true;
                                     chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize);
                                 }
@@ -489,8 +484,8 @@ namespace Unity.NetCode
                                 var range = entityRange[rangeIdx];
                                 for (int ent = range.x; ent < range.y; ++ent)
                                 {
-                                    //Compute the required owner mask for the buffers and skip the copyfromsnapshot. The check must be done
-                                    //for each entity.
+                                    // 为 Buffer 计算所需的 Owner Mask，并据此跳过 CopyFromSnapshot
+                                    // 该检查必须对每个 Entity 分别执行
                                     if((ghostSerializer.SendToOwner & dataAtTick[ent].RequiredOwnerSendMask) == 0)
                                         continue;
 
@@ -502,7 +497,7 @@ namespace Unity.NetCode
                                         if (!componentHasChanges)
                                         {
                                             componentHasChanges = true;
-                                            // Bump change version.
+                                            // 推进变更版本
                                             bufferAccessor = chunk.GetUntypedBufferAccessor(ref ghostChunkComponentTypesPtr[compIdx]);
                                         }
                                         bufferAccessor.ResizeUninitialized(ent, bufLen);
@@ -518,8 +513,8 @@ namespace Unity.NetCode
                                     var roBufData = (byte*) bufferAccessor.GetUnsafeReadOnlyPtr(ent);
                                     CopyRODataIntoTempChangeBuffer(requiredNumBytes, ref tempChangeBuffer, ref tempChangeBufferSize, ref tempChangeBufferLarge, roBufData);
 
-                                    // Again, hack to pass in the roBufData to be written into.
-                                    // NOTE: We know that these two buffers will be the EXACT same size, due to the above assurances.
+                                    // 同样通过绕过方式传入 roBufData 作为写入目标
+                                    // 注意：根据上面的保证，这两个 Buffer 的大小必然完全相同
                                     ghostSerializer.CopyFromSnapshot.Invoke(
                                         (System.IntPtr)UnsafeUtility.AddressOf(ref deserializerState),
                                         (System.IntPtr) UnsafeUtility.AddressOf(ref dynamicDataAtTick), 0, dynamicDataSize,
@@ -531,7 +526,7 @@ namespace Unity.NetCode
                                         if (!componentHasChanges)
                                         {
                                             componentHasChanges = true;
-                                            // Bump change version.
+                                            // 推进变更版本
                                             bufferAccessor = chunk.GetUntypedBufferAccessor(ref ghostChunkComponentTypesPtr[compIdx]);
                                         };
                                     }
@@ -546,8 +541,7 @@ namespace Unity.NetCode
                         for (var rangeIdx = 0; rangeIdx < entityRange.Length; ++rangeIdx)
                         {
                             var range = entityRange[rangeIdx];
-                            //The following will update the enable bits for the whole chunk. So the data should be retrieved from the
-                            //beginning of the range
+                            // 以下逻辑会更新整个 Chunk 的启用位，因此数据应从区间起点获取
                             var dataAtTickPtr = (SnapshotData.DataAtTick*)dataAtTick.GetUnsafeReadOnlyPtr();
                             dataAtTickPtr += range.x;
                             UpdateEnableableMask(chunk, dataAtTickPtr, ghostSerializer.SendToOwner,
@@ -599,30 +593,30 @@ namespace Unity.NetCode
                                     if (!childChunk.Chunk.Has(ref ghostChunkComponentTypesPtr[compIdx]))
                                         continue;
 
-                                    // We fetch these via `GetUnsafeReadOnlyPtr` only for performance reasons. It's safe.
+                                    // 仅出于性能原因通过 `GetUnsafeReadOnlyPtr` 获取这些数据，此处用法是安全的
                                     var dataAtTickPtr = (SnapshotData.DataAtTick*)dataAtTick.GetUnsafeReadOnlyPtr();
                                     dataAtTickPtr += ent;
                                     if (ghostSerializer.HasGhostFields)
                                     {
-                                        // No fast-path here!
-                                        // 1. Get Readonly version from chunk.
+                                        // 此处没有快速路径
+                                        // 1. 从 Chunk 获取只读版本
                                         var roDynamicComponentTypeHandle = ghostChunkComponentTypesPtr[compIdx].CopyToReadOnly();
                                         var roCompArray = childChunk.Chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref roDynamicComponentTypeHandle, compSize);
                                         var roCompData = (byte*) roCompArray.GetUnsafeReadOnlyPtr();
                                         roCompData += childChunk.IndexInChunk * compSize;
 
-                                        // 2. Copy it into a temp buffer large enough to hold values (inside the range loop).
+                                        // 2. 在区间循环内将其复制到足以容纳数据的临时 Buffer
                                         var requiredNumBytes = compSize;
                                         CopyRODataIntoTempChangeBuffer(requiredNumBytes, ref tempChangeBuffer, ref tempChangeBufferSize, ref tempChangeBufferLarge, roCompData);
 
-                                        // 3. Invoke CopyFromSnapshot with the ro buffer as destination (yes, hacky!).
+                                        // 3. 调用 CopyFromSnapshot，并把只读 Buffer 作为写入目标，这是一种绕过方式
                                         ghostSerializer.CopyFromSnapshot.Invoke((System.IntPtr) UnsafeUtility.AddressOf(ref deserializerState), (System.IntPtr) dataAtTickPtr, snapshotDataOffset, snapshotDataAtTickSize, (System.IntPtr) roCompData, compSize, 1);
 
-                                        // 4. MemCmp the two buffers.
+                                        // 4. 使用 MemCmp 比较两个 Buffer
                                         k_ChangeFiltering.Begin();
                                         if (UnsafeUtility.MemCmp(tempChangeBuffer, roCompData, compSize) != 0)
                                         {
-                                            // 5. Get RW, if changes, MemCpy
+                                            // 5. 如果存在变化，则获取读写版本并执行 MemCpy
                                             childChunk.Chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize);
                                         }
                                         k_ChangeFiltering.End();
@@ -643,7 +637,7 @@ namespace Unity.NetCode
                             }
                             snapshotDataOffset += snapshotSize;
                         }
-                        else // component type is buffer
+                        else // Component 类型是 Buffer
                         {
                             var dynamicDataSize = ghostSerializer.SnapshotSize;
                             var maskBits = ghostSerializer.ChangeMaskBits;
@@ -690,8 +684,8 @@ namespace Unity.NetCode
                                             var requiredNumBytes = bufLen * compSize;
                                             CopyRODataIntoTempChangeBuffer(requiredNumBytes, ref tempChangeBuffer, ref tempChangeBufferSize, ref tempChangeBufferLarge, roBufData);
 
-                                            // Again, hack to pass in the roBufData to be written into.
-                                            // NOTE: We know that these two buffers will be the EXACT same size, due to the above assurances.
+                                            // 同样通过绕过方式传入 roBufData 作为写入目标
+                                            // 注意：根据上面的保证，这两个 Buffer 的大小必然完全相同
                                             ghostSerializer.CopyFromSnapshot.Invoke(
                                                 (System.IntPtr) UnsafeUtility.AddressOf(ref deserializerState),
                                                 (System.IntPtr) UnsafeUtility.AddressOf(ref dynamicDataAtTick), 0, dynamicDataSize,
@@ -701,7 +695,7 @@ namespace Unity.NetCode
 
                                             if (UnsafeUtility.MemCmp(roBufData, tempChangeBuffer, requiredNumBytes) != 0)
                                             {
-                                                // Bump change version.
+                                                // 推进变更版本
                                                 childChunk.Chunk.GetUntypedBufferAccessor(ref ghostChunkComponentTypesPtr[compIdx]);
                                             }
                                             k_ChangeFiltering.End();
@@ -740,14 +734,12 @@ namespace Unity.NetCode
                 using var _ = k_TryGetChunkBackupState.Auto();
                 backupState = IntPtr.Zero;
                 remappedIndex = -1;
-                //First check if the entity is present in the last backup. if not not there is nothing we can do.
+                // 首先检查 Entity 是否存在于上一次备份中；如果不存在便无法恢复
                 if (!predictionBackupEntityState.TryGetValue(entity, out var lastState))
                     return false;
 
-                //the backup contains stable information for a given chunk. So we always rely on the LastIndexInChunk
-                //to be sure to restore from the correct index.
-                //However, if the archetype preserve the old behaviour, we are not looking for cached values but for the current
-                //chunk and index
+                // 备份保存了给定 Chunk 的稳定信息，因此始终依赖 LastIndexInChunk 从正确索引恢复
+                // 但如果 Archetype 保留旧行为，则不查找缓存值，而是使用当前 Chunk 和索引
                 if (rollbackOnStructuralChanges == 1)
                 {
                     if (!predictionStateBackup.TryGetValue(chunk, out backupState))
@@ -755,13 +747,12 @@ namespace Unity.NetCode
                     remappedIndex = indexInChunk;
                     return PredictionBackupState.MatchEntity(backupState, indexInChunk, entity);
                 }
-                //if the last backup chunk we used is the same (we need only the pointer check for sake of retrieving it)
+                // 如果与上次使用的备份 Chunk 相同，则只需检查指针即可获取它
                 if (!predictionStateBackup.TryGetValue(lastState.lastChunk, out backupState))
                     return false;
                 remappedIndex = lastState.LastIndexInChunk;
-                //Even if the last chunk was different in respect the current chunk (because of structural changes),
-                //we can find the entry in backup using the original information for the entity we stored at backup time and we remap the index accordingly
-                //to access the backup information
+                // 即使结构变更导致备份时的 Chunk 与当前 Chunk 不同，也可以使用备份时保存的 Entity 原始信息
+                // 找到备份条目，并相应重映射索引以访问备份数据
                 return PredictionBackupState.MatchEntity(backupState, lastState.LastIndexInChunk, entity);
             }
 
@@ -778,7 +769,7 @@ namespace Unity.NetCode
                 k_ChangeFiltering.End();
             }
 
-            // TODO - We can perform this logic faster using the EnabledMask.
+            // TODO: 可以使用 EnabledMask 更快地执行此逻辑
             private static void UpdateEnableableMask(ArchetypeChunk chunk, SnapshotData.DataAtTick* dataAtTickPtr,
                 SendToOwnerType ownerSendMask,
                 int changeMaskUints, int enableableMaskOffset, int2 range,
@@ -809,11 +800,11 @@ namespace Unity.NetCode
             static SnapshotData.DataAtTick SetupDynamicDataAtTick(in SnapshotData.DataAtTick dataAtTick,
                 int snapshotOffset, int snapshotSize, int maskBits, in DynamicBuffer<SnapshotDynamicDataBuffer> ghostSnapshotDynamicBuffer, out int buffernLen)
             {
-                // Retrieve from the snapshot the buffer information and
+                // 从 Snapshot 中获取 Buffer 信息
                 var snapshotData = (int*)(dataAtTick.SnapshotBefore + snapshotOffset);
                 var bufLen = snapshotData[0];
                 var dynamicDataOffset = snapshotData[1];
-                //The dynamic snapshot data is associated with the root entity not the children
+                // 动态 Snapshot 数据关联到根 Entity，而不是子 Entity
                 var dynamicSnapshotDataBeforePtr = SnapshotDynamicBuffersHelper.GetDynamicDataPtr((byte*)ghostSnapshotDynamicBuffer.GetUnsafeReadOnlyPtr(),
                     dataAtTick.BeforeIdx, ghostSnapshotDynamicBuffer.Length);
                 //var dynamicSnapshotDataCapacity = SnapshotDynamicBuffersHelper.GetDynamicDataCapacity(SnapshotDynamicBuffersHelper.GetHeaderSize(),ghostSnapshotDynamicBuffer.Length);
@@ -823,14 +814,14 @@ namespace Unity.NetCode
                 if ((dynamicDataOffset + bufLen*snapshotSize) > ghostSnapshotDynamicBuffer.Length)
                     throw new System.InvalidOperationException("Overflow reading data from dynamic snapshot memory buffer");
 #endif
-                //Copy into the buffer the snapshot data. Use a temporary DataTick to pass some information to the serializer function.
-                //No need to use a DataAtTick per element (would be overkill)
+                // 将 Snapshot 数据复制到 Buffer，并使用临时 DataAtTick 向 Serializer 函数传递信息
+                // 无需为每个元素分别使用一个 DataAtTick，那会造成不必要的开销
                 buffernLen = bufLen;
                 return new SnapshotData.DataAtTick
                 {
                     SnapshotBefore = (System.IntPtr)(dynamicSnapshotDataBeforePtr + dynamicDataOffset + dynamicMaskSize),
                     SnapshotAfter = (System.IntPtr)(dynamicSnapshotDataBeforePtr + dynamicDataOffset + dynamicMaskSize),
-                    //No interpolation factor is necessary
+                    // 此处不需要插值系数
                     InterpolationFactor = 0.0f,
                     Tick = dataAtTick.Tick
                 };
@@ -851,7 +842,7 @@ namespace Unity.NetCode
                 DynamicComponentTypeHandle* ghostChunkComponentTypesPtr,
                 int ghostChunkComponentTypesLength)
             {
-                // If we call this, toRestore length MUST be greater than 0
+                // 调用此方法时，toRestore 的长度必须大于 0
                 Assertions.Assert.IsTrue(toRestore.Length > 0);
 
                 int baseOffset = typeData.FirstComponent;
@@ -866,7 +857,7 @@ namespace Unity.NetCode
                     allStates[i].bufferBackupDataPtr = PredictionBackupState.GetBufferDataPtr(toRestore[i].backupState);
                     allStates[i].chunkVersionPtr = PredictionBackupState.GetChunkVersion(toRestore[i].backupState);
                     allStates[i].childChunkVersionPtr = allStates[i].chunkVersionPtr + numBaseComponents;
-                    toUpdateIdx[i] = -1; // For safety.
+                    toUpdateIdx[i] = -1; // 避免意外使用未初始化的索引
                 }
 
                 for (int comp = 0; comp < numBaseComponents; ++comp)
@@ -877,7 +868,7 @@ namespace Unity.NetCode
                     if (compIdx >= ghostChunkComponentTypesLength)
                         throw new System.InvalidOperationException("Component index out of range");
 #endif
-                    //data is not present in the backup buffer (see rules in GhostPredictionHistorySystem.cs, line 460)
+                    // 数据不存在于备份 Buffer 中，参见 GhostPredictionHistorySystem.cs 中的规则
                     if ((GhostComponentIndex[baseOffset + comp].SendMask&requiredSendMask) == 0)
                         continue;
 
@@ -903,13 +894,12 @@ namespace Unity.NetCode
                     int toUpdateCount = 0;
                     for (var index = 0; index < toRestore.Length; index++)
                     {
-                        //We just need to check the chunk version when restoring from the backup. If something touched this component,
-                        //it has been touched no matter what. We should not "compensate" or change that semantic.
+                        // 从备份恢复时只需检查 Chunk 版本；只要有逻辑访问并修改过该 Component，它就应被视为已变更
+                        // 不应通过补偿来改变这一语义
                         uint backupVersion = allStates[index].chunkVersionPtr[comp];
                         k_ChangeFiltering.Begin();
-                        //HOW THIS SHOULD WORK NOW THAT WE COPY/REMAP THE CHUNK STATE FOR THE ENTITY? I can't skip anywmore the
-                        //whole restore if there are some entities in this chunk that has a state that belong to an older one
-                        //in that case, being the entity moved, all the versions are pretty much invalidated.
+                        // 现在会为 Entity 复制并重映射 Chunk 状态，因此不能再因为 Chunk 中部分 Entity 的状态
+                        // 属于旧 Chunk 就跳过整个恢复过程；Entity 发生移动后，这些版本基本都会失效
                         if (chunk.DidChange(ref ghostChunkComponentTypesPtr[compIdx], backupVersion))
                         {
                             toUpdateIdx[toUpdateCount] = index;
@@ -935,8 +925,8 @@ namespace Unity.NetCode
                             var toRestoreIdx = toUpdateIdx[idx];
                             var indexInBackup = toRestore[toRestoreIdx].indexInBackup;
                             var requiredOwnerMask = GetRequiredOwnerMask(toRestore[toRestoreIdx].backupState, indexInBackup);
-                            //Do not restore the backup if the component is never received by this client (PlayerGhostFilter setting)
-                            //The component is present in the buffer, so we need to skip the data
+                            // 如果客户端根据 PlayerGhostFilter 设置永远不会接收该 Component，则不从备份恢复
+                            // 该 Component 仍存在于 Buffer 中，因此需要跳过对应数据
                             if ((ghostSerializer.SendToOwner & requiredOwnerMask) != 0)
                             {
                                 bool isSet = (allStates[toRestoreIdx].enableBits[indexInBackup >> 6] & (1ul << (indexInBackup & 0x3f))) != 0;
@@ -945,24 +935,22 @@ namespace Unity.NetCode
                             allStates[toRestoreIdx].enableBits = PredictionBackupState.GetNextEnabledBits(allStates[toRestoreIdx].enableBits, PredictionBackupState.GetEntityCapacity(toRestore[toRestoreIdx].backupState));
                         }
                     }
-                    //If the component does not have any ghost fields (so nothing to restore)
-                    //we don't need to restore the data and we don't need to advance the
-                    //data ptr either. No space has been reserved for this component in the backup buffer, see the
-                    //GhostPredictionHistorySystem)
+                    // 如果 Component 没有任何 Ghost Field，则没有数据需要恢复，也无需推进数据指针
+                    // 备份 Buffer 没有为该 Component 预留空间，参见 GhostPredictionHistorySystem
                     if (!ghostSerializer.HasGhostFields)
                         continue;
 
                     if (!ghostSerializer.ComponentType.IsBuffer)
                     {
                         var compData = (byte*)chunk.GetDynamicComponentDataArrayReinterpret<byte>(ref ghostChunkComponentTypesPtr[compIdx], compSize).GetUnsafePtr();
-                        //TODO batch restore from backup function call
+                        // TODO: 批量调用从备份恢复的函数
                         for (var idx = 0; idx < toUpdateCount; idx++)
                         {
                             var toRestoreIdx = toUpdateIdx[idx];
                             var indexInBackup = toRestore[toRestoreIdx].indexInBackup;
                             var requiredOwnerMask = GetRequiredOwnerMask(toRestore[toRestoreIdx].backupState, indexInBackup);
-                            //Do not restore the backup if the component is never received by this client (PlayerGhostFilter setting)
-                            //The component is present in the buffer, so we need to skip the data
+                            // 如果客户端根据 PlayerGhostFilter 设置永远不会接收该 Component，则不从备份恢复
+                            // 该 Component 仍存在于 Buffer 中，因此需要跳过对应数据
                             if ((ghostSerializer.SendToOwner & requiredOwnerMask) != 0)
                             {
                                 ghostSerializer.RestoreFromBackup.Invoke((System.IntPtr)(compData + toRestore[toRestoreIdx].ent * compSize),
@@ -985,7 +973,7 @@ namespace Unity.NetCode
                             var elemSize = ghostSerializer.ComponentSize;
                             var bufferDataPtr = allStates[toRestoreIdx].bufferBackupDataPtr + bufOffset;
 
-                            //Do not restore the backup if the component is never received by this client
+                            // 如果客户端永远不会接收该 Component，则不从备份恢复
                             var requiredOwnerMask = GetRequiredOwnerMask(toRestore[toRestoreIdx].backupState, indexInBackup);
                             if ((ghostSerializer.SendToOwner & requiredOwnerMask) != 0)
                             {
@@ -993,24 +981,19 @@ namespace Unity.NetCode
                                 if ((bufOffset + bufLen * elemSize) > PredictionBackupState.GetBufferDataCapacity(toRestore[toRestoreIdx].backupState))
                                     throw new System.InvalidOperationException("Overflow reading data from dynamic snapshot memory buffer");
 #endif
-                                //IMPORTANT NOTE: The RestoreFromBackup restore only the serialized fields for a given struct.
-                                //Differently from the component counterpart, when the dynamic snapshot buffer get resized the memory is not
-                                //cleared (for performance reason) and some portion of the data could be left "uninitialized" with random values
-                                //in case some of the element fields does not have a [GhostField] annotation.
-                                //For such a reason we enforced a rule: BufferElementData MUST have all fields annotated with the GhostFieldAttribute.
-                                //This solve the problem and we might relax that condition later.
+                                // 重要：RestoreFromBackup 只恢复给定结构体中已序列化的字段
+                                // 与 Component 不同，动态 Snapshot Buffer 调整大小时出于性能考虑不会清空内存
+                                // 如果某些元素字段未标记 [GhostField]，部分数据可能保持未初始化并含有随机值
+                                // 因此强制要求 BufferElementData 的所有字段都标记 GhostFieldAttribute
+                                // 该限制解决了当前问题，之后可能会放宽
                                 bufferAccessor.ResizeUninitialized(toRestore[toRestoreIdx].ent, bufLen);
                                 var bufferPointer = (byte*)bufferAccessor.GetUnsafePtr(toRestore[toRestoreIdx].ent);
-                                //for buffers we could probably use just a memcpy. the rule is that all fields must have a [GhostField],
-                                //so everything is replicated. But.. what about internal fields or properties?
-                                //These aren't replicated, nor we complain about their presence in code-gen.
-                                //However, given how buffer works, these are causing problem (because has random memory value when
-                                //initialised) and usually they must be avoided.
-                                //For such a reason, that would be probably the fast and more correct path. Although, we would also
-                                //make some opinionated choice and that would be a change in current behaviour.
-                                //That may be ok for 2.0, but in current 1.x we should avoid breaking user behaviours. I suspect though,
-                                //this would not break anything anyway.
-                                //TODO: batch this
+                                // 对 Buffer 或许可以直接使用 memcpy，因为规则要求所有字段都有 [GhostField]，所以全部数据都会复制
+                                // 但内部字段或属性不会被复制，代码生成也不会因其存在而报错
+                                // 由于 Buffer 初始化时这些成员可能含有随机内存值，它们仍会造成问题，通常应避免使用
+                                // 因此 memcpy 可能是更快且更正确的路径，但也会引入带有倾向性的限制并改变现有行为
+                                // 这种变化或许适合 2.0，但当前 1.x 应避免破坏用户行为，尽管它很可能不会影响实际项目
+                                // TODO: 批量处理此逻辑
                                 for (int bufElement = 0; bufElement < bufLen; ++bufElement)
                                 {
                                     ghostSerializer.RestoreFromBackup.Invoke((System.IntPtr)(bufferPointer), (System.IntPtr)(bufferDataPtr));
@@ -1034,7 +1017,7 @@ namespace Unity.NetCode
                         if (compIdx >= ghostChunkComponentTypesLength)
                             throw new System.InvalidOperationException("Component index out of range");
 #endif
-                        //Not present in the backup buffer (see rules in GhostPredictionHistorySystem.cs, line 460)
+                        // 不存在于备份 Buffer 中，参见 GhostPredictionHistorySystem.cs 中的规则
                         if ((GhostComponentIndex[baseOffset + comp].SendMask & requiredSendMask) == 0)
                             continue;
                         ref readonly var ghostSerializer = ref GhostComponentCollection.ElementAtRO(serializerIdx);
@@ -1063,7 +1046,7 @@ namespace Unity.NetCode
                                 continue;
                             }
                             else k_ChangeFiltering.End();
-                            //The owner is still the rootEnt not the child entity.
+                            // Owner 仍然是 rootEnt，而不是子 Entity
                             var requiredOwnerMask = GetRequiredOwnerMask(toRestore[toRestoreIdx].backupState, indexInBackup);
                             if ((ghostSerializer.SendToOwner & requiredOwnerMask) != 0)
                             {
@@ -1073,10 +1056,8 @@ namespace Unity.NetCode
                                     childChunk.Chunk.SetComponentEnabled(ref ghostChunkComponentTypesPtr[compIdx], childChunk.IndexInChunk, isSet);
                                 }
 
-                                //If the component does not have any ghost fields (so nothing to restore)
-                                //we don't need to restore the data and we don't need to advance the
-                                //data ptr either. No space has been reserved for this component in the backup buffer, see the
-                                //GhostPredictionHistorySystem)
+                                // 如果 Component 没有任何 Ghost Field，则没有数据需要恢复，也无需推进数据指针
+                                // 备份 Buffer 没有为该 Component 预留空间，参见 GhostPredictionHistorySystem
                                 if (!ghostSerializer.HasGhostFields)
                                     continue;
 
@@ -1112,10 +1093,10 @@ namespace Unity.NetCode
                                 }
                             }
                         }
-                        //The data in the backup is stored on a per component basis Like this:
+                        // 备份中的数据按 Component 分组存储，布局如下：
                         // C1       | C2       | ChildComp1    | ChildComp2
                         // e1,e2,e3 | e1,e2,e3 | e1c1,e2c1,e3c1| ...
-                        //So the dataptr, enablebits and chunk versions must be advanced here. Not for each entity restored
+                        // 因此必须在这里推进数据指针、启用位和 Chunk 版本，而不是每恢复一个 Entity 就推进一次
                         for (var entIndex = 0; entIndex < toRestore.Length; entIndex++)
                         {
                             if (ghostSerializer.SerializesEnabledBit != 0)
@@ -1163,9 +1144,8 @@ namespace Unity.NetCode
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                //This is to prevent false sharing. Each integer is allocated on a different cache line, thus writing
-                //on an slot does not trigger cache synchronization (on the CPU).
-                //The / sizeof(int) it is be
+                // 这样可以避免伪共享：每个整数分配在不同的缓存行中，写入某个槽位不会触发 CPU 缓存同步
+                // 除以 sizeof(int) 是为了把缓存行字节数转换为整数槽位数
                 int index = threadIndex * JobsUtility.CacheLineSize / sizeof(int);
                 var predictedGhosts = chunk.GetComponentDataPtrRO(ref predictedGhostTypeHandle);
                 var ghostSnapshotDataArray = chunk.GetNativeArray(ref ghostSnapshotDataType);
@@ -1200,7 +1180,7 @@ namespace Unity.NetCode
                 if (InterpolationTick.IsValid && ack.LastReceivedSnapshotByLocal.IsValid && !InterpolationTick.IsNewerThan(ack.LastReceivedSnapshotByLocal))
                 {
                     var lastInterpolTick = InterpolationTick;
-                    // Make sure it is the last full interpolated tick. It is only used to see if a static ghost already has the latest state applied
+                    // 确保记录的是最后一个完整插值 Tick，此值只用于判断静态 Ghost 是否已经应用最新状态
                     if (InterpolationTickFraction < 1)
                         lastInterpolTick.Decrement();
                     LastInterpolatedTick.Value = lastInterpolTick;
@@ -1271,8 +1251,8 @@ namespace Unity.NetCode
             systemState.RequireForUpdate<GhostCollection>();
 
             m_LastInterpolatedTick = new NativeReference<NetworkTick>(Allocator.Persistent);
-            //allocate one int per cache line per worker thread. Each cacheline contains up to CacheLineSize/sizeof(int) entries this
-            //is why is divided by sizeof(int).
+            // 为每个工作线程的每条缓存行分配一个整数
+            // 每条缓存行最多包含 CacheLineSize / sizeof(int) 个整数，因此容量需要除以 sizeof(int)
             m_NumPredictedGhostWithNewData = new NativeArray<int>(JobsUtility.ThreadIndexCount * JobsUtility.CacheLineSize / sizeof(int), Allocator.Persistent);
             m_GhostComponentCollectionFromEntity = systemState.GetBufferLookup<GhostComponentSerializer.State>(true);
             m_GhostTypeCollectionFromEntity = systemState.GetBufferLookup<GhostCollectionPrefabSerializer>(true);
@@ -1316,7 +1296,7 @@ namespace Unity.NetCode
                 return;
 
             var backupTick = lastBackupTick.Value;
-            // If tick has moved backwards we might have a backup that is newer than the target tick, if that is the case we do not want to use it
+            // Tick 后退时，备份可能比目标 Tick 更新；这种情况下不能使用该备份
             if (backupTick.IsValid && !networkTime.ServerTick.IsNewerThan(backupTick))
                 backupTick = NetworkTick.Invalid;
 
@@ -1389,9 +1369,9 @@ namespace Unity.NetCode
                     MaxExtrapolationTicks = clientTickRate.MaxExtrapolationTimeSimTicks,
                     netDebug = SystemAPI.GetSingleton<NetDebug>()
                 };
-                //@TODO: Use BufferFromEntity
+                // TODO: 使用 BufferFromEntity
                 var ghostComponentCollection = systemState.EntityManager.GetBuffer<GhostCollectionComponentType>(updateJob.GhostCollectionSingleton);
-                DynamicTypeList.PopulateList(ref systemState, ghostComponentCollection, false, ref updateJob.DynamicTypeList); // Change Filtering is handled on a per-chunk basis, inside the job.
+                DynamicTypeList.PopulateList(ref systemState, ghostComponentCollection, false, ref updateJob.DynamicTypeList); // 变更过滤在 Job 内按 Chunk 处理
                 k_Scheduling.Begin();
                 systemState.Dependency = updateJob.ScheduleParallelByRef(m_ghostQuery, predictedGhostWithNewDataJob);
                 k_Scheduling.End();
@@ -1401,7 +1381,7 @@ namespace Unity.NetCode
             if (networkTime.IsPartialTick)
                 m_LastPredictedTick = NetworkTick.Invalid;
 
-            // If the interpolation target for this frame was received we can update which the latest fully applied interpolation tick is
+            // 如果已经收到本帧的插值目标，就可以更新最近一个已完整应用的插值 Tick
             m_NetworkSnapshotAckLookup.Update(ref systemState);
             var updateInterpolatedTickJob = new UpdateLastInterpolatedTick
             {

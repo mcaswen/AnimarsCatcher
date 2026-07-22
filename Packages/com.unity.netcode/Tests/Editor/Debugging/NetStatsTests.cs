@@ -33,13 +33,13 @@ namespace Unity.NetCode.Tests
 
     class NetStatsTests
     {
-        const int k_SnapshotMaxHeaderSizeInBits = 200; // we assume a snapshot's header size is smaller than this value for this test. If we add more header values, we should update this value.
+        const int k_SnapshotMaxHeaderSizeInBits = 200; // 测试假定快照头小于该值，新增头字段时需要同步调整
         [Test]
         public void TestLargeNumberOfPredictionErrorsAreReported([Values]bool useMetrics)
         {
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(true, typeof(MispredictionSystem));
-            //I need a very very long string
+            // 构造足够多的预测错误名称以覆盖长名称数据
             testWorld.CreateGhostCollection();
             testWorld.CreateWorlds(true, 1);
             var serverEntity = CreateEntityPrefab(testWorld.ServerWorld);
@@ -52,7 +52,7 @@ namespace Unity.NetCode.Tests
             for(int i=0; i<32; ++i)
                 testWorld.Tick();
 
-            //Verify that the ghost collection stats is in the condition we expect:
+            // 验证 Ghost 集合统计处于预期状态
             var statsCollectionData = testWorld.GetSingletonRW<GhostStatsCollectionData>(testWorld.ServerWorld);
             var errorNames = testWorld.ClientWorlds[0].EntityManager.GetBuffer<PredictionErrorNames>(clientMetrics);
             Assert.Less(errorNames.Length, 101);
@@ -64,10 +64,10 @@ namespace Unity.NetCode.Tests
                 Assert.AreEqual(predictionErrors.Length, predictionErrors.Length);
             }
 
-            //spawn the entity.
+            // 生成测试实体
             testWorld.ServerWorld.EntityManager.Instantiate(serverEntity);
 
-            //Fake debugger connected
+            // 模拟调试器已连接
             statsCollectionData = testWorld.GetSingletonRW<GhostStatsCollectionData>(testWorld.ClientWorlds[0]);
             if (!useMetrics)
             {
@@ -80,19 +80,19 @@ namespace Unity.NetCode.Tests
                 testWorld.GetSingletonRW<GhostStats>(testWorld.ClientWorlds[0]).ValueRW.IsConnected = true;
             }
 
-            //wait for entity to spawn
+            // 等待客户端生成实体
             for(int i=0; i<4; ++i)
                 testWorld.Tick();
 
-            //predict for a bit, check that no error or exception are thrown
+            // 推进预测并确认不会抛出错误或异常
             for (int i = 0; i < 32; ++i)
             {
                 testWorld.Tick();
                 testWorld.ClientWorlds[0].EntityManager.CompleteAllTrackedJobs();
                 statsCollectionData = testWorld.GetSingletonRW<GhostStatsCollectionData>(testWorld.ClientWorlds[0]);
                 var statsErrors = statsCollectionData.ValueRW.m_PredictionErrors;
-                //we arechecking the data after one tick here because the Stats are updated the next frame in the Initialization
-                //system group (we validate the last frame).
+                // Stats 在下一帧的 InitializationSystemGroup 中更新
+                // 因此从第二次循环起验证上一帧的数据
                 if (i > 0)
                 {
                     for (int err = 0; err < statsErrors.Length; ++err)
@@ -207,11 +207,11 @@ namespace Unity.NetCode.Tests
             }
 
             var serverEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefab);
-            testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // need to set non default value to get per component stats
+            testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // 设置非默认值以生成逐组件统计
             testWorld.Tick();
-            testWorld.Tick(); // entity is sent, then client world receives it. Both jobs happen one after the other in the same Tick() call. server write stat should contain new entry now, client write stats should also be written to
-            testWorld.Tick(); // both client and server write stats are copied to the respective read stats buffer
-            // Client also now has the ghost spawned
+            testWorld.Tick(); // 发送实体后客户端在同一次 Tick 调用中接收，双方写统计缓冲此时均应更新
+            testWorld.Tick(); // 将客户端和服务器写统计复制到各自的读统计缓冲
+            // 客户端此时也已生成 Ghost
 
             Assert.AreEqual(123, testWorld.GetSingleton<GhostGenTestTypes.GhostGenBigStruct>(testWorld.ClientWorlds[0]).field000, "sanity check failed");
 
@@ -230,8 +230,8 @@ namespace Unity.NetCode.Tests
             var serverStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ServerWorld);
             var readStats = serverStats.GetAsyncStatsReader();
             {
-                // validate server stats
-                Assert.AreEqual(spawnTick.TickIndexForValidTick + 1, readStats.Tick.TickIndexForValidTick, "stats tick should be the spawn tick"); // the way we send ghosts right now, we only send on the next tick, so spawn tick will be offset by one vs the snapshot tick
+                // 验证服务器统计
+                Assert.AreEqual(spawnTick.TickIndexForValidTick + 1, readStats.Tick.TickIndexForValidTick, "stats tick should be the spawn tick"); // 当前实现会在下一 Tick 发送 Ghost，因此快照 Tick 比 Spawn Tick 大一
                 Assert.AreEqual(0, readStats.DespawnCount, "despawn should be zero");
                 Assert.AreEqual(0, readStats.DestroySizeInBits, "destroy size should be zero");
                 var perGhostTypeStats = readStats.PerGhostTypeStatsListRO;
@@ -249,8 +249,7 @@ namespace Unity.NetCode.Tests
                 Assert.IsTrue(GetGhostStats(ghostType, true).SizeInBits > GetGhostStats(ghostType, true).PerComponentStatsList[0].SizeInSnapshotInBits, "per component stats should be less than total ghost size");
             }
             {
-                // validate client
-                // client read stats should now show the spawn stats
+                // 验证客户端读统计已经包含生成数据
                 var clientStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[0]);
                 var clientStatsReader = clientStats.GetAsyncStatsReader();
                 Assert.AreEqual(1, clientStatsReader.PerGhostTypeStatsListRO.Length);
@@ -269,18 +268,18 @@ namespace Unity.NetCode.Tests
 
             testWorld.Tick();
             {
-                // if there is noise in server stats, we can check it next tick
-                // validate server doesn't have new stats with no change
+                // 再推进一个 Tick 以避开服务器统计中的瞬时数据
+                // 验证组件未变化时不会产生新的逐组件统计
                 Assert.IsTrue(GetGhostStats(ghostType, true).SizeInBits > 8, "should still be sending metadata for ghost even with no data change");
                 Assert.AreEqual(0, GetGhostStats(ghostType, true).PerComponentStatsList[0].SizeInSnapshotInBits, "no data change so there should be no stats for component");
             }
 
-            // update server side component to trigger component stats
+            // 修改服务器组件以触发逐组件统计
             testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 124 });
-            testWorld.Tick(); // data is sent
-            testWorld.Tick(); // server read buffer is updated
+            testWorld.Tick(); // 发送数据
+            testWorld.Tick(); // 更新服务器读统计缓冲
             {
-                // validate data change server side
+                // 验证服务器上的数据变化统计
                 Assert.IsTrue(GetGhostStats(ghostType, true).SizeInBits > 8, "ghost type size should be bigger than 8 bits");
                 Assert.IsTrue(GetGhostStats(ghostType, true).PerComponentStatsList[0].SizeInSnapshotInBits > 0, $"size in bits for {nameof(GhostGenTestTypes.GhostGenBigStruct)}");
                 Assert.IsTrue(GetGhostStats(ghostType, true).PerComponentStatsList[0].SizeInSnapshotInBits < 16, $"size in bits for {nameof(GhostGenTestTypes.GhostGenBigStruct)} should be small due to compression and small change");
@@ -289,7 +288,7 @@ namespace Unity.NetCode.Tests
             }
             Assert.AreEqual(124, testWorld.GetSingleton<GhostGenTestTypes.GhostGenBigStruct>(testWorld.ClientWorlds[0]).field000, "sanity check failed");
             {
-                // validate data change client side
+                // 验证客户端上的数据变化统计
                 Assert.IsTrue(GetGhostStats(ghostType, false).SizeInBits > 8, "ghost type size should be bigger than 8 bits");
                 Assert.IsTrue(GetGhostStats(ghostType, false).PerComponentStatsList[0].SizeInSnapshotInBits > 0, $"size in bits for {nameof(GhostGenTestTypes.GhostGenBigStruct)}");
                 Assert.IsTrue(GetGhostStats(ghostType, false).PerComponentStatsList[0].SizeInSnapshotInBits < 16, $"size in bits for {nameof(GhostGenTestTypes.GhostGenBigStruct)} should be small due to compression and small change");
@@ -321,12 +320,12 @@ namespace Unity.NetCode.Tests
                 testWorld.Tick();
             }
 
-            var ghostCount = 200; // 400 bytes per ghost, this should go above one MTU with delta compression
+            var ghostCount = 200; // 每个 Ghost 约四百字节，即使增量压缩后也应超过一个 MTU
             var serverGhosts = new List<Entity>();
             for (int i = 0; i < ghostCount; i++)
             {
                 var serverEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefab);
-                testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // need to set non default value to get per component stats
+                testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // 设置非默认值以生成逐组件统计
                 serverGhosts.Add(serverEntity);
             }
 
@@ -341,10 +340,10 @@ namespace Unity.NetCode.Tests
             }
 
             testWorld.Tick();
-            IncrementAll(); // make sure there's some bandwidth usage generated
-            testWorld.Tick(); // entity is sent, then client world receives it. Both jobs happen one after the other in the same Tick() call. server write stat should contain new entry now, client write stats should also be written to
+            IncrementAll(); // 确保产生足够的带宽用量
+            testWorld.Tick(); // 发送实体后客户端在同一次 Tick 调用中接收，双方写统计缓冲此时均应更新
             IncrementAll();
-            testWorld.Tick(); // both client and server write stats are copied to the respective read stats buffer
+            testWorld.Tick(); // 将客户端和服务器写统计复制到各自的读统计缓冲
             IncrementAll();
 
             var serverStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ServerWorld);
@@ -356,7 +355,7 @@ namespace Unity.NetCode.Tests
             }
 
             testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld).ValueRW.DefaultSnapshotPacketSize = MaxPayloadSize*2;
-            // we now have enough room for 2 packets, so stats should reflect this as well
+            // 当前载荷空间可容纳两个包，统计也应反映这一点
 
             testWorld.Tick();
             IncrementAll();
@@ -367,19 +366,19 @@ namespace Unity.NetCode.Tests
 
             serverStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ServerWorld);
             Assert.AreEqual(2 * clientCount, serverStats.GetAsyncStatsReader().PacketsCount);
-            Assert.Greater(serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * clientCount); // test we sent more than one MTU
+            Assert.Greater(serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * clientCount); // 验证每个客户端发送量超过一个 MTU
             Assert.Greater(serverStats.GetAsyncStatsReader().SnapshotTotalSizeInBits, serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, "total snapshot size should be greater than per ghost type size");
             Assert.Less(serverStats.GetAsyncStatsReader().SnapshotTotalSizeInBits, serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits + k_SnapshotMaxHeaderSizeInBits * clientCount);
             for (int i = 0; i < clientCount; i++)
             {
                 var clientStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[i]);
                 Assert.AreEqual(2, clientStats.GetAsyncStatsReader().PacketsCount);
-                Assert.Greater(clientStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8); // test we sent more than one mtu
+                Assert.Greater(clientStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8); // 验证接收量超过一个 MTU
                 Assert.AreEqual(serverStats.GetAsyncStatsReader().SnapshotTotalSizeInBits / clientCount, clientStats.GetAsyncStatsReader().SnapshotTotalSizeInBits);
             }
 
             testWorld.GetSingletonRW<GhostSendSystemData>(testWorld.ServerWorld).ValueRW.DefaultSnapshotPacketSize = MaxPayloadSize*4;
-            // we now have enough room for 2 packets, so stats should reflect this as well
+            // 当前载荷空间可容纳四个包，统计也应反映这一点
 
             testWorld.Tick();
             IncrementAll();
@@ -390,12 +389,12 @@ namespace Unity.NetCode.Tests
 
             serverStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ServerWorld);
             Assert.AreEqual(4 * clientCount, serverStats.GetAsyncStatsReader().PacketsCount);
-            Assert.Greater(serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * 3 * clientCount); // test we sent more than 3 MTU
+            Assert.Greater(serverStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * 3 * clientCount); // 验证每个客户端发送量超过三个 MTU
             for (int i = 0; i < clientCount; i++)
             {
                 var clientStats = testWorld.GetSingleton<GhostStatsSnapshotSingleton>(testWorld.ClientWorlds[i]);
                 Assert.AreEqual(4, clientStats.GetAsyncStatsReader().PacketsCount);
-                Assert.Greater(clientStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * 3); // test we sent more than 3 MTU
+                Assert.Greater(clientStats.GetAsyncStatsReader().PerGhostTypeStatsListRO[0].SizeInBits, MaxPayloadSize * 8 * 3); // 验证接收量超过三个 MTU
             }
         }
 #if NETCODE_PROFILER_ENABLED && UNITY_6000_0_OR_NEWER
@@ -420,25 +419,25 @@ namespace Unity.NetCode.Tests
             }
 
             var serverEntity = testWorld.ServerWorld.EntityManager.Instantiate(serverPrefab);
-            testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // need to set non default value to get per component stats
+            testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 123 }); // 设置非默认值以生成逐组件统计
             testWorld.Tick();
-            testWorld.Tick(); // entity is sent, then client world receives it. Both jobs happen one after the other in the same Tick() call. server write stat should contain new entry now, client write stats should also be written to
-            testWorld.Tick(); // both client and server write stats are copied to the respective read stats buffer
-            // Client also now has the ghost spawned
+            testWorld.Tick(); // 发送实体后客户端在同一次 Tick 调用中接收，双方写统计缓冲此时均应更新
+            testWorld.Tick(); // 将客户端和服务器写统计复制到各自的读统计缓冲
+            // 客户端此时也已生成 Ghost
             testWorld.Tick();
 
-            // update server side component to trigger component stats
+            // 修改服务器组件以触发逐组件统计
             testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, new GhostGenTestTypes.GhostGenBigStruct() { field000 = 124 });
-            testWorld.Tick(); // data is sent
-            testWorld.Tick(); // server read buffer is updated
+            testWorld.Tick(); // 发送数据
+            testWorld.Tick(); // 更新服务器读统计缓冲
 
-            // Enable Profiler
+            // 启用 Profiler
             var saveDataFilePath = Path.Combine(Application.temporaryCachePath, "Profiler_DumpAndLoadStats_Savefile.data");
             ProfilerDriver.ClearAllFrames();
             ProfilerDriver.profileEditor = true;
             Profiler.enabled = true;
 
-            // Run the stats collection for several frames
+            // 运行多帧以收集统计
             const int frameCount = 100;
             for (var i = 0; i < frameCount; i++)
             {
@@ -446,7 +445,7 @@ namespace Unity.NetCode.Tests
                 yield return null;
             }
 
-            // Save the profiler run and load it back again
+            // 保存 Profiler 会话并重新加载
             ProfilerDriver.SaveProfile(saveDataFilePath);
             ProfilerDriver.ClearAllFrames();
             var loaded = ProfilerDriver.LoadProfile(saveDataFilePath, false);
@@ -456,7 +455,7 @@ namespace Unity.NetCode.Tests
             ProfilerDriver.profileEditor = false;
             Profiler.enabled = false;
 
-            // Read the frame metadata
+            // 读取帧元数据
             using (var frameDataView = ProfilerDriver.GetRawFrameDataView(ProfilerDriver.lastFrameIndex, 0))
             {
                 Assert.NotNull(frameDataView);
@@ -468,11 +467,11 @@ namespace Unity.NetCode.Tests
         }
 
         static void GetAndCheckStats(RawFrameDataView frameDataView, Guid guid) {
-            // Get the serialized ghost stats
+            // 获取序列化后的 Ghost 统计
             var serializedGhostStatsSnapshot = frameDataView.GetFrameMetaData<byte>(guid, ProfilerMetricsConstants.SerializedGhostStatsSnapshotTag);
             Assert.IsNotEmpty(serializedGhostStatsSnapshot);
 
-            // Deserialize the ghost stats
+            // 反序列化 Ghost 统计
             var ghostStatsSnapshot = UnsafeGhostStatsSnapshot.FromBlittableData(Allocator.Temp, serializedGhostStatsSnapshot);
             Assert.NotNull(ghostStatsSnapshot);
             var perGhostTypeStats = ghostStatsSnapshot.PerGhostTypeStatsListRO;
@@ -482,7 +481,7 @@ namespace Unity.NetCode.Tests
             Assert.IsTrue(firstTypeComponentStats.IsCreated);
             Assert.IsFalse(firstTypeComponentStats.IsEmpty);
 
-            // Check all other metrics
+            // 检查其他指标
             var frameMetaData = NetcodeForEntitiesProfilerModuleViewController.GetProfilerFrameMetaData(frameDataView, ProfilerMetricsConstants.ServerGuid);
             Assert.IsTrue(frameMetaData.CommandStats.IsCreated);
             Assert.IsTrue(frameMetaData.CommandStats.Length == 3);
@@ -495,7 +494,7 @@ namespace Unity.NetCode.Tests
             Assert.IsTrue(frameMetaData.SerializerStates.IsCreated);
             Assert.IsTrue(frameMetaData.UncompressedSizesPerType.IsCreated);
 
-            // TODO: These 3 fail, find out why
+            // TODO 查明以下三项失败的原因
             // Assert.IsTrue(frameMetaData.GhostNames.IsCreated);
             // Assert.IsFalse(frameMetaData.GhostNames.Length == 0);
             // Assert.IsTrue(frameMetaData.PredictionErrors.IsCreated);

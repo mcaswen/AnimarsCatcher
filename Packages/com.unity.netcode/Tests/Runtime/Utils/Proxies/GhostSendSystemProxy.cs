@@ -159,10 +159,10 @@ namespace Unity.NetCode.Tests
                                     soloLength = length / count;
 
                                 Measure.Custom(m_GhostSampleGroups[2 + 3 * i],
-                                    count / m_ConnectionCount); // Serialized Entities
+                                    count / m_ConnectionCount); // 已序列化实体数
                                 Measure.Custom(m_GhostSampleGroups[2 + 3 * i + 1],
-                                    length / m_ConnectionCount / 8); // Total Length in Bytes
-                                Measure.Custom(m_GhostSampleGroups[2 + 3 * i + 2], soloLength); // Bits / Entity
+                                    length / m_ConnectionCount / 8); // 总长度，单位为字节
+                                Measure.Custom(m_GhostSampleGroups[2 + 3 * i + 2], soloLength); // 每个实体的位数
 
                                 totalCount += count;
                                 totalLength += length;

@@ -10,14 +10,14 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新组件类型的临时类型，将在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("GhostSpawnQueueComponent has been deprecated. Use GhostSpawnQueueComponent instead (UnityUpgradable) -> GhostSpawnQueue", true)]
     public struct GhostSpawnQueueComponent : IComponentData
     {}
 
     /// <summary>
-    /// GhostSPawnQueue is used to identify the singleton component which contains the GhostSpawnBuffer.
+    /// GhostSpawnQueue 用于标识包含 GhostSpawnBuffer 的单例组件
     /// </summary>
     public struct GhostSpawnQueue : IComponentData
     {
@@ -25,82 +25,83 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The GhostSpawnBuffer is the data for a GhostSpawnQueue singleton. It contains a list of ghosts which
-    /// will be spawned by the GhostSpawnSystem at the beginning of next frame. It is populated by the
-    /// GhostReceiveSystem and there needs to be a classification system updating after the GhostReceiveSystem which
-    /// sets the SpawnType so the spawn system knows how to spawn the ghost.
-    /// A classification system should only modify the SpawnType and PredictedSpawnEntity fields of this struct.
-    /// InternalBufferCapacity allocated to almost max out chunk memory.
+    /// GhostSpawnBuffer 是 GhostSpawnQueue 单例的数据，包含将在下一帧开始时由 GhostSpawnSystem 生成的 Ghost 列表
+    /// GhostReceiveSystem 负责填充此 Buffer
+    /// 还需要一个在 GhostReceiveSystem 之后更新的分类系统设置 SpawnType
+    /// 使生成系统知道应如何生成 Ghost
+    /// 分类系统只应修改此结构的 SpawnType 和 PredictedSpawnEntity 字段
+    /// InternalBufferCapacity 的配置接近填满 Chunk 内存
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct GhostSpawnBuffer : IBufferElementData
     {
         /// <summary>
-        /// The ghost mode to use to spawn th entity
+        /// 生成实体时使用的 Ghost 模式
         /// </summary>
         public enum Type
         {
             /// <summary>
-            /// The ghost has not be classified yet and it is expected that a classification system will
-            /// change this value to the proper ghost mode (see also <see cref="GhostSpawnClassificationSystem"/>).
+            /// Ghost 尚未分类，预期分类系统会将此值改为正确的 Ghost 模式
+            /// 另见 <see cref="GhostSpawnClassificationSystem"/>
             /// </summary>
             Unknown,
             /// <summary>
-            /// The new ghost must be spawned as interpolated. The ghost creation is delayed
-            /// until the <see cref="NetworkTime.InterpolationTick"/> match (or is greater) the actual spawn tick on the server.
-            /// See <see cref="GhostSpawnSystem"/> and <see cref="PendingSpawnPlaceholder"/>.
+            /// 新 Ghost 必须以插值模式生成
+            /// 创建过程会延迟到 <see cref="NetworkTime.InterpolationTick"/> 等于或大于服务器实际生成 Tick
+            /// 参见 <see cref="GhostSpawnSystem"/> 和 <see cref="PendingSpawnPlaceholder"/>
             /// </summary>
             Interpolated,
             /// <summary>
-            /// The ghost is a predicted ghost. A new ghost instance is immediately created, unless the
-            /// <see cref="PredictedSpawnEntity"/> is set to a valid entity reference, in which case the
-            /// referenced entity is used instead as destination where to copy the received ghost snapshot.
+            /// 此 Ghost 为预测 Ghost，通常会立即创建新的 Ghost 实例
+            /// 但如果 <see cref="PredictedSpawnEntity"/> 已设为有效实体引用
+            /// 则改用该实体作为复制收到 Ghost Snapshot 的目标
             /// </summary>
             Predicted
         }
         /// <summary>
-        /// The type of ghost to spawn. Based on the spawn type, some components may be enable/disabled or
-        /// removed from the instantiated ghost.
+        /// 要生成的 Ghost 类型
+        /// 根据生成类型，实例化 Ghost 的部分组件可能被启用、禁用或移除
         /// </summary>
         public Type SpawnType;
         /// <summary>
-        /// The index of the ghost type in the <see cref="GhostCollectionPrefab"/> collection. Used to classify the ghost (<see cref="GhostSpawnClassificationSystem"/>).
+        /// Ghost 类型在 <see cref="GhostCollectionPrefab"/> 集合中的索引
+        /// 由 <see cref="GhostSpawnClassificationSystem"/> 用于分类 Ghost
         /// </summary>
         public int GhostType;
         /// <summary>
-        /// The ghost id that will be assigned to the new ghost instance.
+        /// 要分配给新 Ghost 实例的 Ghost ID
         /// </summary>
         public int GhostID;
         /// <summary>
-        /// Offset im bytes used to retrieve from the temporary <see cref="SnapshotDataBuffer"/>, present on the
-        /// <see cref="GhostSpawnQueue"/> singleton, the first received snapshot from the server.
+        /// 用于从 <see cref="GhostSpawnQueue"/> 单例上的临时 <see cref="SnapshotDataBuffer"/>
+        /// 获取服务器首个 Snapshot 的字节偏移量
         /// </summary>
         public int DataOffset;
         /// <summary>
-        /// The size of the initial dynamic buffers data associated with the entity.
+        /// 与实体关联的初始 Dynamic Buffer 数据大小
         /// </summary>
         public uint DynamicDataSize;
         /// <summary>
-        /// The tick this ghost was spawned on the client. This is mainly used to determine the first tick we have data
-        /// for so we can avoid spawning it before we have any data for the ghost.
+        /// 此 Ghost 在客户端生成时的 Tick
+        /// 主要用于确定首次拥有数据的 Tick，避免在获得任何 Ghost 数据前就生成实体
         /// </summary>
         internal NetworkTick ClientSpawnTick;
         /// <summary>
-        /// The tick this ghost was spawned on the server. For any predicted spawning this is the tick that should
-        /// match since you are interested in when the server spawned the ghost, not when the server first sent the
-        /// ghost to the client. Using this also means you are not considering ghosts becoming relevant as spawning.
+        /// 此 Ghost 在服务器生成时的 Tick
+        /// 对预测生成而言，应匹配此 Tick，因为关注的是服务器何时生成 Ghost
+        /// 而不是服务器何时首次将 Ghost 发给客户端
+        /// 使用此值也意味着不会把 Ghost 变为相关视为一次生成
         /// </summary>
         public NetworkTick ServerSpawnTick;
         /// <summary>
-        /// Entity reference assigned by a classification system, when a predicted spawned entity for a newly received
-        /// ghost is found. When assigning this <see cref="HasClassifiedPredictedSpawn"/> should also be set to true.
-        /// If the referenced entity is different than <see cref="Entity.Null"/> the ghost type must be set to <see cref="Type.Predicted"/>.
+        /// 分类系统为新收到 Ghost 找到预测生成实体时分配的实体引用
+        /// 分配此字段时还应将 <see cref="HasClassifiedPredictedSpawn"/> 设为 true
+        /// 如果引用实体不为 <see cref="Entity.Null"/>，Ghost 类型必须设为 <see cref="Type.Predicted"/>
         /// </summary>
         public Entity PredictedSpawnEntity;
         /// <summary>
-        /// Should be set to true when a ghost classification system has processed this particular ghost spawn instance. It
-        /// will then not be processed again in a system running later in the frame (like the default classification
-        /// system).
+        /// Ghost 分类系统处理完此特定生成实例后应设为 true
+        /// 这样本帧稍后运行的系统，例如默认分类系统，就不会再次处理它
         /// </summary>
         public bool HasClassifiedPredictedSpawn
         {
@@ -109,24 +110,25 @@ namespace Unity.NetCode
         }
         byte m_HasClassifiedPredictedSpawn;
         /// <summary>
-        /// Only valid for pre-spawned ghost. Mainly used by the spawning system to re-assign
-        /// the PrespawnGhostIndex component to pre-spawned ghosts that has re-instantiated because of relevancy changes.
+        /// 仅对预生成 Ghost 有效
+        /// 生成系统主要用它为因相关性变化而重新实例化的预生成 Ghost 重新分配 PrespawnGhostIndex 组件
         /// </summary>
         internal int PrespawnIndex;
         /// <summary>
-        /// Only valid for pre-spawned ghost. The scene section that ghost belong to.
+        /// 仅对预生成 Ghost 有效，表示该 Ghost 所属的场景 Section
         /// </summary>
         internal  Hash128 SceneGUID;
         /// <summary>
-        /// Only valid for pre-spawned ghost, used to the re-assign the correct index to the <see cref="SceneSection"/> shared
-        /// component when an pre-spawned ghost is re-spawned (i.e, because of relevancy changes).
-        /// The section index is necessary to ensure that, if the sub-scene from which the ghost were created
-        /// is requested to be unloaded by destroying all entities that were part of the scene (the default),
-        /// the pre-spawned ghost instances are also destroyed.
+        /// 仅对预生成 Ghost 有效
+        /// 预生成 Ghost 因相关性变化等原因重新生成时，用于为 <see cref="SceneSection"/> Shared Component 重新分配正确索引
+        /// Section 索引用于确保创建该 Ghost 的 SubScene 通过销毁全部场景实体的默认方式卸载时
+        /// 预生成 Ghost 实例也会被销毁
         /// </summary>
         internal  int SectionIndex;
-        /// <summary>Helper.</summary>
-        /// <returns>Formatted informational string.</returns>
+        /// <summary>
+        /// 返回格式化信息的辅助方法
+        /// </summary>
+        /// <returns>格式化后的信息字符串</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString512Bytes ToFixedString()
         {
@@ -144,8 +146,8 @@ namespace Unity.NetCode
 
     /// <summary>
     /// <para>
-    /// Contains all the system that classify spawned ghost. Runs after the <see cref="GhostReceiveSystem"/> system.
-    /// Your custom classification system should be updated into this group.
+    /// 包含所有对已生成 Ghost 进行分类的系统，在 <see cref="GhostReceiveSystem"/> 之后运行
+    /// 自定义分类系统应加入此组更新
     /// </para>
     /// <code>
     /// [UpdateInGroup(typeof(GhostSpawnClassificationSystemGroup))]
@@ -163,12 +165,12 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The default GhostSpawnClassificationSystem will set the SpawnType to the default specified in the
-    /// GhostAuthoringComponent, unless some other classification has already set the SpawnType. This system
-    /// will also check ghost owner to set the spawn type correctly for owner predicted ghosts.
-    /// For predictive spawning you usually add a system after GhostSpawnClassificationSystem which only looks at
-    /// items with SpawnType set to Predicted and set the PredictedSpawnEntity if you find a matching entity.
-    /// The reason to put predictive spawn systems after the default is so the owner predicted logic has run.
+    /// 默认 GhostSpawnClassificationSystem 会将 SpawnType 设为 GhostAuthoringComponent 中指定的默认值
+    /// 除非其他分类逻辑已经设置 SpawnType
+    /// 此系统还会检查 Ghost 所有者，为所有者预测 Ghost 正确设置生成类型
+    /// 实现预测生成时，通常在 GhostSpawnClassificationSystem 之后添加系统
+    /// 只检查 SpawnType 为 Predicted 的条目，找到匹配实体后设置 PredictedSpawnEntity
+    /// 将预测生成系统放在默认系统之后，是为了确保所有者预测逻辑已经执行
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostSpawnClassificationSystemGroup))]
@@ -225,7 +227,7 @@ namespace Unity.NetCode
                         ghost.SpawnType = spawnBufferLookup.GetFallbackPredictionMode(ghost);
                         if(spawnBufferLookup.IsOwnerPredicted(ghost) && spawnBufferLookup.HasGhostOwner(ghost))
                         {
-                            // Prediction mode is where the owner i is stored in the snapshot data
+                            // PredictionOwnerOffset 指示所有者在 Snapshot 数据中的存储位置
                             var ghostOwner = spawnBufferLookup.GetGhostOwner(ghost, data);
                             if(ghostOwner == networkId)
                                 ghost.SpawnType = GhostSpawnBuffer.Type.Predicted;
@@ -237,9 +239,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The default ghost spawn classification system will match predict spawned entities
-    /// with new spawns of the same ghost type from server snapshots when their spawn ticks
-    /// is within a certain bound (by default 5 ticks).
+    /// 默认 Ghost 生成分类系统会将预测生成实体与服务器 Snapshot 中同类型的新生成实体匹配
+    /// 前提是两者生成 Tick 差值处于指定范围内，默认为 5 个 Tick
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostSpawnClassificationSystemGroup), OrderLast = true)]

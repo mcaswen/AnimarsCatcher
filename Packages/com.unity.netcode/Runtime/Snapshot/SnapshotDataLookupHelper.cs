@@ -5,12 +5,10 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode.LowLevel
 {
     /// <summary>
-    /// Helper struct that can be used in your spawn classification systems (and classification
-    /// jobs) to create <see cref="SnapshotDataBufferComponentLookup"/> instances.
-    /// In order to use the helper, the system that create/hold the instance, must be created
-    /// after the <see cref="GhostCollectionSystem"/> and after the <see cref="GhostReceiveSystem"/>, because
-    /// of the need to retrieve the <see cref="SpawnedGhostEntityMap"/> and the <see cref="SnapshotDataLookupCache"/>
-    /// data.
+    /// 可在生成分类 System 或分类 Job 中创建 <see cref="SnapshotDataBufferComponentLookup"/> 实例的辅助结构体
+    /// 由于需要获取 <see cref="SpawnedGhostEntityMap"/> 和 <see cref="SnapshotDataLookupCache"/> 数据
+    /// 创建或持有该实例的 System 必须在 <see cref="GhostCollectionSystem"/> 与
+    /// <see cref="GhostReceiveSystem"/> 之后创建
     /// </summary>
     public struct SnapshotDataLookupHelper
     {
@@ -22,12 +20,12 @@ namespace Unity.NetCode.LowLevel
         internal NativeHashMap<SnapshotLookupCacheKey, SnapshotDataLookupCache.SerializerIndexAndOffset> m_SnapshotDataLookupCache;
         internal Entity m_GhostCollectionEntity;
         /// <summary>
-        /// Default constructor, collect and initialize all the internal <see cref="BufferFromEntity{T}"/> handles
-        /// and collect the necessary data structures.
+        /// 收集并初始化所有内部 <see cref="BufferFromEntity{T}"/> Handle
+        /// 同时获取所需数据结构
         /// </summary>
-        /// <param name="state">See: <see cref="SystemState"/>.</param>
-        /// <param name="ghostCollectionEntity">The entity that hold the GhostCollection component</param>
-        /// <param name="spawnMapEntity">The entity that hold the SpawnedGhostEntityMap component</param>
+        /// <param name="state">参见 <see cref="SystemState"/></param>
+        /// <param name="ghostCollectionEntity">持有 GhostCollection Component 的 Entity</param>
+        /// <param name="spawnMapEntity">持有 SpawnedGhostEntityMap Component 的 Entity</param>
         public SnapshotDataLookupHelper(ref SystemState state,
             Entity ghostCollectionEntity, Entity spawnMapEntity)
         {
@@ -35,8 +33,8 @@ namespace Unity.NetCode.LowLevel
             m_GhostCollectionComponentIndexLookup = state.GetBufferLookup<GhostCollectionComponentIndex>(true);
             m_GhostCollectionComponentTypeLookup = state.GetBufferLookup<GhostCollectionComponentType>(true);
             m_GhostCollectionSerializersLookup = state.GetBufferLookup<GhostComponentSerializer.State>(true);
-            //This will add the right dependencies to the system that hold the helper class. The lookup is not hold
-            //because it is not strictly necessary in this case.
+            // 这会为持有该辅助类型的 System 添加正确依赖
+            // 此场景并不需要长期持有 Lookup，因此只获取一次
             var ghostMap = state.GetComponentLookup<SpawnedGhostEntityMap>(true);
             var lookupCache = state.GetComponentLookup<SnapshotDataLookupCache>();
             m_ghostMap = ghostMap[spawnMapEntity].Value;
@@ -45,9 +43,9 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Call this method in your system OnUpdate to refresh all the internal <see cref="BufferFromEntity{T}"/> handles.
+        /// 在 System 的 OnUpdate 中调用此方法以刷新所有内部 <see cref="BufferFromEntity{T}"/> Handle
         /// </summary>
-        /// <param name="state">See: <see cref="SystemState"/>.</param>
+        /// <param name="state">参见 <see cref="SystemState"/></param>
         public void Update(ref SystemState state)
         {
             m_GhostCollectionPrefabSerializerLookup.Update(ref state);
@@ -57,14 +55,13 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Create a new <see cref="SnapshotDataBufferComponentLookup"/> instance that can be used on the main thread or in job.
-        /// This method introduce a sync point, because internally retrieve all the necessary <see cref="DynamicBuffer{T}"/>.
+        /// 创建可在主线程或 Job 中使用的 <see cref="SnapshotDataBufferComponentLookup"/> 实例
+        /// 由于内部会获取所有必要的 <see cref="DynamicBuffer{T}"/>，该方法会引入同步点
         /// </summary>
         /// <remarks>
-        /// The method requires that the <see cref="Update"/> method has been called and that all the internal handles
-        /// has been updated.
+        /// 调用前必须已经调用 <see cref="Update"/>，并完成所有内部 Handle 的更新
         /// </remarks>
-        /// <returns>A valid <see cref="SnapshotDataBufferComponentLookup"/> instance</returns>
+        /// <returns>有效的 <see cref="SnapshotDataBufferComponentLookup"/> 实例</returns>
         public SnapshotDataBufferComponentLookup CreateSnapshotBufferLookup()
         {
             return new SnapshotDataBufferComponentLookup(

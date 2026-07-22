@@ -77,14 +77,14 @@ namespace Tests.Editor
                 didRun = true;
                 Assert.That(world.Time.ElapsedTime, Is.GreaterThanOrEqualTo(0), "time should always be positive");
             };
-            testWorld.Tick(tickDt * 4f); // large dt where multiple ticks run, to see if each one has a non-negative elapsedTime
+            testWorld.Tick(tickDt * 4f); // 使用会执行多个 Tick 的较大 dt，检查每个 Tick 的 ElapsedTime 都非负
             Assert.IsTrue(didRun, "didRun");
         }
 
         [Test]
         public void RateManagerTest([Values(BusyWait, Sleep)] ClientServerTickRate.FrameRateMode frameRateMode, [Values] NetCodeConfig.HostWorldMode hostMode, [Values(1, 4)] int maxBatchSize, [Values(1, 4)] int maxStepsPerFrame)
         {
-            // Setup
+            // 初始化测试
             if (hostMode == NetCodeConfig.HostWorldMode.SingleWorld && frameRateMode == Sleep)
             {
                 Assert.Ignore("Not implemented for now, ignoring");
@@ -109,7 +109,7 @@ namespace Tests.Editor
             int afterPredictionCount = 0;
             int initializationCount = 0;
 
-            // test setup with execute methods
+            // 通过回调记录各执行阶段的数据
             TimeData beforeTime = default;
             NetworkTime beforeNetTime = default;
             testWorld.ServerWorld.GetExistingSystemManaged<BeforePredictionSystem>().OnUpdateCallback += world =>
@@ -145,13 +145,13 @@ namespace Tests.Editor
                 Assert.That(testWorld.GetNetworkTime(world).IsInPredictionLoop, Is.Not.True, "network time flag fail, in initialization group");
             };
 
-            // frame is 1/4 of a tick. Expect 4 frame to 1 tick ratio. So 3 frames, then 1 frame with a tick, then 3 frames, then 1 frame with a tick
+            // 每帧为 1/4 Tick，预期帧与 Tick 比例为 4:1，即连续 3 帧不执行 Tick，第 4 帧执行一次并循环
             const float kTickDt = 1f / 60f;
             var frameCountPerTick = 4;
             if (frameRateMode == Sleep)
             {
-                // Rate manager automatically adjusts Application.targetFrameRate on DGS, making frame rate and tick rate 1:1.
-                // We're mocking this here
+                // DGS 上的 Rate Manager 会自动调整 Application.targetFrameRate，使帧率与 Tick Rate 变为 1:1
+                // 此处模拟该行为
                 frameCountPerTick = 1;
             }
 
@@ -171,7 +171,7 @@ namespace Tests.Editor
                 duringNetTime = default;
             }
 
-            // Test with small frame DT (ticks should skip frames when appropriate)
+            // 使用较小 Frame DT 测试，Tick 应在适当时跳过帧
             {
                 if (useSingleWorld)
                 {
@@ -186,16 +186,16 @@ namespace Tests.Editor
                         Assert.That(beforePredictionCount, Is.EqualTo(i + 1), $"wrong tick count for beforeCount, iteration {i}");
                         Assert.That(afterPredictionCount, Is.EqualTo(i + 1), $"wrong tick count for afterCount, iteration {i}");
                         Assert.That(beforeNetTime.NumPredictedTicksExpected, Is.EqualTo(tickCountThisFrame));
-                        if (tickCountThisFrame > 0) // no prediction tick happened, so that test value is undefined here
+                        if (tickCountThisFrame > 0) // 未执行 Prediction Tick 时，该测试值没有定义
                             Assert.That(duringNetTime.NumPredictedTicksExpected, Is.EqualTo(tickCountThisFrame));
                         Assert.That(afterNetTime.NumPredictedTicksExpected, Is.EqualTo(tickCountThisFrame));
                         Assert.That(beforeNetTime.IsOffFrame, Is.EqualTo(tickCountThisFrame == 0));
-                        if (tickCountThisFrame > 0) // no prediction tick happened, so that test value is undefined here
+                        if (tickCountThisFrame > 0) // 未执行 Prediction Tick 时，该测试值没有定义
                             Assert.That(duringNetTime.IsOffFrame, Is.EqualTo(tickCountThisFrame == 0));
                         Assert.That(afterNetTime.IsOffFrame, Is.EqualTo(tickCountThisFrame == 0));
                         if (i % frameCountPerTick == frameCountPerTick - 1)
                         {
-                            // last loop. ex: frame 0, 1, 2, 3 (tick at i==3), 4, 5, 6, 7 (tick at i==7)
+                            // 每组最后一次循环，例如 Frame 0、1、2、3 在 i == 3 时执行 Tick，Frame 4、5、6、7 在 i == 7 时执行 Tick
                             Assert.That(duringTime.DeltaTime, Is.EqualTo(kTickDt), $"duringTime, iteration {i}");
                             Assert.That(duringTime.ElapsedTime, Is.LessThanOrEqualTo(initializationTime.ElapsedTime), "elapsed time, prediction should always follow, but be behind elapsed time outside the prediction group");
                             Assert.That(duringTime.ElapsedTime, Is.LessThanOrEqualTo(afterTime.ElapsedTime), "elapsed time, prediction should always follow, but be behind elapsed time outside the prediction group");
@@ -206,10 +206,10 @@ namespace Tests.Editor
                             Assert.That(duringTime.DeltaTime, Is.EqualTo(0), $"duringTime should be 0 outside of ticks, iteration {i}");
                         }
 
-                        ResetTime(); // so we don't corrupt results of next for loop iterations
+                        ResetTime(); // 避免影响下一次循环的结果
                     }
                 }
-                else // binary world
+                else // 双 World
                 {
                     void ValidateZeroCountAndDT()
                     {
@@ -227,8 +227,8 @@ namespace Tests.Editor
                         ResetTime();
                     }
 
-                    // Application.targetFrameRate should be adjusted automatically, skipping in-between frames when in sleep mode
-                    // In busy wait mode, we skip the whole SimulationSystemGroup if there's no tick to run (keeping current behaviour)
+                    // Sleep 模式会自动调整 Application.targetFrameRate，并跳过中间帧
+                    // BusyWait 模式在没有 Tick 可执行时跳过整个 SimulationSystemGroup，以保持当前行为
                     if (frameRateMode == BusyWait)
                     {
                         testWorld.Tick(frameDt);
@@ -239,7 +239,7 @@ namespace Tests.Editor
                         ValidateZeroCountAndDT();
                     }
 
-                    // frameDt can vary depending on if we're in busy wait or sleep mode. We're mocking frameDt in sleep mode since we also adjust Application.targetFrameRate
+                    // frameDt 会随 BusyWait 或 Sleep 模式变化，Sleep 模式还会调整 Application.targetFrameRate，因此此处模拟对应 frameDt
                     testWorld.Tick(frameDt);
                     Assert.That(beforeTime.DeltaTime, Is.EqualTo(kTickDt), $"beforeTime, server");
                     Assert.That(afterTime.DeltaTime, Is.EqualTo(kTickDt), $"afterTime, server");
@@ -265,26 +265,25 @@ namespace Tests.Editor
                 ResetTime();
             }
 
-            // Test with large frame DT (should batch ticks or run multiple ticks when appropriate)
+            // 使用较大 Frame DT 测试，必要时应合并 Tick 或执行多个 Tick
             {
-                // if max batch steps is 4 and max batch size is 1, so with a dt of 2x, we should expect 2x steps
+                // 若最大执行步数为 4 且最大批大小为 1，使用 2 倍 dt 时应执行 2 个步骤
                 testWorld.Tick(2f * kTickDt);
                 int expectedPredictionCount = maxStepsPerFrame > 1 ? 2 : 1;
                 float expectedTickDt = kTickDt;
                 if (maxBatchSize > 1 && maxStepsPerFrame == 1)
 
-                    // netcode prefers running more ticks than batching ticks if that's allowed, it's more accurate. The only way to get a batched tick is if max steps is not high enough and batch size is
+                    // 条件允许时 NetCode 优先执行更多 Tick，因为比合并 Tick 更准确；只有最大步数不足且允许更大批次时才会合并 Tick
                     expectedTickDt = 2f * kTickDt;
-                var expectedFrameDt = 2f * kTickDt; // we have frame time and tick time. Simulation group is at the frame level, prediction group is at the tick level
+                var expectedFrameDt = 2f * kTickDt; // 同时存在帧时间与 Tick 时间，Simulation Group 位于帧层级，Prediction Group 位于 Tick 层级
                 var expectedFrameCount = 1f;
 
                 if (!useSingleWorld)
                 {
-                    // TODO-2.0 this is a hack until we fix DGS behaviour for batching
-                    // on DGS, frame time is pushed at the simulation group level. on host, frame time is pushed at the prediction group level
-                    // this is to avoid breaking changes, but we should fix this in a N4E 2.0?
-                    // batch count behaviour should be the same though. Just PushTime that's different. Tests don't seem to break, but I think that's because we don't test
-                    // batching too much...
+                    // TODO 2.0 在修复 DGS 的 Tick 合并行为前暂时使用该方案
+                    // DGS 在 Simulation Group 层级压入帧时间，Host 则在 Prediction Group 层级压入帧时间
+                    // 这是为了避免破坏性变更，但应考虑在 N4E 2.0 修复
+                    // 两者的批次数量行为应一致，只有 PushTime 不同；现有测试未失败，可能只是因为对 Tick 合并覆盖不足
                     expectedFrameDt = expectedTickDt;
                 }
 
@@ -297,7 +296,7 @@ namespace Tests.Editor
                 ResetTime();
             }
 
-            // stabilize
+            // 推进到稳定状态
             for (int i = 0; i < 100; i++)
             {
                 testWorld.Tick(kTickDt);
@@ -305,7 +304,7 @@ namespace Tests.Editor
 
             var epsillon = 0.0001f;
 
-            // Make sure elapsedTime updates correctly with varying frame rates over time
+            // 确保帧率随时间变化时 ElapsedTime 仍能正确更新
             {
                 if (maxBatchSize == 1 && maxStepsPerFrame == 1)
                 {
@@ -316,17 +315,17 @@ namespace Tests.Editor
                         ResetTime();
                     }
 
-                    // harder to catch up with both max to 1, validating we still catch up when back on small frame dt
+                    // 两个最大值都为 1 时较难追赶，验证恢复较小 Frame DT 后仍能追上
                     var bigDt = 2 * kTickDt;
                     var smallDt = 0.5f * kTickDt;
 
-                    // let it fall behind
+                    // 让模拟落后
                     for (int i = 0; i < 100; i++)
                     {
                         testWorld.Tick(bigDt);
                     }
 
-                    // let it catchup
+                    // 让模拟追赶
                     for (int i = 0; i < 200; i++)
                     {
                         testWorld.Tick(smallDt);
@@ -336,8 +335,8 @@ namespace Tests.Editor
                 }
                 else
                 {
-                    // validate there's no divergence over multiple ticks
-                    var batchDt = 3f * kTickDt; // smaller than the maxCount = 4 setting, so we should not fall behind
+                    // 验证连续多个 Tick 后不会产生时间偏离
+                    var batchDt = 3f * kTickDt; // 小于 maxCount = 4 的配置，因此不应落后
                     for (int i = 0; i < 100; i++)
                     {
                         testWorld.Tick(kTickDt);
@@ -352,15 +351,15 @@ namespace Tests.Editor
                         ResetTime();
                     }
 
-                    // let it fall behind
-                    batchDt = 6 * kTickDt; // larger than the maxCount = 4 setting, so we fall behind
+                    // 让模拟落后
+                    batchDt = 6 * kTickDt; // 大于 maxCount = 4 的配置，因此会落后
                     for (int i = 0; i < 100; i++)
                     {
                         testWorld.Tick(batchDt);
                         Assert.That(duringTime.ElapsedTime, Is.LessThan(initializationTime.ElapsedTime));
                     }
 
-                    // make sure we can catch up
+                    // 确保模拟能够追赶
                     for (int i = 0; i < 100; i++)
                     {
                         testWorld.Tick(kTickDt);
@@ -377,7 +376,7 @@ namespace Tests.Editor
             if (mode == Sleep && singleWorldHost) Assert.Ignore("TODO-release not supported right now");
             using var testWorld = new NetCodeTestWorld(useGlobalConfig: true);
             NetCodeConfig.Global.ClientServerTickRate.MaxSimulationStepBatchSize = 1;
-            NetCodeConfig.Global.ClientServerTickRate.MaxSimulationStepsPerFrame = 1; // this is already default, but making sure tests assumptions don't break for sanity
+            NetCodeConfig.Global.ClientServerTickRate.MaxSimulationStepsPerFrame = 1; // 虽然默认值已为 1，仍显式设置以确保测试前提不被破坏
             NetCodeConfig.Global.ClientServerTickRate.TargetFrameRateMode = mode;
 
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(BeforeSimulationSystemGroup), typeof(AfterSimulationSystemGroup));
@@ -390,7 +389,7 @@ namespace Tests.Editor
 
             void ValidateWillUpdate(bool isBefore)
             {
-                // check if server simulation group is going to run or not
+                // 检查服务端 Simulation Group 是否即将运行
                 var networkTime = testWorld.GetSingleton<NetworkTime>(testWorld.ServerWorld);
                 bool willUpdate;
                 if (singleWorldHost)
@@ -401,9 +400,9 @@ namespace Tests.Editor
                 else
                 {
                     var serverRateManager = testWorld.ServerWorld.GetExistingSystemManaged<SimulationSystemGroup>().RateManager as NetcodeServerRateManager;
-#pragma warning disable CS0618 // Type or member is obsolete
+#pragma warning disable CS0618 // 类型或成员已过时
                     willUpdate = serverRateManager.WillUpdate();
-#pragma warning restore CS0618 // Type or member is obsolete
+#pragma warning restore CS0618 // 类型或成员已过时
                 }
                 Assert.AreEqual(expectedWillUpdate, isBefore ? willUpdate : !willUpdate);
                 Assert.AreEqual(expectedWillUpdate, !networkTime.IsOffFrame);
@@ -424,7 +423,7 @@ namespace Tests.Editor
             }
             else
             {
-                // we're in busy wait mode, so should skip one frame out of two.
+                // 当前处于 BusyWait 模式，因此应每两帧跳过一帧
                 var halfDt = 0.5f / 60f;
                 expectedWillUpdate = false;
                 testWorld.Tick(halfDt);

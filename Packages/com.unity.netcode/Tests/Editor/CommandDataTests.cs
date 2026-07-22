@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 过时警告
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities;
@@ -430,7 +430,7 @@ namespace Unity.NetCode.Tests
                 Assert.AreNotEqual(Entity.Null, clientEnts[1]);
                 if (testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostInstance>(clientEnts[0]).ghostId != testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(serverEnt).ghostId)
                 {
-                    // swap 0 and 1
+                    // 交换索引 0 与 1
                     (clientEnts[0], clientEnts[1]) = (clientEnts[1], clientEnts[0]);
                 }
 
@@ -680,41 +680,41 @@ namespace Unity.NetCode.Tests
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
-                // Ensure we have control over time, this is needed otherwise the NetworkTimeSystem will slow down the client
+                // 确保测试可控制时间，否则 NetworkTimeSystem 会让客户端减速
                 var clientTickRate = NetworkTimeSystem.DefaultClientTickRate;
                 clientTickRate.PredictionTimeScaleMin = 0.999f;
                 clientTickRate.PredictionTimeScaleMax = 1.001f;
                 testWorld.ClientWorlds[0].EntityManager.CreateSingleton(clientTickRate);
 
-                // Tick so we're on a full tick on the client
+                // 推进到客户端的完整 Tick
                 var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 testWorld.TickClientWorld((1 - clientTime.ServerTickFraction) / 60f);
                 clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 Assert.IsFalse(clientTime.IsPartialTick);
 
-                // Tick half a tick
-                // This will send the command to the server
+                // 推进半个 Tick
+                // 此次会向服务端发送 Command
                 testWorld.TickClientWorld(1/120f);
                 clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ClientWorlds[0]).GetDataAtTick(clientTime.ServerTick, out var clientFirstSendCommand);
 
-                // Tick half a tick
-                // This will not send a command, but will update the value for the tick
+                // 再推进半个 Tick
+                // 此次不会发送 Command，但会更新该 Tick 的值
                 testWorld.TickClientWorld(1/120f);
-                // Will be same ServerTick
+                // 仍处于同一个 Server Tick
                 testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ClientWorlds[0]).GetDataAtTick(clientTime.ServerTick, out var clientUpdatedCommand);
                 Assert.AreNotEqual(clientFirstSendCommand, clientUpdatedCommand);
 
-                // Tick so the server receives the command, and the client sends the next command with the updated value
+                // 推进 Tick，让服务端收到首次 Command，同时客户端发送包含更新值的下一条 Command
                 testWorld.Tick();
-                testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ServerWorld).GetDataAtTick(clientTime.ServerTick, out var serverFirstCommand); // Use client ServerTick since it's the same tick we want
-                Assert.AreEqual(clientFirstSendCommand.Tick, serverFirstCommand.Tick); // Ensure the tick is correct since GetDataAtTick will return the closest tick
+                testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ServerWorld).GetDataAtTick(clientTime.ServerTick, out var serverFirstCommand); // 使用客户端 Server Tick，因为目标就是同一个 Tick
+                Assert.AreEqual(clientFirstSendCommand.Tick, serverFirstCommand.Tick); // GetDataAtTick 会返回最近的 Tick，因此需确认实际 Tick 正确
                 Assert.AreEqual(clientFirstSendCommand.Value, serverFirstCommand.Value);
 
-                // Tick so the server receives the updated command
+                // 再推进 Tick，让服务端收到更新后的 Command
                 testWorld.Tick();
-                testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ServerWorld).GetDataAtTick(clientTime.ServerTick, out var serverUpdatedCommand); // Use client ServerTick since it's the same tick we want
-                Assert.AreEqual(clientUpdatedCommand.Tick, serverUpdatedCommand.Tick); // Ensure the tick is correct since GetDataAtTick will return the closest tick
+                testWorld.GetSingletonBuffer<CommandDataTestsTickInputDouble>(testWorld.ServerWorld).GetDataAtTick(clientTime.ServerTick, out var serverUpdatedCommand); // 使用客户端 Server Tick，因为目标就是同一个 Tick
+                Assert.AreEqual(clientUpdatedCommand.Tick, serverUpdatedCommand.Tick); // GetDataAtTick 会返回最近的 Tick，因此需确认实际 Tick 正确
                 Assert.AreEqual(clientUpdatedCommand.Value, serverUpdatedCommand.Value);
             }
         }

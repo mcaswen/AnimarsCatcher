@@ -10,8 +10,8 @@ using Microsoft.CodeAnalysis.Text;
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// Some helpers for debugging purpose. Notable entries:
-    /// - Logging and reporting (in file and compiler diagnostics)
+    /// 用于调试 Source Generator 的辅助能力，主要包括：
+    /// - 写入文件日志与报告编译器诊断
     /// </summary>
     internal static class Helpers
     {
@@ -70,17 +70,16 @@ namespace Unity.NetCode.Generators
         static public void SetupContext(GeneratorExecutionContext executionContext)
         {
             ProjectPath = null;
-            //by default we allow both writing files and logs to disk. It is possible to change the behavior via
-            //globalconfig
+            // 默认允许将生成文件和日志写入磁盘，可通过 GlobalOptions 修改该行为
             CanWriteFiles = true;
             WriteLogToDisk = true;
             if (executionContext.AdditionalFiles.Any() && !string.IsNullOrEmpty(executionContext.AdditionalFiles[0].Path))
                 ProjectPath = executionContext.AdditionalFiles[0].GetText()?.ToString();
-            //Parse global options and overrides default behaviour. They are used by both tests, and Editor (2021_OR_NEWER)
+            // 解析全局选项并覆盖默认行为，测试与 Unity 2021 及更高版本 Editor 都会使用这些选项
             ProjectPath = executionContext.GetOptionsString(GlobalOptions.ProjectPath, ProjectPath);
             OutputFolder = executionContext.GetOptionsString(GlobalOptions.OutputPath, OutputFolder);
 
-            //If the project path is not valid, for any reason, we can't write files and/or log to disk
+            // 项目路径无效时无法将文件或日志写入磁盘
             if (string.IsNullOrEmpty(ProjectPath))
             {
                 WriteLogToDisk = false;
@@ -94,7 +93,7 @@ namespace Unity.NetCode.Generators
                 WriteLogToDisk = executionContext.GetOptionsFlag(GlobalOptions.WriteLogsToDisk, WriteLogToDisk);
             }
 
-            //The default log level is info. User can customise that via debug config. Info level is very light right now.
+            // 默认日志级别为 Info，用户可通过调试配置修改；当前 Info 输出量很小
             s_LogLevel.Value = LoggingLevel.Info;
             var loggingLevel = executionContext.GetOptionsString(GlobalOptions.LoggingLevel);
             if (!string.IsNullOrEmpty(loggingLevel) && Enum.TryParse<LoggingLevel>(loggingLevel.ToLower(), out var logLevel))
@@ -106,8 +105,7 @@ namespace Unity.NetCode.Generators
             return Path.Combine(ProjectPath, OutputFolder);
         }
 
-        // This path resolution is necessary for 2020.x where we need to resolve templates from packages
-        // and other folders.
+        // Unity 2020.x 需要从 Package 与其他目录解析 Template，因此需要该路径解析逻辑
         private static string FindProjectFolderFromAdditionalFile(string folder)
         {
             var index = folder.LastIndexOf("/Library/", StringComparison.Ordinal);
@@ -140,7 +138,7 @@ namespace Unity.NetCode.Generators
 
     internal static class Debug
     {
-        public static string LastErrorLog { get; set; } // used for tests. TODO have something fancier that tracks all logs
+        public static string LastErrorLog { get; set; } // 供测试使用，TODO: 改为能够跟踪全部日志的完整实现
         public static void LaunchDebugger()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

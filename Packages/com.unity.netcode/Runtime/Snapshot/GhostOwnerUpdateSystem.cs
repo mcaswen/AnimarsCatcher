@@ -14,8 +14,8 @@ namespace Unity.NetCode
 
     [BurstCompile]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
-    [UpdateAfter(typeof(GhostUpdateSystem))] // so ownership is up to date
-    [UpdateBefore(typeof(GhostInputSystemGroup))] // so input gathering has up to date input owner info when gathering input
+    [UpdateAfter(typeof(GhostUpdateSystem))] // 确保所有权状态已更新
+    [UpdateBefore(typeof(GhostInputSystemGroup))] // 确保收集输入时使用最新的输入所有者信息
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     internal partial struct GhostOwnerUpdateSystem : ISystem
     {

@@ -12,8 +12,8 @@ using System.Text.RegularExpressions;
 
 namespace Unity.NetCode.GeneratorTests
 {
-    // TODO: Add tests for GhostEnabledBits.
-    // TODO: Add tests for types moved to SerializationStrategy.
+    // TODO: 补充 GhostEnabledBit 测试
+    // TODO: 补充迁移到 SerializationStrategy 的类型测试
 
     [TestFixture]
     class SourceGeneratorTests : BaseTest
@@ -130,12 +130,12 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(3, walker.Receiver.Candidates.Count);
 
-            // Should get input buffer struct (InputBufferData etc) and the command data (ICommandDataSerializer etc) generated from that
-            // and the registration system with the empty variant registration data
+            // 应为每个 Input 生成 InputBufferData、对应 ICommandDataSerializer
+            // 以及包含空 Variant 注册数据的注册 System
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(7, results.GeneratedSources.Length, "Num generated files does not match");
 
-            // Test copy of SourceGenerator_InputComponentData
+            // 复用 SourceGenerator_InputComponentData 的核心断言
             void TestOneInput(SyntaxTree bufferSourceData, SyntaxTree commandSourceData, int expectedFieldCount)
             {
                 Assert.That(bufferSourceData.GetDiagnostics().Count(x => x.Severity == DiagnosticSeverity.Error), Is.EqualTo(0), bufferSourceData.GetDiagnostics().FirstOrDefault(x => x.Severity == DiagnosticSeverity.Error)?.GetMessage());
@@ -148,7 +148,7 @@ namespace Unity.NetCode.GeneratorTests
                     .FirstOrDefault(node => node.Identifier.ValueText.Contains("PlayerInputInputBufferDataSerializer"));
                 Assert.IsNotNull(commandSyntax);
 
-                // Verify the 3 variables are being serialized in the command serialize methods (normal one and baseline one)
+                // 验证普通与 Baseline 两个 Command 序列化方法都处理了预期数量的变量
                 var commandSerializerSyntax = commandSourceData.GetRoot().DescendantNodes()
                     .OfType<MethodDeclarationSyntax>()
                     .Where(node => node.Identifier.ValueText == "Serialize");
@@ -172,7 +172,7 @@ namespace Unity.NetCode.GeneratorTests
             var tree = CSharpSyntaxTree.ParseText(TestDataSource.TestComponentsData);
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
-            //Check generated files match
+            // 检查生成文件是否符合预期
             var resuls = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(2, resuls.GeneratedSources.Length, "Num generated files does not match");
             var outputTree = resuls.GeneratedSources[0].SyntaxTree;
@@ -180,13 +180,13 @@ namespace Unity.NetCode.GeneratorTests
                 .First(node => node.Identifier.ValueText == "Snapshot");
             var expected = new[]
             {
-                //byte
+                // byte 底层类型
                 ("uint", "EnumValue8"),
-                //short
+                // short 底层类型
                 ("int", "EnumValue16"),
-                //nothing (default int)
+                // 未指定时默认使用 int
                 ("int", "EnumValue32"),
-                //long
+                // long 底层类型
                 ("long", "EnumValue64"),
                 ("int", "IntValue"),
                 ("uint", "UIntValue"),
@@ -221,14 +221,14 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
 
-            //Check generated files match
+            // 检查生成文件是否符合预期
             var resuls = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(2, resuls.GeneratedSources.Length, "Num generated files does not match");
             var outputTree = resuls.GeneratedSources[0].SyntaxTree;
             var snapshotDataSyntax = outputTree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>()
                 .First(node => node.Identifier.ValueText == "Snapshot");
             var members = snapshotDataSyntax.DescendantNodes().OfType<FieldDeclarationSyntax>().ToArray();
-            //Each block generate 13 variables
+            // 每个类型组合块生成 13 个变量
             var numVariablePerBlock = 13;
             Assert.AreEqual(4 * numVariablePerBlock, members.Length);
             for (int i = 0; i < 2 * numVariablePerBlock; ++i)
@@ -283,7 +283,7 @@ namespace Unity.NetCode.GeneratorTests
             var tree = CSharpSyntaxTree.ParseText(testData);
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
-            //Make a full pass: generate the code and write files to disk
+            // 执行完整流程：生成代码并写入磁盘
             GeneratorTestHelpers.RunGeneratorsWithOptions(
                 new Dictionary<string, string> { { GlobalOptions.WriteFilesToDisk, "1" } }, tree);
             Assert.That(Directory.EnumerateFiles(Path.Join(GeneratorTestHelpers.OutputFolder, GeneratorTestHelpers.GeneratedAssemblyName), "*TestComponentSerializer.cs").Count(), Is.GreaterThan(0));
@@ -571,7 +571,7 @@ namespace Unity.NetCode.GeneratorTests
             var walker = new TestSyntaxWalker { Receiver = receiver };
             var tree = CSharpSyntaxTree.ParseText(testData);
             tree.GetCompilationUnitRoot().Accept(walker);
-            //All the variants are detected as candidates
+            // 所有 Variant 都应被识别为候选类型
             Assert.AreEqual(1, walker.Receiver.Variants.Count);
 
             var resuls = GeneratorTestHelpers.RunGenerators(tree);
@@ -628,14 +628,14 @@ namespace Unity.NetCode.GeneratorTests
             var walker = new TestSyntaxWalker { Receiver = receiver };
             var tree = CSharpSyntaxTree.ParseText(testData);
             tree.GetCompilationUnitRoot().Accept(walker);
-            //All the variants are detected as candidates
+            // 所有 Variant 都应被识别为候选类型
             Assert.AreEqual(1, walker.Receiver.Variants.Count);
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(2, results.GeneratedSources.Length, "Num generated files does not match");
             var diagnostics = results.Diagnostics;
-            //Expect to see no error
+            // 预期没有错误
             Assert.AreEqual(0, diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
-            //Parse the output and check for the class name match what we expect
+            // 解析输出并检查类名是否符合预期
             var outputTree = results.GeneratedSources[0].SyntaxTree;
             var initBlockWalker = new InializationBlockWalker();
             outputTree.GetCompilationUnitRoot().Accept(initBlockWalker);
@@ -676,7 +676,7 @@ namespace Unity.NetCode.GeneratorTests
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(3, results.GeneratedSources.Length, "Num generated files does not match");
             var diagnostics = results.Diagnostics;
-            //Expect to see one error
+            // 预期出现一个错误
             if (diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error) != 0)
             {
                 foreach (var d in diagnostics)
@@ -688,8 +688,8 @@ namespace Unity.NetCode.GeneratorTests
                 Assert.True(false, "Error found");
             }
 
-            //Parse the output and check for the class name match what we expect
-            // Ironically, the real ICommandData has `[DontSerializeForCommand] NetworkTick Tick`.
+            // 解析输出并检查类名是否符合预期
+            // 实际 ICommandData 的 NetworkTick Tick 带有 `[DontSerializeForCommand]`
             var expected = new[] { ("int", "Value"), ("uint", "Tick") };
 
             var outputTree = results.GeneratedSources[0].SyntaxTree;
@@ -755,9 +755,9 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(3, walker.Receiver.Candidates.Count);
             var results = GeneratorTestHelpers.RunGenerators(tree);
-            //only the command serializer
+            // 只生成 Command Serializer
             Assert.AreEqual(3, results.GeneratedSources.Length, "Num generated files does not match");
-            //But some errors are reported too
+            // 同时应报告若干字段配置错误
             var diagnostics = results.Diagnostics.Where(m => m.Severity == DiagnosticSeverity.Error).ToArray();
             int i = 0;
             Assert.True(diagnostics[i++].GetMessage()
@@ -898,7 +898,7 @@ namespace Unity.NetCode.GeneratorTests
 
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
-            //Check generated files match
+            // 检查生成文件是否符合预期
             var templateTree = CSharpSyntaxTree.ParseText(customTemplates);
 
             var compilation = GeneratorTestHelpers.CreateCompilation(tree, templateTree);
@@ -955,9 +955,9 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             var results = GeneratorTestHelpers.RunGenerators(tree);
 
-            // No error during processing
+            // 处理期间不应出现错误
             Assert.AreEqual(0, results.Diagnostics.Count(m => m.Severity == DiagnosticSeverity.Error));
-            // No ghost snapshot serializer is generated (but does contain serializer collection with empty variants + client-to-server command serializer)
+            // 不生成 Ghost Snapshot Serializer，但仍包含空 Variant 的 Serializer Collection 与客户端到服务器的 Command Serializer
             Assert.AreEqual(2, results.GeneratedSources.Length, "Num generated files does not match");
             Assert.IsTrue(results.GeneratedSources[0].SourceText.ToString().Contains("SerializerIndex = -1"));
             Assert.AreEqual(false,
@@ -1109,8 +1109,8 @@ namespace Unity.NetCode.GeneratorTests
                 public float3 Position;
             }
             ";
-            //this is an hacky way to make this supported by both 2020.x and 2021+
-            //we se the templateId the same as the path, so this is resolved correclty in both case.
+            // 为同时兼容 Unity 2020.x 与 2021 及更高版本，这里让 templateId 与路径相同
+            // 从而保证两种版本都能正确解析
             var additionalTexts = ImmutableArray.Create(new AdditionalText[]
             {
                 new GeneratorTestHelpers.InMemoryAdditionalFile(
@@ -1132,7 +1132,7 @@ namespace Unity.NetCode.GeneratorTests
             customTemplates =
                 customTemplates.Replace("Composite = true", "Composite = false", StringComparison.Ordinal);
             {
-                // Fix issue and verify it now works as expected (composite true->false)
+                // 将 Composite 从 true 改为 false 后验证问题已修复
                 var templateTree = CSharpSyntaxTree.ParseText(customTemplates);
                 var compilation = GeneratorTestHelpers.CreateCompilation(tree, templateTree);
                 var driver = GeneratorTestHelpers.CreateGeneratorDriver().AddAdditionalTexts(additionalTexts);
@@ -1171,28 +1171,28 @@ namespace Unity.NetCode.GeneratorTests
             var tree = CSharpSyntaxTree.ParseText(testData);
             var results = GeneratorTestHelpers.RunGenerators(tree);
 
-            //Parse the output and check that the flag on the generated class is correct (one source is registration system)
+            // 解析输出并检查生成类上的标志是否正确，其中一个生成源文件是注册 System
             Assert.AreEqual(2, results.GeneratedSources.Count(), "Num generated files does not match");
             var outputTree = results.GeneratedSources[0].SyntaxTree;
             var initBlockWalker = new InializationBlockWalker();
             outputTree.GetCompilationUnitRoot().Accept(initBlockWalker);
             Assert.IsNotNull(initBlockWalker.Intializer);
 
-            // SendTypeOptimization=GhostSendType.All and PrefabType=GhostPrefabType.All makes the SendMask interpolated+predicted
+            // SendTypeOptimization 与 PrefabType 都为 All 时，SendMask 应同时覆盖插值和预测客户端
             var componentTypeAssignment = initBlockWalker.Intializer!.Expressions.First(e =>
                 ((AssignmentExpressionSyntax)e).Left.ToString() == "SendMask") as AssignmentExpressionSyntax;
             Assert.That(componentTypeAssignment, Is.Not.Null);
             Assert.AreEqual(componentTypeAssignment!.Right.ToString(),
                 "GhostSendType.AllClients");
 
-            // OwnerSendType = SendToOwnerType.All
+            // OwnerSendType 应为 SendToOwnerType.All
             componentTypeAssignment = initBlockWalker.Intializer.Expressions.FirstOrDefault(e =>
                 ((AssignmentExpressionSyntax)e).Left.ToString() == "SendToOwner") as AssignmentExpressionSyntax;
             Assert.That(componentTypeAssignment, Is.Not.Null);
             Assert.AreEqual(componentTypeAssignment!.Right.ToString(), "SendToOwnerType.All");
 
-            // TODO: Fix this, as it has been moved to the SS.
-            // SendDataForChildEntity = false
+            // TODO: 该配置已迁移到 SerializationStrategy，需要修复此测试
+            // SendDataForChildEntity 应为 false
             // componentTypeAssignmet = initBlockWalker.intializer.Expressions.FirstOrDefault(e =>
             //         ((AssignmentExpressionSyntax) e).Left.ToString() == "SendForChildEntities") as
             //     AssignmentExpressionSyntax;
@@ -1232,7 +1232,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual(4, results.GeneratedSources.Length, "Num generated files does not match");
             var diagnostics = results.Diagnostics;
             Assert.AreEqual(0, diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
-            //Parse the output and check that the flag on the generated class is correct
+            // 解析输出并检查生成类上的标志是否正确
             for (int i = 0; i < 3; ++i)
             {
                 var outputTree = results.GeneratedSources[i].SyntaxTree;
@@ -1240,7 +1240,7 @@ namespace Unity.NetCode.GeneratorTests
                 outputTree.GetCompilationUnitRoot().Accept(initBlockWalker);
                 Assert.IsNotNull(initBlockWalker.Intializer);
 
-                // TODO: Fix this, as it has been moved to the SS.
+                // TODO: 该配置已迁移到 SerializationStrategy，需要修复此测试
                 // var componentTypeAssignmet = initBlockWalker.intializer.Expressions.FirstOrDefault(e =>
                 //         ((AssignmentExpressionSyntax) e).Left.ToString() == "SendForChildEntities") as
                 //     AssignmentExpressionSyntax;
@@ -1287,7 +1287,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual(2, results.GeneratedSources.Length, "Num generated files does not match");
             var diagnostics = results.Diagnostics;
             Assert.AreEqual(0, diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
-            //Parse the output and check that the flag on the generated class is correct
+            // 解析输出并检查生成类上的标志是否正确
             var outputTree = results.GeneratedSources[0].SyntaxTree;
             var initBlockWalker = new InializationBlockWalker();
             outputTree.GetCompilationUnitRoot().Accept(initBlockWalker);
@@ -1509,8 +1509,8 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
 
-            // Should get input buffer struct (InputBufferData etc) and the command data (ICommandDataSerializer etc) generated from that
-            // and the registration system with the empty variant registration data
+            // 应生成 InputBufferData、对应 ICommandDataSerializer
+            // 以及包含空 Variant 注册数据的注册 System
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(3, results.GeneratedSources.Length, "Num generated files does not match");
             var bufferSourceData = results.GeneratedSources[0].SyntaxTree;
@@ -1523,7 +1523,7 @@ namespace Unity.NetCode.GeneratorTests
                 .FirstOrDefault(node => node.Identifier.ValueText.Contains("PlayerInputInputBufferDataSerializer"));
             Assert.IsNotNull(commandSyntax);
 
-            // Verify the 3 variables are being serialized in the command serialize methods (normal one and baseline one)
+            // 验证普通与 Baseline 两个 Command 序列化方法都处理 3 个变量
             var commandSerializerSyntax = commandSourceData.GetRoot().DescendantNodes()
                 .OfType<MethodDeclarationSyntax>()
                 .Where(node => node.Identifier.ValueText == "Serialize");
@@ -1564,9 +1564,10 @@ namespace Unity.NetCode.GeneratorTests
             tree.GetCompilationUnitRoot().Accept(walker);
             Assert.AreEqual(1, walker.Receiver.Candidates.Count);
 
-            // 1 - ParentClass1_ParentClass2_PlayerInputInputBufferData
-            // 2 - ParentClass1_ParentClass2_PlayerInputInputBufferDataSerializer
-            // 3 - GhostComponentSerializerRegistrationSystem
+            // 预期按顺序生成以下三个文件：
+            // 1. ParentClass1_ParentClass2_PlayerInputInputBufferData
+            // 2. ParentClass1_ParentClass2_PlayerInputInputBufferDataSerializer
+            // 3. GhostComponentSerializerRegistrationSystem
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(3, results.GeneratedSources.Length, "Num generated files does not match");
             var bufferSourceData = results.GeneratedSources[0].SyntaxTree;
@@ -1581,7 +1582,7 @@ namespace Unity.NetCode.GeneratorTests
                     node.Identifier.ValueText.Contains("ParentClass1_ParentClass2_PlayerInputInputBufferDataSerializer"));
             Assert.IsNotNull(commandSyntax);
 
-            // Verify the 3 variables are being serialized in the command serialize methods (normal one and baseline one)
+            // 验证普通与 Baseline 两个 Command 序列化方法都处理 3 个变量
             var commandSerializerSyntax = commandSourceData.GetRoot().DescendantNodes()
                 .OfType<MethodDeclarationSyntax>()
                 .Where(node => node.Identifier.ValueText == "Serialize");
@@ -1643,8 +1644,8 @@ namespace Unity.NetCode.GeneratorTests
                 .Where(node => node.Identifier.ValueText.Contains("PlayerInputInputBufferDataGhostComponentSerializer"))
                 .ToArray();
 
-            // Verify the component snapshot data is set up correctly, this means the ghost fields
-            // are configured properly in the generated input buffer for remote player prediction
+            // 验证 Component Snapshot 数据配置正确
+            // 这表示生成的远端玩家预测 Input Buffer 已正确配置 Ghost Field
             var snapshotSyntax = componentSyntax[0].DescendantNodes().OfType<StructDeclarationSyntax>()
                 .First(node => node.Identifier.ValueText == "Snapshot");
             var fields = snapshotSyntax.DescendantNodes().OfType<FieldDeclarationSyntax>().ToArray();
@@ -1654,7 +1655,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual("InternalInput_Vertical", fields[1].Declaration.Variables[0].Identifier.Text);
             Assert.AreEqual("uint", (fields[2].Declaration.Type as PredefinedTypeSyntax)?.Keyword.Text);
             Assert.AreEqual("InternalInput_Jump_Count", fields[2].Declaration.Variables[0].Identifier.Text);
-            // Ironically, the real ICommandData has `[DontSerializeForCommand] NetworkTick Tick`.
+            // 实际 ICommandData 的 NetworkTick Tick 带有 `[DontSerializeForCommand]`
             Assert.AreEqual("uint", (fields[3].Declaration.Type as PredefinedTypeSyntax)?.Keyword.Text);
             Assert.AreEqual("Tick", fields[3].Declaration.Variables[0].Identifier.Text);
 
@@ -1664,8 +1665,8 @@ namespace Unity.NetCode.GeneratorTests
             Assert.That(equalsValueClauseSyntax, Is.Not.Null);
             Assert.AreEqual("4", equalsValueClauseSyntax!.Value.ToString());
 
-            // Verify the ghost component parameters are set up properly for the input buffer to synch
-            // in the ghost snapshots for remote players
+            // 验证 Input Buffer 的 Ghost Component 参数配置正确
+            // 使其能通过远端玩家的 Ghost Snapshot 同步
             sourceText = componentSyntax[1].GetText();
             Assert.AreEqual(1,
                 sourceText.Lines.Where((line => line.ToString().Contains("PrefabType = GhostPrefabType.All"))).Count());
@@ -1864,7 +1865,7 @@ namespace Unity.NetCode.GeneratorTests
             var diagnostics = results.Diagnostics;
             Assert.AreEqual(0, diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
 
-            //There should be three increments for the change mask i
+            // ChangeMask 应跨越三个完整的 32 位区间，并包含最后一个部分区间
             var text = results.GeneratedSources[0].SourceText.ToString();
             Assert.IsTrue(text.Contains("CopyToChangeMask(changeMaskData, changeMask, startOffset + 0, 32)"));
             Assert.IsTrue(text.Contains("CopyToChangeMask(changeMaskData, changeMask, startOffset + 32, 32)"));
@@ -2031,7 +2032,7 @@ namespace Unity.NetCode.GeneratorTests
             var tree = CSharpSyntaxTree.ParseText(testData);
             var results = GeneratorTestHelpers.RunGenerators(tree);
             Assert.AreEqual(0, results.Diagnostics.Count(d => d.Severity == DiagnosticSeverity.Error));
-            // Should skip UserDefinedCustomApprovalSerializer but include SomeOtherStruct codegen
+            // 应跳过 UserDefinedCustomApprovalSerializer，但仍为 SomeOtherStruct 生成代码
             Assert.AreEqual(1, results.GeneratedSources.Length);
             var generatedRpcContents = results.GeneratedSources[0].SourceText.ToString();
             Assert.IsTrue(generatedRpcContents.Contains("Unity_NetCode_Test_Generated_SomeOtherStructSerializer"));
@@ -2258,7 +2259,7 @@ namespace Unity.NetCode.GeneratorTests
             Generators.Debug.LastErrorLog = string.Empty;
         }
 
-        //qpproximated test
+        // 近似验证 lzcnt 的边界与典型输入
         [Test]
         public void SourceGenerator_Log2NumBits_Correct()
         {
@@ -2266,7 +2267,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual(31, CodeGenerator.lzcnt(1));
             for (int i = 1; i < 32; ++i)
                 Assert.AreEqual(31-i, CodeGenerator.lzcnt(1u<<i));
-            //try some random values
+            // 再验证一个非单比特的普通值
             Assert.AreEqual(8, CodeGenerator.lzcnt((uint)((1<<23)+ 0x048482)));
         }
         [Test]
@@ -2373,11 +2374,10 @@ namespace Unity.NetCode.GeneratorTests
                 results = GeneratorTestHelpers.RunGenerators(tree);
             });
             Assert.AreEqual(0, results.Diagnostics.Count(d=>d.Severity >= DiagnosticSeverity.Error));
-            //3 serializer, 3 helpers, 2 structs, 1 registration system
+            // 预期生成 3 个 Serializer、3 个 Helper、2 个结构体和 1 个注册 System
             Assert.AreEqual(9, results.GeneratedSources.Length);
-            //check that the serializer actually contains the fixed list structs we expect
-            //primitive should not have any additional helper structs
-            //and the accessors are all via [i]
+            // 检查 Serializer 是否包含预期的 FixedList 结构体
+            // 基础类型不应具有额外辅助结构体，且访问器都应使用 [i]
 
             Assert.IsTrue(results.GeneratedSources[0].SyntaxTree.FilePath.EndsWith("Single_GhostElement.cs"));
             Assert.IsTrue(results.GeneratedSources[1].SyntaxTree.FilePath.EndsWith("Primitive_Value4_GhostData.cs"));
@@ -2399,8 +2399,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual("Snapshot", structs[1].Identifier.ValueText);
             Assert.Contains($"{ghostFieldHash}Primitive_Value4", structs[1].Members.OfType<FieldDeclarationSyntax>().Select(m=>m.Declaration.Type.ToString()).ToArray());
 
-            //structured data must have the additional helper struct
-            //with proper this[] indexers
+            // 结构化数据必须具有额外辅助结构体和正确的 this[] 索引器
             structs = results.GeneratedSources[3].SyntaxTree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>()
                 .ToArray();
             Assert.AreEqual(3, structs.Length);
@@ -2419,7 +2418,7 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual("Snapshot", structs[1].Identifier.ValueText);
             Assert.Contains($"{ghostFieldHash}_WithStruct_Value4", structs[1].Members.OfType<FieldDeclarationSyntax>().Select(m=>m.Declaration.Type.ToString()).ToArray());
 
-            //nested should also have additional helper struct and the the right indexer
+            // 嵌套类型也应具有额外辅助结构体和正确索引器
             structs = results.GeneratedSources[6].SyntaxTree.GetRoot().DescendantNodes().OfType<StructDeclarationSyntax>()
                 .ToArray();
             Assert.AreEqual($"{ghostFieldHash}_Nested_FixedList", structs[0].Identifier.ValueText);
@@ -2460,11 +2459,10 @@ namespace Unity.NetCode.GeneratorTests
                 results = GeneratorTestHelpers.RunGenerators(tree);
             });
             Assert.AreEqual(0, results.Diagnostics.Count(d=>d.Severity >= DiagnosticSeverity.Error));
-            //1 serializer, 2 helpers, 1 registration system
+            // 预期生成 1 个 Serializer、2 个 Helper 和 1 个注册 System
             Assert.AreEqual(4, results.GeneratedSources.Length);
-            //check that the serializer actually contains the fixed list structs we expect
-            //primitive should not have any additional helper structs
-            //and the accessors are all via [i]
+            // 检查 Serializer 是否包含预期的 FixedList 结构体
+            // 基础类型不应具有额外辅助结构体，且访问器都应使用 [i]
 
             Assert.IsTrue(results.GeneratedSources[0].SyntaxTree.FilePath.EndsWith("Single_GhostElement.cs"));
             Assert.IsTrue(results.GeneratedSources[1].SyntaxTree.FilePath.EndsWith("Field_List_GhostData.cs"));
@@ -2542,9 +2540,9 @@ namespace Unity.NetCode.GeneratorTests
                 results = GeneratorTestHelpers.RunGenerators(tree);
             });
             Assert.AreEqual(0, results.Diagnostics.Count(d=>d.Severity >= DiagnosticSeverity.Error));
-            //2 helpers, 6 rpc serializer
+            // 预期生成 2 个 Helper 和 6 个 RPC Serializer
             Assert.AreEqual(8, results.GeneratedSources.Length);
-            //We expect to have 1 helper for Data and one helper for float (silly I know, we can generate directly)
+            // 预期 Data 与 float 各生成一个 Helper，尽管 float 理论上可以直接生成
             results.GeneratedSources[0].SyntaxTree.FilePath.Contains("Nested_CmdSerializer");
             results.GeneratedSources[1].SyntaxTree.FilePath.Contains("Single_CmdSerializer");
         }
@@ -2580,9 +2578,8 @@ namespace Unity.NetCode.GeneratorTests
             Assert.AreEqual(0, results.Diagnostics.Count(d=>d.Severity >= DiagnosticSeverity.Error));
             Assert.AreEqual(4, results.GeneratedSources.Length);
 
-            //check that the serializer actually contains the fixed list structs we expect
-            //primitive should not have any additional helper structs
-            //and the accessors are all via [i]
+            // 检查 Serializer 是否包含预期的固定 Buffer 字段
+            // 基础类型不应具有额外辅助结构体，且访问器都应使用 [i]
             var methods = results.GeneratedSources[2].SyntaxTree.GetRoot().DescendantNodes().OfType<MethodDeclarationSyntax>()
                 .ToArray();
             for (int i = 0; i < 5; ++i)
@@ -2613,25 +2610,25 @@ namespace Unity.NetCode.GeneratorTests
             Assert.IsNotNull(methods);
             for (int i = 0; i < 5; ++i)
             {
-                //copyto
+                // 复制到 Snapshot
                 Assert.IsTrue(methods[1].Body!.Statements[i].ToString().Contains($"component.Value[{i}]"));
                 Assert.IsTrue(methods[0].Body!.Statements[i].ToString().Contains($"snapshot.Value_{i} ="));
-                //copyfrom
+                // 从 Snapshot 复制
                 Assert.IsTrue(methods[1].Body!.Statements[i].ToString().Contains($"component.Value[{i}]"));
                 Assert.IsTrue(methods[1].Body!.Statements[i].ToString().Contains($"snapshotBefore.Value_{i}"));
-                //restore
+                // 从备份恢复
                 Assert.IsTrue(methods[2].Body!.Statements[i].ToString().Contains($"component.Value[{i}]"));
                 Assert.IsTrue(methods[2].Body!.Statements[i].ToString().Contains($"backup.Value[{i}]"));
-                //changemask
+                // 计算 ChangeMask
                 Assert.IsTrue(methods[4].Body!.Statements[1+i].ToString().Contains($"snapshot.Value_{i}"));
                 Assert.IsTrue(methods[4].Body!.Statements[1+i].ToString().Contains($"baseline.Value_{i}"));
-                //serialize
+                // 序列化
                 Assert.IsTrue(methods[5].Body!.Statements[1+i].ToString().Contains($"snapshot.Value_{i}"));
                 Assert.IsTrue(methods[5].Body!.Statements[1+i].ToString().Contains($"baseline.Value_{i}"));
-                //serialize combined
+                // 组合序列化
                 Assert.IsTrue(methods[6].Body!.Statements[1+2*i].ToString().Contains($"snapshot.Value_{i}"));
                 Assert.IsTrue(methods[6].Body!.Statements[1+2*i].ToString().Contains($"baseline.Value_{i}"));
-                //deserialize
+                // 反序列化
                 Assert.IsTrue(methods[7].Body!.Statements[1+i].ToString().Contains($"snapshot.Value_{i}"));
                 Assert.IsTrue(methods[7].Body!.Statements[1+i].ToString().Contains($"baseline.Value_{i}"));
             }

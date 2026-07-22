@@ -10,13 +10,13 @@ using UnityEngine.Scripting.APIUpdating;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The name of ghost prefab. Used for debugging purpose to pretty print ghost names. Available only once the
-    /// NETCODE_DEBUG define is set.
+    /// Ghost Prefab 的名称，用于在调试时以易读形式输出 Ghost 名称
+    /// 仅在定义 NETCODE_DEBUG 后可用
     /// </summary>
     public struct PrefabDebugName : IComponentData
     {
         /// <summary>
-        /// The name of the prefab.
+        /// Prefab 名称
         /// </summary>
         [Obsolete("The PrefabDebugName.Name field has been deprecated. Please use the PrefabName instead.", true)]
         public FixedString64Bytes Name
@@ -32,7 +32,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The name of the prefab.
+        /// Prefab 名称
         /// </summary>
         public LowLevel.BlobStringText PrefabName;
     }

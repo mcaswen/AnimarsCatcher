@@ -11,24 +11,24 @@ using Unity.Burst;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Responsible for assigning a unique <see cref="GhostInstance.ghostId"/> to each pre-spawned ghost,
-    /// and adding the ghost to the spawned ghosts maps.
-    /// Relies on the previous initializations step to determine the subscene subset to process.
+    /// 负责为每个预生成 Ghost 分配唯一的 <see cref="GhostInstance.ghostId"/>
+    /// 并将 Ghost 加入已生成 Ghost Map
+    /// 依赖前一个初始化步骤确定需要处理的 SubScene 子集
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Clients expect to receive the following as part ot the protocol:</para>
-    /// <para>- The subscene hash and baseline hash for validation.</para>
-    /// <para>- The ghost id range for each subscene.</para>
-    /// <para>### The Full Prespawn Subscene Sync Protocol</para>
+    /// 客户端预期通过协议接收以下内容：</para>
+    /// <para>- 用于验证的 SubScene Hash 与 Baseline Hash</para>
+    /// <para>- 每个 SubScene 的 GhostId 范围</para>
+    /// <para>### 完整的 Prespawn SubScene 同步协议</para>
     /// <para>
-    /// The Client will eventually receive the subscene data and will store it into the `PrespawnSceneLoaded` collection.
-    /// The Client (in parallel, before or after) will serialize the prespawn baseline when a new scene is loaded.
-    /// The Client should validate that:</para>
-    /// <para>- The prespawn scenes are present on the server.</para>
-    /// <para>- That the prespawn ghost count, subscene hash and baseline hash match the one on the server.</para>
-    /// <para>The Client will assign the ghost ids to the prespawns.
-    /// The Client must notify the server what scene sections has been loaded and initialized.
+    /// 客户端最终会收到 SubScene 数据，并将其存入 `PrespawnSceneLoaded` 集合
+    /// 加载新场景时，客户端还会在此前、此后或并行地序列化 Prespawn Baseline
+    /// 客户端应验证：</para>
+    /// <para>- Prespawn 场景存在于服务器</para>
+    /// <para>- Prespawn Ghost 数量、SubScene Hash 与 Baseline Hash 和服务器一致</para>
+    /// <para>客户端随后为 Prespawn 分配 GhostId
+    /// 并且必须通知服务器哪些场景 Section 已完成加载和初始化
     /// </para>
     /// </remarks>
     /// <seealso cref="ServerPopulatePrespawnedGhostsSystem"/>
@@ -87,18 +87,17 @@ namespace Unity.NetCode
         public void OnUpdate(ref SystemState state)
         {
             var subsceneCollection = SystemAPI.GetSingletonBuffer<PrespawnSceneLoaded>();
-            //Early exit. Nothing to process (the list is empty). That means the server has not sent yet the data OR the
-            //subscene must be unloaded. In either cases, the client can't assign ids.
+            // 列表为空时没有可处理内容，说明服务器尚未发送数据或 SubScene 必须卸载
+            // 两种情况下客户端都无法分配 GhostId，因此提前退出
             if(subsceneCollection.Length == 0)
                 return;
 
             var subScenesWithGhosts = m_UninitializedScenes.ToComponentDataArray<SubSceneWithPrespawnGhosts>(Allocator.Temp);
-            //x -> the subScene index
-            //y -> the collection index
+            // x 表示 SubScene 索引
+            // y 表示集合索引
             var validScenes = new NativeList<int2>(subScenesWithGhosts.Length, Allocator.Temp);
-            //First validate all the data before scheduling any job
-            //We are not checking for missing sub scenes on the client that are present on the server. By design it is possible
-            //for a client to load just a subset of all server's subscene at any given time.
+            // 调度任何 Job 前先验证全部数据
+            // 不检查服务器存在但客户端缺失的 SubScene，因为客户端设计上可以只加载服务器全部 SubScene 的一个子集
             var totalValidPrespawns = 0;
             var hasValidationError = false;
             var netDebug = SystemAPI.GetSingleton<NetDebug>();
@@ -109,19 +108,16 @@ namespace Unity.NetCode
                     out var collectionIndex);
                 if (validationResult == ValidationResult.SubSceneNotFound)
                 {
-                    //What that means:
-                    // - Client loaded the scene at the same time or before the server did and the updated scene list
-                    //   has been not received yet.
-                    // - The server has unloaded the scene. In that case, it is responsibility of the client to unloading it
-                    //   (usually using a higher level protocol that is user/game dependent). Most likely
-                    // On both cases is not really an error. The client should just wait for the new list in the first case and remove
-                    // the scene in the second
-                    // Would be nice being able to differentiate in between the two cases.
+                    // 这可能表示：
+                    // - 客户端与服务器同时或更早加载了场景，但尚未收到更新后的场景列表
+                    // - 服务器已卸载该场景，此时客户端负责通过取决于用户或游戏的上层协议将其卸载
+                    // 两种情况都不是真正的错误：第一种应等待新列表，第二种应移除场景
+                    // 后续最好能够区分这两种情况
                     continue;
                 }
                 if (validationResult == ValidationResult.MetadataNotMatch)
                 {
-                    //We log all the errors first and the we will request a disconnection
+                    // 先记录所有验证错误，之后统一请求断开连接
                     hasValidationError = true;
                     continue;
                 }
@@ -130,14 +126,14 @@ namespace Unity.NetCode
             }
             if(hasValidationError)
             {
-                //Disconnect the client
+                // 断开客户端连接
                 state.EntityManager.AddComponent<NetworkStreamRequestDisconnect>(SystemAPI.GetSingletonEntity<NetworkId>());
                 return;
             }
-            //Kick a job for each sub-scene that assign the ghost id to all scene prespawn ghosts.
+            // 为每个 SubScene 调度 Job，给场景内全部预生成 Ghost 分配 GhostId
             var subscenes = m_UninitializedScenes.ToEntityArray(Allocator.Temp);
             var entityCommandBuffer = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
-            //This temporary list is necessary because we forcibly re-assign the entity to spawn maps in case the ghost is already registered.
+            // 该临时列表用于在 Ghost 已注册时仍将 Entity 强制重新写入生成 Map
             var spawnedGhosts = new NativeList<SpawnedGhostMapping>(totalValidPrespawns, state.WorldUpdateAllocator);
             m_EntityTypeHandle.Update(ref state);
             m_PreSpawnedGhostIndexHandle.Update(ref state);
@@ -165,7 +161,7 @@ namespace Unity.NetCode
                     isServer = state.WorldUnmanaged.IsServer()
                 };
                 state.Dependency = assignPrespawnGhostIdJob.ScheduleParallel(m_Prespawns, state.Dependency);
-                //Add a state component to track the scene lifetime.
+                // 添加状态 Component 以跟踪场景生命周期
                 var sceneSectionData = default(SceneSectionData);
 #if UNITY_EDITOR
                 if (state.EntityManager.HasComponent<LiveLinkPrespawnSectionReference>(subscenes[i]))
@@ -234,13 +230,13 @@ namespace Unity.NetCode
         ValidationResult ValidatePrespawnGhostSubSceneData(ref NetDebug netDebug, ulong subSceneHash, ulong subSceneBaselineHash, int prespawnCount,
             in DynamicBuffer<PrespawnSceneLoaded> serverPrespawnHashBuffer, out int index)
         {
-            //find a matching entry
+            // 查找匹配条目
             index = -1;
             for (int i = 0; i < serverPrespawnHashBuffer.Length; ++i)
             {
                 if (serverPrespawnHashBuffer[i].SubSceneHash == subSceneHash)
                 {
-                    //check if the baseline matches
+                    // 检查 Baseline 是否匹配
                     if (serverPrespawnHashBuffer[i].BaselineHash != subSceneBaselineHash)
                     {
                         netDebug.LogError(

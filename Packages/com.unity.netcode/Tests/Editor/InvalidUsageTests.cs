@@ -54,30 +54,30 @@ namespace Unity.NetCode.Tests
                 var serverEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ServerWorld);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner{NetworkId = 42});
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 LogAssert.Expect(LogType.Error, new Regex(@"Found a ghost (.*) in the ghost map which does not have an entity connected to it(.*)This can happen if you delete ghost entities"));
                 LogAssert.Expect(LogType.Error, new Regex("Ghost ID \\d+ has already been added to the spawned ghost map"));
-                // Let the game run for a bit so the ghosts are spawned on the client
-                // There will be a bunch of "Received baseline for a ghost we do not have ghostId=0 baselineTick=1 serverTick=2" messages, ignore them
+                // 运行若干 Tick，让客户端重新生成 Ghost
+                // 此期间会出现多条 "Received baseline for a ghost we do not have ghostId=0 baselineTick=1 serverTick=2" 消息，可忽略
                 LogAssert.ignoreFailingMessages = true;
                 for (int i = 0; i < 64; ++i)
                     testWorld.Tick();
                 LogAssert.ignoreFailingMessages = false;
 
-                // Validate that the ghost was deleted on the cliet
+                // 验证客户端删除逻辑已按预期执行一次
                 Assert.AreEqual(0, DeleteGhostOnClientSystem.s_DeleteCount);
 
-                // Check that the client world has the right thing and value
+                // 检查客户端已恢复 Ghost，且数据正确
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
                 Assert.AreEqual(42, testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostOwner>(clientEnt).NetworkId);
 
-                // Delete on server
+                // 在服务端销毁 Ghost，并验证客户端正常 Despawn
                 testWorld.ServerWorld.EntityManager.DestroyEntity(serverEnt);
                 for (int i = 0; i < 5; ++i)
                     testWorld.Tick();
@@ -102,14 +102,14 @@ namespace Unity.NetCode.Tests
 
                 testWorld.SpawnOnServer(ghostGameObject);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
                 LogAssert.Expect(LogType.Error, new Regex("Trying to spawn an owner predicted ghost which does not have a valid owner set. When using owner prediction you must set GhostOwner.NetworkId when spawning the ghost. If the ghost is not owned by a player you can set NetworkId to -1."));
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 推进 Tick，触发无有效所有者的 OwnerPredicted Ghost 生成检查
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
             }

@@ -9,18 +9,18 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Singleton entity used store the entities references for all the spawned ghost.
+    /// 用于存储所有已生成 Ghost 的 Entity 引用的 Singleton Component
     /// </summary>
     public struct SpawnedGhostEntityMap : IComponentData
     {
         /// <summary>
-        /// Updated by the <see cref="GhostReceiveSystem"/> and the <see cref="GhostSendSystem"/> when a ghost is spawned/despawned,
-        /// let you retrieve the spawned ghost entity reference from the ghost <see cref="SpawnedGhost"/> identity.
+        /// 在 Ghost 生成或 Despawn 时由 <see cref="GhostReceiveSystem"/> 和 <see cref="GhostSendSystem"/> 更新
+        /// 可根据 Ghost 的 <see cref="SpawnedGhost"/> 标识获取已生成 Ghost 的 Entity 引用
         /// </summary>
         public NativeParallelHashMap<SpawnedGhost, Entity>.ReadOnly Value;
         internal NativeParallelHashMap<SpawnedGhost, Entity> SpawnedGhostMapRW;
 
-        // Server data
+        // 服务器数据
         internal NativeList<int> ServerDestroyedPrespawns;
         internal NativeArray<int> m_ServerAllocatedGhostIds;
         internal NativeQueue<int> m_ServerFreeGhostIds;
@@ -30,7 +30,7 @@ namespace Unity.NetCode
             m_ServerAllocatedGhostIds[1] = prespawnCount;
         }
 
-        // Client data
+        // 客户端数据
         internal NativeParallelHashMap<int, Entity> ClientGhostEntityMap;
 
         internal void AddClientNonSpawnedGhosts(NativeArray<NonSpawnedGhostMapping> ghosts, NetDebug netDebug)
@@ -73,9 +73,9 @@ namespace Unity.NetCode
                 var ghost = ghosts[i].ghost;
                 var ent = ghosts[i].entity;
                 var prevEnt = ghosts[i].previousEntity;
-                // If the ghost is also in the desapwn queue it will not be in the ghost map
-                // If a ghost id previously used for an interpolated ghost is not used for a predicted ghost
-                // a different ghost might be in the ghost map
+                // 如果 Ghost 同时位于 Despawn 队列中，它不会出现在 Ghost Map 内
+                // 如果某个 GhostId 先前用于插值 Ghost，后来改用于预测 Ghost
+                // Ghost Map 内可能存在另一个使用该 ID 的 Ghost
                 if (ClientGhostEntityMap.TryGetValue(ghost.ghostId, out var existing) && existing == prevEnt)
                 {
                     ClientGhostEntityMap[ghost.ghostId] =  ent;

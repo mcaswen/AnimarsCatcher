@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Authoring component which adds the DisableAutomaticPrespawnSectionReporting component to the Entity.
+    /// 向 Entity 添加 DisableAutomaticPrespawnSectionReporting 组件的 Authoring 组件
     /// </summary>
     [UnityEngine.DisallowMultipleComponent]
     [HelpURL(Authoring.HelpURLs.DisableAutomaticPrespawnSectionReportingAuthoring)]

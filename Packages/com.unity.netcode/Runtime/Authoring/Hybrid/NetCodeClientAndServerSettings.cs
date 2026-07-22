@@ -11,9 +11,9 @@ using UnityEngine.UIElements;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// The <see cref="IEntitiesPlayerSettings"/> baking settings to use for server builds. You can assign the <see cref="GUID"/>
-    /// to the <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/> to instrument the asset import worker to bake the
-    /// scene using this setting.
+    /// 用于服务器构建的 <see cref="IEntitiesPlayerSettings"/> 烘焙设置
+    /// 可以将 <see cref="GUID"/> 分配给 <see cref="Unity.Scenes.SceneSystemData.BuildConfigurationGUID"/>，
+    /// 指示 Asset 导入工作进程使用此设置烘焙场景
     /// </summary>
     [FilePath("ProjectSettings/NetCodeClientAndServerSettings.asset", FilePathAttribute.Location.ProjectFolder)]
     public class NetCodeClientAndServerSettings : ScriptableSingleton<NetCodeClientAndServerSettings>, IEntitiesPlayerSettings, INetCodeConversionTarget
@@ -25,7 +25,7 @@ namespace Unity.NetCode.Hybrid
         [SerializeField] private string[] AdditionalScriptingDefines = Array.Empty<string>();
 
         /// <summary>
-        ///     The <see cref="NetCodeConfig"/> automatically added to the build, accessed via user-code via <see cref="NetCodeConfig.Global"/>.
+        ///     自动添加到构建中的 <see cref="NetCodeConfig"/>，用户代码可通过 <see cref="NetCodeConfig.Global"/> 访问
         /// </summary>
         [SerializeField] public NetCodeConfig GlobalNetCodeConfig;
 
@@ -112,12 +112,11 @@ namespace Unity.NetCode.Hybrid
 #if !UNITY_2023_2_OR_NEWER
             Save();
 #else
-            //But the depedency is going to be update when the scriptable is re-enabled.
+            // 重新启用 ScriptableObject 时会更新依赖
             if (AssetDatabase.IsAssetImportWorkerProcess())
                 return;
             Save(true);
-            //This safeguard is necessary because the RegisterCustomDependency throw exceptions
-            //if this is called when the editor is refreshing the database.
+            // 此保护必不可少，因为在编辑器刷新数据库时调用 RegisterCustomDependency 会抛出异常
             if(!EditorApplication.isUpdating)
             {
                 ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
@@ -128,22 +127,31 @@ namespace Unity.NetCode.Hybrid
     }
 
     /// <summary>
-    /// Editor-only helper - allows you to configure the value-specific suggested ranges on the <see cref="GhostAuthoringComponent.Importance"/>
-    /// tooltip.
+    /// 仅供编辑器使用的辅助类型，用于配置 <see cref="GhostAuthoringComponent.Importance"/> Tooltip 中针对具体数值的建议范围
     /// </summary>
     [Serializable]
     public struct EditorImportanceSuggestion
     {
-        /// <summary>Loose minimum value.</summary>
+        /// <summary>
+        /// 宽松的最小值
+        /// </summary>
         public float MinValue;
-        /// <summary>Loose maximum value.</summary>
+        /// <summary>
+        /// 宽松的最大值
+        /// </summary>
         public float MaxValue;
-        /// <summary>Short, inline name for this importance category/range.</summary>
+        /// <summary>
+        /// 此重要度类别或范围的简短内联名称
+        /// </summary>
         public string Name;
-        /// <summary>Single-line example for when you'd want to use this.</summary>
+        /// <summary>
+        /// 适用场景的单行示例
+        /// </summary>
         public string Tooltip;
-        /// <summary>Helper.</summary>
-        /// <returns>Formatted string.</returns>
+        /// <summary>
+        /// 辅助方法
+        /// </summary>
+        /// <returns>格式化后的字符串</returns>
         public override string ToString() => $"{MinValue} ~ {MaxValue} for {Name} - {Tooltip}";
     }
 }

@@ -7,7 +7,9 @@ using UnityEngine.UIElements;
 
 namespace Unity.NetCode.Editor
 {
-    /// <summary>Decorator that draws NetCode related data into the DOTS Hierarchy VisualElements.</summary>
+    /// <summary>
+    /// 在 DOTS Hierarchy VisualElement 中绘制 NetCode 相关数据的装饰器
+    /// </summary>
     class DotsHierarchyItemDecorator : IHierarchyItemDecorator
     {
         const string k_GhostIconElement = "Ghost Icon";
@@ -28,14 +30,14 @@ namespace Unity.NetCode.Editor
                 style =
                 {
                     display = DisplayStyle.None,
-                    width = 16, // TODO - Hardcoded styles.
+                    width = 16, // TODO 移除硬编码样式
                     height = 16,
                     flexBasis = new StyleLength(StyleKeyword.Initial)
                 }
             };
             ghostIcon.style.backgroundImage = LegacyHierarchyDrawer.GhostIcon;
 
-            // Insert the Ghost after the "Ping Source" and "System Button", but before the "Prefab Arrow".
+            // 将 Ghost 图标插入 Ping Source 和 System Button 之后、Prefab Arrow 之前
             item.Column2.Insert(2, ghostIcon);
         }
 
@@ -49,7 +51,7 @@ namespace Unity.NetCode.Editor
                 var world = item.World;
                 if (world.EntityManager.HasComponent<GhostInstance>(itemEntity))
                 {
-                    // Entity view.
+                    // Entity 视图
                     isNetCode = true;
                     isReplicated = !world.EntityManager.HasComponent<Prefab>(itemEntity);
                 }
@@ -61,7 +63,7 @@ namespace Unity.NetCode.Editor
                 {
                     if (itemGameObject.GetComponent<GhostAuthoringComponent>())
                     {
-                        // GameObject view.
+                        // GameObject 视图
                         isNetCode = true;
                         isReplicated = item.PrefabType != Unity.Entities.Editor.Hierarchy.HierarchyPrefabType.None;
                     }
@@ -90,7 +92,9 @@ namespace Unity.NetCode.Editor
             element.RemoveFromHierarchy();
         }
 
-        /// <summary>Revert style back to how it was before we touched it.</summary>
+        /// <summary>
+        /// 将样式恢复到修改前的状态
+        /// </summary>
         static void RevertStyleIfModified(HierarchyListViewItem item)
         {
             var ghostIcon = item.Q<VisualElement>(k_GhostIconElement);
@@ -98,13 +102,15 @@ namespace Unity.NetCode.Editor
             {
                 ghostIcon.style.display = DisplayStyle.None;
 
-                // Setting to null resets the style to the USS value: https://forum.unity.com/threads/resetting-c-styles-to-defaults.969942/
+                // 设为 null 会将样式恢复为 USS 中的值，参见 https://forum.unity.com/threads/resetting-c-styles-to-defaults.969942/
                 item.NameLabel.style.color = new StyleColor(StyleKeyword.Null);
             }
         }
     }
 
-    /// <summary>Draws NetCode related data onto the Hierarchy Window.</summary>
+    /// <summary>
+    /// 在 Hierarchy 窗口中绘制 NetCode 相关数据
+    /// </summary>
     [InitializeOnLoad]
     static class LegacyHierarchyDrawer
     {
@@ -132,16 +138,16 @@ namespace Unity.NetCode.Editor
             {
                 if (go.GetComponent<GhostAuthoringComponent>())
                 {
-                    // Ghost icon on right-hand side:
+                    // 在右侧绘制 Ghost 图标
                     var iconRectRight = selectionRect;
                     iconRectRight.x += iconRectRight.width - iconRectRight.height;
                     iconRectRight.y -= 1.5f;
                     iconRectRight.height += 1.5f;
-                    iconRectRight.width -= 70; // Icon will shrink into invisibility earlier.
+                    iconRectRight.width -= 70; // 让图标更早缩小到不可见
                     GUI.Label(iconRectRight, GhostIcon);
                 }
 
-                // TODO - Consider showing the GhostInspectionComponent too.
+                // TODO 考虑同时显示 GhostInspectionComponent
             }
         }
     }

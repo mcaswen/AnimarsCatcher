@@ -3,25 +3,22 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// <para>Component that automates command "reading and sending" (for clients) or "writing, using, and broadcasting" (for the server).</para>
-    /// <para>When the AutoCommandTarget component is <see cref="Enabled"/>, the entity is considered as an input source
-    /// for <see cref="ICommandData"/>'s for the client and all non empty command buffers present on the entity are serialized
-    /// into the <see cref="OutgoingCommandDataStreamBuffer"/>, along with the id of the ghost they
-    /// are sent to.</para>
-    /// <para>On the server side, when a command is deserialized from the <see cref="IncomingCommandDataStreamBuffer"/>,
-    /// the corresponding entity is looked up, and if the AutoCommandTarget component is enabled, the commands are added to
-    /// the corresponding input command buffer.</para>
+    /// <para>自动处理命令的组件，客户端负责读取和发送，服务器负责写入、使用和广播</para>
+    /// <para>当 AutoCommandTarget 组件的 <see cref="Enabled"/> 为 true 时，该 Entity 会被视为客户端 <see cref="ICommandData"/> 的输入源
+    /// Entity 上所有非空 Command Buffer 都会与目标 Ghost 的 ID 一同序列化到 <see cref="OutgoingCommandDataStreamBuffer"/></para>
+    /// <para>在服务器端，从 <see cref="IncomingCommandDataStreamBuffer"/> 反序列化命令后，
+    /// 系统会查找对应 Entity；如果其 AutoCommandTarget 组件已启用，就把命令添加到相应的输入 Command Buffer</para>
     /// </summary>
     /// <remarks>
-    /// To use the AutoCommandTarget, the target entity must have a <see cref="GhostOwner"/>.
+    /// 使用 AutoCommandTarget 时，目标 Entity 必须具有 <see cref="GhostOwner"/>
     /// </remarks>
     [DontSupportPrefabOverrides]
     [GhostComponent(SendDataForChildEntity = true)]
     public struct AutoCommandTarget : IComponentData
     {
         /// <summary>
-        /// Enabled/Disable the current entity from sending and receiving commands.
-        /// Multiple entities can be enabled at the same time.
+        /// 启用或禁用当前 Entity 的命令发送与接收
+        /// 可以同时启用多个 Entity
         /// </summary>
         [GhostField] public bool Enabled;
     }

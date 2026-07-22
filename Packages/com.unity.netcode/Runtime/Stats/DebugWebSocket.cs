@@ -54,7 +54,7 @@ namespace Unity.NetCode
             {
                 try
                 {
-                    // Listen for the http header, parse it and reply with another http header
+                    // 接收并解析 HTTP Header，再用另一个 HTTP Header 响应
                     var headerBuffer = new byte[4096];
                     var headerSize = m_connectionSocket.Receive(headerBuffer);
                     if (headerSize > 0)
@@ -93,7 +93,7 @@ namespace Unity.NetCode
                             headerLookup.Add(keyval[0].Trim().ToLowerInvariant(), keyval[1].Trim());
                         }
 
-                        // Parse the header and reply
+                        // 解析 Header 并响应
                         string wsKey, wsConnection, wsUpgrade, wsVer;
                         if (!headerLookup.TryGetValue("sec-websocket-key", out wsKey) ||
                             !headerLookup.TryGetValue("connection", out wsConnection) ||
@@ -159,7 +159,7 @@ namespace Unity.NetCode
                 var sock = m_serverSocket.Accept();
                 if (m_connectionSocket != null)
                 {
-                    // FIXME: send close frame etc
+                    // FIXME 发送关闭帧等内容
                     m_connectionSocket.Dispose();
                 }
 
@@ -186,7 +186,7 @@ namespace Unity.NetCode
         {
             if (m_connectionSocket == null)
                 return;
-            // Fin bit + text message
+            // Fin 位与文本消息
             m_frameHeader[0] = 0x81;
             int headerLen = 2;
             if (msg.Length < 126)
@@ -234,7 +234,7 @@ namespace Unity.NetCode
         {
             if (m_connectionSocket == null)
                 return;
-            // Fin bit + binary message
+            // Fin 位与二进制消息
             m_frameHeader[0] = 0x82;
             int headerLen = 2;
             if (msg.Length < 126)

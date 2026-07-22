@@ -29,12 +29,12 @@ namespace NetCodeAnalyzer
         {
             if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
             {
-                // Check generic parameters
+                // 检查泛型参数
                 if (memberAccess.Name is GenericNameSyntax genericName)
                 {
                     foreach (var typeArg in genericName.TypeArgumentList.Arguments)
                     {
-                        if (checkNestedStruct) // Checks when Simulate is used in a nested generic parameter of the method chain, such as Query<RefRO<Simulate>>()
+                        if (checkNestedStruct) // 检查 Simulate 是否用于方法链的嵌套泛型参数，例如 Query<RefRO<Simulate>>()
                         {
                             if (context.SemanticModel.GetSymbolInfo(typeArg).Symbol is INamedTypeSymbol nestedTypeSymbol &&
                                 nestedTypeSymbol.IsGenericType)
@@ -49,7 +49,7 @@ namespace NetCodeAnalyzer
                             }
                         }
 
-                        // Checks when Simulate is used directly in the method chain, such as EntityQueryBuilder().WithAll<Simulate>()
+                        // 检查 Simulate 是否直接用于方法链，例如 EntityQueryBuilder().WithAll<Simulate>()
                         if (context.SemanticModel.GetSymbolInfo(typeArg).Symbol is ITypeSymbol typeSymbol &&
                             IsSimulateComponent(typeSymbol))
                         {
@@ -58,7 +58,7 @@ namespace NetCodeAnalyzer
                     }
                 }
 
-                // Check for regular arguments
+                // 检查普通参数
                 foreach (var arg in invocation.ArgumentList.Arguments)
                 {
                     if (arg.Expression is TypeOfExpressionSyntax typeOfExpr &&
@@ -98,7 +98,7 @@ namespace NetCodeAnalyzer
 
             var semanticModel = context.SemanticModel;
             var typeSymbol = semanticModel.GetDeclaredSymbol(containingType);
-            if (typeSymbol == null) // We don't really care whether it's actually a system or not, just that it has the UpdateInGroup attribute
+            if (typeSymbol == null) // 不要求目标实际为 System，只需要它具有 UpdateInGroup 特性
                 return false;
 
             var targetGroupType = semanticModel.Compilation.GetTypeByMetadataName("Unity.NetCode.PredictedSimulationSystemGroup");
@@ -127,7 +127,7 @@ namespace NetCodeAnalyzer
             if (!visitedGroups.Add(directGroupType))
                 return false;
 
-            // Recursively check if the direct group is in the target group
+            // 递归检查直接所属组是否位于目标组中
             return IsInGroupHierarchy(directGroupType, targetGroupType, visitedGroups);
         }
 

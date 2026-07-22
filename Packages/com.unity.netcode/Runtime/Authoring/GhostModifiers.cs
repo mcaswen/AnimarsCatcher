@@ -1,111 +1,141 @@
-// IMPORTANT NOTE: This file is shared with NetCode source generators
-// NO UnityEngine, UnityEditor or other packages dll references are allowed here.
-// IF YOU CHANGE THIS FILE, REMEMBER TO RECOMPILE THE SOURCE GENERATORS
+// 重要提示：此文件由 NetCode 源码生成器共享
+// 此处不允许引用 UnityEngine、UnityEditor 或其他包的 DLL
+// 如果修改此文件，请记得重新编译源码生成器
 
 using System;
 
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Assign to every <see cref="GhostInstance"/>, and denotes which Ghost prefab version this component is allowed to exist on.
-    /// Use this to disable rendering components on the Server version of the Ghost.
-    /// If you cannot change the ComponentType, use the `GhostAuthoringInspectionComponent` to manually override on a specific Ghost prefab.
+    /// 分配给每个 <see cref="GhostInstance"/>，表示允许此组件存在于哪些 Ghost Prefab 版本上
+    /// 可使用此枚举禁用 Ghost 服务器版本上的渲染组件
+    /// 如果无法更改 ComponentType，请使用 `GhostAuthoringInspectionComponent` 在指定 Ghost Prefab 上手动覆盖
     /// </summary>
     [Flags]
     public enum GhostPrefabType
     {
-        /// <summary>Component will not be added to any Ghost prefab type.</summary>
+        /// <summary>
+        /// 不会把组件添加到任何 Ghost Prefab 类型
+        /// </summary>
         None = 0,
-        /// <summary>Component will only be added to the <see cref="GhostMode.Interpolated"/> Client version.</summary>
+        /// <summary>
+        /// 只会把组件添加到 <see cref="GhostMode.Interpolated"/> 客户端版本
+        /// </summary>
         InterpolatedClient = 1,
-        /// <summary>Component will only be added to the <see cref="GhostMode.Predicted"/> Client version.</summary>
+        /// <summary>
+        /// 只会把组件添加到 <see cref="GhostMode.Predicted"/> 客户端版本
+        /// </summary>
         PredictedClient = 2,
-        /// <summary>Component will only be added to Client versions.</summary>
+        /// <summary>
+        /// 只会把组件添加到客户端版本
+        /// </summary>
         Client = 3,
-        /// <summary>Component will only be added to the Server version.</summary>
+        /// <summary>
+        /// 只会把组件添加到服务器版本
+        /// </summary>
         Server = 4,
-        /// <summary>Component will only be added to the Server and PredictedClient versions.</summary>
+        /// <summary>
+        /// 只会把组件添加到服务器和 PredictedClient 版本
+        /// </summary>
         AllPredicted = 6,
-        /// <summary>Component will be to all versions.</summary>
+        /// <summary>
+        /// 会把组件添加到所有版本
+        /// </summary>
         All = 7
     }
 
     /// <summary>
-    /// <para>An optimization: Set on each GhostComponent via the <see cref="GhostComponentAttribute"/> (or via a variant).</para>
-    /// <para>When a Ghost is <see cref="GhostMode.OwnerPredicted"/>, OR its SupportedGhostModes is known at compile time,
-    /// this flag will filter which types of clients will receive data updates.</para>
-    /// <para>Maps to the <see cref="GhostMode"/> of each Ghost.</para>
-    /// <para>Note that this optimization is <b>not</b> available to Ghosts that can have their <see cref="GhostMode"/>
-    /// modified at runtime!</para>
+    /// <para>一种优化方式：通过 <see cref="GhostComponentAttribute"/> 或变体在每个 GhostComponent 上设置</para>
+    /// <para>当 Ghost 使用 <see cref="GhostMode.OwnerPredicted"/>，或者其 SupportedGhostModes 在编译阶段已知时，
+    /// 此标志会筛选哪些类型的客户端能够接收数据更新</para>
+    /// <para>映射到每个 Ghost 的 <see cref="GhostMode"/></para>
+    /// <para>请注意，如果 Ghost 的 <see cref="GhostMode"/> 可以在运行时修改，则<b>无法</b>使用此优化</para>
     /// </summary>
     /// <remarks>
-    /// <para>GhostSendType works for OwnerPredicted ghosts because:</para>
-    /// <para>- The server <b>can</b> infer what GhostMode any given client will have an OwnerPredicted ghost in.
-    /// It's as simple as: If Owner, then Predicting, otherwise Interpolating.</para>
-    /// <para>- The server <b>cannot</b> infer what GhostMode a ghost supporting both Predicted and Interpolated can be in,
-    /// as this can change at runtime (see <see cref="GhostPredictionSwitchingQueues"/>.
-    /// Thus, the server snapshot serialization strategy must be identical for both.</para>
-    /// <para>GhostSendType <i>also</i> works for Ghosts not using <see cref="GhostModeMask.All"/> because:</para>
-    /// <para>- The server <b>can</b> infer what GhostMode any given client will have its ghost in, as it cannot change at runtime.</para>
-    /// <para>Applies to all components (parents and children).</para>
+    /// <para>GhostSendType 适用于 OwnerPredicted Ghost，原因如下：</para>
+    /// <para>- 服务器<b>可以</b>推断指定客户端上的 OwnerPredicted Ghost 会采用哪种 GhostMode
+    /// 判断方式很简单：如果客户端是所有者则使用预测，否则使用插值</para>
+    /// <para>- 对于同时支持 Predicted 和 Interpolated 的 Ghost，服务器<b>无法</b>推断其当前 GhostMode，
+    /// 因为该模式可以在运行时改变，参见 <see cref="GhostPredictionSwitchingQueues"/>
+    /// 因此，两种模式必须采用相同的服务器 Snapshot 序列化策略</para>
+    /// <para>GhostSendType <i>也</i>适用于未使用 <see cref="GhostModeMask.All"/> 的 Ghost，原因如下：</para>
+    /// <para>- 由于 GhostMode 无法在运行时改变，服务器<b>可以</b>推断指定客户端上的 Ghost 会采用哪种模式</para>
+    /// <para>适用于父实体和子实体上的所有组件</para>
     /// </remarks>
     /// <example>
-    /// A velocity component may only be required on a client if the ghost is being predicted (to predict velocity and collisions correctly).
-    /// Thus, use GhostSendType.Predicted on the Velocity component.
+    /// 只有在客户端预测 Ghost 时，才可能需要速度组件，以便正确预测速度和碰撞
+    /// 因此，应在 Velocity 组件上使用 GhostSendType.Predicted
     /// </example>
     [Flags]
     public enum GhostSendType
     {
-        /// <summary>The server will never replicate this component to any clients.
-        /// Works similarly to <see cref="DontSerializeVariant"/> (and thus, redundant, if the DontSerializeVariant is in use).</summary>
+        /// <summary>服务器永远不会向任何客户端复制此组件
+        /// 行为与 <see cref="DontSerializeVariant"/> 类似，因此在使用 DontSerializeVariant 时属于冗余设置</summary>
         DontSend = 0,
-        /// <summary>The server will only replicate this component to clients which are interpolating this Ghost. <see cref="GhostMode.Interpolated"/>).</summary>
+        /// <summary>
+        /// 服务器只会向正在插值此 Ghost 的客户端复制该组件，参见 <see cref="GhostMode.Interpolated"/>
+        /// </summary>
         OnlyInterpolatedClients = 1,
-        /// <summary>The server will only replicate this component to clients which are predicted this Ghost. <see cref="GhostMode.Predicted"/>).</summary>
+        /// <summary>
+        /// 服务器只会向正在预测此 Ghost 的客户端复制该组件，参见 <see cref="GhostMode.Predicted"/>
+        /// </summary>
         OnlyPredictedClients = 2,
-        /// <summary>The server will always replicate this component. Default.</summary>
+        /// <summary>
+        /// 服务器始终复制此组件，也是默认设置
+        /// </summary>
         AllClients = 3
     }
 
     /// <summary>
-    /// Meta-data of a <see cref="GhostComponentAttribute"/>, denoting whether or not the server should replicate the
-    /// GhostField value back down to clients.
+    /// <see cref="GhostComponentAttribute"/> 的元数据，表示服务器是否应将 GhostField 值复制回客户端
     /// </summary>
     /// <remarks>
-    /// Typically used by <see cref="IInputComponentData"/> structs to replicate each clients inputs ONLY to other players.
+    /// 通常由 <see cref="IInputComponentData"/> 结构体使用，只把每个客户端的输入复制给其他玩家
     /// </remarks>
     [Flags]
     public enum SendToOwnerType
     {
-        /// <summary>Informs the server to not replicate this component to any clients.</summary>
+        /// <summary>
+        /// 指示服务器不要向任何客户端复制此组件
+        /// </summary>
         None = 0,
-        /// <summary>Informs the server to replicate this component back to the owner, exclusively.</summary>
+        /// <summary>
+        /// 指示服务器只向所有者复制此组件
+        /// </summary>
         SendToOwner = 1,
-        /// <summary>Informs the server to replicate this component to all clients except the ghost owner
-        /// (i.e. the player who owns this ghost).</summary>
+        /// <summary>指示服务器向除 Ghost 所有者之外的所有客户端复制此组件
+        /// Ghost 所有者即拥有该 Ghost 的玩家</summary>
         SendToNonOwner = 2,
-        /// <summary>Informs the server to replicate this component to all clients, including to the ghost owner.</summary>
+        /// <summary>
+        /// 指示服务器向包括 Ghost 所有者在内的所有客户端复制此组件
+        /// </summary>
         All = 3,
     }
 
-    /// <summary>Denotes how <see cref="GhostFieldAttribute"/> values are deserialized when received from snapshots.</summary>
+    /// <summary>
+
+    /// 表示从 Snapshot 接收 <see cref="GhostFieldAttribute"/> 值时采用的反序列化方式
+
+    /// </summary>
     public enum SmoothingAction
     {
-        /// <summary>The GhostField value will clamp to the latest snapshot value as it's available.</summary>
+        /// <summary>
+        /// GhostField 值会在最新 Snapshot 值可用时钳制到该值
+        /// </summary>
         Clamp = 0,
 
-        /// <summary>Interpolate the GhostField value between the latest two processed snapshot values, and if no data is available for the next tick, clamp at the latest snapshot value.
-        /// Tweak the <see cref="ClientTickRate"/> interpolation values if too jittery, or too delayed.</summary>
+        /// <summary>在最近两个已处理 Snapshot 值之间插值 GhostField 值，如果下一 Tick 没有可用数据，则钳制到最新 Snapshot 值
+        /// 如果抖动过大或延迟过高，请调整 <see cref="ClientTickRate"/> 的插值参数</summary>
         Interpolate = 1 << 0,
 
         /// <summary>
-        /// Interpolate the GhostField value between snapshot values, and if no data is available for the next tick, the next value is linearly extrapolated using the previous two snapshot values.
-        /// Extrapolation is limited (i.e. clamped) via <see cref="ClientTickRate.MaxExtrapolationTimeSimTicks"/>.
+        /// 在 Snapshot 值之间插值 GhostField 值，如果下一 Tick 没有可用数据，则使用前两个 Snapshot 值线性外推下一个值
+        /// 外推范围通过 <see cref="ClientTickRate.MaxExtrapolationTimeSimTicks"/> 进行限制，即钳制
         /// </summary>
         /// <remarks>
-        /// Note that static-optimized, interpolated ghosts will <b>never</b> extrapolate. This is because they do not send 'zero-change' snapshot updates
-        /// (i.e. snapshot updates containing all zeros for their GhostField delta-compression), so they cannot differentiate between
-        /// 'this continuously changing value has since stopped changing' and 'we have not yet received the next continuous value'.
+        /// 请注意，使用静态优化的插值 Ghost <b>永远不会</b>执行外推
+        /// 这是因为它们不会发送零变化 Snapshot 更新，即 GhostField 差分压缩结果全部为零的 Snapshot 更新，
+        /// 因而无法区分“这个持续变化的值已经停止变化”和“尚未收到下一个连续值”
         /// </remarks>
         InterpolateAndExtrapolate = 3,
     }

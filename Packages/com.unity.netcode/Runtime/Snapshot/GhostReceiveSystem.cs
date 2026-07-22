@@ -18,50 +18,50 @@ using UnityEngine;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Struct used to uniquely identify a ghost given its id and spawning time.
+    /// 通过 ID 和生成时间唯一标识 Ghost 的结构
     /// </summary>
     public struct SpawnedGhost : IEquatable<SpawnedGhost>
     {
         /// <summary>
-        /// The id assigned to the ghost by the server
+        /// 服务器分配给 Ghost 的 ID
         /// </summary>
         public int ghostId;
         /// <summary>
-        /// The tick at which the ghost has been spawned by the server
+        /// 服务器生成 Ghost 时的 Tick
         /// </summary>
         public NetworkTick spawnTick;
         /// <summary>
-        /// Produce the hash code for the SpawnedGhost.
+        /// 生成 SpawnedGhost 的 Hash Code
         /// </summary>
-        /// <returns>Ghost id</returns>
+        /// <returns>Ghost ID 对应的 Hash Code</returns>
         public override int GetHashCode()
         {
             return ghostId;
         }
         /// <summary>
-        /// Construct a SpawnedEntity from a <see cref="GhostInstance"/>
+        /// 根据 <see cref="GhostInstance"/> 构造 SpawnedGhost
         /// </summary>
-        /// <param name="ghostInstance">The ghost from which to construct a SpawnedEntity</param>
+        /// <param name="ghostInstance">用于构造 SpawnedGhost 的 Ghost 实例</param>
         public SpawnedGhost(in GhostInstance ghostInstance)
         {
             ghostId = ghostInstance.ghostId;
             spawnTick = ghostInstance.spawnTick;
         }
         /// <summary>
-        /// Construct a SpawnedEntity using the ghost identifier and the spawn tick
+        /// 使用 Ghost 标识符和生成 Tick 构造 SpawnedGhost
         /// </summary>
-        /// <param name="ghostId">Ghost id</param>
-        /// <param name="spawnTick">Spawn tick</param>
+        /// <param name="ghostId">Ghost ID 值</param>
+        /// <param name="spawnTick">生成 Tick</param>
         public SpawnedGhost(int ghostId, NetworkTick spawnTick)
         {
             this.ghostId = ghostId;
             this.spawnTick = spawnTick;
         }
         /// <summary>
-        /// The SpawnedGhost are identical if both id and tick match.
+        /// ID 和 Tick 均匹配时，两个 SpawnedGhost 相同
         /// </summary>
-        /// <param name="ghost">Ghost to compare with</param>
-        /// <returns>Whether ghost id and spawn tick are identical</returns>
+        /// <param name="ghost">要比较的 Ghost</param>
+        /// <returns>Ghost ID 和生成 Tick 是否相同</returns>
         public bool Equals(SpawnedGhost ghost)
         {
             return ghost.ghostId == ghostId && ghost.spawnTick == spawnTick;
@@ -80,51 +80,51 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Inter-op struct used to pass arguments to the ghost component serializers (see <see cref="GhostComponentSerializer"/>).
+    /// 用于向 Ghost 组件 Serializer 传递参数的互操作结构，参见 <see cref="GhostComponentSerializer"/>
     /// </summary>
     public struct GhostDeserializerState
     {
         /// <summary>
-        /// A map that store an entity reference for each spawned ghost.
+        /// 为每个已生成 Ghost 存储实体引用的映射
         /// </summary>
         public NativeParallelHashMap<SpawnedGhost, Entity>.ReadOnly GhostMap;
         /// <summary>
-        /// The server tick we are deserializing.
+        /// 当前正在反序列化的服务器 Tick
         /// </summary>
         public NetworkTick SnapshotTick;
         /// <summary>
-        /// The NetworkId of the client owning the ghost (if the ghost has an <see cref="NetCode.GhostOwner"/>)
+        /// 拥有该 Ghost 的客户端 NetworkId，前提是 Ghost 具有 <see cref="NetCode.GhostOwner"/>
         /// </summary>
         public int GhostOwner;
         /// <summary>
-        /// <para>- If set to <see cref="SendToOwnerType.SendToOwner"/>, the component is deserialized
-        /// only if the <see cref="GhostOwner"/> equals the current client NetworkId..</para>
-        /// <para>- If set to <see cref="SendToOwnerType.SendToNonOwner"/>, the component is deserialized
-        /// only if the <see cref="GhostOwner"/> is not equals to the current client NetworkId.</para>
+        /// <para>- 设为 <see cref="SendToOwnerType.SendToOwner"/> 时
+        /// 仅当 <see cref="GhostOwner"/> 等于当前客户端 NetworkId 才反序列化组件</para>
+        /// <para>- 设为 <see cref="SendToOwnerType.SendToNonOwner"/> 时
+        /// 仅当 <see cref="GhostOwner"/> 不等于当前客户端 NetworkId 才反序列化组件</para>
         /// </summary>
         public SendToOwnerType SendToOwner;
     }
 
     /// <summary>
     /// <para>
-    /// System present only in clients worlds, receive and decode the ghost snapshosts sent by the server.
+    /// 仅存在于客户端 World，负责接收并解码服务器发送的 Ghost Snapshot
     /// </para>
     /// <para>
-    /// When a new snapshost is received, the system will start decoding the packet protocol by extracting:
+    /// 收到新 Snapshot 后，系统会开始解码数据包协议并提取以下内容
     /// </para>
-    /// <para>-the list of ghost that need to despawned</para>
-    /// <para>-for each serialized ghost, it delta-compressed or uncompressed state</para>
+    /// <para>- 需要销毁的 Ghost 列表</para>
+    /// <para>- 每个序列化 Ghost 的增量压缩或未压缩状态</para>
     /// <para>
-    /// The system will schedule spawning and despawning ghosts requests, by using
-    /// the <see cref="GhostSpawnBuffer"/>, and <see cref="GhostDespawnQueues"/> respectively.
-    /// </para>
-    /// <para>
-    /// When a new state snapshot is received for a ghost that has been already spawned (see <see cref="SpawnedGhostEntityMap"/>),
-    /// the state is deserialized and added to the entity <see cref="SnapshotDataBuffer"/> history buffer.
+    /// 系统分别通过 <see cref="GhostSpawnBuffer"/> 和 <see cref="GhostDespawnQueues"/>
+    /// 安排 Ghost 生成与销毁请求
     /// </para>
     /// <para>
-    /// The received snapshot are recorded into the <see cref="NetworkSnapshotAck"/>, that will then used to
-    /// send back to the server, as part of the command stream, the latest received snapshot by the client.
+    /// 已生成 Ghost 收到新的状态 Snapshot 时，参见 <see cref="SpawnedGhostEntityMap"/>
+    /// 其状态会被反序列化并添加到实体的 <see cref="SnapshotDataBuffer"/> 历史 Buffer
+    /// </para>
+    /// <para>
+    /// 收到的 Snapshot 会记录到 <see cref="NetworkSnapshotAck"/>
+    /// 客户端随后通过 Command 流将最新收到的 Snapshot 信息发回服务器
     /// </para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
@@ -173,7 +173,7 @@ namespace Unity.NetCode
         PacketDumpLogger m_NetDebugPacket;
 #endif
 
-        // This cannot be burst compiled due to NetDebugInterop.Initialize
+        // 由于调用 NetDebugInterop.Initialize，此方法无法使用 Burst 编译
         /// <inheritdoc/>
         public void OnCreate(ref SystemState state)
         {
@@ -251,7 +251,7 @@ namespace Unity.NetCode
         {
             if (state.WorldUnmanaged.IsHost())
                 return;
-            state.CompleteDependency(); // Make sure we can access the ghost maps
+            state.CompleteDependency(); // 确保可以访问 Ghost 映射
             m_GhostEntityMap.Dispose();
             m_SpawnedGhostEntityMap.Dispose();
 
@@ -276,7 +276,7 @@ namespace Unity.NetCode
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                // This job is not written to support queries with enableable component types.
+                // 此 Job 不支持包含可启用组件类型的查询
                 Assert.IsFalse(useEnabledMask);
 
                 var entities = chunk.GetNativeArray(EntitiesType);
@@ -295,9 +295,8 @@ namespace Unity.NetCode
 
             public void Execute()
             {
-                //The ghost map should not clear pre-spawn ghost since they aren't destroyed when the
-                //client connection is not in-game. It is more correct to rely on the fact the
-                //pre-spawn system reset that since it was the one populating it.
+                // Ghost 映射不应清除预生成 Ghost，因为客户端连接不在游戏中时不会销毁它们
+                // 预生成系统负责填充这些条目，因此也应由它负责重置
                 var keys = SpawnedGhostMap.GetKeyArray(Allocator.Temp);
                 for (int i = 0; i < keys.Length; ++i)
                 {
@@ -308,8 +307,8 @@ namespace Unity.NetCode
                     }
                 }
 
-                // Bug fix: Some ghosts have not spawned yet, but they still need to be removed from this map, to prevent the error:
-                // "Found a ghost in the ghost map which does not have an entity connected to it. This can happen if you delete ghost entities on the client.".
+                // 修复：部分 Ghost 尚未生成，但仍需从映射中移除
+                // 否则会报告映射中的 Ghost 没有关联实体，客户端删除 Ghost 实体时可能出现此错误
                 var ghostMapKeys = GhostMap.GetKeyArray(Allocator.Temp);
                 for (int i = 0; i < ghostMapKeys.Length; ++i)
                 {
@@ -375,7 +374,7 @@ namespace Unity.NetCode
             public void Execute()
             {
 #if UNITY_EDITOR || NETCODE_DEBUG
-                ref var netStatsSnapshot = ref SnapshotStatsWriters.AsSpan()[0]; // this is an IJob, so just one thread
+                ref var netStatsSnapshot = ref SnapshotStatsWriters.AsSpan()[0]; // 这是 IJob，因此只会使用一个线程
 #endif
 #if NETCODE_DEBUG
                 EnablePacketLogging.InitAndFetch(Connections[0], EnableLoggingFromEntity, NetDebugPacket);
@@ -385,36 +384,36 @@ namespace Unity.NetCode
                 m_GhostTypeCollection = GhostTypeCollectionFromEntity[GhostCollectionSingleton];
                 m_GhostComponentIndex = GhostComponentIndexFromEntity[GhostCollectionSingleton];
 
-                // FIXME: should handle any number of connections with individual ghost mappings for each
+                // FIXME：应支持任意数量的连接，并为每个连接维护独立 Ghost 映射
                 CheckConnectionCountIsValid();
                 var snapshot = SnapshotFromEntity[Connections[0]];
                 if (snapshot.Length == 0)
                     return;
 
-                //compute the size for the temporary buffer used to extract delta compressed buffer elements
+                // 计算用于提取增量压缩 Buffer 元素的临时 Buffer 大小
                 int maxDynamicSnapshotSize = 0;
                 for (int i = 0; i < m_GhostTypeCollection.Length; ++i)
                     maxDynamicSnapshotSize = math.max(maxDynamicSnapshotSize, m_GhostTypeCollection[i].MaxBufferSnapshotSize);
                 TempDynamicData.Resize(maxDynamicSnapshotSize,NativeArrayOptions.ClearMemory);
 
                 var dataStream = snapshot.AsDataStreamReader();
-                // Read the ghost stream
-                // find entities to spawn or destroy
+                // 读取 Ghost 流
+                // 查找需要生成或销毁的实体
                 var serverTick = new NetworkTick{SerializedData = dataStream.ReadUInt()};
                 ref var ack = ref SnapshotAckFromEntity.GetRefRW(Connections[0]).ValueRW;
 
-                // Load all new prefabs
+                // 加载所有新 Prefab
                 uint numPrefabs = dataStream.ReadPackedUInt(CompressionModel);
 #if NETCODE_DEBUG
-                // TODO - Map CurrentSnapshotSequenceId exactly to the snapshot data itself, rather than fetching it "second hand" here.
+                // TODO：将 CurrentSnapshotSequenceId 直接映射到 Snapshot 数据本身，而不是在此间接获取
                 if(NetDebugPacket.IsCreated)
                     DebugLog.Append((FixedString128Bytes)$"SnapshotTick:{serverTick.ToFixedString()} SSId:{ack.CurrentSnapshotSequenceId} NewPrefabs: {numPrefabs}\n");
 #endif
                 if (numPrefabs > 0)
                 {
                     var ghostCollection = GhostCollectionFromEntity[GhostCollectionSingleton];
-                    // The server only sends ghost types which have not been acked yet, acking takes one RTT so we need to check
-                    // which prefab was the first included in the list sent by the server
+                    // 服务器只发送尚未确认的 Ghost 类型，确认需要一个 RTT
+                    // 因此需要检查服务器列表中首先包含的是哪个 Prefab
                     int firstPrefab = (int)dataStream.ReadPackedUInt(CompressionModel);
 #if NETCODE_DEBUG
                     if(NetDebugPacket.IsCreated)
@@ -435,13 +434,12 @@ namespace Unity.NetCode
 #endif
                         if (firstPrefab+i == ghostCollection.Length)
                         {
-                            //track pending entries to be assigned.
+                            // 跟踪等待分配的条目
                             PendingGhostPrefabAssignment.Add(type, ghostCollection.Length);
-                            //Notify that the list PendingGhostPrefabAssignment (and subsequently the ghost collection list)
-                            //has been modified.
-                            // TODO: I may achieve this also by tracking the lenght of the ghostCollection itself
+                            // 标记 PendingGhostPrefabAssignment 列表以及后续 Ghost 集合列表已修改
+                            // TODO：也可以通过跟踪 ghostCollection 自身长度实现
                             PendingGhostPrefabAssignment[default] = 1;
-                            // This just adds the type, the prefab entity will be populated by the GhostCollectionSystem
+                            // 此处只添加类型，Prefab 实体由 GhostCollectionSystem 填充
                             ghostCollection.Add(new GhostCollectionPrefab{GhostType = type, GhostPrefab = Entity.Null, Hash = hash, Loading = GhostCollectionPrefab.LoadingState.NotLoading});
                         }
                         else if (type != ghostCollection[firstPrefab+i].GhostType || hash != ghostCollection[firstPrefab+i].Hash)
@@ -463,9 +461,9 @@ namespace Unity.NetCode
                 uint despawnLen = dataStream.ReadUShort();
                 uint numEntitiesUpdated = dataStream.ReadUShort();
 
-                // Note: The server counts new chunks as containing 0 relevant ghosts UNTIL it knows how many it actually has.
-                // Thus, ensure our relevantGhostCount is at LEAST the number of ghosts contained within this snapshot.
-                // It's not perfect - but it's the simplest way to approximate.
+                // 注意：服务器在确定新 Chunk 实际包含多少相关 Ghost 前，会将其相关 Ghost 数计为 0
+                // 因此要确保 relevantGhostCount 至少等于当前 Snapshot 中包含的 Ghost 数量
+                // 此估算并不完美，但实现最简单
                 GhostCompletionCount[0] = (int)math.max(relevantGhostCount, numEntitiesUpdated);
 
 #if NETCODE_DEBUG
@@ -528,7 +526,7 @@ namespace Unity.NetCode
                 if (data.StatCount > 0)
                 {
                     data.CurPos = dataStream.GetBitsRead();
-                    int statType = (int) data.TargetArch; // index in the ghost collection. identifies the current ghost type (aka the current prefab)
+                    int statType = (int) data.TargetArch; // Ghost 集合中的索引，用于标识当前 Ghost 类型，即当前 Prefab
                     ref var perGhostTypeStats = ref netStatsSnapshot.PerGhostTypeStatsListRefRW.ElementAt(statType);
                     perGhostTypeStats.EntityCount += data.StatCount;
                     perGhostTypeStats.SizeInBits += (uint) (data.CurPos - data.StartPos);
@@ -536,11 +534,11 @@ namespace Unity.NetCode
                 }
 #endif
 
-                // Check we read EXACTLY what we expected to:
+                // 检查实际读取量是否与预期完全一致
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if(dataValid)
                 {
-                    dataStream.Flush(); // DataStream can only send full bytes, so align the bit reader with the next full byte.
+                    dataStream.Flush(); // DataStream 只能发送完整字节，因此将位读取器对齐到下一个完整字节
                     var bitsRead = dataStream.GetBitsRead();
                     var lengthInBits = dataStream.Length * 8;
                     var delta = bitsRead - lengthInBits;
@@ -561,22 +559,21 @@ namespace Unity.NetCode
 
                 if (!dataValid)
                 {
-                    // Denote that ALL previous acks are invalid, as we failed to deserialize this snapshot, so something must be wrong.
+                    // 当前 Snapshot 反序列化失败，说明状态异常，因此将之前所有 Ack 标记为无效
                     ack.ReceivedSnapshotByLocalMask = 0;
                     ack.LastReceivedSnapshotByLocal = NetworkTick.Invalid;
 
-                    // TODO - Investigation: Rather than unacking all previously acked snapshots (which causes all relevant
-                    // ghostChunks to have to be resent to this client), we can ATTEMPT to smartly unack ONLY the invalid
-                    // snapshots (e.g. the invalid baseline ticks we read - when we get baseline errors), and only resort
-                    // to unacking everything in the worst-case scenarios.
-                    // Note: One advantage to this brute-force approach is that the server can send good data immediately afterwards.
-                    // Without the brute-force approach, we need to squash each invalid baseline ack separately, which can take a while
-                    // (and cause error spam).
+                    // TODO：研究是否可以只撤销无效 Snapshot 的 Ack，而不是撤销此前全部 Ack
+                    // 全量撤销会导致所有相关 Ghost Chunk 必须重新发送给此客户端
+                    // 例如出现 Baseline 错误时，可尝试仅撤销读到的无效 Baseline Tick
+                    // 只有最坏情况下才撤销全部 Ack
+                    // 当前粗暴方案的优点是服务器随后可以立即发送正确数据
+                    // 若不使用该方案，就需要逐个撤销无效 Baseline Ack，耗时更长且可能产生大量错误日志
                 }
             }
             struct DeserializeData
             {
-                public uint TargetArch; // index in the ghost type collection. TODO wrap this int in a specific type?
+                public uint TargetArch; // Ghost 类型集合中的索引，TODO：考虑用专用类型封装此整数
                 public uint TargetArchLen;
                 public int BaseGhostId;
                 public NetworkTick BaseSpawnTick;
@@ -664,7 +661,7 @@ namespace Unity.NetCode
                     if (NetDebugPacket.IsCreated)
                         DebugLog.Append(FixedString.Format("\t\tB0:{0} B1:{1} B2:{2} Count:{3}\n", data.BaselineTick.ToFixedString(), data.BaselineTick2.ToFixedString(), data.BaselineTick3.ToFixedString(), data.BaselineLen));
 #endif
-                    //baselineTick NetworkTick.Invalid is only valid and possible for prespawn since tick=0 is special
+                    // BaselineTick 为 NetworkTick.Invalid 只对预生成 Ghost 合法，因为 Tick 0 具有特殊含义
                     if(Hint.Unlikely(!data.BaselineTick.IsValid && (data.BaseGhostId & PrespawnHelper.PrespawnGhostIdBase) == 0))
                     {
                         LogDeserializeFailure(LogType.Error, (FixedString512Bytes) $"Received snapshot baseline for prespawn ghost from the server, but the ghost entity GID:{data.BaseGhostId} (GhostType:{GetGhostTypePrefabName(data)}) is not a prespawn!");
@@ -685,12 +682,12 @@ namespace Unity.NetCode
                     DebugLog.Append((FixedString128Bytes)$"\t\t\tGID:{ghostId}");
 #endif
 
-                // Retrieve the spawn tick only for new, non-prespawn ghosts:
+                // 仅为新的非预生成 Ghost 获取生成 Tick
                 var isNewGhostForClient = data.BaselineTick == serverTick;
                 NetworkTick serverSpawnTick = NetworkTick.Invalid;
                 if (isNewGhostForClient && !PrespawnHelper.IsPrespawnGhostId(ghostId))
                 {
-                    // Retrieve spawn tick only for non-prespawn ghosts:
+                    // 仅为非预生成 Ghost 获取生成 Tick
                     if (PrespawnHelper.IsRuntimeSpawnedGhost(ghostId))
                     {
                         serverSpawnTick = new NetworkTick{SerializedData = dataStream.ReadPackedUIntDelta(data.BaseSpawnTick.SerializedData, CompressionModel)};
@@ -702,7 +699,7 @@ namespace Unity.NetCode
                     }
                 }
 
-                //Get the data size
+                // 获取数据大小
                 uint ghostDataSizeInBits = 0;
                 int ghostDataStreamStartBitsRead = 0;
                 if(GhostSystemConstants.SnapshotHasCompressedGhostSize)
@@ -727,13 +724,13 @@ namespace Unity.NetCode
                 //
                 int baselineDynamicDataIndex = -1;
                 byte* snapshotDynamicDataPtr = null;
-                uint snapshotDynamicDataCapacity = 0; // available space in the dynamic snapshot data history slot
+                uint snapshotDynamicDataCapacity = 0; // 动态 Snapshot 数据历史槽位中的可用空间
                 byte* baselineDynamicDataPtr = null;
 
                 bool existingGhost = GhostEntityMap.TryGetValue(ghostId, out gent);
                 if (SnapshotDataBufferFromEntity.HasBuffer(gent) && GhostFromEntity[gent].ghostType < 0)
                 {
-                    // Pre-spawned ghosts can have ghost type -1 until they receive the proper type from the server
+                    // 预生成 Ghost 在从服务器收到正确类型前，其 Ghost 类型可以为 -1
                     var existingGhostEnt = GhostFromEntity[gent];
                     existingGhostEnt.ghostType = (int)data.TargetArch;
                     GhostFromEntity[gent] = existingGhostEnt;
@@ -751,18 +748,18 @@ namespace Unity.NetCode
                     snapshotDataComponent = SnapshotDataFromEntity[gent];
                     snapshotDataComponent.LatestIndex = (snapshotDataComponent.LatestIndex + 1) % GhostSystemConstants.SnapshotHistorySize;
                     SnapshotDataFromEntity[gent] = snapshotDataComponent;
-                    // If this is a prespawned ghost with no baseline tick set use the prespawn baseline
+                    // 如果这是未设置 Baseline Tick 的预生成 Ghost，则使用预生成 Baseline
                     if (!data.BaselineTick.IsValid && PrespawnHelper.IsPrespawnGhostId(GhostFromEntity[gent].ghostId))
                     {
                         CheckPrespawnBaselineIsPresent(gent, ghostId);
                         var prespawnBaselineBuffer = PrespawnBaselineBufferFromEntity[gent];
                         if (prespawnBaselineBuffer.Length > 0)
                         {
-                            //Memcpy in this case is not necessary so we can safely re-assign the pointer
+                            // 此处无需 MemCpy，可以直接重新指向该数据
                             baselineData = (byte*)prespawnBaselineBuffer.GetUnsafeReadOnlyPtr();
                             NetDebug.DebugLog(FixedString.Format("Client prespawn baseline ghost id={0} serverTick={1}", GhostFromEntity[gent].ghostId, serverTick.ToFixedString()));
-                            //Prespawn baseline is a little different and store the base offset starting from the beginning of the buffer
-                            //TODO: change the receive system so everything use this kind of logic (so offset start from DynamicHeader size in general)
+                            // 预生成 Baseline 略有不同，其基础偏移量从 Buffer 起点开始记录
+                            // TODO：修改接收系统，使所有路径统一采用此逻辑，即偏移量通常从 DynamicHeader 大小开始
                             if (typeData.NumBuffers > 0)
                             {
                                 baselineDynamicDataPtr = baselineData + snapshotSize;
@@ -770,14 +767,14 @@ namespace Unity.NetCode
                         }
                         else
                         {
-                            //This is an unskippable error. The client MUST have the prespawn baseline.
+                            // 此错误无法跳过，客户端必须拥有预生成 Baseline
                             LogDeserializeFailure(LogType.Error, FixedString.Format("No prespawn baseline found for {0} GID:{1} (GhostType:{2}) -- cannot deserialize snapshot.", gent.ToFixedString(), GhostFromEntity[gent].ghostId, GetGhostTypePrefabName(data)));
                             return false;
                         }
                     }
                     else if (data.BaselineTick != serverTick)
                     {
-                        // we need to search the buffer backwards from the insert index to always look at latest snapshots first
+                        // 从插入索引向后搜索 Buffer，确保始终先检查最新 Snapshot
                         int numSnapshotsInBuffer = snapshotDataBuffer.Length / snapshotSize;
 
                         for (int snapshotCount = 0; snapshotCount < numSnapshotsInBuffer; ++snapshotCount)
@@ -787,7 +784,7 @@ namespace Unity.NetCode
                             if (*(uint*)(snapshotData+ bi) == data.BaselineTick.SerializedData)
                             {
                                 UnsafeUtility.MemCpy(baselineData, snapshotData+bi, snapshotSize);
-                                //retrive also the baseline dynamic snapshot buffer if the ghost has some buffers
+                                // 如果 Ghost 含有 Buffer，还要获取 Baseline 的动态 Snapshot Buffer
                                 if(typeData.NumBuffers > 0)
                                 {
                                     if (!SnapshotDynamicDataFromEntity.HasBuffer(gent))
@@ -801,7 +798,7 @@ namespace Unity.NetCode
                         if (Hint.Unlikely(*(uint*)baselineData == 0))
                         {
                             LogDeserializeFailure(LogType.Warning, (FixedString512Bytes) $"Ack desync at data.BaselineTick:{data.BaselineTick.ToFixedString()} and ServerTick:{serverTick.ToFixedString()} for GID:{ghostId} (GhostType:{GetGhostTypePrefabName(data)}) - server sent baseline(s) we do not have!");
-                            return false; // Ack desync detected
+                            return false; // 检测到 Ack 不同步
                         }
                     }
 
@@ -810,7 +807,7 @@ namespace Unity.NetCode
                         byte* baselineData2 = null;
                         byte* baselineData3 = null;
 
-                        // we need to search the buffer backwards from the insert index to always look at latest snapshots first
+                        // 从插入索引向后搜索 Buffer，确保始终先检查最新 Snapshot
                         int numSnapshotsInBuffer = snapshotDataBuffer.Length / snapshotSize;
                         for (int snapshotCount = 0; snapshotCount < numSnapshotsInBuffer; ++snapshotCount)
                         {
@@ -830,7 +827,7 @@ namespace Unity.NetCode
                         if (Hint.Unlikely(baselineData2 == null || baselineData3 == null))
                         {
                             LogDeserializeFailure(LogType.Warning, (FixedString512Bytes) $"Ack desync for baseline B2:{baselineData2 != null} and/or B3:{baselineData3 != null} at data.BaselineTick3:{data.BaselineTick3.ToFixedString()} and serverTick:{serverTick.ToFixedString()} for GID:{ghostId} (GhostType:{GetGhostTypePrefabName(data)}) - server sent baseline(s) we do not have!");
-                            return false; // Ack desync detected
+                            return false; // 检测到 Ack 不同步
                         }
                         snapshotOffset = GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + changeMaskUints*sizeof(uint) + enableableMaskUints*sizeof(uint));
                         var predictor = new GhostDeltaPredictor(serverTick, data.BaselineTick, data.BaselineTick2, data.BaselineTick3);
@@ -838,7 +835,7 @@ namespace Unity.NetCode
                         for (int comp = 0; comp < typeData.NumComponents; ++comp)
                         {
                             int serializerIdx = m_GhostComponentIndex[typeData.FirstComponent + comp].SerializerIndex;
-                            //Buffers does not use delta prediction for the size and the contents
+                            // Buffer 的长度和内容不使用增量预测
                             ref readonly var ghostSerializer = ref m_GhostComponentCollection.ElementAtRO(serializerIdx);
                             if (!ghostSerializer.HasGhostFields)
                                 continue;
@@ -858,10 +855,10 @@ namespace Unity.NetCode
                             }
                         }
                     }
-                    //buffers: retrieve the dynamic contents size and re-fit the snapshot dynamic history
+                    // Buffer：获取动态内容大小，并重新调整 Snapshot 动态历史空间
                     if (typeData.NumBuffers > 0)
                     {
-                        //Delta-decompress the dynamic data size
+                        // 对动态数据大小执行增量解压
                         var buf = SnapshotDynamicDataFromEntity[gent];
                         uint baselineDynamicDataSize = 0;
                         if (baselineDynamicDataIndex != -1)
@@ -879,14 +876,14 @@ namespace Unity.NetCode
                         if (Hint.Unlikely(!SnapshotDynamicDataFromEntity.HasBuffer(gent)))
                             throw new InvalidOperationException($"SnapshotDynamicDataBuffer buffer not found for GID:{ghostId} (GhostType:{GetGhostTypePrefabName(data)})!");
 
-                        //Fit the snapshot buffer to accomodate the new size. Add some room for growth (20%)
+                        // 调整 Snapshot Buffer 以容纳新大小，并预留约 20% 增长空间
                         var slotCapacity = SnapshotDynamicBuffersHelper.GetDynamicDataCapacity(SnapshotDynamicBuffersHelper.GetHeaderSize(), buf.Length);
                         var newCapacity = SnapshotDynamicBuffersHelper.CalculateBufferCapacity(dynamicDataSize, out var newSlotCapacity);
                         if (buf.Length < newCapacity)
                         {
-                            //Perf: Is already copying over the contents to the new re-allocated buffer. It would be nice to avoid that
+                            // 性能：重新分配 Buffer 时已经复制内容，最好能避免这次复制
                             buf.ResizeUninitialized((int)newCapacity);
-                            //Move buffer content around (because the slot size is changed)
+                            // 槽位大小变化后重新移动 Buffer 内容
                             if (slotCapacity > 0)
                             {
                                 var bufferPtr = (byte*)buf.GetUnsafePtr() + SnapshotDynamicBuffersHelper.GetHeaderSize();
@@ -901,10 +898,10 @@ namespace Unity.NetCode
                             }
                             slotCapacity = newSlotCapacity;
                         }
-                        //write down the received data size inside the snapshot (used for delta compression) and setup dynamic data ptr
+                        // 在 Snapshot 中记录收到的数据大小以供增量压缩使用，并设置动态数据指针
                         var bufPtr = (byte*)buf.GetUnsafePtr();
                         ((uint*)bufPtr)[snapshotDataComponent.LatestIndex] = dynamicDataSize;
-                        //Retrive dynamic data ptrs
+                        // 获取动态数据指针
                         snapshotDynamicDataPtr = SnapshotDynamicBuffersHelper.GetDynamicDataPtr(bufPtr,snapshotDataComponent.LatestIndex, buf.Length);
                         snapshotDynamicDataCapacity = slotCapacity;
                         if (baselineDynamicDataIndex != -1)
@@ -916,7 +913,7 @@ namespace Unity.NetCode
                     bool isPrespawn = PrespawnHelper.IsPrespawnGhostId(ghostId);
                     if (existingGhost)
                     {
-                        // The ghost entity map is out of date, clean it up
+                        // Ghost 实体映射已过期，将其清理
                         GhostEntityMap.Remove(ghostId);
                         if (GhostFromEntity.HasComponent(gent) && GhostFromEntity[gent].ghostType != data.TargetArch)
                              LogDeserializeFailure(LogType.Error, ($"Received a ghost (GID:{ghostId}, {gent.ToFixedString()}) with an invalid ghost type ({GetGhostTypePrefabName(data)}, expected {GhostFromEntity[gent].ghostType})."));
@@ -928,12 +925,12 @@ namespace Unity.NetCode
                     int prespawnSceneIndex = -1;
                     if (isPrespawn)
                     {
-                        //Received a pre-spawned object that does not exist in the map.  Possible reasons:
-                        // - Scene has been unloaded (but server didn't or the client unload before having some sort of ack)
-                        // - Ghost has been destroyed by the client
-                        // - Relevancy changes.
+                        // 收到映射中不存在的预生成对象，可能原因如下
+                        // - 场景已卸载，但服务器尚未卸载，或客户端在完成某种 Ack 前先行卸载
+                        // - 客户端已销毁 Ghost
+                        // - 相关性发生变化
 
-                        //Lookup the scene that prespawn belong to
+                        // 查找预生成 Ghost 所属场景
                         var prespawnId = (int)(ghostId & ~PrespawnHelper.PrespawnGhostIdBase);
                         for (int i = 0; i < PrespawnSceneStateArray.Length; ++i)
                         {
@@ -947,10 +944,9 @@ namespace Unity.NetCode
                     }
                     if (data.BaselineTick != serverTick)
                     {
-                        //If the client unloaded a subscene before the server or the server will not do that at all, we threat that as a
-                        //spurious/temporary inconsistency. The server will be notified soon that the client does not have that scenes anymore
-                        //and will stop streaming the subscene ghosts to him.
-                        //Try to recover by skipping the data. If the stream does not have a the ghost-size bits, fallback to the standard error.
+                        // 如果客户端先于服务器卸载 SubScene，或服务器根本不卸载，则视为短暂的不一致
+                        // 服务器很快会得知客户端已不再拥有该场景，并停止向其发送 SubScene Ghost
+                        // 尝试跳过数据进行恢复，如果流中没有 Ghost 大小位，则回退为标准错误
                         if(isPrespawn && prespawnSceneIndex == -1 && (GhostSystemConstants.SnapshotHasCompressedGhostSize))
                         {
 #if NETCODE_DEBUG
@@ -966,7 +962,7 @@ namespace Unity.NetCode
                                 ghostDataSizeInBits -= 32;
                             }
                             dataStream.ReadRawBits((int)ghostDataSizeInBits);
-                            //Still consider the data as good and don't force resync on the server
+                            // 仍将数据视为有效，不强制服务器重新同步
                             return true;
                         }
                         if(!isPrespawn || data.BaselineTick.IsValid)
@@ -982,7 +978,7 @@ namespace Unity.NetCode
                     var ghostSpawnBuffer = GhostSpawnBufferFromEntity[GhostSpawnEntity];
                     snapshotDataBuffer = SnapshotDataBufferFromEntity[GhostSpawnEntity];
                     var snapshotDataBufferOffset = snapshotDataBuffer.Length;
-                    //Grow the ghostSpawnBuffer to include also the dynamic data size.
+                    // 扩展 GhostSpawnBuffer，使其同时包含动态数据大小
                     uint dynamicDataSize = 0;
                     if (typeData.NumBuffers > 0)
                         dynamicDataSize = dataStream.ReadPackedUIntDelta(0, CompressionModel);
@@ -998,12 +994,10 @@ namespace Unity.NetCode
                     };
                     if (isPrespawn)
                     {
-                        //When a prespawn ghost is re-spawned because of relevancy changes some components are missing
-                        //(because they are added by the conversion system to the instance):
-                        //SceneSection and PreSpawnedGhostIndex
-                        //Without the PreSpawnedGhostIndex some queries does not report the ghost correctly and
-                        //the without the SceneSection the ghost will not be destroyed in case the scene is belonging to
-                        //is unloaded.
+                        // 预生成 Ghost 因相关性变化而重新生成时，会缺少部分由转换系统添加到实例的组件
+                        // 这些组件是 SceneSection 和 PreSpawnedGhostIndex
+                        // 缺少 PreSpawnedGhostIndex 时，部分查询无法正确识别该 Ghost
+                        // 缺少 SceneSection 时，Ghost 所属场景卸载后不会随之销毁
                         if (Hint.Likely(prespawnSceneIndex != -1))
                         {
                             spawnedGhost.PrespawnIndex = (int) (ghostId & ~PrespawnHelper.PrespawnGhostIdBase) - PrespawnSceneStateArray[prespawnSceneIndex].FirstGhostId;
@@ -1017,7 +1011,7 @@ namespace Unity.NetCode
                     snapshotData = (byte*)snapshotDataBuffer.GetUnsafePtr() + snapshotDataBufferOffset;
                     UnsafeUtility.MemClear(snapshotData, snapshotSize + dynamicDataSize);
                     snapshotDataComponent = new SnapshotData{SnapshotSize = snapshotSize, LatestIndex = 0};
-                    //dynamic content temporary data start after the snapshot for new ghosts
+                    // 新 Ghost 的动态内容临时数据从 Snapshot 之后开始
                     if (typeData.NumBuffers > 0)
                     {
                         snapshotDynamicDataPtr = snapshotData + snapshotSize;
@@ -1026,8 +1020,7 @@ namespace Unity.NetCode
                 }
 
                 int maskOffset = 0;
-                //the dynamicBufferOffset is used to track the dynamic content offset from the beginning of the dynamic history slot
-                //for each entity
+                // dynamicBufferOffset 用于跟踪每个实体的动态内容相对于动态历史槽位起点的偏移量
                 uint dynamicBufferOffset = 0;
 
                 snapshotOffset = GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + (changeMaskUints*sizeof(uint)) + (enableableMaskUints*sizeof(uint)));
@@ -1060,7 +1053,7 @@ namespace Unity.NetCode
 #endif
 #if UNITY_EDITOR || NETCODE_DEBUG
                 var perComponentStats = data.NetStatsSnapshot->PerGhostTypeStatsListRefRW.ElementAt((int)data.TargetArch).PerComponentStatsList;
-                if (perComponentStats.Length < typeData.NumComponents) // since comp count doesn't change, this should happen only once
+                if (perComponentStats.Length < typeData.NumComponents) // 组件数量不会变化，因此这里只应发生一次
                     perComponentStats.Resize(typeData.NumComponents, NativeArrayOptions.ClearMemory);
 #endif
                 for (int comp = 0; comp < typeData.NumComponents; ++comp)
@@ -1090,38 +1083,38 @@ namespace Unity.NetCode
                         {
                             CheckSnaphostBufferOverflow(maskOffset, GhostComponentSerializer.DynamicBufferComponentMaskBits,
                                 typeData.ChangeMaskBits, snapshotOffset, GhostComponentSerializer.DynamicBufferComponentSnapshotSize, snapshotSize);
-                            //Delta decompress the buffer len
+                            // 对 Buffer 长度执行增量解压
                             uint mask = GhostComponentSerializer.CopyFromChangeMask((IntPtr) changeMask, maskOffset, GhostComponentSerializer.DynamicBufferComponentMaskBits);
                             var baseLen = *(uint*) (baselineData + snapshotOffset);
                             var baseOffset = *(uint*) (baselineData + snapshotOffset + sizeof(uint));
                             var bufLen = (mask & 0x2) == 0 ? baseLen : dataStream.ReadPackedUIntDelta(baseLen, CompressionModel);
-                            //Assign the buffer info to the snapshot and register the current offset from the beginning of the dynamic history slot
+                            // 将 Buffer 信息写入 Snapshot，并记录其相对于动态历史槽位起点的当前偏移量
                             *(uint*) (snapshotData + snapshotOffset) = bufLen;
                             *(uint*) (snapshotData + snapshotOffset + sizeof(uint)) = dynamicBufferOffset;
                             snapshotOffset += GhostComponentSerializer.SnapshotSizeAligned(GhostComponentSerializer.DynamicBufferComponentSnapshotSize);
                             maskOffset += GhostComponentSerializer.DynamicBufferComponentMaskBits;
-                            //Copy the buffer contents. Use delta compression based on mask bits configuration
-                            //00 : nothing changed
-                            //01 : same len, only content changed. Add additional mask bits for each elements
-                            //11 : len changed, everthing need to be sent again . No mask bits for the elements
+                            // 复制 Buffer 内容，并根据 Mask 位配置使用增量压缩
+                            // 00：没有变化
+                            // 01：长度相同，仅内容变化，为每个元素增加额外 Mask 位
+                            // 11：长度变化，需要重新发送全部内容，不包含元素 Mask 位
                             var dynamicDataSnapshotStride = (uint)ghostSerializer.SnapshotSize;
                             var contentMaskUInts = (uint)GhostComponentSerializer.ChangeMaskArraySizeInUInts((int)(ghostSerializer.ChangeMaskBits * bufLen));
                             var maskSize = GhostComponentSerializer.SnapshotSizeAligned(contentMaskUInts*4);
                             CheckDynamicSnapshotBufferOverflow(dynamicBufferOffset, maskSize, bufLen*dynamicDataSnapshotStride, snapshotDynamicDataCapacity);
                             uint* contentMask = (uint*) (snapshotDynamicDataPtr + dynamicBufferOffset);
                             dynamicBufferOffset += maskSize;
-                            if ((mask & 0x3) == 0) //Nothing changed, just copy the baseline content
+                            if ((mask & 0x3) == 0) // 没有变化，直接复制 Baseline 内容
                             {
                                 UnsafeUtility.MemSet(contentMask, 0x0, maskSize);
                                 UnsafeUtility.MemCpy(snapshotDynamicDataPtr + dynamicBufferOffset,
                                     baselineDynamicDataPtr + baseOffset + maskSize, bufLen * dynamicDataSnapshotStride);
                                 dynamicBufferOffset += bufLen * dynamicDataSnapshotStride;
                             }
-                            else if ((mask & 0x2) != 0) // len changed, element masks are not present.
+                            else if ((mask & 0x2) != 0) // 长度变化，不存在元素 Mask
                             {
                                 UnsafeUtility.MemSet(contentMask, 0xFF, maskSize);
                                 var contentMaskOffset = 0;
-                                //Performace here are not great. It would be better to call a method that serialize the content inside so only one call
+                                // 此处性能不佳，最好改为调用一个内部完成全部内容序列化的方法，以减少函数调用次数
                                 for (int i = 0; i < bufLen; ++i)
                                 {
                                     ghostSerializer.Deserialize.Invoke(
@@ -1132,7 +1125,7 @@ namespace Unity.NetCode
                                     contentMaskOffset += ghostSerializer.ChangeMaskBits;
                                 }
                             }
-                            else //same len but content changed, decode the masks and copy the content
+                            else // 长度相同但内容变化，解码 Mask 并复制内容
                             {
                                 var baselineMaskPtr = (uint*) (baselineDynamicDataPtr + baseOffset);
                                 for (int cm = 0; cm < contentMaskUInts; ++cm)
@@ -1173,9 +1166,9 @@ namespace Unity.NetCode
                     }
 #endif
                 }
-                //This is the dual of the code in the GhostChunkSerialiser. It is responsible to reset the received
-                //snapshot data to 0 (as result of deconding from the acked baseline).
-                //TODO: Optimisation for later: avoid all these by actually making the server preserve this baseline information
+                // 此逻辑与 GhostChunkSerializer 中的编码逻辑相对应
+                // 负责将因已确认 Baseline 解码得到、但当前客户端不应接收的 Snapshot 数据重置为 0
+                // TODO：后续可让服务器保留此 Baseline 信息，从而避免这些重置操作
                 var networkId = NetworkIdFromEntity[Connections[0]];
                 if (typeData.PartialComponents != 0 || typeData.PartialSendToOwner != 0)
                 {
@@ -1210,20 +1203,18 @@ namespace Unity.NetCode
                         }
                     }
                 }
-                //Check if the owner has changed in respect to the last value stored in the GhostOwnerComponent.
-                //If that is the case, then we need to enqueue an owner switch change before the next GhostUpdateSystem
-                //update (so all component are actually now ready to be updated) to avoid adding another 1 frame latency
-                //to the client before it perceive this change.
-                //Another possibilty is to store in another component (internal) the old value and check always against
-                //that. That would give more control and safety (because the GhostOwner is public, users can do whatever they want
-                //with it).
+                // 检查所有者是否相对于 GhostOwner 中上次存储的值发生变化
+                // 如果发生变化，需要在下一次 GhostUpdateSystem 更新前排入所有者切换请求
+                // 此时所有组件已经准备好更新，可避免客户端感知变化时再增加一帧延迟
+                // 另一种方案是在内部组件中保存旧值并始终与其比较
+                // 由于 GhostOwner 是公开的，用户可以任意修改，内部旧值方案会提供更强的控制和安全性
                 if (typeData.OwnerPredicted != 0 && existingGhost && GhostOwnerFromEntity.HasComponent(gent))
                 {
                     ghostOwner = GhostOwnerFromEntity[gent];
                     var ownerId = *(int*)(snapshotData + typeData.PredictionOwnerOffset);
                     if(ghostOwner.NetworkId > 0 && ownerId <= 0 || ghostOwner.NetworkId <= 0 && ownerId > 0)
                     {
-                        //Owner changed, mark the ghost for further processing by the owner switching system
+                        // 所有者已变化，标记该 Ghost 供所有者切换系统后续处理
                         OwnerPredictedSwitchQueue.Enqueue(new OwnerSwithchingEntry
                         {
                             CurrentOwner = ghostOwner.NetworkId,
@@ -1294,7 +1285,7 @@ namespace Unity.NetCode
                     var prefab = ghostCollection[(int) data.TargetArch];
 #if NETCODE_DEBUG
                     if(PrefabNamesFromEntity.TryGetComponent(prefab.GhostPrefab, out var pdn))
-                        // Burst bug: Use FixedString.Format otherwise it prints BlobStringText.
+                        // Burst 缺陷：必须使用 FixedString.Format，否则会输出 BlobStringText
                         return FixedString.Format("{0}({1}/{2})", pdn.PrefabName, data.TargetArch, ghostCollection.Length);
 #endif
                     return (FixedString128Bytes)$"{prefab.GhostType.guid0}-{prefab.GhostType.guid1}-{prefab.GhostType.guid2}-{prefab.GhostType.guid3} Hash:{prefab.Hash}({data.TargetArch}/{ghostCollection.Length})";
@@ -1302,7 +1293,9 @@ namespace Unity.NetCode
                 return (FixedString128Bytes)$"???({data.TargetArch}/{ghostCollection.Length})";
             }
 
-            /// <summary>Packet dump AND log the Warning/Error log.</summary>
+            /// <summary>
+            /// 输出数据包转储，并记录 Warning 或 Error 日志
+            /// </summary>
             private void LogDeserializeFailure(UnityEngine.LogType type, FixedString512Bytes msg)
             {
 #if NETCODE_DEBUG
@@ -1405,8 +1398,8 @@ namespace Unity.NetCode
             if (m_ConnectionsQuery.IsEmptyIgnoreFilter)
             {
                 m_GhostCompletionCount[0] = m_GhostCompletionCount[1] = m_GhostCompletionCount[2] = 0;
-                state.CompleteDependency(); // Make sure we can access the spawned ghost map
-                // If there were no ghosts spawned at runtime we don't need to cleanup
+                state.CompleteDependency(); // 确保可以访问已生成 Ghost 映射
+                // 如果运行时没有生成任何 Ghost，则无需清理
                 if (m_GhostCleanupQuery.IsEmptyIgnoreFilter &&
                     m_SpawnedGhostEntityMap.Count() == 0 && m_GhostEntityMap.Count() == 0)
                     return;
@@ -1434,7 +1427,7 @@ namespace Unity.NetCode
                 return;
             }
 
-            // Don't start ghost snapshot processing until we're in game, but allow the cleanup code above to run
+            // 进入游戏前不开始处理 Ghost Snapshot，但允许执行上面的清理代码
             if (!SystemAPI.HasSingleton<NetworkStreamInGame>())
             {
                 return;

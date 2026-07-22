@@ -9,7 +9,7 @@ using Unity.NetCode.Tests;
 using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
-#pragma warning disable CS0618 // Using old version of CloneCollisionWorld.
+#pragma warning disable CS0618 // 测试仍使用旧版 CloneCollisionWorld
 
 namespace Unity.NetCode.Physics.Tests
 {
@@ -52,7 +52,7 @@ namespace Unity.NetCode.Physics.Tests
         [Test]
         public void CreatePhysicsHistoryBuffer_AllWorldsAreInitializedToDefault()
         {
-            //Initialized with CollisionHistoryBuffer.Capacity to allow access the full buffer.
+            // 使用 CollisionHistoryBuffer.Capacity 初始化以访问完整缓冲
             using (var historyBuffer = new CollisionHistoryBuffer(CollisionHistoryBuffer.Capacity))
             {
                 for(int i=0;i<historyBuffer.Size;++i)
@@ -97,11 +97,9 @@ namespace Unity.NetCode.Physics.Tests
             historyBuffer.Dispose();
             using (var collisionWorld = new CollisionWorld(1, 0))
             {
-                //2020_0_11 trigger InvalidArgumentException
-                //2020_0_12 might trigger InvalidArgumentException or ObjectDisposedException
-                //Looking at the code the triggering logic is quite involved and depends on where the method is called
-                //and some other conditions.
-                //This is why I used a more generic Catch clause instead of Throws
+                // 2020_0_11 会触发 InvalidArgumentException
+                // 2020_0_12 可能触发 InvalidArgumentException 或 ObjectDisposedException
+                // 具体异常取决于调用位置和其他条件，因此使用更通用的 Catch 而不是 Throws
                 Assert.Catch(()=> { historyBuffer.GetCollisionWorldFromTick(new NetworkTick(0), 0, out var world); });
                 Assert.Catch(()=> { historyBuffer.CloneCollisionWorld(0, collisionWorld); });
                 Assert.Catch(()=> {  historyBuffer.DisposeIndex(0); });
@@ -239,7 +237,7 @@ namespace Unity.NetCode.Physics.Tests
                 }
             }
             historyBuffer.Dispose();
-            //Depend on the 2020_X version
+            // 具体异常类型取决于 Unity 2020_X 版本
             Assert.Catch(() =>
             {
                 var handle = new ReadOnlyCollisionWorldJob

@@ -26,13 +26,13 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// For internal use only, struct used to pass some data to the code-generate ghost serializer.
+    /// 仅供内部使用，用于向代码生成的 Ghost Serializer 传递部分数据的结构
     /// </summary>
     public struct GhostSerializerState
     {
         /// <summary>
-        /// A readonly accessor to retrieve the <see cref="GhostInstance"/> from an entity reference. Used to
-        /// serialize a ghost entity reference.
+        /// 根据实体引用获取 <see cref="GhostInstance"/> 的只读访问器
+        /// 用于序列化 Ghost 实体引用
         /// </summary>
         public ComponentLookup<GhostInstance> GhostFromEntity;
     }
@@ -40,26 +40,26 @@ namespace Unity.NetCode
     internal struct GhostSystemConstants
     {
         /// <summary>
-        ///     The number of ghost snapshots stored internally by the server in the <see cref="GhostChunkSerializationState" />,
-        ///     and by the client in the <see cref="SnapshotDataBuffer" /> ring buffer.
-        ///     Reducing the SnapshotHistorySize would reduce the cost of storage on both server and client, but will
-        ///     affect the server's ability to effectively delta-compress data.
-        ///     This is because; based on the client latency, by the time the server receives the snapshot acks (inside the
-        ///     client command stream), the slot in which the acked data was stored could have been overwritten.
-        ///     The default of 32 is designed to work with a round trip time of about 500ms at a 60hz NetworkTickRate,
-        ///     where the server is sending a single connection the same dynamic ghost every tick.
+        /// 服务器在 <see cref="GhostChunkSerializationState"/> 中以及客户端在 <see cref="SnapshotDataBuffer"/> 环形 Buffer 中
+        /// 内部保存的 Ghost Snapshot 数量
+        /// 减小 SnapshotHistorySize 可降低服务器和客户端的存储成本
+        /// 但会削弱服务器有效执行增量压缩的能力
+        /// 原因是受客户端延迟影响，服务器通过客户端 Command 流收到 Snapshot Ack 时
+        /// 存储已确认数据的槽位可能已经被覆盖
+        /// 默认值 32 适用于 60 Hz NetworkTickRate、约 500 毫秒 RTT
+        /// 且服务器每个 Tick 都向单个连接发送同一动态 Ghost 的场景
         /// </summary>
         /// <remarks>
-        ///     32 (the default) is designed to work with a round trip time of about 500ms at a 60hz NetworkTickRate,
-        ///     where the server is sending a single connection the same dynamic ghost every tick.
+        /// 默认值 32 适用于 60 Hz NetworkTickRate、约 500 毫秒 RTT
+        /// 且服务器每个 Tick 都向单个连接发送同一动态 Ghost 的场景
         ///     <br />
-        ///     <c>NETCODE_SNAPSHOT_HISTORY_SIZE_16</c> is a good middle-ground between size-reduction (for static ghosts)
-        ///     and ack availability (for dynamic ghosts). Recommended for projects where the highest <see cref="GhostPrefabCreation.Config.MaxSendRate" />
-        ///     is 30Hz, or where the <see cref="ClientServerTickRate.NetworkTickRate" /> is 30.
+        /// <c>NETCODE_SNAPSHOT_HISTORY_SIZE_16</c> 在静态 Ghost 的存储缩减和动态 Ghost 的 Ack 可用性之间取得较好平衡
+        /// 建议用于最高 <see cref="GhostPrefabCreation.Config.MaxSendRate"/> 为 30 Hz
+        /// 或 <see cref="ClientServerTickRate.NetworkTickRate"/> 为 30 的项目
         ///     <br />
-        ///     <c>NETCODE_SNAPSHOT_HISTORY_SIZE_6</c> is best suited for larger scale projects (i.e. hundreds of dynamic
-        ///     ghosts, thousands of static ghosts, and where the player character controller is already sent at a
-        ///     significantly lower frequency due to congestion or <see cref="GhostPrefabCreation.Config.MaxSendRate" />).
+        /// <c>NETCODE_SNAPSHOT_HISTORY_SIZE_6</c> 最适合大型项目
+        /// 例如包含数百个动态 Ghost、数千个静态 Ghost
+        /// 且玩家角色控制器已经因拥塞或 <see cref="GhostPrefabCreation.Config.MaxSendRate"/> 而以显著较低频率发送
         /// </remarks>
         public const int SnapshotHistorySize =
 #if NETCODE_SNAPSHOT_HISTORY_SIZE_6
@@ -69,33 +69,36 @@ namespace Unity.NetCode
 #else
             32;
 #endif
-        /// <summary>At most, around half the snapshot can consist of new prefabs to use.</summary>
+        /// <summary>
+        /// 新 Prefab 数据最多约占 Snapshot 的一半
+        /// </summary>
         public const uint MaxNewPrefabsPerSnapshot = 32u;
         /// <summary>
-        /// Prepend to all serialized ghosts in the snapshot their compressed size. This can be used by the client
-        /// to recover from error condition and to skip ghost data in some situation, for example transitory condition
-        /// while streaming in/out scenes.
+        /// 在 Snapshot 中每个序列化 Ghost 前写入其压缩后大小
+        /// 客户端可利用此信息从错误状态恢复，或在部分情况下跳过 Ghost 数据
+        /// 例如场景流入或流出期间的短暂状态
         /// </summary>
         public const bool SnapshotHasCompressedGhostSize = true;
         /// <summary>
-        /// The maximum age of a baseline. If a baseline is older than this limit it will not be used
-        /// for delta compression.
+        /// Baseline 的最大年龄，超过此限制的 Baseline 不会用于增量压缩
         /// </summary>
         /// <remarks>
-        /// The index part of a network tick is 31 bits, at most 30 bits can be used without producing negative
-        /// values in TicksSince due to wrap around. This adds a margin of 2 bits to that limit.
+        /// 网络 Tick 的索引部分为 31 位，为避免回绕使 TicksSince 产生负值，最多只能使用 30 位
+        /// 此限制再保留 2 位余量
         /// </remarks>
         public const uint MaxBaselineAge = 1u<<28;
 
-        /// <summary>Maximum number of snapshot send attempts, which kicks in after we fail to fit even a single ghost into the snapshot.</summary>
-        /// <remarks>After each attempt, we double the packet size, meaning our last attempt is a snapshot <c>2^(8-1) i.e. 128x</c> larger than configured.</remarks>
+        /// <summary>
+        /// 连单个 Ghost 都无法放入 Snapshot 后允许的最大 Snapshot 发送尝试次数
+        /// </summary>
+        /// <remarks>每次尝试都会将包大小翻倍，因此最后一次尝试的 Snapshot 比配置值大 <c>2^(8-1)，即 128 倍</c></remarks>
         public const int MaxSnapshotSendAttempts = 8;
 
-        /// Minimum value for <see cref="GhostSendSystemData.DefaultSnapshotPacketSize"/>, if configured.
+        /// 配置 <see cref="GhostSendSystemData.DefaultSnapshotPacketSize"/> 时允许的最小值
         internal const int MinSnapshotPacketSize = 100;
-        /// Minimum value for <see cref="GhostSendSystemData.PercentReservedForDespawnMessages"/>.
+        /// <see cref="GhostSendSystemData.PercentReservedForDespawnMessages"/> 的最小值
         internal const float MinPercentReservedForDespawnMessages = .2f;
-        /// Maximum value for <see cref="GhostSendSystemData.PercentReservedForDespawnMessages"/>.
+        /// <see cref="GhostSendSystemData.PercentReservedForDespawnMessages"/> 的最大值
         internal const float MaxPercentReservedForDespawnMessages = .8f;
     }
 
@@ -109,20 +112,19 @@ namespace Unity.NetCode
 
 
     /// <summary>
-    /// Singleton entity that contains all the tweakable settings for the <see cref="GhostSendSystem"/>.
+    /// 包含 <see cref="GhostSendSystem"/> 所有可调设置的单例组件
     /// </summary>
     [Serializable]
     public struct GhostSendSystemData : IComponentData
     {
         /// <summary>
-        /// Non-zero values for <see cref="MinSendImportance"/> can cause both:
-        /// a) 'unchanged chunks that are "new" to a new-joiner' and b) 'newly spawned chunks'
-        /// to be ignored by the replication priority system for multiple seconds.
-        /// If this behaviour is undesirable, set this to be above <see cref="MinSendImportance"/>.
-        /// This multiplies the importance value used on those "new" (to the player or to the world) ghost chunks.
-        /// Note: This does not guarantee delivery of all "new" chunks,
-        /// it only guarantees that every ghost chunk will get serialized and sent at least once per connection,
-        /// as quickly as possible (e.g. assuming you have the bandwidth for it).
+        /// <see cref="MinSendImportance"/> 为非零值时，复制优先级系统可能在数秒内忽略以下两类 Chunk
+        /// - 对新加入者而言尚未变化但属于新的 Chunk
+        /// - 新生成的 Chunk
+        /// 如果不希望出现此行为，请将本值设为高于 <see cref="MinSendImportance"/>
+        /// 它会乘到这些对玩家或 World 而言属于新内容的 Ghost Chunk Importance 上
+        /// 注意：这不保证所有新 Chunk 都能送达
+        /// 只保证在带宽允许等条件下，每个 Ghost Chunk 会尽快为每个连接至少序列化并发送一次
         /// </summary>
         public uint FirstSendImportanceMultiplier
         {
@@ -138,102 +140,100 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// If not 0, denotes the desired size of an individual snapshot (unless the per-connection <see cref="NetworkStreamSnapshotTargetSize"/> component is present).
-        /// If zero, <see cref="NetworkParameterConstants.MTU"/> is used (minus headers).
-        /// Minimum value is <see cref="GhostSystemConstants.MinSnapshotPacketSize"/>.
+        /// 非 0 时表示单个 Snapshot 的目标大小，除非连接具有 <see cref="NetworkStreamSnapshotTargetSize"/> 组件
+        /// 为 0 时使用扣除 Header 后的 <see cref="NetworkParameterConstants.MTU"/>
+        /// 最小值为 <see cref="GhostSystemConstants.MinSnapshotPacketSize"/>
         /// </summary>
         [Tooltip("- If zero (the default), <b>NetworkParameterConstants.MTU</b> is used (minus headers).\n\n - Otherwise, denotes the desired size of an individual snapshot (unless the per-connection <b>NetworkStreamSnapshotTargetSize</b> component is present).")]
         [Min(0)]
         public int DefaultSnapshotPacketSize;
 
         /// <summary>
-        /// Denotes the maximum percentage of the snapshot's capacity that can be used for despawn messages.
-        /// The default is 33% (i.e. one third of a snapshot), though we recommend around 75% for large scale games.
+        /// 表示 Snapshot 容量中可用于销毁消息的最大比例
+        /// 默认值为 33%，即 Snapshot 的三分之一，大型游戏建议约为 75%
         /// </summary>
         /// <remarks>
-        /// Delta-compression of despawn <see cref="GhostInstance.ghostId"/>'s improves with despawn count.
-        /// Note that - due to importance scaling - it can take many ticks for the <see cref="GhostSendSystem"/> to
-        /// circle around to any given chunk, to recognise that it needs to despawn ghosts within said chunk.
-        /// Therefore, increasing <see cref="MaxIterateChunks"/> may help despawns register faster.
+        /// 销毁数量越多，对销毁 <see cref="GhostInstance.ghostId"/> 的增量压缩效果越好
+        /// 注意：受 Importance 缩放影响，<see cref="GhostSendSystem"/> 可能需要多个 Tick 才会再次处理某个 Chunk
+        /// 并发现其中有 Ghost 需要销毁
+        /// 因此提高 <see cref="MaxIterateChunks"/> 可能有助于更快登记销毁
         /// </remarks>
         [Tooltip("Denotes the maximum percentage of the snapshot's capacity that can be used for despawn messages.\n\nThe default is 33% (i.e. one third of a snapshot), though we recommend up to 75% for large scale games.")]
         [Range(GhostSystemConstants.MinPercentReservedForDespawnMessages, GhostSystemConstants.MaxPercentReservedForDespawnMessages)]
         public float PercentReservedForDespawnMessages;
 
         /// <summary>
-        /// The minimum importance considered for inclusion in a snapshot. Any ghost chunk with an importance value lower
-        /// than this value will not be added to the snapshot, even if there is enough space in the packet.
+        /// 纳入 Snapshot 所需的最低 Importance
+        /// 即使包中仍有足够空间，Importance 低于此值的 Ghost Chunk 也不会加入 Snapshot
         /// </summary>
         /// <remarks>
-        /// As of 1.4, prefer <see cref="GhostPrefabCreation.Config.MaxSendRate"/>, which you can author via the `GhostAuthoringComponent`.
-        /// Counted on a per-connection, per-chunk basis, where importance increases by the Importance value every tick, until sent (NOT confirmed delivered).
-        /// E.g. <c>MinSendImportance=60, SimulationTickRate=60, GhostAuthoringComponent.Importance=1</c> implies a ghost will be replicated roughly once per second.
+        /// 从 1.4 起，优先使用可通过 GhostAuthoringComponent 配置的 <see cref="GhostPrefabCreation.Config.MaxSendRate"/>
+        /// 此值按连接和 Chunk 分别计算，Importance 每个 Tick 按其配置值增长，直到数据发送，而非确认送达
+        /// 例如 <c>MinSendImportance=60, SimulationTickRate=60, GhostAuthoringComponent.Importance=1</c>
+        /// 表示 Ghost 大约每秒复制一次
         /// </remarks>
         [Tooltip("The minimum importance considered for inclusion in a snapshot. The Defaults to 0 (disabled).\n\nAny ghost chunk with an importance value lower than this value will not be added to the snapshot, even if there is enough space in the packet. Use to reduce send-rate for low-importance ghosts.\n\nDefaults to 0 (OFF).")]
         [Min(0)]
         public int MinSendImportance;
 
         /// <summary>
-        /// The minimum importance considered for inclusion in a snapshot after applying distance based
-        /// priority scaling to the ghost chunk. Any ghost chunk with a downscaled importance value lower
-        /// than this will not be added to the snapshot, even if there is enough space in the packet.
+        /// 对 Ghost Chunk 应用基于距离的优先级缩放后，纳入 Snapshot 所需的最低 Importance
+        /// 即使包中仍有足够空间，缩放后 Importance 低于此值的 Ghost Chunk 也不会加入 Snapshot
         /// </summary>
         [Tooltip("The minimum importance considered for inclusion in a snapshot after applying distance based priority scaling to the ghost chunk. Any ghost chunk with a downscaled importance value lower than this will not be added to the snapshot, even if there is enough space in the packet.\n\nDefaults to 0 (OFF).")]
         [Min(0)]
         public int MinDistanceScaledSendImportance;
 
         /// <summary>
-        ///     Denotes the maximum number of chunks the <see cref="GhostSendSystem" /> will iterate over in a single
-        ///     tick, for a given connection, within a single <see cref="ClientServerTickRate.NetworkTickRate" />
-        ///     snapshot send interval. It's an optimization in use-cases where you have many thousands of static ghosts
-        ///     (and thus hundreds of static chunks which are iterated over unneccessarily to find ones containing possible changes).
+        /// 表示在单个 <see cref="ClientServerTickRate.NetworkTickRate"/> Snapshot 发送间隔内
+        /// <see cref="GhostSendSystem"/> 为给定连接在一个 Tick 中最多遍历的 Chunk 数量
+        /// 适用于包含数千个静态 Ghost 的优化场景
+        /// 这类场景通常有数百个静态 Chunk，系统会为寻找可能变化的 Chunk 而执行大量无效遍历
         /// </summary>
         /// <remarks>
-        ///     A positive value will clamp the maximum number of chunks we iterate over (but cannot be less than
-        ///     <see cref="MaxSendChunks" />, thus clamped automatically to it).
-        ///     Use 0 (the default) to denote that you want to use the <see cref="MaxSendChunks" /> value as the
-        ///     <see cref="MaxIterateChunks"/> value (but note that this can lead to snapshot packets being less full than expected).
-        ///     Use -1 to denote that you want to iterate until the packet is filled (or send rules like <see cref="MaxSendChunks" /> are encountered).
+        /// 正值会限制最大遍历 Chunk 数，但不能小于 <see cref="MaxSendChunks"/>，因此会自动提高到该值
+        /// 使用默认值 0 表示让 <see cref="MaxIterateChunks"/> 使用 <see cref="MaxSendChunks"/> 的值
+        /// 但这可能导致 Snapshot 包未达到预期填充度
+        /// 使用 -1 表示持续遍历直到包填满，或触发 <see cref="MaxSendChunks"/> 等发送规则
         ///     <br/>
-        ///     <b>1st Warning:</b> If netcode cannot fill the packet within <see cref="MaxIterateChunks"/> chunks (for
-        ///     any reason), any ghost chunks after this index will not be processed (even if there is still space in
-        ///     the packet). Therefore, if you're encountering less-than-full packets in cases where you expect the packet
-        ///     to be full, increase this!
+        /// <b>第一项警告：</b>如果 NetCode 因任何原因无法在 <see cref="MaxIterateChunks"/> 个 Chunk 内填满包
+        /// 此索引之后的 Ghost Chunk 都不会处理，即使包中仍有空间
+        /// 如果预期包应填满但实际未填满，请提高此值
         ///     <br/>
-        ///     <b>2nd Warning:</b> <see cref="MaxIterateChunks"/> limits the number of chunks we process, and this filtering
-        ///     is applied BEFORE we check if ghosts are irrelevant. Therefore, if <see cref="MaxIterateChunks"/> is 4 (for example),
-        ///     and the 4 highest importance chunks ONLY contain irrelevant ghosts, we will NOT send ANY ghosts in this snapshot.
-        ///     Therefore, we recommend setting <see cref="MaxIterateChunks"/> to a value at least 2x higher than <see cref="MaxSendChunks"/>.
+        /// <b>第二项警告：</b><see cref="MaxIterateChunks"/> 会限制处理的 Chunk 数量
+        /// 且此筛选发生在检查 Ghost 是否不相关之前
+        /// 例如 <see cref="MaxIterateChunks"/> 为 4，且 Importance 最高的 4 个 Chunk 只包含不相关 Ghost
+        /// 则当前 Snapshot 不会发送任何 Ghost
+        /// 因此建议将 <see cref="MaxIterateChunks"/> 设为至少 <see cref="MaxSendChunks"/> 的 2 倍
         /// </remarks>
         [Tooltip("Denotes the maximum number of chunks the <b>GhostSendSystem</b> will iterate over in a single tick, for a given connection, within a single <b>NetworkTickRate</b> snapshot send interval.\n\nIt's an optimization in use-cases where you have many thousands of static ghosts (and thus hundreds of static chunks which are iterated over unneccessarily to find ones containing possible changes).\n\nDefaults to 0 (i.e. use <b>MinSendImportance</b>)\nRecommendation: ~10\n\n - A positive value will clamp the maximum number of chunks we iterate over (but cannot be less than <b>MaxSendChunks</b>, thus clamped automatically to it).\n - Use 0 to denote that <b>MaxIterateChunks</b> should use <b>MaxSendChunks</b>.\n\n - Use -1 to denote that you want to iterate until the packet is filled - or send rules (like <b>MaxSendChunks</b>) are encountered.")]
         [Min(0)]
         public int MaxIterateChunks;
 
         /// <summary>
-        /// The maximum number of chunks the <see cref="GhostSendSystem"/> will add to the snapshot for any given connection,
-        /// within a single <see cref="ClientServerTickRate.NetworkTickRate"/> snapshot send interval. Only incremented
-        /// when at least one ghost is added to the snapshot for a chunk.
+        /// 在单个 <see cref="ClientServerTickRate.NetworkTickRate"/> Snapshot 发送间隔内
+        /// <see cref="GhostSendSystem"/> 为任意给定连接加入 Snapshot 的最大 Chunk 数量
+        /// 仅当某 Chunk 至少有一个 Ghost 加入 Snapshot 时才增加计数
         /// <br/>
-        /// <b>Warning</b>: <see cref="MaxSendChunks"/> may lead to unnecessarily empty snapshot packets, in cases where
-        /// adding this many chunks to the snapshot does not completely fill it. See <see cref="MaxIterateChunks"/> for resolution.
+        /// <b>警告：</b>如果加入这些 Chunk 后未完全填满 Snapshot
+        /// <see cref="MaxSendChunks"/> 可能导致包中留下不必要的空闲空间，解决方式参见 <see cref="MaxIterateChunks"/>
         /// </summary>
         [Tooltip("The maximum number of chunks the GhostSendSystem will add to the snapshot for any given connection, within a single NetworkTickRate snapshot send interval. Only incremented when at least one ghost is added to the snapshot for a chunk. Warning: <b>MaxSendChunks</b> may lead to unnecessarily empty snapshot packets, in cases where adding this many chunks to the snapshot does not completely fill it. See <b>MaxIterateChunks</b> for resolution.\n\nDefaults to 0 (OFF).")]
         [Min(0)]
         public int MaxSendChunks;
 
         /// <summary>
-        /// The maximum number of entities the <see cref="GhostSendSystem"/> will add to the snapshot for any given connection,
-        /// within a single <see cref="ClientServerTickRate.NetworkTickRate"/> snapshot send interval.
-        /// Ignores irrelevant ghosts and cancelled sends (e.g. zero change static optimized chunks).
-        /// This can be used to reduce / control CPU time on the server.
-        /// <b>Warning</b>: <see cref="MaxSendChunks"/> may lead to unnecessarily empty snapshot packets, in cases where
-        /// adding this many entities to the snapshot does not completely fill it.
-        /// Prefer <see cref="MaxSendChunks"/> and <see cref="MaxIterateChunks"/>.
+        /// 在单个 <see cref="ClientServerTickRate.NetworkTickRate"/> Snapshot 发送间隔内
+        /// <see cref="GhostSendSystem"/> 为任意给定连接加入 Snapshot 的最大实体数量
+        /// 不统计不相关 Ghost 和已取消发送，例如零变化的静态优化 Chunk
+        /// 可用于降低或控制服务器 CPU 时间
+        /// <b>警告：</b>如果加入这些实体后未完全填满 Snapshot
+        /// <see cref="MaxSendChunks"/> 可能导致包中留下不必要的空闲空间
+        /// 请优先使用 <see cref="MaxSendChunks"/> 和 <see cref="MaxIterateChunks"/>
         /// </summary>
         /// <remarks>
-        ///     An implementation detail to be aware of here is that we can currently only check this value
-        ///     after a chunk has been written (partially or in full) to the snapshot. Therefore, in practice, a value of 1
-        ///     is equivalent to <c>MaxSendChunks = 1;</c>.
+        /// 需要注意的实现细节是，当前只能在 Chunk 已部分或全部写入 Snapshot 后检查此值
+        /// 因此实际使用中，值 1 等同于 <c>MaxSendChunks = 1;</c>
         /// </remarks>
         [Tooltip("<b>Obsolete: No longer functional!</b>\n\nThe maximum number of entities the <b>GhostSendSystem</b> will add to the snapshot for any given connection, within a single <b>NetworkTickRate</b> snapshot send interval. Ignores irrelevant ghosts and cancelled sends (e.g. zero change static optimized chunks). This can be used to reduce / control CPU time on the server.\n\n<b>Warning</b>: <b>MaxSendChunks</b> may lead to unnecessarily empty snapshot packets, in cases where adding this many entities to the snapshot does not completely fill it. Prefer <b>MaxSendChunks</b> and <b>MaxIterateChunks</b>.\n\nDefaults to 0 (OFF).")]
         [Min(0)]
@@ -242,9 +242,9 @@ namespace Unity.NetCode
         public int MaxSendEntities;
 
         /// <summary>
-        /// Value used to scale down the importance of chunks where all entities were irrelevant last time it was sent.
-        /// The importance is divided by this value. It can be used together with MinSendImportance to make sure
-        /// relevancy is not updated every frame for things with low importance.
+        /// 用于降低上次发送时所有实体均不相关的 Chunk Importance
+        /// Importance 会除以此值，可配合 MinSendImportance 使用
+        /// 以避免每帧更新低 Importance 内容的相关性
         /// </summary>
         public int IrrelevantImportanceDownScale
         {
@@ -260,9 +260,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// We multiply every chunks priority by this value (default: 1k) just before passing said chunks to ghost importance
-        /// scaling function pointers, to allow said scaling functions to play with -- and therefore return -- better,
-        /// more fine-grained values.
+        /// 将 Chunk 传给 Ghost Importance 缩放函数指针前，会把每个 Chunk 的优先级乘以此值，默认 1000
+        /// 使缩放函数能够计算并返回粒度更细的结果
         /// </summary>
         public ushort ImportanceScalingMultiplier
         {
@@ -281,10 +280,9 @@ namespace Unity.NetCode
         internal ushort m_ImportanceScalingMultiplier;
 
         /// <summary>
-        /// Force all ghosts to use a single snapshot delta-compression value prediction baseline. This will reduce CPU
-        /// usage at the expense of increased bandwidth usage. This is mostly meant as a way of measuring which ghosts
-        /// should use static optimization instead of dynamic. If the bits / ghost does not significantly increase when
-        /// enabling this the ghost can use static optimization to save CPU.
+        /// 强制所有 Ghost 使用单个 Snapshot 增量压缩值预测 Baseline
+        /// 此设置以增加带宽为代价降低 CPU 使用量，主要用于衡量哪些 Ghost 应使用静态优化而非动态优化
+        /// 如果启用后每个 Ghost 的位数没有显著增加，该 Ghost 可以使用静态优化节省 CPU
         /// </summary>
         public bool ForceSingleBaseline
         {
@@ -296,12 +294,12 @@ namespace Unity.NetCode
         internal bool m_ForceSingleBaseline;
 
         /// <summary>
-        /// Debug Feature: Force all ghosts to use pre-serialization. This means part of the serialization will be done once for
-        /// all connection, instead of once per-connection. This can increase CPU time for simple ghosts and ghosts
-        /// which are rarely sent. This switch is meant as a DEBUG feature, providing a way of measuring which ghosts
-        /// would benefit from using pre-serialization.
+        /// 调试功能：强制所有 Ghost 使用预序列化
+        /// 这意味着部分序列化会为所有连接统一执行一次，而不是每个连接分别执行
+        /// 对简单 Ghost 或很少发送的 Ghost，此设置可能增加 CPU 时间
+        /// 此开关用于衡量哪些 Ghost 能从预序列化中获益
         /// </summary>
-        /// <remarks>Should not be enabled in Production!</remarks>
+        /// <remarks>不应在生产环境启用</remarks>
         public bool ForcePreSerialize
         {
             get { return m_ForcePreSerialize; }
@@ -312,11 +310,10 @@ namespace Unity.NetCode
         internal bool m_ForcePreSerialize;
 
         /// <summary>
-        /// Try to keep the snapshot history buffer for an entity when there is a structural change.
-        /// Doing this will require a lookup and copy of data whenever a ghost has a structural change,
-        /// which will add additional CPU cost on the server.
-        /// Keeping the snapshot history will not always be possible, so, this flag does no give a 100% guarantee,
-        /// and you are expected to measure CPU and bandwidth when changing this.
+        /// 实体发生结构变更时尝试保留其 Snapshot 历史 Buffer
+        /// 每当 Ghost 发生结构变更，都需要查找并复制数据，因此会增加服务器 CPU 成本
+        /// Snapshot 历史并非始终能够保留，所以此标志不提供 100% 保证
+        /// 修改此值时应测量 CPU 和带宽影响
         /// </summary>
         public bool KeepSnapshotHistoryOnStructuralChange
         {
@@ -328,8 +325,8 @@ namespace Unity.NetCode
         internal bool m_KeepSnapshotHistoryOnStructuralChange;
 
         /// <summary>
-        /// Enable profiling scopes for each component in a ghost.
-        /// This can help track down why a ghost is expensive to serialize - but it comes with a performance cost, so is not enabled by default.
+        /// 为 Ghost 中的每个组件启用性能分析作用域
+        /// 可帮助定位 Ghost 序列化成本高的原因，但会产生性能开销，因此默认不启用
         /// </summary>
         public bool EnablePerComponentProfiling
         {
@@ -342,8 +339,8 @@ namespace Unity.NetCode
         internal bool m_EnablePerComponentProfiling;
 
         /// <summary>
-        /// The number of connections to cleanup unused serialization data for, in a single tick.
-        /// Setting this higher can recover memory faster, but uses more CPU time.
+        /// 单个 Tick 中清理未使用序列化数据的连接数量
+        /// 提高此值可更快回收内存，但会使用更多 CPU 时间
         /// </summary>
         [Tooltip("The number of connections to cleanup unused serialization data for, in a single tick. Setting this higher can recover memory faster, but uses more CPU time.\n\nDefaults to 1.")]
         [Min(1)]
@@ -359,14 +356,12 @@ namespace Unity.NetCode
         int m_IrrelevantImportanceDownScale;
 
         /// <summary>
-        /// Value used to set the initial size of the internal temporary stream in which
-        /// ghost data is serialized. Using a small size will incur in extra serialization costs (because
-        /// of multiple round of serialization), while using a larger size provide better performance (overall).
-        /// The minimum size of this buffer is forced to be the initial capacity of the outgoing data
-        /// stream (usually MaxMessageSize or larger for fragmented payloads).
-        /// The suggested default (8kb), while extremely large in respect to the packet size, would allow the <see cref="GhostSendSystem"/>
-        /// to be able to to write a large range of mid/small ghost entities types, with varying size (up to hundreds of bytes
-        /// each), without incurring in extra serialization overhead.
+        /// 设置内部临时流的初始大小，Ghost 数据会序列化到该流中
+        /// 较小值会因多轮序列化产生额外成本，较大值通常能提供更好性能
+        /// 此 Buffer 的最小大小会强制设为出站数据流的初始容量
+        /// 通常是 MaxMessageSize，分片载荷时可能更大
+        /// 建议默认值 8 KB 相对于包大小非常大，但可让 <see cref="GhostSendSystem"/>
+        /// 写入多种大小不一的中小型 Ghost 实体，每个实体可达数百字节，而无需额外序列化开销
         /// </summary>
         public int TempStreamInitialSize
         {
@@ -382,7 +377,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// When set, enables support for using any registered <see cref="GhostPrefabCustomSerializer"/> to serialize ghost chunks.
+        /// 设置后允许使用任意已注册 <see cref="GhostPrefabCustomSerializer"/> 序列化 Ghost Chunk
         /// </summary>
         public int UseCustomSerializer
         {
@@ -418,35 +413,37 @@ namespace Unity.NetCode
 
     /// <summary>
     /// <para>
-    /// System present only for servers worlds, and responsible to replicate ghost entities to the clients.
-    /// The <see cref="GhostSendSystem"/> is one of the most complex system of the whole package and heavily rely on multi-thread jobs to dispatch ghosts to all connection as much as possible in parallel.
+    /// 仅存在于服务器 World，负责向客户端复制 Ghost 实体
+    /// <see cref="GhostSendSystem"/> 是整个包中最复杂的系统之一
+    /// 大量依赖多线程 Job，尽可能并行地向所有连接分发 Ghost
     /// </para>
     /// <para>
-    /// Ghosts entities are replicated by sending a 'snapshot' of their state to the clients, at <see cref="ClientServerTickRate.NetworkTickRate"/> frequency.
-    /// Snaphosts are streamed to the client when their connection is tagged with a <see cref="NetworkStreamInGame"/> component (we usually refere a connection with that tag as "in-game"),
-    /// and transmitted using an unrealiable channel. To save bandwith, snapshosts are delta-compressed against the latest reported ones received by the client.
-    /// By default, up to 3 baseline are used to delta-compress the data, by using a predictive compression scheme (see <see cref="GhostDeltaPredictor"/>). It is possible
-    /// to reduce the number of baseline used (and CPU cycles) using the <see cref="GhostSendSystemData"/> settings.
+    /// Ghost 实体通过以 <see cref="ClientServerTickRate.NetworkTickRate"/> 频率向客户端发送状态 Snapshot 进行复制
+    /// 连接带有 <see cref="NetworkStreamInGame"/> 组件时，Snapshot 才会通过不可靠通道流式发送到客户端
+    /// 这种连接通常称为已进入游戏
+    /// 为节省带宽，Snapshot 会相对于客户端报告的最新已接收 Snapshot 执行增量压缩
+    /// 默认最多使用 3 个 Baseline，并采用预测压缩方案，参见 <see cref="GhostDeltaPredictor"/>
+    /// 可通过 <see cref="GhostSendSystemData"/> 设置减少 Baseline 数量及 CPU 周期
     /// </para>
     /// <para>
-    /// The GhostSendSystem is designed to send to each connection <b>one single packet per network update</b>. By default, the system will try to
-    /// replicate to the clients all the existing ghost present in the world. When all ghosts cannot be serialized into the same packet,
-    /// the enties are prioritized by their importance.
+    /// GhostSendSystem 设计为每次网络更新向每个连接发送<b>单个数据包</b>
+    /// 默认情况下，系统会尝试向客户端复制 World 中所有现有 Ghost
+    /// 当所有 Ghost 无法序列化到同一个包时，会按 Importance 设置实体优先级
     /// </para>
     /// <para>
-    /// The base ghost importance can be set at authoring time on the prefab (<see cref="Unity.NetCode.GhostAuthoringComponent"/>);
-    /// At runtime the ghost importance is scaled based on:
+    /// 可在 Prefab 的 Authoring 阶段通过 <see cref="Unity.NetCode.GhostAuthoringComponent"/> 设置基础 Ghost Importance
+    /// 运行时会根据以下因素缩放 Ghost Importance
     /// </para>
-    /// <para>- age (the last time the entities has been sent)</para>
-    /// <para>- scaled by distance, (see <see cref="GhostConnectionPosition"/>, <see cref="GhostDistanceImportance"/></para>
-    /// <para>- scaled by custom scaling (see <see cref="GhostImportance"/></para>
+    /// <para>- 年龄，即实体上次发送距今的时间</para>
+    /// <para>- 基于距离缩放，参见 <see cref="GhostConnectionPosition"/> 和 <see cref="GhostDistanceImportance"/></para>
+    /// <para>- 自定义缩放，参见 <see cref="GhostImportance"/></para>
     /// <para>
-    /// Ghost entities are replicated on "per-chunk" basis; all ghosts for the same chunk, are replicated
-    /// together. The importance, as well as the importance scaling, apply to whole chunk.
+    /// Ghost 实体按 Chunk 复制，同一 Chunk 中的所有 Ghost 会一起复制
+    /// Importance 及其缩放都应用于整个 Chunk
     /// </para>
     /// <para>
-    /// The send system can also be configured to send multiple ghost packets per frame and to to use snaphost larger than the MaxMessageSize.
-    /// In that case, the snapshot packet is sent using another unreliable channel, setup with a <see cref="FragmentationPipelineStage"/>.
+    /// 发送系统也可配置为每帧发送多个 Ghost 包，并使用大于 MaxMessageSize 的 Snapshot
+    /// 此时 Snapshot 包会通过配置了 <see cref="FragmentationPipelineStage"/> 的另一条不可靠通道发送
     /// </para>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -481,15 +478,15 @@ namespace Unity.NetCode
         JobHandle m_ConnectionStatesJobHandle;
 
         /// <summary>
-        /// Internal api used by PlayModeTool's ImportanceDrawerSystem.
-        /// Returns the connectionStateData for a given connectionEntity.
+        /// PlayModeTool 的 ImportanceDrawerSystem 使用的内部 API
+        /// 返回给定 connectionEntity 对应的 connectionStateData
         /// </summary>
-        /// <param name="connectionEntity">The connectionEntity for which to get the connectionStateData.</param>
+        /// <param name="connectionEntity">要获取 connectionStateData 的 connectionEntity</param>
         /// <returns>
-        /// A jobHandle used to access the ConnectionStateData.
-        /// The connectionStateData for the given entity.
+        /// 用于访问 ConnectionStateData 的 JobHandle
+        /// 以及给定实体对应的 connectionStateData
         /// </returns>
-        /// <exception cref="ArgumentException">Throws an ArgumentException when the connectionEntity is not present in the GhostSendSystem's connection state array.</exception>
+        /// <exception cref="ArgumentException">connectionEntity 不在 GhostSendSystem 的连接状态数组中时抛出</exception>
         internal (JobHandle, ConnectionStateData) GetConnectionStateData(Entity connectionEntity) =>
             (m_ConnectionStatesJobHandle, m_ConnectionStates[m_ConnectionStateLookup[connectionEntity]]);
 
@@ -564,7 +561,9 @@ namespace Unity.NetCode
                 All = new ComponentType[] {typeof(GhostInstance)},
                 None = new ComponentType[] {typeof(GhostCleanup), typeof(PreSpawnedGhostIndex)}
             };
-            //TODO if we had a different tag like GhostNeedsInitialization that'd be there on all ghost prefabs, we could then have the Ghostcleanup comp already on the ghost when spawning, allowing the serialize job to detect the ghost on the same frame as it is spawned, avoiding an extra 16ms of delay between server spawn and it actually being sent. Could have high impact for missiles and other spawned time sensitive objects like this.
+            // TODO：如果所有 Ghost Prefab 都具有 GhostNeedsInitialization 等独立标签
+            // 就可以在生成时让 Ghost 已带有 GhostCleanup，使序列化 Job 在同一帧检测到它
+            // 从而避免服务器生成到实际发送之间额外约 16 毫秒延迟，这对导弹等时间敏感生成对象影响很大
             EntityQueryDesc filterDespawn = new EntityQueryDesc
             {
                 All = new ComponentType[] {typeof(GhostCleanup)},
@@ -574,12 +573,12 @@ namespace Unity.NetCode
             ghostDespawnQuery = state.GetEntityQuery(filterDespawn);
             prespawnSharedComponents = state.GetEntityQuery(ComponentType.ReadOnly<SubSceneGhostComponentHash>());
             internalGlobalRelevantQueryMask = state.GetEntityQuery(ComponentType.ReadOnly<PrespawnSceneLoaded>()).GetEntityQueryMask();
-            netcodeEmptyQuery = state.GetEntityQuery(new EntityQueryDesc { None = new ComponentType[] { typeof(GhostInstance) } }).GetEntityQueryMask(); // "default" just matches everything so we need to specify None to have a real "no query is set"
+            netcodeEmptyQuery = state.GetEntityQuery(new EntityQueryDesc { None = new ComponentType[] { typeof(GhostInstance) } }).GetEntityQueryMask(); // default 会匹配全部实体，因此必须指定 None 才能表达未设置查询
 
             m_FreeGhostIds = new NativeQueue<int>(Allocator.Persistent);
             m_AllocatedGhostIds = new NativeArray<int>(2, Allocator.Persistent);
-            m_AllocatedGhostIds[0] = 1; // To make sure 0 is invalid
-            m_AllocatedGhostIds[1] = 1; // To make sure 0 is invalid
+            m_AllocatedGhostIds[0] = 1; // 确保 0 始终无效
+            m_AllocatedGhostIds[1] = 1; // 确保 0 始终无效
 
             m_DestroyedPrespawns = new NativeList<int>(Allocator.Persistent);
             m_DestroyedPrespawnsQueue = new NativeQueue<int>(Allocator.Persistent);
@@ -707,7 +706,7 @@ namespace Unity.NetCode
             m_GhostRelevancySet.Dispose();
             m_ConnectionsToProcess.Dispose();
 
-            state.Dependency.Complete(); // for ghost map access
+            state.Dependency.Complete(); // 等待完成以访问 Ghost 映射
             m_GhostMap.Dispose();
             m_FreeSpawnedGhostQueue.Dispose();
             m_SceneSectionHashLookup.Dispose();
@@ -746,19 +745,24 @@ namespace Unity.NetCode
 #endif
             public void Execute()
             {
-                // Some of the code in GhostSendSystem could be useful for offline single world hosts as well.
-                // However there are assumptions that things are reset if you're not NetworkStreamInGame anymore. ghost collection gets reset with no more connections.
-                // For example during a scene switch. Which was nice, we'd reset everything between "in-game" and make sure there's no rogue prefab entries.
-                // Users could do a world migration which could be cleaner, but it'd be lots of maintenance cost, not great.
-                // We could potentially split "enable replication" and "reset ghost collection because there was a scene switch"
-                // The assumption was that Ghost IDs should only be there for mapping ghosts between client and server. if there's no connection, there's no need for a GhostID.
-                // However, if you want to access a ghost' GhostType (which is stored in GhostInstance), you need GhostInstance to be initialized. For example the BackupSystem uses GhostType for its own serialization purpose.
-                // Plus it's more consistent to just always have GhostIDs all the time as soon as a ghost is spawned, not just when you have a connection. The perf gains you'd gain by not doing the work now would
-                // be offset by the burst of work to do with the first client connected. Plus, assigning ghost IDs shouldn't be the thing that takes the most time, user simulation logic should be bigger.
-                // TODO are there other assumptions around NetworkStreamInGame and other work that should always be done only if you have a client connection? Other perf impact?
-                // TODO Once we do this, look at what happens if you go in game, then stop in game (clearing ghost collection), switch scene and rebuild collection once you go in game again? Are ghost types coherent then for your GhostInstance? Does this work for a DGS where you're not in-game when you start the process?
+                // GhostSendSystem 的部分代码也可用于离线单 World Host
+                // 但当前假设离开 NetworkStreamInGame 后会重置相关状态，没有连接时 Ghost 集合也会重置
+                // 例如切换场景时，会在两次进入游戏之间重置全部内容，避免残留异常 Prefab 条目
+                // 用户可以执行 World 迁移，过程更干净但维护成本很高
+                // 可考虑将启用复制与因场景切换而重置 Ghost 集合拆分
+                // 旧假设是 Ghost ID 只用于客户端与服务器间映射，没有连接时无需 Ghost ID
+                // 但要访问存储在 GhostInstance 中的 GhostType，就必须先初始化 GhostInstance
+                // 例如 BackupSystem 会将 GhostType 用于自身序列化
+                // Ghost 生成后始终拥有 Ghost ID 也更一致，而不是仅在存在连接时才分配
+                // 延迟分配节省的性能会被首个客户端连接时的集中工作抵消
+                // 而且 Ghost ID 分配不应成为主要耗时，用户模拟逻辑通常成本更高
+                // TODO：检查 NetworkStreamInGame 周围是否还有仅在存在客户端连接时才应执行的假设，以及其他性能影响
+                // TODO：实现后检查进入游戏、退出并清空 Ghost 集合、切换场景、再次进入游戏并重建集合的流程
+                // 需要确认 GhostInstance 中的 Ghost 类型是否仍一致，以及进程启动时未进入游戏的 DGS 是否正常工作
 
-                // The below check is useless, as this job is only triggered when there's a GhostCollection present and it's "network stream in game" is true. This check was added a long time ago by Tim when fixing a LagCompensation test? https://github.com/Unity-Technologies/netcode/commit/07560a4e66da43ecc88dea0d0dd81123bccf8982#diff-ecc6fdb6e44e3dc05cff13a9e5aa56ba02b1faa082c1adb80031105d79b23793
+                // 以下检查无效，因为此 Job 仅在存在 GhostCollection 且 NetworkStreamInGame 为 true 时触发
+                // 此检查很久以前由 Tim 在修复 LagCompensation 测试时添加
+                // https://github.com/Unity-Technologies/netcode/commit/07560a4e66da43ecc88dea0d0dd81123bccf8982#diff-ecc6fdb6e44e3dc05cff13a9e5aa56ba02b1faa082c1adb80031105d79b23793
                 // if (connectionState.Length == 0)
                 //     return;
 
@@ -779,7 +783,7 @@ namespace Unity.NetCode
                         throw new InvalidOperationException($"Could not find ghost type in the collection. GhostCollection length is {GhostCollection.Length}, was trying to find ghost type index {ghostType}");
 #endif
                     if (ghostType >= GhostTypeCollection.Length)
-                        continue; // serialization data has not been loaded yet
+                        continue; // 序列化数据尚未加载
                     var ghosts = spawnChunks[chunk].GetNativeArray(ref ghostComponentType);
                     for (var ent = 0; ent < entities.Length; ++ent)
                     {
@@ -807,7 +811,10 @@ namespace Unity.NetCode
                             netDebug.LogError($"Assigning a GhostId of 0 to a Ghost. This should never happen. Has GhostId override = {ghostOverrideFromEntity.HasComponent(entities[ent])}");
                         }
 
-                        // TODO-release this won't execute on a single world host if it has no connection. Backup system assumes GhostInstance is initialized on each entity. Wouldn't that be the case for user systems as well? A user server system running would assume a spawned ghost has a GhostInstance that's initialized, even if there's not client connected, no? This is mostly an issue for single world host if we support offline mode. In binary world mode, a host can't really be "offline", its client world wouldn't update anymore.
+                        // TODO-release：单 World Host 没有连接时不会执行此逻辑
+                        // BackupSystem 假设每个实体的 GhostInstance 已初始化，用户系统通常也会有相同假设
+                        // 即使没有客户端连接，服务器用户系统也可能认为已生成 Ghost 拥有初始化后的 GhostInstance
+                        // 这主要影响支持离线模式的单 World Host，双 World 模式下 Host 无法真正离线，否则客户端 World 会停止更新
                         ghosts[ent] = new GhostInstance {ghostId = newEntityGhostId, ghostType = ghostType, spawnTick = newEntitySpawnTick };
 
                         var spawnedGhost = new SpawnedGhost
@@ -849,7 +856,7 @@ namespace Unity.NetCode
                         }
                         if (GhostTypeCollection[ghostType].OwnerPredicted != 0)
                         {
-                            // Validate that the entity has a GhostOwner and that the value in the GhostOwner has been initialized
+                            // 验证实体具有 GhostOwner，且其中的值已经初始化
                             var ghostOwners = spawnChunks[chunk].GetNativeArray(ref ghostOwnerComponentType);
                             for (int ent = 0; ent < ghostOwners.Length; ++ent)
                             {
@@ -985,13 +992,13 @@ namespace Unity.NetCode
                     netDebugPacket.Log($"\n███ [GSS:SJ][{timestamp}] Connection {connectionId.ToFixedString()} on ServerTick:{currentTick.ToFixedString()}, {networkIdFromEntity[connectionEntity].ToFixedString()}\n");
 #endif
 
-                // Gather Ghost Chunks:
+                // 收集 Ghost Chunk
                 s_PrioritizeChunksMarker.Begin();
                 GatherGhostChunksBatch(out GhostChunksContext ctx);
                 s_PrioritizeChunksMarker.End();
 
-                // MaxIterateChunks is how many we process (i.e. query i.e. how many we ATTEMPT to send),
-                // MaxSendChunks is how many we ALLOW to send.
+                // MaxIterateChunks 表示要处理的数量，即查询并尝试发送的 Chunk 数
+                // MaxSendChunks 表示允许实际发送的 Chunk 数
                 ctx.MaxChunksToIterate = ctx.SerialChunks->Length;
                 if (systemData.MaxIterateChunks == 0 && systemData.MaxSendChunks > 0)
                     systemData.MaxIterateChunks = systemData.MaxSendChunks;
@@ -1003,7 +1010,7 @@ namespace Unity.NetCode
                     netDebugPacket.Log((FixedString512Bytes) $"\tGatherGhostChunks gathered and sorted {ctx.SerialChunks->Length} of {ghostChunks.Length} chunks for ServerTick:{currentTick.ToFixedString()}! MSC:{systemData.MaxSendChunks}, MIC:{systemData.MaxIterateChunks} means iterating {ctx.MaxChunksToIterate} w/ RlvntGhosts:{ctx.TotalRelevantGhosts} (RMode:{(int) relevancyMode}), numZC:{ctx.NumZeroChangeChunks} {(int) ((float) ctx.NumZeroChangeChunks / ctx.SerialChunks->Length) * 100}%");
 #endif
 
-                // Serialize Entities:
+                // 序列化实体
                 var maxMessageSize = driver.m_DriverSender.m_SendQueue.PayloadCapacity;
                 int maxSnapshotSizeWithoutFragmentation = maxMessageSize - driver.MaxHeaderSize(unreliablePipeline);
 
@@ -1028,7 +1035,7 @@ namespace Unity.NetCode
                 while (serializeResult != SerializeEnitiesResult.Abort &&
                        serializeResult != SerializeEnitiesResult.Ok)
                 {
-                    // If the requested packet size if larger than MaxMessageSize we have to use the fragmentation pipeline
+                    // 请求的包大小大于 MaxMessageSize 时必须使用分片 Pipeline
                     var pipelineToUse = (targetSnapshotSize <= maxSnapshotSizeWithoutFragmentation) ? unreliablePipeline : unreliableFragmentedPipeline;
                     var result = driver.BeginSend(pipelineToUse, connectionId, out var dataStream, targetSnapshotSize);
                     if ((int)Networking.Transport.Error.StatusCode.Success == result)
@@ -1056,25 +1063,23 @@ namespace Unity.NetCode
                             }
                             else
                             {
-                                driver.AbortSend(dataStream); // TODO reset snapshot stats here
+                                driver.AbortSend(dataStream); // TODO：在此重置 Snapshot 统计
                             }
                         }
                         finally
                         {
 
-                            //Finally is always called for non butsted code because there is a try-catch in outer caller (worldunmanged)
-                            //regardless of the exception thrown (even invalidprogramexception).
-                            //For bursted code, the try-finally has some limitation but it is still unwinding the blocks in the correct order
-                            //(not in all cases, but it the one used here everything work fine).
-                            //In general, the unhandled error and exceptions are all cought first by the outermost try-catch (world unmanged)
-                            //and then the try-finally are called in reverse order (stack unwiding).
-                            //There are two exeption handling in the ghost send system:
-                            //- the one here, that is responsible to abort the data stream.
-                            //- one inside the sendEntities method itself, that try to revert some internal state (i.e: the despawn ghost)
-                            //
-                            //The innermost finally is called first and do not abort the streams.
+                            // 非 Burst 代码的外层调用方 WorldUnmanaged 含有 try-catch
+                            // 因此无论抛出何种异常，包括 InvalidProgramException，finally 都会执行
+                            // Burst 代码中的 try-finally 存在限制，但此处仍会按正确顺序展开代码块
+                            // 一般情况下，未处理错误和异常先由最外层 WorldUnmanaged 的 try-catch 捕获
+                            // 再按逆序调用 try-finally，即执行栈展开
+                            // Ghost 发送系统中有两层异常处理
+                            // - 此处负责中止数据流
+                            // - sendEntities 内部负责尝试恢复部分内部状态，例如 Ghost 销毁状态
+                            // 最内层 finally 最先调用，并且不会中止数据流
                             if (serializeResult == SerializeEnitiesResult.Unknown)
-                                driver.AbortSend(dataStream); // TODO reset snapshot stats here
+                                driver.AbortSend(dataStream); // TODO：在此重置 Snapshot 统计
                         }
                     }
                     else
@@ -1090,9 +1095,9 @@ namespace Unity.NetCode
                     {
                         if (Hint.Likely(attempt < GhostSystemConstants.MaxSnapshotSendAttempts))
                         {
-                            // TODO - This is still wasteful as it re-serializes everything.
-                            // I.e. If the current dataStream can't fit a single ghost, we should NOT throw away all the writes,
-                            // we just need to allocate a larger writer and copy the existing data into the new writer.
+                            // TODO：此处仍会重新序列化全部内容，成本较高
+                            // 如果当前 dataStream 连单个 Ghost 都容纳不下，不应丢弃全部已写数据
+                            // 只需分配更大的 Writer 并将现有数据复制过去
                             if (Hint.Unlikely(netDebug.LogLevel == NetDebug.LogLevelType.Debug))
                                 netDebug.LogWarning($"PERFORMANCE: Could not fit snapshot content into `targetSnapshotSize`:{targetSnapshotSize} in attempt:{attempt} for {ctx.NetworkId.ToFixedString()}, increasing size to {targetSnapshotSize * 2} and trying again! Your configured `MaxMessageSize`:{maxMessageSize} and/or `DefaultSnapshotPacketSize`:{systemData.DefaultSnapshotPacketSize}, and/or `NetworkStreamSnapshotTargetSize`:{perConnectionTargetSnapshotSize.Value} is too small to fit even one ghost.");
 
@@ -1124,11 +1129,10 @@ namespace Unity.NetCode
                 public int MaxChunksToIterate;
                 public int MaxGhostsPerChunk;
                 /// <summary>
-                /// Approximates the total number of relevant ghosts.
+                /// 估算相关 Ghost 的总数
                 /// <br/>
-                /// Note: Does not count ghost chunks that aren't passed into this job yet (e.g. ones without the <see cref="GhostCleanup"/>).
-                /// And, when relevancy is enabled, this does not count ghost chunks that have not yet run through the
-                /// <see cref="GhostChunkSerializer.UpdateGhostRelevancy"/> step.
+                /// 注意：不统计尚未传入此 Job 的 Ghost Chunk，例如没有 <see cref="GhostCleanup"/> 的 Chunk
+                /// 启用相关性时，也不统计尚未执行 <see cref="GhostChunkSerializer.UpdateGhostRelevancy"/> 步骤的 Ghost Chunk
                 /// </summary>
                 public int TotalRelevantGhosts;
                 public int NumZeroChangeChunks;
@@ -1143,7 +1147,7 @@ namespace Unity.NetCode
                 };
                 var ackTick = snapshotAckCopy.LastReceivedSnapshotByRemote;
 
-                // Snapshot header:
+                // Snapshot 包头
                 dataStream.WriteByte((byte) NetworkStreamProtocol.Snapshot);
 
                 dataStream.WriteUInt(localTime);
@@ -1153,14 +1157,14 @@ namespace Unity.NetCode
                 dataStream.WriteByte(snapshotAckCopy.CurrentSnapshotSequenceId);
                 dataStream.WriteUInt(currentTick.SerializedData);
 
-                // Write the list of ghost snapshots the client has not acked yet
+                // 写入客户端尚未 Ack 的 Ghost Snapshot 列表
                 var GhostCollection = GhostCollectionFromEntity[GhostCollectionSingleton];
                 uint numLoadedPrefabs = snapshotAckCopy.NumLoadedPrefabs;
                 if (numLoadedPrefabs > (uint)GhostCollection.Length)
                 {
-                    // The received ghosts by remote might not have been updated yet
+                    // 远端已接收 Ghost 的状态可能尚未更新
                     numLoadedPrefabs = 0;
-                    // Override the copy of the snapshot ack so the GhostChunkSerializer can skip this check
+                    // 覆盖 Snapshot Ack 副本，使 GhostChunkSerializer 可以跳过此检查
                     snapshotAckCopy.NumLoadedPrefabs = 0;
                 }
                 uint numNewPrefabs = math.min((uint)GhostCollection.Length - numLoadedPrefabs, GhostSystemConstants.MaxNewPrefabsPerSnapshot);
@@ -1203,10 +1207,10 @@ namespace Unity.NetCode
 
                 dataStream.WritePackedUInt((uint)ctx.TotalRelevantGhosts, compressionModel);
                 var lenWriter = dataStream;
-                dataStream.WriteUShort(0); // space for despawnLen.
-                dataStream.WriteUShort(0); // space for totalSentEntities.
+                dataStream.WriteUShort(0); // 为 despawnLen 预留空间
+                dataStream.WriteUShort(0); // 为 totalSentEntities 预留空间
 
-                // Write a list of all ghosts which have been despawned after the last acked packet. Return the number of ghost ids written
+                // 写入最后一个已 Ack 包之后销毁的全部 Ghost 列表，并返回写入的 Ghost ID 数量
 #if UNITY_EDITOR || NETCODE_DEBUG
                 int startPos = dataStream.LengthInBits;
 #endif
@@ -1261,7 +1265,7 @@ namespace Unity.NetCode
                     ghostChunkComponentTypesPtr = ghostChunkComponentTypesPtr,
                     ghostChunkComponentTypesLength = ghostChunkComponentTypesLength,
                     currentTick = currentTick,
-                    // Add networkTickRateIntervalTicks as we only send a snapshot on this interval, which artificially inflates the expected snapshot RTT.
+                    // 由于只在此间隔发送 Snapshot，需要加入 networkTickRateIntervalTicks，这会人为增大预期 Snapshot RTT
                     expectedSnapshotRttInSimTicks = networkTickRateIntervalTicks + math.max(Mathf.CeilToInt(snapshotAckCopy.EstimatedRTT / simulationTickRateIntervalMs), networkTickRateIntervalTicks),
                     compressionModel = compressionModel,
                     serializerState = serializerState,
@@ -1282,18 +1286,17 @@ namespace Unity.NetCode
                     systemData = systemData,
                     SnapshotPreSerializeData = SnapshotPreSerializeData,
                 };
-                //We now use a better initial size for the temp stream. There is one big of a problem with the current
-                //serialization logic: multiple full serialization loops in case the chunk does not fit into the current
-                //temp stream. That can happen if either:
-                //There are big ghosts (large components or buffers)
-                //Lots of small/mid size ghosts (so > 30/40 per chunks) and because of the serialized size
-                //(all components temp data are aligned to 32 bits) we can end up in the situation we are consuming up to 2/3x the size
-                //of the temp stream.
-                //When that happen, we re-fetch and all data (again and again, also for child) and we retry again.
-                //This is EXTREMELY SLOW. By allocating at least 8/16kb (instead of 1MTU) we ensure that does not happen (or at least quite rarely)
-                //gaining already a 2/3 perf out of the box in many cases. I choose a 8 kb buffer, that is a little large, but
-                //give overall a very good boost in many scenario.
-                //The parameter is tunable though via GhostSendSystemData, so you can tailor that to the game as necessary.
+                // 临时流使用较大的初始值，以规避当前序列化逻辑的主要问题
+                // Chunk 无法放入当前临时流时，会执行多轮完整序列化
+                // 以下情况可能触发此问题
+                // - 存在大型 Ghost，即组件或 Buffer 很大
+                // - 每个 Chunk 包含大量中小型 Ghost，例如超过 30 到 40 个
+                // 由于所有组件临时数据都按 32 位对齐，实际消耗可能达到临时流大小的 2 到 3 倍
+                // 发生后会反复重新获取全部数据，包括子实体数据，并重新尝试
+                // 此过程极慢，至少分配 8 或 16 KB 而不是 1 个 MTU，可确保问题不发生或极少发生
+                // 许多场景中可直接获得 2 到 3 倍性能提升
+                // 当前选择略大的 8 KB Buffer，在多种场景下整体提升良好
+                // 可通过 GhostSendSystemData 调整此参数，以适配具体游戏
                 var streamCapacity = systemData.UseCustomSerializer == 0
                     ? math.max(systemData.TempStreamInitialSize, dataStream.Capacity)
                     : dataStream.Capacity;
@@ -1315,8 +1318,8 @@ namespace Unity.NetCode
                     }
 #endif
 
-                    // Do not send entities with a ghost type which the client has not acked yet.
-                    // TODO - Can this be pulled out & into the GatherGhostChunksBatched stage?
+                    // 不发送客户端尚未 Ack 对应 Ghost 类型的实体
+                    // TODO：考虑将此检查提前到 GatherGhostChunksBatch 阶段
                     if (ghostType >= numLoadedPrefabs)
                     {
 #if NETCODE_DEBUG
@@ -1337,10 +1340,10 @@ namespace Unity.NetCode
                     }
                     finally
                     {
-                        //If the result is unknown, an exception may have been thrown inside the serializeChunk.
+                        // 结果未知时，SerializeChunk 内部可能已抛出异常
                         if (serializeResult == SerializeEnitiesResult.Unknown)
                         {
-                            //Do not abort the stream. It is aborted in the outermost loop.
+                            // 不在此中止数据流，最外层循环会负责中止
                             RevertDespawnGhostState();
                         }
                     }
@@ -1371,7 +1374,7 @@ namespace Unity.NetCode
                     }
 #endif
 
-                    // Reasons to stop iterating through chunks:
+                    // 停止遍历 Chunk 的条件
                     if (serializeResult != SerializeEnitiesResult.Ok || didFillPacket)
                         break;
                     if (thisChunkSentEntities > 0 && systemData.MaxSendChunks > 0 && totalSentChunks >= systemData.MaxSendChunks)
@@ -1428,7 +1431,7 @@ namespace Unity.NetCode
 
             unsafe void RevertDespawnGhostState()
             {
-                // TODO - Do we handle this correctly for other stateful data, in general?
+                // TODO：检查其他有状态数据是否也采用了正确的恢复方式
                 PendingGhostDespawn.RevertSnapshotDespawnWrites(ref *connectionState[connectionIdx].PendingDespawns, currentTick);
             }
 
@@ -1491,17 +1494,17 @@ namespace Unity.NetCode
                 chunkState.maxSendRateAsSimTickInterval = prefabSerializer.MaxSendRateAsSimTickInterval;
                 chunkState.AllocateSnapshotData(serializerDataSize, ghostChunk.Capacity);
                 var importanceTick = currentTick;
-                // We include MinSendImportance/MaxSendRate because there is no good reason to gate/defer the FIRST SEND of ALL
-                // ghost chunks behind this threshold. I.e. It's valid to assume every new ghost wants to be replicated NOW.
-                // Therefore, FirstSendImportanceMultiplier is more about HOW MUCH we want to bias the first send of a
-                // low importance ghost type (e.g. a tree) ABOVE the resending of a very high importance existing ghost (like the player).
+                // 首次发送不应受 MinSendImportance 或 MaxSendRate 阈值限制或延后
+                // 可以合理假设每个新 Ghost 都希望立即复制
+                // 因此 FirstSendImportanceMultiplier 主要控制低 Importance Ghost 类型首次发送的偏置程度
+                // 例如树木的首次发送相对于玩家等高 Importance 现有 Ghost 的再次发送应提高多少优先级
                 var maxResendIntervalTicks = math.max((uint) (systemData.MinSendImportance / chunkState.baseImportance), chunkState.maxSendRateAsSimTickInterval);
                 importanceTick.Subtract((uint) (systemData.FirstSendImportanceMultiplier * systemData.IrrelevantImportanceDownScale * maxResendIntervalTicks));
                 chunkState.SetLastFullUpdate(importanceTick);
-                // When relevancy is enabled, our first estimated relevant ghost count has to be 0, because otherwise
-                // every new chunk seen by this connection will spike the GhostCount singleton for one tick, even if none are relevant.
-                // Unfortunately, working around this requires us to use `math.max(relevantGhostCount, actuallySentGhostCount)`
-                // when writing to the stream, and note that this will cause irrelevant downscaling (which is why we account for it above).
+                // 启用相关性时，首次估算的相关 Ghost 数必须为 0
+                // 否则此连接看到的每个新 Chunk 都会让 GhostCount 单例在一个 Tick 内突增，即使其中没有相关 Ghost
+                // 为规避此问题，写入流时必须使用 math.max(relevantGhostCount, actuallySentGhostCount)
+                // 这会触发不相关内容的降权，因此上面已将其计入
                 var relevancyEnabled = relevancyMode != GhostRelevancyMode.Disabled;
                 var numRelevant = relevancyEnabled ? 0 : ghostChunk.Count;
                 chunkState.SetNumRelevant(numRelevant, ghostChunk);
@@ -1517,7 +1520,7 @@ namespace Unity.NetCode
             bool TryGetChunkGhostType(ArchetypeChunk ghostChunk, in GhostInstance ghost, out int chunkGhostType)
             {
                 chunkGhostType = ghost.ghostType;
-                // Pre spawned ghosts might not have a proper ghost type index yet, we calculate it here for pre spawns
+                // 预生成 Ghost 可能尚无正确的 Ghost 类型索引，因此在此为其计算
                 if (chunkGhostType < 0)
                 {
                     var ghostEntity = ghostChunk.GetNativeArray(entityType)[0];
@@ -1539,8 +1542,9 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// Collect a list of all chunks which could be serialized and sent. Sort the list so other systems get it in priority order.
-            /// Also cleanup any stale ghost state in the map and create new storage buffers for new chunks so all chunks are in a valid state after this has executed.
+            /// 收集所有可序列化并发送的 Chunk，并对列表排序，使其他系统按优先级获取
+            /// 同时清理映射中过期的 Ghost 状态，并为新 Chunk 创建存储 Buffer
+            /// 确保执行后所有 Chunk 均处于有效状态
             /// </summary>
             unsafe void GatherGhostChunksBatch(out GhostChunksContext ctx)
             {
@@ -1572,7 +1576,7 @@ namespace Unity.NetCode
                     ctx.NumZeroChangeChunks += chunkState.GetFirstZeroChangeVersion() != 0 ? 1 : 0;
                     ctx.MaxGhostsPerChunk = math.max(ctx.MaxGhostsPerChunk, ghostChunk.Count);
 
-                    // Caveat: Entity structural changes completely invalidates both Importance & MaxSendRate.
+                    // 注意：实体结构变更会使 Importance 和 MaxSendRate 状态完全失效
                     var ticksSinceLastSent = currentTick.TicksSince(chunkState.GetLastUpdate());
                     var allIrrelevant = chunkState.GetAllIrrelevant();
                     var maxSendRate = math.select(chunkState.maxSendRateAsSimTickInterval, chunkState.maxSendRateAsSimTickInterval * systemData.IrrelevantImportanceDownScale, allIrrelevant);
@@ -1582,14 +1586,14 @@ namespace Unity.NetCode
                         continue;
                     }
 
-                    //Prespawn ghost chunk should be considered only if the subscene wich they belong to as been loaded (acked) by the client.
+                    // 只有客户端已加载并 Ack 对应 SubScene 时，才应考虑预生成 Ghost Chunk
                     if (ghostChunk.Has(ref prespawnGhostIdType))
                     {
                         var ackedPrespawnSceneMap = connectionState[connectionIdx].AckedPrespawnSceneMap;
-                        //Retrieve the subscene hash from the shared component index.
+                        // 根据 Shared Component 索引获取 SubScene Hash
                         var sharedComponentIndex = ghostChunk.GetSharedComponentIndex(subsceneHashSharedTypeHandle);
                         var hash = SubSceneHashSharedIndexMap[sharedComponentIndex];
-                        //Skip the chunk if the client hasn't acked/requested streaming that subscene
+                        // 客户端尚未 Ack 或请求流式加载该 SubScene 时跳过此 Chunk
                         if (!ackedPrespawnSceneMap.ContainsKey(hash))
                         {
                             PacketDumpSkippedPrespawnAndSceneLoadNotYetAcked(ghostChunk, hash);
@@ -1619,7 +1623,7 @@ namespace Unity.NetCode
                     });
                 }
 
-                // Importance Scaling:
+                // Importance 缩放
 #if NETCODE_DEBUG
                 var numChunksCulled = 0;
 #endif
@@ -1743,7 +1747,9 @@ namespace Unity.NetCode
         {
             var networkTime = SystemAPI.GetSingleton<NetworkTime>();
             if (networkTime.NumPredictedTicksExpected == 0)
-                // TODO consider striding of sends for off frames (e.g. 120 FPS with 60 ticks/s and 30 (or even 60) sends/s, you'd want to send 1/2 or 1/4 in off frames to smooth the sending over time). round robin would need to be adapted to single world host cases.
+                // TODO：考虑在非 Tick 帧中交错发送
+                // 例如 120 FPS、每秒 60 Tick、每秒发送 30 或 60 次时，可在非 Tick 帧发送二分之一或四分之一连接
+                // 让发送负载随时间更平滑，轮询逻辑还需适配单 World Host
                 return;
             var systemData = SystemAPI.GetSingleton<GhostSendSystemData>();
 #if UNITY_EDITOR || NETCODE_DEBUG
@@ -1752,7 +1758,7 @@ namespace Unity.NetCode
             snapshotStatsSingleton.ResetWriter(numLoadedPrefabs);
             snapshotStatsSingleton.MainStatsWrite.Tick = networkTime.ServerTick;
 #endif
-            // Calculate how many state updates we should send this frame
+            // 计算本帧应发送多少次状态更新
             SystemAPI.TryGetSingleton<ClientServerTickRate>(out var tickRate);
             tickRate.ResolveDefaults();
             var netTickInterval =
@@ -1761,7 +1767,7 @@ namespace Unity.NetCode
             if (sendThisTick)
                 ++m_SentSnapshots;
 
-            // Make sure the list of connections and connection state is up to date
+            // 确保连接列表和连接状态为最新
             var connections = connectionQuery.ToEntityListAsync(state.WorldUpdateAllocator, out var connectionHandle);
 
             var relevancySingleton = SystemAPI.GetSingleton<GhostRelevancy>();
@@ -1771,17 +1777,17 @@ namespace Unity.NetCode
                 userGlobalRelevantQueryMask = relevancySingleton.DefaultRelevancyQuery.GetEntityQueryMask();
 
             bool relevancyEnabled = (relevancyMode != GhostRelevancyMode.Disabled);
-            // Find the latest tick which has been acknowledged by all clients and cleanup all ghosts destroyed before that
+            // 查找所有客户端均已 Ack 的最新 Tick，并清理在此之前销毁的全部 Ghost
             var currentTick = networkTime.ServerTick;
 
-            // Setup the connections which require cleanup this frame
-            // This logic is using length from previous frame, that means we can skip updating connections in some cases
+            // 设置本帧需要清理的连接
+            // 此逻辑使用上一帧的长度，因此部分情况下可以跳过连接更新
             if (m_ConnectionStates.Length > 0)
                 m_CurrentCleanupConnectionState = (m_CurrentCleanupConnectionState + systemData.CleanupConnectionStatePerTick) % m_ConnectionStates.Length;
             else
                 m_CurrentCleanupConnectionState = 0;
 
-            // Find the latest tick received by all connections
+            // 查找所有连接均已接收的最新 Tick
             m_OldestPendingDespawnTickByAll.Value = currentTick;
             var connectionsToProcess = m_ConnectionsToProcess;
             connectionsToProcess.Clear();
@@ -1822,7 +1828,7 @@ namespace Unity.NetCode
 
                     NetDebugInterop.InitDebugPacketIfNotCreated(ref conState.NetDebugPacket, m_LogFolder, worldNameFixed, id.ValueRO.Value);
                     m_ConnectionStates[m_ConnectionStateLookup[entity]] = conState;
-                    // Find connection state in the list sent to the serialize job and replace with this updated version
+                    // 在传给序列化 Job 的列表中查找连接状态，并替换为更新后的版本
                     for (int i = 0; i < connectionsToProcess.Length; ++i)
                     {
                         if (connectionsToProcess[i].Entity != entity)
@@ -1836,11 +1842,11 @@ namespace Unity.NetCode
             }
 #endif
 
-            // Prepare a command buffer
+            // 准备 Command Buffer
             EntityCommandBuffer commandBuffer = SystemAPI.GetSingleton<BeginSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
             var commandBufferConcurrent = commandBuffer.AsParallelWriter();
 
-            // Setup the tick at which ghosts were despawned, cleanup ghosts which have been despawned and acked by al connections
+            // 设置 Ghost 销毁 Tick，并清理已经销毁且被所有连接 Ack 的 Ghost
             var freeGhostIds = m_FreeGhostIds.AsParallelWriter();
             var prespawnDespawn = m_DestroyedPrespawnsQueue.AsParallelWriter();
             var freeSpawnedGhosts = m_FreeSpawnedGhostQueue.AsParallelWriter();
@@ -1860,8 +1866,8 @@ namespace Unity.NetCode
             }.ScheduleParallel(ghostDespawnQuery, state.Dependency);
             k_Scheduling.End();
 
-            // Copy destroyed entities in the parallel write queue populated by ghost cleanup to a single list
-            // and free despawned ghosts from map
+            // 将 Ghost 清理过程写入并行队列的已销毁实体复制到单一列表
+            // 并从映射释放已销毁 Ghost
             k_Scheduling.Begin();
             state.Dependency = new GhostDespawnSingleJob
             {
@@ -1872,13 +1878,13 @@ namespace Unity.NetCode
             }.Schedule(state.Dependency);
             k_Scheduling.End();
 
-            // If the ghost collection has not been initialized yet the send ystem can not process any ghosts
+            // Ghost 集合尚未初始化时，发送系统无法处理任何 Ghost
             if (!SystemAPI.GetSingleton<GhostCollection>().IsInGame)
             {
                 return;
             }
 
-            // Extract all newly spawned ghosts and set their ghost ids
+            // 提取所有新生成 Ghost 并设置其 Ghost ID
             var ghostCollectionSingleton = SystemAPI.GetSingletonEntity<GhostCollection>();
             var spawnChunks = ghostSpawnQuery.ToArchetypeChunkListAsync(state.WorldUpdateAllocator, out var spawnChunkHandle);
             var netDebug = SystemAPI.GetSingleton<NetDebug>();
@@ -1892,12 +1898,11 @@ namespace Unity.NetCode
             m_GhostTypeCollectionFromEntity.Update(ref state);
             m_GhostCollectionFromEntity.Update(ref state);
             m_GhostOverrideFromEntity.Update(ref state);
-            //The spawnjob assign the ghost id, tick and track the ghost with a cleanup component. If the
-            //ghost chunk has a GhostType that has not been processed yet by the GhostCollectionSystem,
-            //the chunk is skipped. However, this leave the entities in a limbo state where the data is not setup
-            //yet.
-            //It is necessary to check always for the cleanup component being added to the chunk in general in the serialization
-            //job to ensure the data has been appropriately set.
+            // SpawnJob 分配 Ghost ID 和 Tick，并通过 Cleanup Component 跟踪 Ghost
+            // 如果 Ghost Chunk 的 GhostType 尚未由 GhostCollectionSystem 处理，则跳过该 Chunk
+            // 但这会使实体暂时处于数据尚未设置的中间状态
+            // 因此序列化 Job 通常必须检查 Chunk 是否已经添加 Cleanup Component
+            // 以确保数据已正确设置
             var spawnJob = new SpawnGhostJob
             {
                 connectionState = m_ConnectionsToProcess.AsDeferredJobArray(),
@@ -1927,7 +1932,7 @@ namespace Unity.NetCode
             state.Dependency = spawnJob.Schedule(JobHandle.CombineDependencies(state.Dependency, spawnChunkHandle));
             k_Scheduling.End();
 
-            // Create chunk arrays for ghosts and despawned ghosts
+            // 为 Ghost 和已销毁 Ghost 创建 Chunk 数组
             var despawnChunks = ghostDespawnQuery.ToArchetypeChunkListAsync(state.WorldUpdateAllocator, out var despawnChunksHandle);
             var ghostChunks = ghostQuery.ToArchetypeChunkListAsync(state.WorldUpdateAllocator, out var ghostChunksHandle);
             state.Dependency = JobHandle.CombineDependencies(state.Dependency, despawnChunksHandle, ghostChunksHandle);
@@ -1936,7 +1941,7 @@ namespace Unity.NetCode
             PrespawnHelper.PopulateSceneHashLookupTable(prespawnSharedComponents, state.EntityManager, m_SceneSectionHashLookup);
 
             ref readonly var networkStreamDriver = ref SystemAPI.GetSingletonRW<NetworkStreamDriver>().ValueRO;
-            // If there are any connections to send data to, serialize the data for them in parallel
+            // 存在需要发送数据的连接时，并行序列化各连接的数据
             UpdateSerializeJobDependencies(ref state);
             var serializeJob = new SerializeJob
             {
@@ -2010,7 +2015,7 @@ namespace Unity.NetCode
                 serializeJob.ScaleGhostImportance = importance.ScaleImportanceFunctionSuppressedWarning;
             }
 
-            // We don't want to assign default value to type handles as this would lead to a safety error
+            // 不向 TypeHandle 分配默认值，否则会触发安全错误
             if (SystemAPI.TryGetSingletonEntity<GhostImportance>(out var singletonEntity))
             {
                 m_GhostImportanceType.Update(ref state);
@@ -2034,8 +2039,8 @@ namespace Unity.NetCode
                 serializeJob.ghostImportancePerChunkTypeHandle = state.GetDynamicSharedComponentTypeHandle(ghostImportancePerChunkDataTypeRO);
                 serializeJob.ghostConnectionDataTypeSize = TypeManager.GetTypeInfo(ghostConnectionDataTypeRO.TypeIndex).TypeSize;
 
-                // Try to get the users importance singleton data from the same "GhostImportance Singleton".
-                // If it's not there, don't error, just pass on the null. Thus, treated as optional.
+                // 尝试从同一个 GhostImportance 单例获取用户 Importance 数据
+                // 如果不存在则不报错，只传递空指针，因此该数据视为可选
                 if (ghostImportanceDataTypeRO.TypeIndex != default && !config.GhostImportanceDataType.IsZeroSized)
                 {
                     var ghostImportanceDataTypeSize = TypeManager.GetTypeInfo(ghostImportanceDataTypeRO.TypeIndex).TypeSize;
@@ -2097,7 +2102,7 @@ namespace Unity.NetCode
             k_Scheduling.End();
 
             var serializeHandle = state.Dependency;
-            // Schedule a job to clean up connections
+            // 调度清理连接的 Job
             k_Scheduling.Begin();
             var cleanupHandle = new CleanupGhostSerializationStateJob
             {
@@ -2321,15 +2326,14 @@ namespace Unity.NetCode
                         FreeGhostIds.Enqueue(ghost.ghostId);
                     CommandBufferConcurrent.RemoveComponent<GhostCleanup>(entityIndexInQuery, entity);
                 }
-                //Remove the ghost from the mapping as soon as possible, regardless of clients acknowledge
+                // 无论客户端是否 Ack，都尽快从映射移除 Ghost
                 var spawnedGhost = new SpawnedGhost {ghostId = ghost.ghostId, spawnTick = ghost.spawnTick};
                 if (!GhostMap.ContainsKey(spawnedGhost))
                 {
                     return;
                 }
                 FreeSpawnedGhosts.Enqueue(spawnedGhost);
-                //If there is no allocated range, do not add to the queue. That means the subscene the
-                //prespawn belongs to has been unloaded
+                // 如果不存在已分配范围，则不加入队列，这表示预生成 Ghost 所属 SubScene 已卸载
                 if (PrespawnHelper.IsPrespawnGhostId(ghost.ghostId) && PrespawnIdRanges.GhostIdRangeIndex(ghost.ghostId) >= 0)
                     PrespawnDespawn.Enqueue(ghost.ghostId);
             }

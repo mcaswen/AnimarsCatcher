@@ -8,56 +8,55 @@ using Unity.Transforms;
 namespace Unity.NetCode
 {
     /*
-        Example 1:
-        This registers the DefaultTranslationSmoothingAction for Translation on your predicted Ghost
+        示例 1：
+        为 Predicted Ghost 上的 Translation 注册 DefaultTranslationSmoothingAction
 
         World.GetSingleton<GhostPredictionSmoothing>().RegisterSmoothingAction<Translation>(EntityManager, DefaultTranslationSmoothingAction.Action);
 
-        Example 2:
-        Here we also register the DefaultUserParamsComponent as user data. Note the DefaultSmoothingActionUserParams must be
-        attached to your PredictedGhost.
+        示例 2：
+        此处还将 DefaultUserParamsComponent 注册为用户数据
+        注意 DefaultSmoothingActionUserParams 必须附加到 PredictedGhost
 
         World.GetSingleton<GhostPredictionSmoothing>().RegisterSmoothingAction<Translation, DefaultUserParams>(EntityManager, DefaultTranslationSmoothingAction.Action);
     */
 
     /// <summary>
-    /// Add the DefaultSmoothingActionUserParams component to customise on a per-entity basis the prediction error range in which the
-    /// position smoothing is active.
+    /// 添加 DefaultSmoothingActionUserParams Component，按 Entity 自定义启用位置平滑的预测误差范围
     /// </summary>
     [GhostComponent(PrefabType = GhostPrefabType.PredictedClient)]
     public struct DefaultSmoothingActionUserParams : IComponentData
     {
         /// <summary>
-        /// If the prediction error is larger than this value, the entity position is snapped to the new value.
+        /// 预测误差大于此值时，将 Entity 位置直接 Snap 到新值
         /// </summary>
         public float maxDist;
         /// <summary>
-        /// If the prediction error is smaller than this value, the entity position is snapped to the new value.
+        /// 预测误差小于此值时，将 Entity 位置直接 Snap 到新值
         /// </summary>
         public float delta;
     }
 
     /// <summary>
-    /// The default prediction error <see cref="SmoothingAction"/> function for the <see cref="Translation"/> component.
-    /// Supports the user data that lets you customize the clamping and snapping of the translation component (any time the translation prediction error is too large).
+    /// <see cref="Translation"/> Component 的默认预测误差 <see cref="SmoothingAction"/> 函数
+    /// 支持通过用户数据自定义 Translation Component 的限制和 Snap 行为，用于 Translation 预测误差过大的情况
     /// </summary>
     [BurstCompile]
     public unsafe struct DefaultTranslationSmoothingAction
     {
         /// <summary>
-        /// The default value for the <see cref="DefaultSmoothingActionUserParams"/> if the no user data is passed to the function.
-        /// Position is corrected if the prediction error is at least 1 unit (usually mt) and less than 10 unit (usually mt)
+        /// 函数未收到用户数据时使用的 <see cref="DefaultSmoothingActionUserParams"/> 默认值
+        /// 预测误差至少为 1 个单位且小于 10 个单位时修正位置，单位通常为米
         /// </summary>
         public sealed class DefaultStaticUserParams
         {
             /// <summary>
-            /// If the prediction error is larger than this value, the entity position is snapped to the new value.
-            /// The default threshold is 10 units.
+            /// 预测误差大于此值时，将 Entity 位置直接 Snap 到新值
+            /// 默认阈值为 10 个单位
             /// </summary>
             public static readonly SharedStatic<float> maxDist = SharedStatic<float>.GetOrCreate<DefaultStaticUserParams, MaxDistKey>();
             /// <summary>
-            /// If the prediction error is smaller than this value, the entity position is snapped to the new value.
-            /// The default threshold is 1 units.
+            /// 预测误差小于此值时，将 Entity 位置直接 Snap 到新值
+            /// 默认阈值为 1 个单位
             /// </summary>
             public static readonly SharedStatic<float> delta = SharedStatic<float>.GetOrCreate<DefaultStaticUserParams, DeltaKey>();
 
@@ -71,8 +70,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Return a the burst compatible function pointer that can be used to register the smoothing action to the
-        /// <see cref="GhostPredictionSmoothing"/> singleton.
+        /// 返回 Burst 兼容函数指针，可用于向 <see cref="GhostPredictionSmoothing"/> Singleton 注册平滑 Action
         /// </summary>
         public static readonly PortableFunctionPointer<GhostPredictionSmoothing.SmoothingActionDelegate> Action = new PortableFunctionPointer<GhostPredictionSmoothing.SmoothingActionDelegate>(SmoothingAction);
 

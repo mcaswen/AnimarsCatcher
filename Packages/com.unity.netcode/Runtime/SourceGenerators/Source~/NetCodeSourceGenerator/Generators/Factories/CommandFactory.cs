@@ -8,11 +8,10 @@ namespace Unity.NetCode.Generators
     internal class CommandFactory
     {
         /// <summary>
-        /// Collect and generate commands serialization.
+        /// 收集 Command 候选类型并生成序列化代码
         /// </summary>
-        /// <param name="commandCandidates"></param>
-        /// <param name="context"></param>
-        /// <param name="codeGenContext"></param>
+        /// <param name="commandCandidates">Command 候选语法节点</param>
+        /// <param name="codeGenContext">代码生成 Context</param>
         public static void Generate(IReadOnlyList<SyntaxNode> commandCandidates, CodeGenerator.Context codeGenContext)
         {
             var typeBuilder = new TypeInformationBuilder(codeGenContext.diagnostic, codeGenContext.executionContext, TypeInformationBuilder.SerializationMode.Commands);
@@ -43,7 +42,7 @@ namespace Unity.NetCode.Generators
                     continue;
                 codeGenContext.ResetState();
                 NameUtils.UpdateNameAndNamespace(typeInfo, ref codeGenContext, candidateSymbol);
-                // If the serializer type already exist we can just skip generation
+                // Serializer 类型已存在时可以跳过生成
                 if (codeGenContext.executionContext.Compilation.GetSymbolsWithName(GetCommandSerializerName(codeGenContext)).FirstOrDefault() != null)
                 {
                     codeGenContext.diagnostic.LogInfo($"Skipping code-gen for {codeGenContext.generatorName} because a command serializer for it already exists");

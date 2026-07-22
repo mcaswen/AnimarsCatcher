@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// Interface of the build settings that are used to build the client and server targets.
+    /// 用于构建客户端和服务器目标的构建设置接口
     /// </summary>
     internal interface INetCodeConversionTarget
     {
@@ -12,32 +12,32 @@ namespace Unity.NetCode.Hybrid
     }
 
     /// <summary>
-    /// A collection of extension utility methods for the <see cref="Baker{TAuthoringType}"/> used by NetCode during the baking process.
+    /// NetCode 在烘焙过程中使用的 <see cref="Baker{TAuthoringType}"/> 扩展工具方法集合
     /// </summary>
     public static class BakerExtensions
     {
         /// <summary>
-        /// The current conversion target to use for the baking.
+        /// 当前烘焙所使用的转换目标
         /// </summary>
-        /// <param name="self">an instance of the baker</param>
-        /// <param name="isPrefab">state is we are converting a prefab or not</param>
-        /// <typeparam name="T">Baker type</typeparam>
-        /// <remarks><para>In the editor, if a <see cref="NetCodeConversionSettings"/> is present in the build configuration used for conversion,
-        /// the target specified by the build component is used.</para>
+        /// <param name="self">Baker 实例</param>
+        /// <param name="isPrefab">是否正在转换 Prefab</param>
+        /// <typeparam name="T">Baker 类型</typeparam>
+        /// <remarks><para>在编辑器中，如果用于转换的构建配置包含 <see cref="NetCodeConversionSettings"/>，
+        /// 则使用构建组件指定的目标</para>
         /// <para>
-        /// Otherwise, the conversion target will be determined by the destination world for runtime conversion, and fallback to always be
-        /// <see cref="NetcodeConversionTarget.ClientAndServer"/> is nothing apply or for prefabs.
+        /// 否则，运行时转换会根据目标 World 确定转换目标
+        /// 如果没有适用设置或正在处理 Prefab，则始终回退为 <see cref="NetcodeConversionTarget.ClientAndServer"/>
         /// </para>
         /// </remarks>
-        /// <returns>Conversion target to use for the baking.</returns>
+        /// <returns>烘焙所使用的转换目标</returns>
         public static NetcodeConversionTarget GetNetcodeTarget<T>(this Baker<T> self, bool isPrefab) where T : Component
         {
-            // Detect target using build settings (This is used from sub scenes)
+            // 使用构建设置检测目标，该逻辑供 SubScene 使用
 #if UNITY_EDITOR
 #if USING_PLATFORMS_PACKAGE
             if (self.TryGetBuildConfigurationComponent<NetCodeConversionSettings>(out var settings))
             {
-                //Debug.LogWarning("BuildSettings conversion for: " + settings.Target);
+                // Debug.LogWarning("构建设置转换目标：" + settings.Target);
                 return settings.Target;
             }
 #endif
@@ -49,7 +49,7 @@ namespace Unity.NetCode.Hybrid
             }
 #endif
 
-            // Prefabs are always converted as client and server when using convert to entity since they need to have a single blob asset
+            // 使用实体转换时，Prefab 始终同时转换为客户端和服务器版本，因为它们需要共享同一个 Blob Asset
             if (!isPrefab)
             {
                 if (self.IsClient())

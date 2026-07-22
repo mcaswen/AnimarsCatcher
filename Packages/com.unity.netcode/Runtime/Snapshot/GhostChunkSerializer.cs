@@ -17,9 +17,13 @@ namespace Unity.NetCode
     {
         Unknown = 0,
         Ok,
-        /// <summary>Likely due to the fact that we filled the packet!</summary>
+        /// <summary>
+        /// 很可能是因为数据包已经填满
+        /// </summary>
         Failed,
-        /// <summary>Fatal exception occurred.</summary>
+        /// <summary>
+        /// 发生致命异常
+        /// </summary>
         Abort,
     }
     internal unsafe struct GhostChunkSerializer
@@ -81,15 +85,14 @@ namespace Unity.NetCode
         {
             public Entity* SnapshotEntity;
             public void* SnapshotData;
-            //can be null in certain conditions:
-            // GhostGroup (temporary)
-            // Spawn chunks
+            // 在以下特定条件下可以为 null
+            // GhostGroup，临时情况
+            // 生成阶段的 Chunk
             public byte* SnapshotDynamicData;
             public int SnapshotDynamicDataCapacity;
-            // Total chunck dynamic buffers data to serialize.
-            // currentDynamicDataCapacity and snapshotDynamicDataSize can be different (currentDynamicDataCapacity is usually larger).
-            // Spawn chunks does not allocate a full history buffer and so currentDynamicDataCapacity equals 0 and a temporary
-            // data buffer is created instead
+            // 要序列化的整个 Chunk 动态 Buffer Data 总量
+            // currentDynamicDataCapacity 与 snapshotDynamicDataSize 可以不同，前者通常更大
+            // Spawn Chunk 不分配完整历史缓冲区，因此 currentDynamicDataCapacity 等于 0，改为创建临时 Data Buffer
             public int SnapshotDynamicDataSize;
 
             public NativeList<SnapshotBaseline> AvailableBaselines;
@@ -102,7 +105,7 @@ namespace Unity.NetCode
             public uint tick;
             public byte* snapshot;
             public Entity* entity;
-            //dynamic buffer data storage associated with the snapshot
+            // 与 Snapshot 关联的动态 Buffer Data 存储区
             public byte *dynamicData;
         }
 
@@ -134,16 +137,16 @@ namespace Unity.NetCode
 
         private void SetupDataAndAvailableBaselines(ref CurrentSnapshotState currentSnapshot, ref GhostChunkSerializationState chunkState, ArchetypeChunk chunk, int snapshotSize, int writeIndex, uint* snapshotIndex)
         {
-            // Find the acked snapshot to delta against, setup pointer to current and previous entity* and data*
-            // Remember to bump writeIndex when done
+            // 查找用于计算 Delta 的已 Ack Snapshot，并设置当前和历史 Entity* 与 Data* 指针
+            // 完成后记得推进 writeIndex
             currentSnapshot.SnapshotData = chunkState.GetData(snapshotSize, chunk.Capacity, writeIndex);
             currentSnapshot.SnapshotEntity = chunkState.GetEntity(snapshotSize, chunk.Capacity, writeIndex);
             currentSnapshot.SnapshotDynamicData = chunkState.GetDynamicDataPtr(writeIndex, chunk.Capacity, out currentSnapshot.SnapshotDynamicDataCapacity);
-            //Resize the snapshot dynamic data storage to fit the chunk buffers contents.
+            // 调整 Snapshot 动态数据存储区大小，使其能够容纳 Chunk Buffer 内容
             if (currentSnapshot.SnapshotDynamicData == null || (currentSnapshot.SnapshotDynamicDataSize > currentSnapshot.SnapshotDynamicDataCapacity))
             {
                 chunkState.EnsureDynamicDataCapacity(currentSnapshot.SnapshotDynamicDataSize, chunk.Capacity);
-                //Update the chunk state
+                // 更新 Chunk 状态
                 chunkSerializationData[chunk] = chunkState;
                 currentSnapshot.SnapshotDynamicData = chunkState.GetDynamicDataPtr(writeIndex, chunk.Capacity, out currentSnapshot.SnapshotDynamicDataCapacity);
                 if(currentSnapshot.SnapshotDynamicData == null)
@@ -155,7 +158,7 @@ namespace Unity.NetCode
             byte numExceededMbr = 0;
             UnityEngine.Debug.Assert(currentSnapshot.AvailableBaselines.IsCreated && currentSnapshot.AvailableBaselines.IsEmpty);
 #endif
-            // Prevent invalid tick exception on `ackTick`.
+            // 避免 `ackTick` 触发无效 Tick 异常
             var ackTick = snapshotAck.LastReceivedSnapshotByRemote.IsValid ? snapshotAck.LastReceivedSnapshotByRemote : currentTick;
 
             currentSnapshot.NumInFlightBaselines = 0;
@@ -169,8 +172,8 @@ namespace Unity.NetCode
                 {
                     if (Hint.Unlikely(currentTick.TicksSince(baselineTick) >= GhostSystemConstants.MaxBaselineAge))
                     {
-                        // No need to clear the ack mask here, as it's good enough to simply not
-                        // add it to the list of available baselines. I.e. `CanUseStaticOptimization` can still pass.
+                        // 此处无需清除 Ack Mask，只要不将其加入可用 Baseline 列表即可
+                        // `CanUseStaticOptimization` 仍然可能通过
 #if NETCODE_DEBUG
                         if (chunkState.HasAckFlag(baseline))
                             ackedExceededMbr = baselineTick;
@@ -204,10 +207,12 @@ namespace Unity.NetCode
 #endif
         }
 
-        /// <summary>Attempts to ack this chunk, assuming it hasn't yet been.</summary>
+        /// <summary>
+        /// 假定此 Chunk 尚未被 Ack，并尝试进行 Ack
+        /// </summary>
         /// <remarks>
-        ///     Note: We also have to UNDO ACKS for chunks when the client reports an error
-        ///     (by clearing their <see cref="NetworkSnapshotAck.IsReceivedByRemote" /> ack history).
+        /// 注意：客户端报告错误时，还必须撤销 Chunk 的 Ack，
+        /// 方法是清除其 <see cref="NetworkSnapshotAck.IsReceivedByRemote"/> Ack 历史
         /// </remarks>
         private void TryAck(ref GhostChunkSerializationState chunkState, int baseline, in NetworkTick baselineTick)
         {
@@ -262,7 +267,7 @@ namespace Unity.NetCode
         private void PacketDumpExceededMaxBaselineAge(in ArchetypeChunk chunk, NetworkTick ackedExceededMbr, byte numExceededMbr, int availableBaselinesLength)
         {
 #if NETCODE_DEBUG
-            // Only WARN if it actually invalidates our last acked baseline.
+            // 只有在实际导致最近已 Ack Baseline 失效时才发出警告
             if (Hint.Likely(!ackedExceededMbr.IsValid || availableBaselinesLength != 0)) return;
             netDebug.LogWarning((FixedString512Bytes)$"[GCS] Ghost chunk {chunk.SequenceNumber} - sending to NID[{NetworkId}] - lost it's acked baseline:{ackedExceededMbr.ToFixedString()} as was older than MaxBaselineAge ticks from currentTick:{currentTick.ToFixedString()}!");
             if (Hint.Unlikely(netDebugPacket.IsCreated))
@@ -380,7 +385,7 @@ namespace Unity.NetCode
             }
             if (packetDumpEnabled)
                 netDebugPacketDebug.Append(FixedString.Format(" Total ({0}b)", total));
-            // TODO there's cancellation happening after this where we reset the datastream with certain conditions. We should cancel the stats gathering there too
+            // TODO：之后某些条件会取消操作并重置 Data Stream，此时也应取消统计数据收集
         }
 #endif
         [Conditional("NETCODE_DEBUG")]
@@ -616,7 +621,7 @@ namespace Unity.NetCode
         {
             if (entityGhostType != ghostType && entityGhostType >= 0)
             {
-                // FIXME: what needs to happen to support this case? Should it be treated as a respawn?
+                // FIXME：需要怎样才能支持此情况，是否应将其视为重新生成
                 throw new InvalidOperationException(
                     "A ghost changed type, ghost must keep the same serializer type throughout their lifetime");
             }
@@ -686,24 +691,24 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        ///     - Writes predictive component data into the snapshot.
-        ///     - Writes the snapshot into the dataStream writer.
+        /// - 将预测 Component Data 写入 Snapshot
+        /// - 将 Snapshot 写入 DataStream Writer
         /// </summary>
-        /// <remarks>Recursive when iterating over ghost groups.</remarks>
-        /// <param name="dataStream">Transport write stream to write "prediction-compressed" snapshots into.</param>
+        /// <remarks>遍历 Ghost Group 时会递归调用</remarks>
+        /// <param name="dataStream">用于写入经过预测压缩 Snapshot 的 Transport 写入流</param>
         /// <param name="skippedEntityCount"></param>
         /// <param name="anyChangeMask"></param>
         /// <param name="ghostType"></param>
-        /// <param name="chunk">Chunk containing these ghosts (and thus their components).</param>
-        /// <param name="startIndex">Index of the first entity to process.</param>
-        /// <param name="endIndex">Index of the NEXT entity (PASSED the LAST entity) to process.</param>
+        /// <param name="chunk">包含这些 Ghost 及其 Component 的 Chunk</param>
+        /// <param name="startIndex">第一个待处理 Entity 的索引</param>
+        /// <param name="endIndex">最后一个待处理 Entity 之后的下一个 Entity 索引，不包含该索引</param>
         /// <param name="useSingleBaseline"></param>
         /// <param name="currentSnapshot"></param>
         /// <param name="baselinesPerEntity"></param>
         /// <param name="sameBaselinePerEntity"></param>
         /// <param name="dynamicDataLenPerEntity"></param>
-        /// <param name="entityStartBit">Stores 2 ints per component, per entity. [1st] Writer bit offset to the start of this components writes. [2nd] Num bits written for this component.</param>
-        /// <returns>The entity we ended on.</returns>
+        /// <param name="entityStartBit">每个 Entity 的每个 Component 存储两个 int，第一个是 Writer 中该 Component 写入起点的位 Offset，第二个是该 Component 写入的位数</param>
+        /// <returns>处理结束时所在的 Entity 索引</returns>
         /// <exception cref="InvalidOperationException"></exception>
         private int SerializeEntities(ref DataStreamWriter dataStream, out int skippedEntityCount, out uint anyChangeMask,
             int ghostType, ArchetypeChunk chunk, int startIndex, int endIndex, bool useSingleBaseline, in CurrentSnapshotState currentSnapshot,
@@ -711,7 +716,7 @@ namespace Unity.NetCode
         {
             PacketDumpBegin(ref chunk, startIndex, endIndex);
 #if NETCODE_DEBUG
-            using var tempComponentStats = new NativeList<UnsafeGhostStatsSnapshot.PerComponentStats>(20, Allocator.Temp); // each recursive call to SerializeEntities needs its own temp buffer
+            using var tempComponentStats = new NativeList<UnsafeGhostStatsSnapshot.PerComponentStats>(20, Allocator.Temp); // SerializeEntities 的每次递归调用都需要独立临时缓冲区
 #endif
             skippedEntityCount = 0;
             anyChangeMask = 0;
@@ -720,14 +725,14 @@ namespace Unity.NetCode
 
             if (currentSnapshot.relevancyData != null)
             {
-                // Skip irrelevant entities at the start of hte chunk without serializing them
+                // 跳过 Chunk 开头的 Irrelevant Entity，不对其进行序列化
                 while (currentSnapshot.relevancyData[startIndex] == 0)
                 {
                     currentSnapshot.SnapshotEntity[startIndex] = Entity.Null;
                     ++startIndex;
                     ++skippedEntityCount;
                 }
-                // If everything was irrelevant, do nothing
+                // 全部 Entity 都 Irrelevant 时无需处理
                 if (startIndex >= endIndex)
                     return endIndex;
             }
@@ -752,7 +757,7 @@ namespace Unity.NetCode
                 snapshot += startIndex * snapshotSize;
             }
 
-            // Setup the pointers to the baselines used per entity, also calculate the number of entities after which uses the same set of baselines
+            // 设置每个 Entity 使用的 Baseline 指针，并计算连续使用同一组 Baseline 的 Entity 数量
             var numAvailableBaselines = currentSnapshot.AvailableBaselines.Length;
             if (baselinesPerEntity == null)
                 baselinesPerEntity = tempBaselinesPerEntity;
@@ -772,15 +777,15 @@ namespace Unity.NetCode
             int sameBaselineIndex = 0;
             int lastRelevantEntity = startIndex+1;
             int baseGhostId = chunk.Has(ref PrespawnIndexType) ? unchecked((int)PrespawnHelper.PrespawnGhostIdBase) : 1;
-            var baseSpawnTick = currentTick; // Compression optimization: Assume the SpawnTick of a ghost
-            baseSpawnTick.Decrement();       // will be nearer to the currentTick-1, than 0.
+            var baseSpawnTick = currentTick; // 压缩优化：假定 Ghost 的 SpawnTick 更接近 currentTick - 1，而不是 0
+            baseSpawnTick.Decrement();
             var isPrespawn = chunk.Has(ref prespawnBaselineTypeHandle);
             int numPrespawnBaselines = 0;
             for (int ent = startIndex; ent < endIndex; ++ent)
             {
                 var baselineIndex = ent - startIndex;
                 dynamicDataLenPerEntity[baselineIndex] = 0;
-                // Make sure to set the tick for this snapshot so the serialization code can read it both for the snapshot and the baselines
+                // 确保设置此 Snapshot 的 Tick，使序列化代码能从当前 Snapshot 和 Baseline 中读取它
                 *(uint*)(snapshot + snapshotSize * (baselineIndex)) = currentTick.SerializedData;
 
                 int offset = baselineIndex*4;
@@ -792,7 +797,7 @@ namespace Unity.NetCode
                 if (currentSnapshot.relevancyData != null && currentSnapshot.relevancyData[ent] == 0)
                 {
                     currentSnapshot.SnapshotEntity[ent] = Entity.Null;
-                    // FIXME: should probably also skip running serialization code for irrelevant ghosts in the middle of a chunk if that speeds things up
+                    // FIXME：如果能够提升性能，也应跳过 Chunk 中间 Irrelevant Ghost 的序列化代码
                     sameBaselinePerEntity[ent-startIndex] = -1;
                     continue;
                 }
@@ -800,16 +805,16 @@ namespace Unity.NetCode
 
                 FindBaselines(ent, ghostEntities[ent], currentSnapshot, ref baseline0, ref baseline1, ref baseline2, useSingleBaseline);
 
-                // Calculate the same baseline count for each entity - same baseline count 0 means it is part of the previous run
+                // 计算每个 Entity 的相同 Baseline 数量，值为 0 表示它属于前一连续区段
                 if (baseline0 == sameBaseline0 && baseline1 == sameBaseline1 && baseline2 == sameBaseline2)
                 {
-                    // This is the same set of baselines as the current run, update the length
+                    // 与当前连续区段使用同一组 Baseline，更新区段长度
                     sameBaselinePerEntity[sameBaselineIndex] = sameBaselinePerEntity[sameBaselineIndex] + 1;
                     sameBaselinePerEntity[baselineIndex] = 0;
                 }
                 else
                 {
-                    // This is a different set of baselines - start a new run
+                    // 使用不同的 Baseline 组，开始新的连续区段
                     sameBaselineIndex = baselineIndex;
                     sameBaselinePerEntity[sameBaselineIndex] = 1;
 
@@ -846,7 +851,7 @@ namespace Unity.NetCode
                     }
                 }
             }
-            // Update the end index to skip irrelevant entities at the end of the chunk
+            // 更新结束索引，跳过 Chunk 末尾的 Irrelevant Entity
             int realEndIndex = endIndex;
             endIndex = lastRelevantEntity;
             int entityOffset = endIndex-startIndex;
@@ -860,7 +865,7 @@ namespace Unity.NetCode
             int dynamicSnapshotDataCapacity = currentSnapshot.SnapshotDynamicDataCapacity;
 
             byte* snapshotDynamicDataPtr = currentSnapshot.SnapshotDynamicData;
-            //This condition is possible when we spawn new entities and we send the chunk the first time
+            // 生成新 Entity 并首次发送该 Chunk 时可能满足此条件
             if (typeData.NumBuffers > 0 && currentSnapshot.SnapshotDynamicData == null && currentSnapshot.SnapshotDynamicDataSize > 0)
             {
                 snapshotDynamicDataPtr = (byte*)UnsafeUtility.Malloc(currentSnapshot.SnapshotDynamicDataSize + dynamicDataHeaderSize, 16, Allocator.Temp);
@@ -876,9 +881,9 @@ namespace Unity.NetCode
             if (hasPreserializeData)
             {
                 UnsafeUtility.MemCpy(snapshot, (byte*)preSerializedSnapshot.Data+snapshotSize*startIndex, snapshotSize*(endIndex-startIndex));
-                // If this chunk has been processed for this tick before we cannot copy the dynamic snapshot data since doing so would
-                // overwrite already computed change masks and break delta compression.
-                // Sending the same chunk multiple times only happens for non-root members of a ghost group
+                // 如果此 Chunk 在本 Tick 中已经处理过，则不能复制动态 Snapshot Data，
+                // 否则会覆盖已计算的 ChangeMask 并破坏 Delta Compression
+                // 只有 Ghost Group 的非根成员会在同一 Tick 中多次发送同一 Chunk
                 if (preSerializedSnapshot.DynamicSize > 0 && currentSnapshot.AlreadyUsedChunk == 0)
                     UnsafeUtility.MemCpy(snapshotDynamicDataPtr + dynamicDataHeaderSize, (byte*)preSerializedSnapshot.Data+preSerializedSnapshot.Capacity, preSerializedSnapshot.DynamicSize);
             }
@@ -916,9 +921,8 @@ namespace Unity.NetCode
                     ref context,
                     ref tempWriter, compressionModel,
                     ref lastSerializedEntity);
-                //Temp writer in this case only fails if there is not enough space for a single entity.
-                //There is no need to retry serializing the whole chunk in this case, we know is not going to fit in the
-                //current data stream size (because the size of temp writer is going to be same).
+                // 此时 Temp Writer 只会因为连单个 Entity 都没有足够空间而失败
+                // 无需重试整个 Chunk，因为 Temp Writer 大小不会变化，可以确定它无法装入当前 Data Stream
                 if (tempWriter.HasFailedWrites)
                 {
                     return startIndex;
@@ -950,8 +954,8 @@ namespace Unity.NetCode
                         }
                         else
                         {
-                            // TODO: Ensure these pointer invocations are NOT called in the ZeroSize case (but we must update entityStartBit)!
-                            // Which means we can remove the #ifdef in Serializer Template.
+                            // TODO：确保 ZeroSize 情况下不调用这些指针，但仍必须更新 entityStartBit
+                            // 完成后可以移除 Serializer Template 中的 #ifdef
                             ComponentScopeBegin(serializerIdx);
                             ghostSerializer.PostSerialize.Invoke((IntPtr)snapshot, snapshotOffset, snapshotSize, snapshotMaskOffsetInBits, endIndex - startIndex, (IntPtr)baselinesPerEntity, ref tempWriter, ref compressionModel, (IntPtr)(entityStartBit+2*entityOffset*comp));
                             ComponentScopeEnd(serializerIdx);
@@ -965,7 +969,7 @@ namespace Unity.NetCode
                 }
                 else
                 {
-                    // Loop through all components and call the serialize method which will write the snapshot data and serialize the entities to the temporary stream
+                    // 遍历全部 Component 并调用 Serialize 方法，将 Snapshot Data 写入并把 Entity 序列化到临时数据流
                     int numBaseComponents = typeData.NumComponents - typeData.NumChildComponents;
                     int enableableMaskOffset = 0;
                     for (int comp = 0; comp < numBaseComponents; ++comp)
@@ -982,10 +986,9 @@ namespace Unity.NetCode
                             compData[ent-startIndex] = null;
                             compDataLen[ent-startIndex] = 0;
                         }
-                        //Don't access the data but always increment the offset by the component SnapshotSize.
-                        //Otherwise, the next serialized component would technically copy the data in the wrong memory slot
-                        //It might still work in some cases but if this snapshot is then part of the history and used for
-                        //interpolated data we might get incorrect results
+                        // 即使不访问数据，也始终需要按 Component SnapshotSize 增加 Offset
+                        // 否则下一个序列化 Component 会把数据复制到错误的内存槽位
+                        // 某些情况下可能暂时正常，但该 Snapshot 进入历史并用于插值数据时可能产生错误结果
 
                         if (ghostSerializer.SerializesEnabledBit != 0)
                         {
@@ -1097,7 +1100,7 @@ namespace Unity.NetCode
                                     var linkedEntityGroup = linkedEntityGroupAccessor[ent];
                                     var childEnt = linkedEntityGroup[GhostComponentIndex[typeData.FirstComponent + comp].EntityIndex].Value;
                                     compData[ent-startIndex] = null;
-                                    //We can skip here, because the memory buffer offset is computed using the start-end entity indices
+                                    // 此处可以跳过，因为内存缓冲区 Offset 使用起止 Entity 索引计算
                                     if (childEntityLookup.TryGetValue(childEnt, out var childChunk) && childChunk.Chunk.Has(ref ghostChunkComponentTypesPtr[compIdx]))
                                     {
                                         if (ghostSerializer.SerializesEnabledBit != 0)
@@ -1136,13 +1139,12 @@ namespace Unity.NetCode
                 }
                 if (tempWriter.HasFailedWrites)
                 {
-                    //We are paying the cost of this string concatenation even though the log level will skip this.
-                    //At least try to avoid that with an if
+                    // 即使日志级别会跳过消息，字符串拼接仍会产生成本，因此至少用条件判断避免该开销
                     if (Hint.Unlikely(netDebug.LogLevel == NetDebug.LogLevelType.Debug))
                     {
                         netDebug.LogWarning($"PERFORMANCE: Could not fit snapshot content into temporary buffer of size {tempWriter.Capacity}, increasing size to {tempWriter.Capacity*2} and trying again! If this happens frequently, increase the size of this buffer via `GhostSendSystemData.TempStreamInitialSize`.");
                     }
-                    // The temporary buffer could not fit the content for all entities, make it bigger and retry
+                    // 临时缓冲区无法容纳全部 Entity 内容，扩大后重试
                     tempWriter = new DataStreamWriter(tempWriter.Capacity*2, Allocator.Temp);
                     tempWriter.WriteBytes(oldTempWriter.AsNativeArray());
                     return SerializeEntities(ref dataStream, out skippedEntityCount, out anyChangeMask,
@@ -1151,7 +1153,7 @@ namespace Unity.NetCode
                 }
             }
             tempWriter.Flush();
-            // Copy the content per entity from the temporary stream to the output stream in the correct order
+            // 按正确顺序将每个 Entity 的内容从临时数据流复制到输出流
             var writerData = (uint*)tempWriter.AsNativeArray().GetUnsafePtr();
             uint zeroChangeMask = 0;
             bool hasPartialSends = false;
@@ -1175,7 +1177,7 @@ namespace Unity.NetCode
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                         UnityEngine.Debug.Assert(currentSnapshot.SnapshotEntity[ent] == Entity.Null);
 #endif
-                        // This is an irrelevant ghost, do not send anything
+                        // 此 Ghost 为 Irrelevant，不发送任何内容
                         snapshot += snapshotSize;
                         ++skippedEntityCount;
                         PacketDumpIrrelevant(ghosts[ent].ghostId);
@@ -1201,12 +1203,10 @@ namespace Unity.NetCode
                 var ghost = ghosts[ent];
                 ValidateGhostType(ghost.ghostType, ghostType);
 
-                // write the ghost + change mask from the snapshot
+                // 写入 Ghost 和 Snapshot 中的 ChangeMask
                 dataStream.WritePackedIntDelta(ghost.ghostId, baseGhostId, compressionModel);
-                baseGhostId = ghost.ghostId + 1; // Compression optimization: Assume the next GID will be:
-                                                 // A) Similar to the last, and...
-                                                 // B) Commonly the next GID assigned, as ghosts adjacent to
-                                                 // each other in chunks tend to be spawned together.
+                baseGhostId = ghost.ghostId + 1; // 压缩优化：假定下一个 GID 与前一个接近，
+                                                 // 并且通常就是下一个已分配 GID，因为 Chunk 中相邻 Ghost 往往同时生成
                 PacketDumpFlush();
                 PacketDumpGhostID(ghost.ghostId);
 
@@ -1225,33 +1225,33 @@ namespace Unity.NetCode
                     changeMaskBaselineMask = 0;
                     enableableMaskBaselineMask = 0;
 
-                    //Serialize the spawn tick only for runtime spawned ghost
+                    // 仅为运行时生成的 Ghost 序列化 Spawn Tick
                     if (PrespawnHelper.IsRuntimeSpawnedGhost(ghost.ghostId))
                     {
                         dataStream.WritePackedUIntDelta(ghost.spawnTick.SerializedData, baseSpawnTick.SerializedData, compressionModel);
-                        baseSpawnTick = ghost.spawnTick; // Compression optimization: Assume the next spawnTick will be similar to the last.
+                        baseSpawnTick = ghost.spawnTick; // 压缩优化：假定下一个 Spawn Tick 与前一个接近
                         PacketDumpSpawnTick(ghost.spawnTick);
                     }
                 }
 
                 uint prevDynamicSize = 0;
                 uint curDynamicSize = 0;
-                //write the dynamic data size in the snapshot and sent it delta compressed against the current available baseline
+                // 将动态数据大小写入 Snapshot，并相对当前可用 Baseline 进行 Delta Compression 后发送
                 if (typeData.NumBuffers != 0)
                 {
                     if(dynamicDataLenPerEntity[ent-startIndex] > dynamicSnapshotDataCapacity)
                         throw new InvalidOperationException("dynamic data size larger then the buffer capacity");
-                    // Can be null if buffer has been removed from the chunk
+                    // Buffer 已从 Chunk 移除时可以为 null
                     if (snapshotDynamicDataPtr != null)
                     {
                         curDynamicSize = (uint) dynamicDataLenPerEntity[ent-startIndex];
-                        //Store the used dynamic size for that entity in the snapshot data. It is used for delta compression
+                        // 在 Snapshot Data 中存储该 Entity 使用的动态大小，供 Delta Compression 使用
                         ((uint*) snapshotDynamicDataPtr)[ent] = curDynamicSize;
                         var baselineDynamicData = baselinesPerEntity[offset+3];
-                        //this need a special case for prespawn since the data are encoded differently
+                        // Prespawn 数据编码方式不同，因此需要特殊处理
                         if (baselineDynamicData != null)
                         {
-                            //for prespawn ghosts only consider the fallback baseline if the tick is 0.
+                            // 对 Prespawn Ghost，仅在 Tick 为 0 时使用后备 Baseline
                             if (PrespawnHelper.IsPrespawnGhostId(ghost.ghostId) && (*(uint*)baseline) == 0)
                                 prevDynamicSize = ((uint*) baselineDynamicData)[0];
                             else
@@ -1270,8 +1270,7 @@ namespace Unity.NetCode
                 uint* changeMasks = (uint*)(snapshot+sizeof(uint));
                 uint* enableableMasks = (uint*)(snapshot+sizeof(uint) + changeMaskUints * sizeof(uint));
 
-                //This can't work with custom serializer and it is expected they will do that as part of the
-                //serialization
+                // 此逻辑不适用于自定义 Serializer，预期由自定义 Serializer 在序列化过程中自行完成
                 if (hasPartialSends && !hasCustomSerializer)
                 {
                     GhostSendType serializeMask = GhostSendType.AllClients;
@@ -1284,17 +1283,15 @@ namespace Unity.NetCode
                     var curMaskOffsetInBits = 0;
                     int curSnapshotDataOffset = GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + (changeMaskUints * sizeof(uint)) + (enableableMaskUints * sizeof(uint)));
 
-                    // SIDE NOTE:
-                    // IF, we sort the component differently and we allow an order like
-                    // GhostOwner (always 0 or even always serialised, it is just 1 bit the by default instead of 2
-                    // All non optional components
-                    // All optimisable components (predicted-only)
-                    // All send-onwer masked components
-                    // All optimisable components (interpolated-only)
-                    // we may have a better mask order in general for both changemaks and enablemasks that would lead to better compression
-                    // (delta).
-                    // Also, as added benefith, it may give better opportunity for perf improvement as well, since we can perform certain
-                    // logic again on "per-range" of stuff.
+                    // 补充说明
+                    // 如果采用不同的 Component 排序，并允许以下顺序
+                    // GhostOwner，始终为 0 或始终序列化，默认只需 1 位而不是 2 位
+                    // 全部非可选 Component
+                    // 全部可优化 Component，仅 Predicted
+                    // 全部受 SendToOwner Mask 控制的 Component
+                    // 全部可优化 Component，仅 Interpolated
+                    // 则 ChangeMask 和 EnableMask 的总体排列可能更合理，并获得更好的 Delta Compression
+                    // 额外收益是可能带来更多性能优化机会，因为部分逻辑可以按连续范围执行
                     for (int comp = 0; comp < typeData.NumComponents; ++comp)
                     {
                         int serializerIdx = GhostComponentIndex[typeData.FirstComponent + comp].SerializerIndex;
@@ -1307,39 +1304,37 @@ namespace Unity.NetCode
                             ? GhostComponentSerializer.DynamicBufferComponentSnapshotSize
                             : ghostSerializer.SnapshotSize;
                         componentStride = GhostComponentSerializer.SnapshotSizeAligned(componentStride);
-                        //For the context: this is a very rarely used feature, only a bunch of component on some entity (usually the player)
-                        //may benefit from these. So it is fundamental to avoid slowing down the serialisation fast path with any of
-                        //these.
-                        //However, (and this is an opt for another PR) we are doing work for nothing in that case (that may be still faster because of SIMD
-                        //but I doubt in that case, because of the nature of DataStreamWriter and Huffman compression).
+                        // 此功能很少使用，只有少数 Entity，通常是玩家，上的少量 Component 会受益
+                        // 因此关键是不能让这些处理拖慢序列化快速路径
+                        // 不过这种情况下当前仍会执行无效工作，可在另一 PR 中优化
+                        // 虽然 SIMD 可能仍使其更快，但考虑 DataStreamWriter 和 Huffman Compression 的特性，此处未必如此
                         if ((serializeMask & GhostComponentIndex[typeData.FirstComponent + comp].SendMask) == 0 ||
                             (sendToOwner & GhostComponentIndex[typeData.FirstComponent + comp].SendToOwner) == 0)
                         {
                             entityStartBit[(entityOffset*comp + entOffset)*2+1] = 0;
-                            //Resetting the enablemaks is not necessary here. The mask itself is not a change mask.
-                            //Furthermore, the gain (1 bit) in term of compression inside a uint mask is hard to predicy, probably not much if nothing at all.
-                            //Also, in term of delta compression (done later), because the default values of enable components is true, a better value would be to use
-                            //as default the ~0 mask instead. Or change the way they are encoded by actually xoring against the true value instead.
+                            // 此处无需重置 EnableMask，因为它本身不是 ChangeMask
+                            // 此外，在 uint Mask 内减少 1 位对压缩率的收益难以预测，很可能微乎其微
+                            // 对稍后执行的 Delta Compression 而言，Enable Component 默认值为 true，
+                            // 更好的默认值可能是 ~0 Mask，或者改为与 true 值进行异或编码
                             if (hasGhostFields)
                             {
-                                // This component should not be sent for this specific entity, clear the change mask and number of bits to prevent it from being sent
+                                // 此 Component 不应发送给该 Entity，清除 ChangeMask 和位数以阻止发送
                                 GhostComponentSerializer.ResetChangeMask((IntPtr)changeMasks, curMaskOffsetInBits, changeBits);
-                                //Ideally, here we need to reset the snapshot data to value of the predicted baseline. This will allow to then
-                                //resend the data (in case) using less bits. However, the longer the component is not sent, the highest is the
-                                //odd that the value is way different from this baseline anyway. That may not make then any sensible different
-                                //from using the default baseline instead.
-                                //The big advantage of the former is that it keep the value of the snapshot identical, that is "cleaner".
-                                //The client is already honour the fact he don't update the component anymore, so in that
-                                //sense the value of the snapshot data is irrelvant (even though it is nicer to keep the last value of it)
-                                //For sake of simplicity a reset to 0 is done here, and the same does the client when receive the component
-                                //data update. That complicate the receiving side a bit but the logic is a mirror of this one (and it is necessary to ensure consistency).
+                                // 理想情况下，此处应把 Snapshot Data 重置为预测 Baseline 的值，以便之后重发时使用更少位
+                                // 但 Component 越久未发送，其值越可能已与该 Baseline 相差很大，
+                                // 此时与直接使用默认 Baseline 相比可能没有明显差异
+                                // 前一种方式的主要优势是保持 Snapshot 值一致，状态更干净
+                                // 客户端已经遵循不再更新该 Component 的规则，因此 Snapshot Data 的值实际无关紧要，
+                                // 尽管保留最近值会更理想
+                                // 为简化处理，此处重置为 0，客户端收到 Component Data 更新时也执行相同操作
+                                // 这会稍微增加接收端复杂度，但两端逻辑互为镜像，是保证一致性所必需的
                                 var snapshotData = (uint*)(snapshot + curSnapshotDataOffset);
                                 for(int i=0;i<componentStride/4;++i)
                                     snapshotData[i] = 0;
                             }
-                            // FIXME: We need to modify the test to ensure that the enableableMasks is a MIX of 1s and 0s,
-                            // otherwise this code could be broken (by removing the wrong 1) and we wont know.
-                            // TODO: buffers could also reduce the required dynamic buffer size to save some memory on clients
+                            // FIXME：需要修改测试，确保 enableableMasks 同时包含 1 和 0
+                            // 否则代码可能因为清除了错误的 1 而损坏，却无法被发现
+                            // TODO：Buffer 也可以缩减所需动态缓冲区大小，以节省客户端内存
                         }
                         if (hasGhostFields)
                         {
@@ -1348,7 +1343,7 @@ namespace Unity.NetCode
                         }
                     }
                 }
-                // make sure the last few bits of the changemask is cleared
+                // 确保清除 ChangeMask 末尾剩余的位
                 if ((typeData.ChangeMaskBits&31) != 0)
                     GhostComponentSerializer.CopyToChangeMask((IntPtr)changeMasks, 0, typeData.ChangeMaskBits, 32 - (typeData.ChangeMaskBits&31));
                 PacketDumpChangeMasks(changeMasks, changeMaskUints);
@@ -1358,7 +1353,7 @@ namespace Unity.NetCode
                 if (GhostSystemConstants.SnapshotHasCompressedGhostSize)
                 {
                     var headerLen = 0;
-                    //Calculate the compressed size of the header part and add that to the final ghost size
+                    // 计算 Header 部分的压缩大小，并加入最终 Ghost 大小
                     if (typeData.NumBuffers != 0)
                     {
                         var compressedSize = GhostComponentSerializer.GetDeltaCompressedSizeInBits(curDynamicSize, prevDynamicSize, compressionModel);
@@ -1392,7 +1387,7 @@ namespace Unity.NetCode
                     }
                     dataStream.WritePackedUIntDelta((uint)(ghostSizeInBits+headerLen), 0, compressionModel);
                 }
-                //write the dynamic data size in the snapshot and sent it delta compressed against the current available baseline
+                // 将动态数据大小写入 Snapshot，并相对当前可用 Baseline 进行 Delta Compression 后发送
                 if (typeData.NumBuffers != 0)
                     dataStream.WritePackedUIntDelta(curDynamicSize, prevDynamicSize, compressionModel);
 
@@ -1413,7 +1408,8 @@ namespace Unity.NetCode
                 anyChangeMask |= anyEnableableMaskChangedThisEntity;
 
 #if NETCODE_DEBUG
-                // resize only grows the allocation, never shrinks. Our analytics show on average users have a bit more than 20 components per ghost type, I figured 20 was a good first size and worst comes to worst resize can make it grow.
+                // Resize 只增大分配而不会缩小
+                // 分析数据显示每个 Ghost 类型平均略多于 20 个 Component，因此 20 是合理初始值，不足时仍可扩容
                 tempComponentStats.Resize(typeData.NumComponents, options: NativeArrayOptions.ClearMemory);
                 tempComponentStats.ResetToDefault();
                 var stats = tempComponentStats;
@@ -1461,7 +1457,7 @@ namespace Unity.NetCode
 
                 if (dataStream.HasFailedWrites)
                 {
-                    // Rollback to the last good state, and apply additional constraints on the quantity of entities we can serialize.
+                    // 回滚到最近的有效状态，并进一步限制可序列化的 Entity 数量
                     PacketDumpHasFailedWritesDuringSerializeEntities(ent);
                     dataStream = oldStream;
                     return ent;
@@ -1472,7 +1468,7 @@ namespace Unity.NetCode
                     PacketDumpFlush();
                     GhostSendSystem.s_GhostGroupMarker.Begin();
                     var ghostGroup = chunk.GetBufferAccessor(ref ghostGroupType)[ent];
-                    // Serialize all other ghosts in the group, this also needs to be handled correctly in the receive system
+                    // 序列化 Group 中的其他全部 Ghost，接收系统也必须正确处理
                     dataStream.WritePackedUInt((uint)ghostGroup.Length, compressionModel);
                     if (dataStream.HasFailedWrites)
                     {
@@ -1492,35 +1488,35 @@ namespace Unity.NetCode
                     PacketDumpFlush();
                     if (!success)
                     {
-                        // Abort before setting the entity since the snapshot is not going to be sent
+                        // Snapshot 不会发送，因此在设置 Entity 前中止
                         dataStream = oldStream;
                         return ent;
                     }
                 }
 
 #if NETCODE_DEBUG
-                // there was no cancellation, so we can increment the stats
+                // 未发生取消操作，可以累加统计数据
                 this.componentStats.IncrementWith(tempComponentStats);
 #endif
                 if (currentSnapshot.SnapshotData != null)
                 {
                     currentSnapshot.SnapshotEntity[ent] = ghostEntities[ent];
 
-                    // Mark this entity as spawned.
+                    // 将此 Entity 标记为已生成
                     ref var ghostState = ref ghostStateData.GetGhostState(ghostSystemState[ent]);
 
-                    // Our static-optimization system needs to be able to distinguish between all of the following permutations:
-                    // A) [A newly spawned ghost | a pre-spawned ghost | an existing ghost].
-                    // B) [with SOME existing baselines | with ZERO baselines | with PRESPAWN baselines].
-                    // C) [With no changes vs baseline OR `default(T)` | with changes].
-                    // D) [Ghost has just MOVED into this chunk (WITHOUT baselines) | Ghost has just MOVED into this chunk (WITH baselines) | ghost has not recently moved to this chunk]
+                    // 静态优化系统需要区分以下所有组合
+                    // A）新生成 Ghost、Prespawn Ghost、已有 Ghost
+                    // B）存在部分 Baseline、完全没有 Baseline、存在 Prespawn Baseline
+                    // C）相对 Baseline 或 `default(T)` 没有变化、存在变化
+                    // D）Ghost 刚移入此 Chunk 且无 Baseline、Ghost 刚移入此 Chunk 且有 Baseline、Ghost 最近未移入此 Chunk
                     //
-                    // Thus, we send the ghost when we have the following conditions:
-                    // 1. If we have ZERO previously acked baselines (including prespawn baselines), we MUST send,
-                    // as this is a new ghost, or a (very unlucky) recently changed or moved or frequently sent ghost.
-                    // Note: Prespawns are automatically spawned on the client with their special prespawn baseline.
-                    // Note2: When a ghost moves to another chunk, its baselines MAY be moved too (see `UpdateChunkHistory`).
-                    // 2. If anyChangeMask != 0, we MUST send, as our baseline is out of date i.e. we can presume some data changed.
+                    // 因此满足以下条件时发送 Ghost
+                    // 1）此前已 Ack 的 Baseline 数量为零，包括 Prespawn Baseline，此时必须发送
+                    //    这可能是新 Ghost，也可能是极少见的刚变化、刚移动或发送频繁的 Ghost
+                    //    注意：Prespawn 会使用其特殊 Prespawn Baseline 自动在客户端生成
+                    //    注意 2：Ghost 移到另一个 Chunk 时，其 Baseline 也可能一同迁移，参见 `UpdateChunkHistory`
+                    // 2）anyChangeMask != 0 时必须发送，因为 Baseline 已过时，可以推断部分数据发生了变化
                     var hasRuntimeBaseline = baseline0 < numAvailableBaselines;
                     var hasValidAckedBaseline = hasRuntimeBaseline || (isPrespawn && numPrespawnBaselines > 0);
                     var wasSentWithChangesBefore = (ghostState.Flags & ConnectionStateData.GhostStateFlags.SentWithChanges) != 0;
@@ -1539,7 +1535,7 @@ namespace Unity.NetCode
 
             if (hasCustomSerializer && lastSerializedEntity != endIndex)
                 return lastSerializedEntity;
-            // If all entities were processes, remember to include the ones we skipped in the end of the chunk
+            // 全部 Entity 处理完成后，记得计入 Chunk 末尾跳过的 Entity
             skippedEntityCount += realEndIndex - endIndex;
             return realEndIndex;
         }
@@ -1584,14 +1580,14 @@ namespace Unity.NetCode
             var array = chunk.GetEnableableBits(ref handle);
             var bitArray = new UnsafeBitArray(&array, 2 * sizeof(ulong));
 
-            var uintOffset = enableableMaskOffset >> 5; // This is a shortcut for `floor(enableableMaskOffset / 32)`.
-            var maskOffset = enableableMaskOffset & 0x1f; // This is a shortcut for `enableableMaskOffset % 32`.
+            var uintOffset = enableableMaskOffset >> 5; // 等价于 `floor(enableableMaskOffset / 32)` 的快捷写法
+            var maskOffset = enableableMaskOffset & 0x1f; // 等价于 `enableableMaskOffset % 32` 的快捷写法
             snapshotSize /= 4;
 
             uint* enableableMasks = (uint*)(snapshot + sizeof(uint) + changeMaskUints * sizeof(uint)) + uintOffset;
             for (int i = startIndex; i < endIndex; ++i)
             {
-                if (maskOffset == 0) // First time writing, reset the entire 32 bits.
+                if (maskOffset == 0) // 首次写入时重置全部 32 位
                     *enableableMasks = 0U;
                 if (bitArray.IsSet(i))
                     (*enableableMasks) |= 1U << maskOffset;
@@ -1615,10 +1611,10 @@ namespace Unity.NetCode
                 if (!groupChunk.Chunk.Has(ref ghostChildEntityComponentType))
                     throw new InvalidOperationException("Ghost group contains an member which does not have a GhostChildEntityComponent.");
                 #endif
-                // Entity does not have valid state initialized yet, wait some more
+                // Entity 尚未初始化有效状态，继续等待
                 if (!chunkSerializationData.TryGetValue(groupChunk.Chunk, out var chunkState))
                     return false;
-                // Prefab for this ghost type has not been acked yet
+                // 此 Ghost 类型的 Prefab 尚未被 Ack
                 if (chunkState.ghostType >= snapshotAck.NumLoadedPrefabs)
                     return false;
             }
@@ -1631,9 +1627,9 @@ namespace Unity.NetCode
         {
             var grpAvailableBaselines = new NativeList<SnapshotBaseline>(GhostSystemConstants.SnapshotHistorySize, Allocator.Temp);
             var baselinesPerEntity = stackalloc byte*[4];
-            //this will fit any possible number of replicated component.
+            // 足以容纳任意可能数量的复制 Component
             var entityStartBit = stackalloc int[ghostChunkComponentTypesLength*2 + 2];
-            //we also need to track the current write index for rollback
+            // 还需要跟踪当前写入索引以便回滚
             var currentWriteIndex = stackalloc int[ghostGroup.Length];
             for (int i = 0; i < ghostGroup.Length; ++i)
             {
@@ -1671,8 +1667,8 @@ namespace Unity.NetCode
                 bool clearEntityArray = true;
                 if (snapshotIndex[baselineIndex] != currentTick.SerializedData)
                 {
-                    // The chunk history only needs to be updated once per frame, this is the first time we are using this chunk this frame
-                    // TODO: Updating the chunk history is only required if there has been a structural change - should skip it as an optimization
+                    // Chunk History 每帧只需更新一次，这是本帧首次使用此 Chunk
+                    // TODO：只有发生结构性变更时才需更新 Chunk History，可通过跳过不必要更新进行优化
                     UpdateChunkHistory(childGhostType, childChunk.Chunk, childChunkState, childGhostPrefabSerializer.SnapshotSize);
                     snapshotIndex[writeIndex] = currentTick.SerializedData;
                     var nextWriteIndex = (writeIndex + 1) % GhostSystemConstants.SnapshotHistorySize;
@@ -1680,7 +1676,7 @@ namespace Unity.NetCode
                 }
                 else
                 {
-                    // already bumped, so use previous value
+                    // 已经推进过，因此使用前一个值
                     writeIndex = baselineIndex;
                     baselineIndex = (GhostSystemConstants.SnapshotHistorySize + writeIndex - 1) %
                             GhostSystemConstants.SnapshotHistorySize;
@@ -1694,8 +1690,8 @@ namespace Unity.NetCode
                 if (clearEntityArray)
                     UnsafeUtility.MemClear(groupSnapshot.SnapshotEntity, UnsafeUtility.SizeOf<Entity>()*childChunk.Chunk.Capacity);
 
-                // ComponentDataPerEntity, ComponentDataLengthPerEntity, and tempWriter can all be re-used in this recursive call
-                // tempBaselinesPerEntity, tempDynamicDataLenPerEntity, tempSameBaselinePerEntity and tempEntityStartBit must be changed
+                // 此递归调用可以复用 ComponentDataPerEntity、ComponentDataLengthPerEntity 和 tempWriter
+                // tempBaselinesPerEntity、tempDynamicDataLenPerEntity、tempSameBaselinePerEntity 和 tempEntityStartBit 必须更换
 
                 int sameBaselinePerEntity;
                 int dynamicDataLenPerEntity;
@@ -1703,8 +1699,9 @@ namespace Unity.NetCode
                 if (SerializeEntities(ref dataStream, out _, out var anyChangeMaskThisEntity, childGhostType, childChunk.Chunk, childChunk.IndexInChunk, childChunk.IndexInChunk+1, useSingleBaseline, groupSnapshot,
                     baselinesPerEntity, &sameBaselinePerEntity, &dynamicDataLenPerEntity, entityStartBit) != childChunk.IndexInChunk+1)
                 {
-                    // FIXME: this does not work if a group member is itself the root of a group since it can fail to roll back state to compress against in that case. This is the reason nested ghost groups are not supported
-                    // Roll back all written entities for group members
+                    // FIXME：如果 Group 成员本身也是 Group 根，此逻辑无法正常工作，因为此时可能无法回滚作为压缩依据的状态
+                    // 这就是不支持嵌套 Ghost Group 的原因
+                    // 回滚 Group 成员中全部已写入的 Entity
                     while(i-- > 0)
                     {
                         if (!childEntityLookup.TryGetValue(ghostGroup[i].Value, out var revertChunk))
@@ -1724,8 +1721,8 @@ namespace Unity.NetCode
             return true;
         }
 
-        //Cycle over all the components for the given entity range in the chunk and compute the capacity
-        //to store all the dynamic buffer contents (if any)
+        // 遍历 Chunk 中指定 Entity 范围内的全部 Component，
+        // 计算存储所有动态 Buffer 内容所需的容量
         private int GatherDynamicBufferSize(in ArchetypeChunk chunk, int startIndex, int endIndex, int ghostType)
         {
             if (chunk.Has(ref preSerializedGhostType) && SnapshotPreSerializeData.TryGetValue(chunk, out var preSerializedSnapshot))
@@ -1753,15 +1750,15 @@ namespace Unity.NetCode
             hasRelevancySpawns = false;
             var ghost = chunk.GetNativeArray(ref ghostComponentType);
             var ghostSystemState = chunk.GetNativeArray(ref ghostSystemStateType);
-            // First figure out the baselines to use per entity so they can be sent as baseline + maxCount instead of one per entity
+            // 先确定每个 Entity 使用的 Baseline，以便按 Baseline + maxCount 发送，而不是逐 Entity 发送
             int irrelevantCount = 0;
             bool setIsRelevant = relevancyMode == GhostRelevancyMode.SetIsRelevant;
             bool chunkMatchesInternalRelevantRule = internalGlobalRelevantMask.Matches(chunk.Archetype);
             bool chunkMatchesEitherRelevantRule = chunkMatchesInternalRelevantRule || userGlobalRelevantMask.Matches(chunk.Archetype);
             for (int ent = 0, chunkEntityCount = chunk.Count; ent < chunkEntityCount; ++ent)
             {
-                // Use query and/or importance scaling relevancy flag ONLY IF the ghost is not manually marked with a specific rule.
-                // Why? Relevancy set overrides global rules, so keep the rule if there's one.
+                // 只有 Ghost 未被特定规则手动标记时，才使用 Query 和/或 Importance Scaling 的相关性标志
+                // 原因是相关性集合会覆盖全局规则，因此存在明确规则时应保留该规则
                 bool isRelevant = chunkMatchesEitherRelevantRule | prioChunk.isRelevant;
                 if (!setIsRelevant | !isRelevant)
                 {
@@ -1774,25 +1771,25 @@ namespace Unity.NetCode
                 var isDespawning = (ghostState.Flags & ConnectionStateData.GhostStateFlags.IsDespawning) != 0;
                 relevancyData[ent] = 1;
 
-                // If this ghost was previously irrelevant, we need to wait until that despawn is acked to avoid sending spawn + despawn in the same snapshot.
+                // 如果此 Ghost 之前为 Irrelevant，需要等到对应 Despawn 被 Ack，避免在同一 Snapshot 中同时发送 Spawn 和 Despawn
                 if (!isRelevant || isDespawning)
                 {
                     relevancyData[ent] = 0;
-                    // if the already irrelevant flag is not set the client might have seen this entity
+                    // 如果尚未设置 Irrelevant 标志，客户端可能已经见过此 Entity
                     if (wasRelevant)
                     {
-                        // Clear the snapshot history buffer, so we do not delta compress against this.
+                        // 清除 Snapshot History Buffer，避免以此为基准进行 Delta Compression
                         for (int hp = 0; hp < GhostSystemConstants.SnapshotHistorySize; ++hp)
                         {
                             var clearSnapshotEntity = chunkState.GetEntity(snapshotSize, chunk.Capacity, hp);
                             clearSnapshotEntity[ent] = Entity.Null;
                         }
-                        // Add this ghost to the pending despawn queue. We have not actually sent the despawn yet!
+                        // 将此 Ghost 加入待处理 Despawn 队列，此时尚未真正发送 Despawn
                         PendingGhostDespawn.AddNewPendingDespawn(ref *pendingDespawns, ref ghostState.Flags, new GhostCleanup
                         {
                             ghostId = ghost[ent].ghostId,
                             spawnTick = ghost[ent].spawnTick,
-                            despawnTick = NetworkTick.Invalid, // Not applicable to irrelevant despawns.
+                            despawnTick = NetworkTick.Invalid, // 不适用于因 Irrelevant 触发的 Despawn
                         }, PendingGhostDespawn.DespawnReason.Irrelevant);
                     }
                     if (ent >= startIndex)
@@ -1828,32 +1825,32 @@ namespace Unity.NetCode
         {
             using var _ = GhostSendSystem.s_CanUseStaticOptimizationMarker.Auto();
 
-            // If this chunk has relevancy changes, cannot static optimize.
+            // 此 Chunk 存在相关性变化时不能进行静态优化
             if (hasRelevancySpawns)
             {
                 PacketDumpCUSOHasRelevancyChanges();
                 return false;
             }
 
-            // New entities added or removed - so cannot rely on component change versioning.
+            // 添加或移除了 Entity，因此不能依赖 Component Change Version
             if (didOrderChange)
             {
                 PacketDumpCUSOOrderChanged();
                 return false;
             }
 
-            // NOTE: We MUST ALWAYS run the `TryAck` logic below, due to the nuances of how we 'confirm' the client's ack-mask.
-            // Ideally, we would early-out significantly earlier.
+            // 注意：由于确认客户端 Ack Mask 的逻辑较为特殊，必须始终执行下方 `TryAck`
+            // 理想情况下应能更早退出
 
-            // Let's look for ANY zero-change snapshots we may have sent
-            // and since acked (i.e. any snapshot >= our zero-change snapshot tick).
-            // We only need one, but we may have sent 2+ while we wait for an ack.
+            // 查找任何已发送且随后被 Ack 的 Zero-Change Snapshot，
+            // 即 Tick 大于等于 Zero-Change Snapshot Tick 的任意 Snapshot
+            // 实际只需一份，但等待 Ack 期间可能已经发送了两份或更多
             var zeroChangeTick = chunkState.GetFirstZeroChangeTick();
             var zeroChangeVersion = chunkState.GetFirstZeroChangeVersion();
-            // Prespawn chunks are special - if their ZC.Version is != 0 AND they're ZC.Tick is Invalid,
-            // they haven't changed since the pre-spawn scene was loaded (except for order changes).
-            // Thus, we can infer that they have been "implicitly acked" (as the client is known to have the prespawn values
-            // by virtue of loading the sub-scene), and thus we CAN still use static optimization.
+            // Prespawn Chunk 比较特殊，如果其 ZC.Version != 0 且 ZC.Tick 无效，
+            // 表示自 Prespawn Scene 加载后除顺序变化外没有发生变化
+            // 因此可以推断它们已被隐式 Ack，因为客户端加载 SubScene 时已获得 Prespawn 值，
+            // 所以仍可使用静态优化
             var hasImplicitlyAckedZeroChange = zeroChangeVersion != 0 && !zeroChangeTick.IsValid;
             if (hasImplicitlyAckedZeroChange)
                 PacketDumpCUSOImplicitAck(ref chunkState);
@@ -1863,13 +1860,13 @@ namespace Unity.NetCode
                 var snapshotTick = new NetworkTick {SerializedData = snapshotIndex[i]};
                 if (!snapshotTick.IsValid || i == writeIndex) continue;
 
-                // Note: We intentionally ignore `GhostSystemConstants.MaxBaselineAge` here, because we can
-                // still mark the ghost as static, even if we no longer know the baseline.
-                // We'll just send it as uncompressed if/when we do resend it.
+                // 注意：此处有意忽略 `GhostSystemConstants.MaxBaselineAge`
+                // 即使已无法确定 Baseline，仍可将 Ghost 标记为 Static
+                // 后续重新发送时只需按未压缩形式发送
                 TryAck(ref chunkState, i, snapshotTick);
 
                 hasAckedAnyZeroChangeSnapshot |= (chunkState.HasAckFlag(i) && zeroChangeTick.IsValid && snapshotTick.TicksSince(zeroChangeTick) >= 0);
-                // NOTE: Don't early out here, as we MUST continue to loop through and call `TryAck`!
+                // 注意：此处不能提前退出，必须继续遍历并调用 `TryAck`
             }
 
             if (!hasAckedAnyZeroChangeSnapshot)
@@ -1879,17 +1876,17 @@ namespace Unity.NetCode
             }
             PacketDumpCUSOHasAckedZC(ref chunkState);
 
-            // If our ZC version is zero, this denotes that no zero-change snapshot exists (either implicitly or explicitly)
-            // for us to try to early out from. I.e. We must have sent some un-acked changes recently.
+            // ZC Version 为 0 表示不存在隐式或显式的 Zero-Change Snapshot 可供提前退出
+            // 即最近一定发送过尚未 Ack 的变化
             if (zeroChangeVersion == 0)
             {
                 PacketDumpCUSONoZC();
                 return false;
             }
 
-            // So, we have a confirmed zero-change version.
-            // Now, let's ensure ALL GhostField components have NOT changed.
-            // If ANY have, we CANNOT skip this chunk:
+            // 此时已经确认存在 Zero-Change Version
+            // 接下来确保所有 GhostField Component 都没有变化
+            // 只要任意一个发生变化，就不能跳过此 Chunk
             ref readonly var typeData = ref GhostTypeCollection.ElementAtRO(ghostType);
             int baseOffset = typeData.FirstComponent;
             int numChildComponents = typeData.NumChildComponents;
@@ -1901,16 +1898,15 @@ namespace Unity.NetCode
                 if (chunk.DidChange(ref ghostChunkComponentTypesPtr[compIdx], zeroChangeVersion))
                 {
                     PacketDumpCUSOAnyGhostComponentChanged(compIdx);
-                    // TODO - As we know when change versioning led to a packet being serialized,
-                    // AND we ALSO know if the ghost ended up ACTUALLY having changes,
-                    // can't we just log a warning/error to the user if we encountered a false positive?
-                    // Note, though; it's valid for users to write to non-GhostField's on said component,
-                    // so any validation would have to be opt-in/out on a per-component (or per-ghost-type) basis?
+                    // TODO：既然能够知道 Change Version 何时导致数据包被序列化，
+                    // 同时也知道 Ghost 最终是否确实发生变化，遇到误报时或许可以向用户记录警告或错误
+                    // 但用户写入该 Component 的非 GhostField 是合法行为，
+                    // 因此任何校验都需要支持按 Component 或 Ghost 类型启用或禁用
                     return false;
                 }
             }
 
-            // Success!
+            // 静态优化校验成功
             PacketDumpResult_CUSOSuccess(ref chunkState);
             return true;
         }
@@ -1923,14 +1919,14 @@ namespace Unity.NetCode
             {
                 ref var ghostState = ref ghostStateData.GetGhostState(ghostSystemState[currentIndexInChunk]);
                 var entity = ghostEntities[currentIndexInChunk];
-                // Loop over all entities and find the ones that are in a different chunk or at a different index than they were last time
+                // 遍历全部 Entity，找出相比上次位于不同 Chunk 或不同索引的项
                 if (ghostState.LastChunk != currentChunk || ghostState.LastIndexInChunk != currentIndexInChunk)
                 {
-                    // If the feature to keep snapshot history is enabled, the history data exists and does not contain buffers we try to copy hisotry data
-                    // IsSameSizeAndCapacity is required in case the chunk was re-used for a different archetype. In that case we will get a valid chunk state,
-                    // but we cannot read the entity array because we do not know the capacity
-                    // GetLastValidTick is required to know that the memory used by LastChunk is currently used as a chunk storing ghosts, without that check the chunk memory could be reused for
-                    // something else before or during this loop causing it to access invalid memory (which could also change during the loop)
+                    // 启用保留 Snapshot History、历史数据存在且不包含 Buffer 时，尝试复制历史数据
+                    // 需要检查 IsSameSizeAndCapacity，因为 Chunk 可能被另一 Archetype 复用
+                    // 此时虽然能取得有效 Chunk 状态，但由于不知道容量，不能读取 Entity 数组
+                    // 还需要检查 GetLastValidTick，以确认 LastChunk 使用的内存当前仍属于存储 Ghost 的 Chunk
+                    // 否则 Chunk 内存可能在此循环之前或期间被其他用途复用，导致访问无效且可能动态变化的内存
                     if (systemData.KeepSnapshotHistoryOnStructuralChange && ghostState.LastChunk != default && GhostTypeCollection[ghostType].NumBuffers == 0 &&
                         chunkSerializationData.TryGetValue(ghostState.LastChunk, out var prevChunkState) && prevChunkState.GetLastValidTick() == currentTick &&
                         prevChunkState.IsSameSizeAndCapacity(snapshotSize, ghostState.LastChunk.Capacity))
@@ -1938,15 +1934,15 @@ namespace Unity.NetCode
                         uint* snapshotIndex = prevChunkState.GetSnapshotIndex();
                         int writeIndex = prevChunkState.GetSnapshotWriteIndex();
 
-                        // Build a map from tick -> snapshot data pointer for all valid history items we find in the old chunk
+                        // 为旧 Chunk 中找到的全部有效历史项建立 Tick 到 Snapshot Data 指针的映射
                         if (prevSnapshots.IsCreated)
                             prevSnapshots.Clear();
                         else
                             prevSnapshots = new NativeParallelHashMap<uint, IntPtr>(GhostSystemConstants.SnapshotHistorySize, Allocator.Temp);
                         for (int history = 0; history < GhostSystemConstants.SnapshotHistorySize; ++history)
                         {
-                            // We do not want to copy snapshot data from the write index since it is ok to keep incomplete data there
-                            // The same check is not applied when we clear / write for the same reason - it is ok to keep incomplete data there
+                            // 不复制 Write Index 位置的 Snapshot Data，因为该位置允许保留不完整数据
+                            // 清理或写入时出于同样原因不做此检查，该位置保留不完整数据是允许的
                             if (history == writeIndex)
                                 continue;
                             var historyEntity = prevChunkState.GetEntity(snapshotSize, ghostState.LastChunk.Capacity, history);
@@ -1954,20 +1950,20 @@ namespace Unity.NetCode
                             {
                                 var src = prevChunkState.GetData(snapshotSize, ghostState.LastChunk.Capacity, history);
                                 src += snapshotSize*ghostState.LastIndexInChunk;
-                                // Add this to prevSnapshots mapping
+                                // 加入 prevSnapshots 映射
                                 prevSnapshots.TryAdd(snapshotIndex[history], (IntPtr)src);
-                                // Clear out the history slot in previous chunk since the new chunk will be the authority
+                                // 清除旧 Chunk 中的历史槽位，因为新 Chunk 将成为权威来源
                                 historyEntity[ghostState.LastIndexInChunk] = Entity.Null;
                             }
                         }
                         snapshotIndex = curChunkState.GetSnapshotIndex();
-                        // Write or clear all history for this
+                        // 写入或清除此 Entity 的全部历史
                         for (int history = 0; history < GhostSystemConstants.SnapshotHistorySize; ++history)
                         {
-                            // if this exists in prevSnapshots, copy instead of setting entity to null
+                            // 如果 prevSnapshots 中存在该项，则复制而不是将 Entity 设为 null
                             var historyEntity = curChunkState.GetEntity(snapshotSize, currentChunk.Capacity, history);
-                            // If the tick for this history item exists in the old snapshot too, we copy the data and flag the
-                            // history position as valid, otherwise we mark it as not valid
+                            // 如果此历史项的 Tick 也存在于旧 Snapshot 中，则复制数据并将历史位置标记为有效
+                            // 否则标记为无效
                             if (prevSnapshots.TryGetValue(snapshotIndex[history], out var src))
                             {
                                 var dst = curChunkState.GetData(snapshotSize, currentChunk.Capacity, history);
@@ -1982,7 +1978,7 @@ namespace Unity.NetCode
                     }
                     else
                     {
-                        // Clear all history for this since there is no previous history we can or want to copy from
+                        // 没有可复制或希望复制的旧历史，因此清除该 Entity 的全部历史
                         for (int history = 0; history < GhostSystemConstants.SnapshotHistorySize; ++history)
                         {
                             var historyEntity = curChunkState.GetEntity(snapshotSize, currentChunk.Capacity, history);
@@ -2028,26 +2024,24 @@ namespace Unity.NetCode
             var didOrderChange = chunk.DidOrderChange(chunkState.GetOrderChangeVersion());
             if (didOrderChange)
             {
-                // There has been a structural change to this chunk, which means:
-                // - Possibly some new ghosts.
-                // - Possibly some deleted ghosts.
-                // - Possibly some moved ghosts (from other ghost chunks).
+                // 此 Chunk 发生了结构性变更，可能包括
+                // - 新增 Ghost
+                // - 删除 Ghost
+                // - 从其他 Ghost Chunk 移入 Ghost
                 chunkState.SetOrderChangeVersion(chunk.GetOrderVersion());
-                // For prespawns; the first zero-change tick is 0, and the version is going to be equal to the
-                // change version of of the PrespawnBaseline buffer.
-                // Note: Structural changes within the chunk do not invalidate baselines,
-                // so there is still a chance we can skip sending this chunk.
+                // 对 Prespawn 而言，第一个 Zero-Change Tick 为 0，Version 等于 PrespawnBaseline Buffer 的 Change Version
+                // 注意：Chunk 内部的结构性变更不会使 Baseline 失效，因此仍有可能跳过发送该 Chunk
                 if (chunk.Has(ref prespawnBaselineTypeHandle))
                     chunkState.SetFirstZeroChange(NetworkTick.Invalid, chunk.GetChangeVersion(ref prespawnBaselineTypeHandle));
                 else
                     chunkState.SetFirstZeroChange(NetworkTick.Invalid, 0);
                 PacketDumpStructuralChange(in serialChunk);
-                // Validate that no items in the history buffer reference a ghost that was sent as part of a different chunk
-                // Not doing this could mean that we delta compress against snapshots which are no longer available on the client
+                // 确保历史缓冲区中没有项目引用曾作为其他 Chunk 一部分发送的 Ghost
+                // 否则可能相对客户端已不再可用的 Snapshot 进行 Delta Compression
                 UpdateChunkHistory(ghostType, chunk, chunkState, snapshotSize);
             }
 
-            // Calculate which entities are relevant and trigger despawn for irrelevant entities
+            // 计算哪些 Entity 为 Relevant，并为 Irrelevant Entity 触发 Despawn
             if (relevancyEnabled)
             {
                 using var _ = GhostSendSystem.s_RelevancyMarker.Auto();
@@ -2056,13 +2050,13 @@ namespace Unity.NetCode
                 relevantGhostCount -= irrelevantCount;
                 if (hasRelevancySpawns)
                 {
-                    // We treat this as a structural change, don't try to skip any zero change packets
+                    // 将此情况视为结构性变更，不尝试跳过任何 Zero-Change 数据包
                     chunkState.SetFirstZeroChange(NetworkTick.Invalid, 0);
                     PacketDumpHasRelevancySpawns();
                 }
             }
 
-            // go through and set ghost groups with missing children as irrelevant
+            // 遍历并将缺少 Child 的 Ghost Group 设为 Irrelevant
             if (typeData.IsGhostGroup!=0)
             {
                 using var _ = GhostSendSystem.s_GhostGroupRelevancyMarker.Auto();
@@ -2074,27 +2068,26 @@ namespace Unity.NetCode
 
             if (relevantGhostCount <= 0)
             {
-                // There is nothing to send, so not need to spend time serializing
-                // We do want to mark the chunk as sent this frame though - to make sure it is not processed
-                // again next frame if there are more important chunks
-                // This happens when using relevancy and on structural changes while there is a partially sent chunk
-                // We update the timestamp as if the chunk was sent but do not actually send anything
+                // 没有内容可发送，因此无需花费时间序列化
+                // 但仍需将 Chunk 标记为本帧已发送，避免存在更高优先级 Chunk 时下一帧再次处理
+                // 使用相关性并在存在部分发送 Chunk 时发生结构性变更，就可能出现这种情况
+                // 此处像已经发送 Chunk 一样更新时间戳，但实际不发送任何内容
                 chunkState.SetLastFullUpdate(currentTick);
                 PacketDumpResult_NoRelevantGhostsInChunk();
                 return SerializeEnitiesResult.Ok;
             }
 
-            // Only apply the zero change optimization for ghosts tagged as optimize for static
-            // Ghosts optimized for dynamic get zero change snapshots when they have constant changes thanks to the delta prediction
-            // Ghost groups are special, since they contain other ghosts which we do not know if they have been
-            // acked as zero change or not we can never skip zero change packets for ghost groups.
+            // 仅对标记为静态优化的 Ghost 应用 Zero-Change 优化
+            // 动态优化 Ghost 依靠 Delta Prediction，在变化保持恒定时也能得到 Zero-Change Snapshot
+            // Ghost Group 比较特殊，其中包含其他 Ghost，无法确定它们是否已按 Zero-Change 被 Ack，
+            // 因此 Ghost Group 永远不能跳过 Zero-Change 数据包
             if (isStatic)
             {
-                // If a chunk was modified it will be cleared after we serialize the content
-                // If the snapshot is still zero change we only want to update the version, not the tick, since we still did not send anything
+                // Chunk 被修改时，会在序列化内容后清除修改状态
+                // 如果 Snapshot 仍为 Zero-Change，只更新 Version 而不更新 Tick，因为实际仍未发送任何内容
                 if (CanUseStaticOptimization(chunk, ghostType, writeIndex, snapshotIndex, ref chunkState, hasRelevancySpawns, didOrderChange))
                 {
-                    // There were not changes we required to send, treat is as if we did send the chunk to make sure we do not collect all static chunks as the top priority ones
+                    // 没有必须发送的变化，按已发送 Chunk 处理，避免所有静态 Chunk 都积累为最高优先级
                     chunkState.SetLastFullUpdate(currentTick);
                     return SerializeEnitiesResult.Ok;
                 }
@@ -2103,23 +2096,22 @@ namespace Unity.NetCode
 
             if (typeData.NumBuffers > 0)
             {
-                //Dynamic buffer contents are always stored from the beginning of the dynamic storage buffer (for the specific history slot).
-                //That because each snapshot is only relative to the entities ranges startIndex-endIndex, the outer ranges are invalidate (0-StartIndex and count-Capacity).
-                //This is why we gather the buffer size starting from startIndex position instead of 0 here.
+                // 动态 Buffer 内容始终从指定历史槽的动态存储缓冲区起始位置存储
+                // 因为每份 Snapshot 只对应 startIndex 到 endIndex 的 Entity 范围，外部范围 0 到 startIndex 和 Count 到 Capacity 均无效
+                // 因此此处从 startIndex 而不是 0 开始统计 Buffer 大小
 
-                //FIXME: this operation is costly (we traverse the whole chunk and child entities too), do that only if something changed. Backup the current size and version in the
-                //chunk state. It is a non trivial check in general, due to the entity children they might be in another chunk)
+                // FIXME：此操作成本很高，会遍历整个 Chunk 及其 Child Entity，应仅在发生变化时执行
+                // 可在 Chunk 状态中备份当前大小和 Version，但由于 Child Entity 可能位于其他 Chunk，整体检查并不简单
                 currentSnapshot.SnapshotDynamicDataSize = GatherDynamicBufferSize(chunk, serialChunk.startIndex, serialChunk.chunk.Count, ghostType);
             }
 
             SetupDataAndAvailableBaselines(ref currentSnapshot, ref chunkState, chunk, snapshotSize, writeIndex, snapshotIndex);
 
-            // For SnapshotHistorySize correctness: If we've filled up our snapshot history with in-flight snapshots,
-            // we CANNOT send this ghost again, as we don't have the available snapshot history space to put it.
-            const int neededFreeSlots = 2; // One for this snapshot's writeIndex, another for this snapshots baselines.
+            // 为保证 SnapshotHistorySize 正确，如果 Snapshot History 已被在途 Snapshot 填满，
+            // 就不能再次发送此 Ghost，因为没有可用历史空间存放它
+            const int neededFreeSlots = 2; // 一个用于当前 Snapshot 的 Write Index，另一个用于当前 Snapshot 的 Baseline
             var snapshotHistorySaturated = currentSnapshot.NumInFlightBaselines >= GhostSystemConstants.SnapshotHistorySize - neededFreeSlots;
-            // The following bypass safeguards this logic by ensuring that a lag spike (which would appear as a
-            // high number of in-flight baselines) does not reduce our send cadence.
+            // 以下绕过条件用于保护发送频率，避免 Lag Spike 表现出的高数量在途 Baseline 降低发送节奏
             var ticksSinceLastReceive = Hint.Likely(snapshotAck.LastReceivedSnapshotByRemote.IsValid) ? currentTick.TicksSince(snapshotAck.LastReceivedSnapshotByRemote) : 0;
             var bypassSnapshotHistoryFull = ticksSinceLastReceive > expectedSnapshotRttInSimTicks;
             if (snapshotHistorySaturated)
@@ -2136,8 +2128,8 @@ namespace Unity.NetCode
 
             dataStream.WritePackedUInt((uint) ghostType, compressionModel);
             dataStream.WritePackedUInt((uint) relevantGhostCount, compressionModel);
-            // Write 1 bits for that run if the entity are pre-spawned objects. This will change how the ghostId
-            // is encoded and will not write the spawn tick
+            // 此连续区段中的 Entity 为 Prespawn 对象时写入 1 位
+            // 这会改变 GhostId 的编码方式，并且不写入 Spawn Tick
             dataStream.WriteRawBits(chunk.Has(ref PrespawnIndexType)?1u:0u, 1);
             PacketDumpGhostCount(ghostType, relevantGhostCount);
             if (dataStream.HasFailedWrites)
@@ -2149,16 +2141,15 @@ namespace Unity.NetCode
             }
 
             typeData.profilerMarker.Begin();
-            // Write the chunk for current ghostType to the data stream
-            tempWriter.Clear(); // Clearing the temp writer here instead of inside the method to make it easier to deal with ghost groups which recursively adds more data to the temp writer
+            // 将当前 Ghost 类型的 Chunk 写入 Data Stream
+            tempWriter.Clear(); // 在此处而不是方法内部清理 Temp Writer，便于处理会递归向其中追加更多数据的 Ghost Group
             var ent = SerializeEntities(ref dataStream, out var skippedEntityCount, out var anyChangeMask, ghostType, chunk, startIndex, endIndex, useSingleBaseline, currentSnapshot);
             typeData.profilerMarker.End();
 
-            // Only append chunks which ACTUALLY contain changes since their last acked baseline, and only update
-            // the write index if we actually sent it:
+            // 仅追加相对最近已 Ack Baseline 确实发生变化的 Chunk，
+            // 并且只有实际发送后才更新 Write Index
             var isPartialChunkSend = startIndex != 0 || ent < endIndex;
-            var isZeroChange = anyChangeMask == 0 && !hasRelevancySpawns; // Note: isZeroChange will be FALSE if SerializeEntities
-                                                                          // detected an order change resulting in a required send.
+            var isZeroChange = anyChangeMask == 0 && !hasRelevancySpawns; // 注意：SerializeEntities 检测到需要发送的顺序变化时，isZeroChange 为 false
             var triggeredZeroChangeOptimization = !isPartialChunkSend && isZeroChange && isStatic;
             if (triggeredZeroChangeOptimization)
             {
@@ -2188,25 +2179,23 @@ namespace Unity.NetCode
 
             if (isPartialChunkSend)
             {
-                // TODO: should this always be run or should partial chunks only be allowed for the highest priority chunk?
+                // TODO：是否应始终执行此逻辑，还是只允许最高优先级 Chunk 进行部分发送
                 //if (pc == 0)
 
-                // Note: We take advantage of the fact that static ghosts have zero changeBits for MOST ghosts,
-                // by constantly resending from the 0th Entity. E.g.
-                // Send0: Send 0 - 4.
-                // Send1: Send 0 - 8 (where 0 - 4 are tiny as zero change).
-                // Send2: Send 0 - 10 (where 0 - 8 are tine as zero change).
+                // 注意：大多数静态 Ghost 的 ChangeBit 为零，因此可通过始终从第 0 个 Entity 开始重发来利用这一点
+                // 例如
+                // Send0：发送 0 - 4
+                // Send1：发送 0 - 8，其中 0 - 4 为 Zero-Change，数据量很小
+                // Send2：发送 0 - 10，其中 0 - 8 为 Zero-Change，数据量很小
                 if (isStatic)
                     chunkState.SetStartIndex(0);
 
-                // Partial chunk sends cannot be treated as static!
-                // The good news is; as we ack more and more of this chunks entities, each write gets smaller
-                // (because all previous ghosts are acked, thus zero change delta-compression is working).
-                // This means we're VERY LIKELY to send a non-partial version of this chunk shortly,
-                // which then can be 'zero change' optimized.
-                // However, this is concerning as it theoretically COULD fail indefinitely.
-                // But pragmatically - this works.
-                didFillPacket = true; // Could not send all ghosts, so packet MUST BE full.
+                // 部分发送的 Chunk 不能视为 Static
+                // 好的一面是，随着此 Chunk 中越来越多 Entity 被 Ack，每次写入都会变小
+                // 因为此前 Ghost 都已被 Ack，Zero-Change Delta Compression 开始生效
+                // 这意味着很可能很快就能发送一份完整 Chunk，之后便可进行 Zero-Change 优化
+                // 理论上它可能无限失败，确实存在风险，但实际使用中能够工作
+                didFillPacket = true; // 未能发送全部 Ghost，因此数据包一定已经填满
                 chunkState.SetFirstZeroChange(NetworkTick.Invalid, 0);
 
                 if (sentAtLeastOneEntity)
@@ -2221,8 +2210,8 @@ namespace Unity.NetCode
 
             chunkState.SetLastFullUpdate(currentTick);
 
-            // This static ghost chunk was sent fully. Thus, we can say; ONCE the user acks THIS snapshot, they don't need
-            // to be sent this chunk again (until it next changes). So we flag it as "zero-change (ZC) from here".
+            // 此静态 Ghost Chunk 已完整发送
+            // 一旦用户 Ack 当前 Snapshot，在该 Chunk 下次变化前就无需再次发送，因此将其标记为从此处开始 Zero-Change
             if (isStatic)
             {
                 chunkState.SetFirstZeroChange(currentTick, CurrentSystemVersion);
@@ -2230,7 +2219,7 @@ namespace Unity.NetCode
             }
             else
             {
-                // Dynamic ghosts can never have a zero-change, as we always send them.
+                // Dynamic Ghost 始终会发送，因此永远不能处于 Zero-Change 状态
                 chunkState.SetFirstZeroChange(NetworkTick.Invalid, 0);
                 PacketDumpResult_DynamicFullSend();
             }

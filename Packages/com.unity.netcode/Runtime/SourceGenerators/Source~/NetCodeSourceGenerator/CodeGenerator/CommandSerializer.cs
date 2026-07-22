@@ -4,9 +4,9 @@ using System.Text.RegularExpressions;
 
 namespace Unity.NetCode.Generators
 {
-    // The CommandSerializer instances are created by CodeGenerator. The class itself is not threadsafe,
-    // but since every SourceGenerator has its own Context it is safe use.
-    // Please avoid to use shared static variables or state here and verify that in case you need, they are immutable or thread safe.
+    // CommandSerializer 实例由 CodeGenerator 创建，此类本身不是线程安全的
+    // 但每个 SourceGenerator 都具有独立 Context，因此可以安全使用
+    // 此处应避免共享静态变量或状态；确有需要时，必须保证它们不可变或线程安全
     internal class CommandSerializer
     {
         public enum Type
@@ -63,13 +63,11 @@ namespace Unity.NetCode.Generators
             TypeInformation typeInformation,
             string rootPath=null, Dictionary<string, string> replacements=null)
         {
-            //We need to create an helper to serialize the list. This because we can't easily change the variable names, nor append
-            //sub-fragment to another template and other things like that.
-            //By adding another level of indirection makes writing the whole thing easier
+            // 需要创建辅助类型来序列化列表，因为变量名替换、向其他 Template 追加子片段等操作并不方便
+            // 增加一层间接结构可以简化整体代码生成
             var argumentHelperName = $"{context.generatedNs}_{fixedListArgGen.m_TypeInformation.TypeFullName}_CmdSerializer".Replace('.', '_');
             var fixedListHelperGenerator = context.codeGenCache.GetTemplate(CodeGenerator.GhostFixedListCommandHelper).Clone();
-            //need also to add some using here, otherwise is problematic
-            //for sure I need the using
+            // 此处还必须补充必要的 using，否则生成代码无法正确解析类型
             fixedListHelperGenerator.Replacements["GHOST_NAME"] = context.root.TypeFullName;
             fixedListHelperGenerator.Replacements["GHOST_COMMAND_HELPER_NAME"] = argumentHelperName;
             fixedListHelperGenerator.Replacements["COMMAND_FIXEDLIST_CAP"] = typeInformation.ElementCount.ToString();
@@ -105,15 +103,15 @@ namespace Unity.NetCode.Generators
 
             if (CommandType == Type.Input)
             {
-                // Write the fragments for incrementing/decrementing InputEvent types inside the input struct
-                // This is done for the count (integer) type nested inside the InputEvent struct (parent)
+                // 为 Input 结构体内的 InputEvent 类型生成递增与递减片段
+                // 实际处理的是嵌套于父级 InputEvent 结构体中的整数计数字段
                 if (m_TypeInformation.ContainingTypeFullName == "Unity.NetCode.InputEvent")
                 {
                     m_CommandGenerator.Replacements.Add("EVENTNAME", m_TypeInformation.FieldPath);
                     m_CommandGenerator.GenerateFragment("INCREMENT_INPUTEVENT", m_CommandGenerator.Replacements, m_CommandGenerator);
                     m_CommandGenerator.GenerateFragment("DECREMENT_INPUTEVENT", m_CommandGenerator.Replacements, m_CommandGenerator);
                 }
-                // No further processing needed as the rest of the fields will be handled by command template
+                // 其余字段由 Command Template 处理，无需继续生成
                 return;
             }
 
@@ -153,7 +151,7 @@ namespace Unity.NetCode.Generators
         public void GenerateSerializer(CodeGenerator.Context context, TypeInformation typeInfo)
         {
             var typeFullName = typeInfo.TypeFullName.Replace('+', '.');
-            var displayName = typeFullName.Replace("Unity.NetCode.InputBufferData<", "").Replace(">", ""); // Bit of a hack.
+            var displayName = typeFullName.Replace("Unity.NetCode.InputBufferData<", "").Replace(">", ""); // 这里通过字符串处理移除泛型包装名称
             var replacements = new Dictionary<string, string>
             {
                 {"COMMAND_NAME", context.generatorName.Replace(".", "").Replace('+', '_')},

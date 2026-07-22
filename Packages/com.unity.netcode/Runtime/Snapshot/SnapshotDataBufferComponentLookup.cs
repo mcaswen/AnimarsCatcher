@@ -7,12 +7,11 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode.LowLevel
 {
     /// <summary>
-    /// Helper struct that can be used to inspect the presence of components from a <see cref="SnapshotData"/> buffer
-    /// and retrieve their data.
-    /// The lookup can be passed ot jobs
+    /// 用于检查 <see cref="SnapshotData"/> Buffer 中是否存在 Component 并获取其数据的辅助结构体
+    /// 该 Lookup 可以传入 Job
     /// </summary>
     /// <remarks>
-    /// The helper only allows you to read component data. Buffers are not supported.
+    /// 该辅助类型仅允许读取 Component 数据，不支持读取 Buffer 数据
     /// </remarks>
     public struct SnapshotDataBufferComponentLookup
     {
@@ -40,32 +39,31 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Check if the spawning ghost mode is owner predicted.
+        /// 检查正在生成的 Ghost 是否使用 Owner Predicted 模式
         /// </summary>
-        /// <param name="ghost">The spawning ghost</param>
-        /// <returns>True if the spawning ghost is owner predicted</returns>
+        /// <param name="ghost">正在生成的 Ghost</param>
+        /// <returns>Ghost 使用 Owner Predicted 模式时返回 true</returns>
         public bool IsOwnerPredicted(in GhostSpawnBuffer ghost)
         {
             return m_ghostPrefabType.ElementAtRO(ghost.GhostType).OwnerPredicted != 0;
         }
 
         /// <summary>
-        /// Check if the spawning ghost has a <see cref="GhostOwner"/>.
+        /// 检查正在生成的 Ghost 是否具有 <see cref="GhostOwner"/>
         /// </summary>
-        /// <param name="ghost">The spawning ghost</param>
-        /// <returns>True if the spawning ghost is owner predicted</returns>
+        /// <param name="ghost">正在生成的 Ghost</param>
+        /// <returns>Ghost 具有 <see cref="GhostOwner"/> 时返回 true</returns>
         public bool HasGhostOwner(in GhostSpawnBuffer ghost)
         {
             return m_ghostPrefabType.ElementAtRO(ghost.GhostType).PredictionOwnerOffset != 0;
         }
 
         /// <summary>
-        /// Retrieve the network id of the player owning the ghost if the ghost archetype has a
-        /// <see cref="GhostOwner"/>.
+        /// 如果 Ghost Archetype 具有 <see cref="GhostOwner"/>，则获取拥有该 Ghost 的玩家 NetworkId
         /// </summary>
-        /// <param name="ghost">The spawning ghost</param>
-        /// <param name="data">Snapshot data buffers</param>
-        /// <returns>the id of the player owning the ghost, if the <see cref="GhostOwner"/> is present, 0 otherwise.</returns>
+        /// <param name="ghost">正在生成的 Ghost</param>
+        /// <param name="data">Snapshot 数据 Buffer</param>
+        /// <returns>存在 <see cref="GhostOwner"/> 时返回拥有该 Ghost 的玩家 NetworkId，否则返回 0</returns>
         public int GetGhostOwner(in GhostSpawnBuffer ghost, in DynamicBuffer<SnapshotDataBuffer> data)
         {
             ref readonly var ghostPrefabSerializer = ref m_ghostPrefabType.ElementAtRO(ghost.GhostType);
@@ -81,24 +79,23 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Retrieve the prediction mode used as fallback if the spawning ghost has not been
-        /// classified.
+        /// 获取正在生成的 Ghost 尚未完成分类时使用的后备预测模式
         /// </summary>
-        /// <param name="ghost">The spawning ghost</param>
-        /// <returns>The fallback mode to use</returns>
+        /// <param name="ghost">正在生成的 Ghost</param>
+        /// <returns>要使用的后备模式</returns>
         public GhostSpawnBuffer.Type GetFallbackPredictionMode(in GhostSpawnBuffer ghost)
         {
             return m_ghostPrefabType.ElementAtRO(ghost.GhostType).FallbackPredictionMode;
         }
 
         /// <summary>
-        /// Check if the component of type <typeparamref name="T"/> is present in this spawning ghost.
+        /// 检查正在生成的 Ghost 中是否存在 <typeparamref name="T"/> 类型的 Component
         /// </summary>
-        /// <param name="ghostTypeIndex">The index in the <see cref="GhostCollectionPrefabSerializer"/> collection</param>
-        /// <typeparam name="T">Component type in spawning ghost.</typeparam>
-        /// <returns>Whether the component is present in this spawning ghost.</returns>
+        /// <param name="ghostTypeIndex">在 <see cref="GhostCollectionPrefabSerializer"/> 集合中的索引</param>
+        /// <typeparam name="T">正在生成的 Ghost 中的 Component 类型</typeparam>
+        /// <returns>正在生成的 Ghost 中是否存在该 Component</returns>
         /// <remarks>
-        /// This work for both IComponentData and IBufferElementData
+        /// 对 IComponentData 和 IBufferElementData 均适用
         /// </remarks>
         public bool HasComponent<T>(int ghostTypeIndex) where T: unmanaged, IComponentData
         {
@@ -106,13 +103,13 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Check if the a component of type <typeparamref name="T"/> is present in this spawning ghost.
+        /// 检查正在生成的 Ghost 中是否存在 <typeparamref name="T"/> 类型的 Buffer
         /// </summary>
-        /// <param name="ghostTypeIndex">The index in the <see cref="GhostCollectionPrefabSerializer"/> collection</param>
-        /// <typeparam name="T">Component type</typeparam>
-        /// <returns>Whether the type is present in this spawning ghost</returns>
+        /// <param name="ghostTypeIndex">在 <see cref="GhostCollectionPrefabSerializer"/> 集合中的索引</param>
+        /// <typeparam name="T">Buffer 元素类型</typeparam>
+        /// <returns>正在生成的 Ghost 中是否存在该类型</returns>
         /// <remarks>
-        /// This work for both IComponentData and IBufferElementData
+        /// 对 IComponentData 和 IBufferElementData 均适用
         /// </remarks>
         public bool HasBuffer<T>(int ghostTypeIndex) where T: unmanaged, IBufferElementData
         {
@@ -120,17 +117,17 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Try to retrieve the data for a component type <typeparamref name="T"/> from the the snapshot history buffer.
+        /// 尝试从 Snapshot 历史 Buffer 获取 <typeparamref name="T"/> 类型的 Component 数据
         /// </summary>
         /// <remarks>
-        /// Buffers aren't supported. Only components present on the root entity can be retrieved. Trying to get data for components in a child entity is not supported.
+        /// 不支持 Buffer，且只能获取根 Entity 上的 Component，不支持获取子 Entity 上的 Component 数据
         /// </remarks>
-        /// <param name="ghostTypeIndex">The index in the <see cref="GhostCollectionPrefabSerializer"/> collection.</param>
-        /// <param name="snapshotBuffer">The entity snapshot history buffer.</param>
-        /// <param name="componentData">The deserialized component data.</param>
-        /// <param name="slotIndex">The slot in the history buffer to use.</param>
-        /// <typeparam name="T">Component type</typeparam>
-        /// <returns>True if the component is present and the component data is initialized. False otherwise</returns>
+        /// <param name="ghostTypeIndex">在 <see cref="GhostCollectionPrefabSerializer"/> 集合中的索引</param>
+        /// <param name="snapshotBuffer">Entity 的 Snapshot 历史 Buffer</param>
+        /// <param name="componentData">反序列化后的 Component 数据</param>
+        /// <param name="slotIndex">要使用的历史 Buffer 槽位</param>
+        /// <typeparam name="T">Component 类型</typeparam>
+        /// <returns>存在该 Component 且其数据已初始化时返回 true，否则返回 false</returns>
         public bool TryGetComponentDataFromSnapshotHistory<T>(int ghostTypeIndex, in DynamicBuffer<SnapshotDataBuffer> snapshotBuffer,
             out T componentData, int slotIndex=0) where T : unmanaged, IComponentData
         {
@@ -150,16 +147,16 @@ namespace Unity.NetCode.LowLevel
         }
 
         /// <summary>
-        /// Try to retrieve the data for a component type <typeparamref name="T"/> from the spawning buffer.
+        /// 尝试从生成 Buffer 获取 <typeparamref name="T"/> 类型的 Component 数据
         /// </summary>
         /// <remarks>
-        /// Buffers aren't supported. Only components present on the root entity can be retrieved. Trying to get data for components in a child entity is not supported.
+        /// 不支持 Buffer，且只能获取根 Entity 上的 Component，不支持获取子 Entity 上的 Component 数据
         /// </remarks>
-        /// <param name="ghost">Spawning buffer</param>
-        /// <param name="snapshotData">Snapshot data</param>
-        /// <param name="componentData">Component data</param>
-        /// <typeparam name="T">Component type</typeparam>
-        /// <returns>True if the component is present and the component data is initialized. False otherwise</returns>
+        /// <param name="ghost">生成 Buffer 中的 Ghost 条目</param>
+        /// <param name="snapshotData">Snapshot 数据</param>
+        /// <param name="componentData">Component 数据</param>
+        /// <typeparam name="T">Component 类型</typeparam>
+        /// <returns>存在该 Component 且其数据已初始化时返回 true，否则返回 false</returns>
         public bool TryGetComponentDataFromSpawnBuffer<T>(in GhostSpawnBuffer ghost,
             in DynamicBuffer<SnapshotDataBuffer> snapshotData, out T componentData) where T: unmanaged, IComponentData
         {
@@ -174,16 +171,16 @@ namespace Unity.NetCode.LowLevel
         private unsafe void CopyDataFromSnapshot<T>(DynamicBuffer<SnapshotDataBuffer> historyBuffer, int dataOffset,
             int serializerIndex , ref T componentData) where T : unmanaged, IComponentData
         {
-            //From here retrieving the data requires the serializer for this component type and ghost
+            // 从这里开始，获取数据需要使用该 Component 类型与 Ghost 对应的 Serializer
             ref readonly var serializer = ref m_ghostSerializers.ElementAtRO(serializerIndex);
-            //Force copy the type, not matter what the client filter is. Worst scenario, the component
-            //has the default data (as it should be).
+            // 无论客户端过滤条件如何都强制复制该类型
+            // 最坏情况下 Component 保持预期的默认数据
             var deserializerState = new GhostDeserializerState
             {
                 GhostMap = m_ghostMap,
                 SendToOwner = SendToOwnerType.All
             };
-            //TODO: we may eventually use a more specialized version of this function that does less things and specifically designed for that
+            // TODO: 后续可以提供职责更窄、专门用于此场景的函数版本
             var compDataPtr = (byte*)historyBuffer.GetUnsafeReadOnlyPtr() + dataOffset;
             var dataAtTick = new SnapshotData.DataAtTick
             {
@@ -200,21 +197,17 @@ namespace Unity.NetCode.LowLevel
                 1);
         }
 
-        //The offset for the component, along with its serializer that the user wants to inspect are cached by the GetComponentDataOffset.
-        //There were two options when to cache this information:
-        //- when we process the prefab if we know that a component type should be "inspected" (maybe an attribute?? or registered to the collection)
-        //- by caching on demand the result of this function, by providing a a small cache of (ghost-type, component-type) pairs.
-        //
-        //In order to pre-cache that information during prefab processing we need to provide some API (registration or attribute for code gen),
-        //to declare which component CAN be inspected.
-        //For sake of simplicity is done here, on demand and only if necessary.
-        //Why not caching this into the GhostCollectionPrefabType ?
-        //In general, users need to inspect the ghost buffer to resolve and classify pre-spawned ghosts (pretty much).
-        //If you have 1000 prefabs, how many of them can be "predicatively spawned"? not many probably. It is safe to assume
-        //that this cache will be small in general, and not needed for the majority of the prefabs.
-        //On the other end, we are also not expecting many component types need to be inspected either. Maybe 1 or 2 custom
-        //component are used in a whole project to uniquely identifying a spawn.
-        //But because the bound is not well known yet (assumption need data support), it is better to be a little more flexible.
+        // GetComponentDataOffset 会缓存用户要检查的 Component 偏移及其 Serializer
+        // 缓存这些信息有两种时机：
+        // - 处理 Prefab 时，前提是能预先知道哪些 Component 类型需要检查，例如通过特性或集合注册
+        // - 提供一个小型的 Ghost 类型与 Component 类型键值缓存，按需缓存此函数的结果
+        // 若要在处理 Prefab 时预缓存，需要提供注册 API 或代码生成特性来声明可检查的 Component
+        // 为保持简单，这里只在实际需要时按需缓存
+        // 不将缓存放入 GhostCollectionPrefabType，是因为用户通常只需检查 Ghost Buffer 来解析和分类预测生成 Ghost
+        // 即使有 1000 个 Prefab，真正能预测生成的通常也很少，因此该缓存一般规模较小
+        // 大多数 Prefab 都不需要对应条目
+        // 同样，需要检查的 Component 类型通常也不多，整个项目可能只用一两个自定义 Component 唯一标识一次生成
+        // 目前尚无数据能确定其上限，因此保留更灵活的按需缓存方案
         private int GetComponentDataOffset(int typeIndex, int ghostType, out int serializerIndex)
         {
             if (!m_componentOffsetCacheRW.IsCreated)
@@ -230,7 +223,7 @@ namespace Unity.NetCode.LowLevel
             return cachedOffset.dataOffset;
         }
 
-        //The calculated offset comprises also the initial snapshot header (that depend on the ghost type).
+        // 计算出的偏移也包含由 Ghost 类型决定的 Snapshot Header
         private int FindSerializerIndexAndComponentDataOffset(int typeIndex, int ghostType, out int compSerializerIndex)
         {
             var prefabType = m_ghostPrefabType.ElementAtRO(ghostType);
@@ -253,7 +246,7 @@ namespace Unity.NetCode.LowLevel
                     offset += GhostComponentSerializer.SnapshotSizeAligned(compSize);
                 }
             }
-            //Not found
+            // 未找到对应 Component
             compSerializerIndex = default;
             return -1;
         }
@@ -287,8 +280,8 @@ namespace Unity.NetCode.LowLevel
     }
 
     /// <summary>
-    /// Add to the GhostCollection singleton a new <see cref="SnapshotDataLookupCache"/> component that is used
-    /// by the <see cref="SnapshotDataBufferComponentLookup"/>.
+    /// 向 GhostCollection Singleton 添加供 <see cref="SnapshotDataBufferComponentLookup"/> 使用的
+    /// <see cref="SnapshotDataLookupCache"/> 组件
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [CreateAfter(typeof(GhostCollectionSystem))]
@@ -296,7 +289,7 @@ namespace Unity.NetCode.LowLevel
     internal partial struct SnapshotLookupCacheSystem : ISystem
     {
         /// <summary>
-        /// Maps a given component and ghost type pairs to the data offset inside the snapshot.
+        /// 将 Component 与 Ghost 类型组合映射到 Snapshot 内的数据偏移
         /// </summary>
         private NativeHashMap<SnapshotLookupCacheKey, SnapshotDataLookupCache.SerializerIndexAndOffset> m_SnapshotDataLookupCache;
 
@@ -317,8 +310,8 @@ namespace Unity.NetCode.LowLevel
     }
 
     /// <summary>
-    /// Component added <see cref="GhostCollection"/> singleton entity, used internally
-    /// to cache the offset of the inspected component in the snapshot buffer for the different ghost types.
+    /// 添加到 <see cref="GhostCollection"/> Singleton Entity 的内部 Component
+    /// 用于缓存不同 Ghost 类型中被检查 Component 在 Snapshot Buffer 内的偏移
     /// </summary>
     internal struct SnapshotDataLookupCache : IComponentData
     {

@@ -48,22 +48,22 @@ namespace Unity.NetCode.Tests
             switch (t)
             {
                 case 0:
-                    //reset both len and axis
+                    // 同时重置长度和元素值
                     Values.Length = 4;
                     for(int i=0; i<Values.Length; i++)
                         Values[i] = tick.SerializedData;
                     break;
                 case 1:
-                    //reset the len to 2 but don't re-assing data
+                    // 将长度重置为 2，但不重新赋值
                     Values.Length = 2;
                     break;
                 case 2:
-                    //keep the length, different  Axis is selected using the
+                    // 保持长度不变，只修改一个选中的元素
                     var ax = (int)(t/4) % Values.Length;
                     Values[ax] = tick.SerializedData;
                     break;
                 case 3:
-                    //increase the length, assign some data
+                    // 增加长度并为新增元素赋值
                     if (Values.Length < Values.Capacity)
                     {
                         ++Values.Length;
@@ -71,7 +71,7 @@ namespace Unity.NetCode.Tests
                     }
                     break;
                 case 4:
-                    //decrease the length, don't assign data
+                    // 减少长度，不修改元素值
                     if (Values.Length > 1)
                         --Values.Length;
                     break;
@@ -160,7 +160,7 @@ namespace Unity.NetCode.Tests
         }
     }
 
-    //Rpcs
+    // RPC
     struct RPC_FixedListStruct : IRpcCommand
     {
         public FixedList512Bytes<FixedListComplexData> Value;
@@ -170,7 +170,7 @@ namespace Unity.NetCode.Tests
         public FixedListPrimitive Value;
     }
 
-    //Components
+    // 组件
     public struct SimpleData
     {
         public int Value1;
@@ -228,7 +228,7 @@ namespace Unity.NetCode.Tests
         }
     }
 
-    //Sent to remote players
+    // 发送给远端玩家
     [GhostComponent(OwnerSendType = SendToOwnerType.SendToNonOwner)]
     internal struct CappedInput : IInputComponentData
     {
@@ -246,10 +246,10 @@ namespace Unity.NetCode.Tests
         }
     }
 
-    //Sent to remote players
+    // 发送给远端玩家
     internal struct CappedRpc : IRpcCommand
     {
-        //maximum allowed size is 1024 (this is the upper limit for RPC)
+        // 最大允许长度为 1024，这也是 RPC 的上限
         [GhostFixedListCapacity(Capacity = 1024)]
         public FixedList4096Bytes<byte> LargeList;
         [GhostFixedListCapacity(Capacity = 8)]
@@ -302,7 +302,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 3; ++i)
                 testWorld.Tick();
 
-            //check received data
+            // 检查接收到的数据
             var rpcs = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(RPC_FixedListStruct))
                 .ToComponentDataArray<RPC_FixedListStruct>(Allocator.Temp);
             Assert.AreEqual(1, rpcs.Length);
@@ -371,7 +371,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 4; ++i)
                 testWorld.Tick();
 
-            //check received data
+            // 检查接收到的数据
             var rpcs = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(RPC_FixedListPrimitive))
                 .ToComponentDataArray<RPC_FixedListPrimitive>(Allocator.Temp);
             Assert.AreEqual(3, rpcs.Length);
@@ -426,7 +426,7 @@ namespace Unity.NetCode.Tests
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = netId });
 
-                //wait for the client to spawn
+                // 等待客户端生成 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
@@ -443,16 +443,16 @@ namespace Unity.NetCode.Tests
                 {
                     var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<InputBufferData<FixedListInputData>>(clientEnt);
                     var serverBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<InputBufferData<FixedListInputData>>(serverEnt);
-                    //1 less because the client just sent the last command
+                    // 客户端刚发出最后一条命令，所以服务端暂时少一条
                     Assert.AreEqual(61, serverBuffer.Length);
-                    //client has more commands (1 ticks ahead)
+                    // 客户端的命令更多，因为它领先 1 个 Tick
                     Assert.AreEqual(62, clientBuffer.Length);
                     for (int cmd = 0; cmd < serverBuffer.Length; ++cmd)
                     {
                         var serverCmdTick = serverBuffer[cmd].Tick;
                         Assert.IsTrue(serverBuffer.GetDataAtTick(serverCmdTick, out var serverCommand));
                         Assert.AreEqual(serverCmdTick, serverCommand.Tick);
-                        //verify command data
+                        // 验证命令数据
                         Assert.IsTrue(clientBuffer.GetDataAtTick(serverCmdTick, out var clientCommand));
                         Assert.AreEqual(serverCmdTick, clientCommand.Tick);
                         Assert.AreEqual(clientCommand.InternalInput.Axis.Values.Length, serverCommand.InternalInput.Axis.Values.Length);
@@ -465,14 +465,14 @@ namespace Unity.NetCode.Tests
                     var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<FixedListCommand>(clientEnt);
                     var serverBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<FixedListCommand>(serverEnt);
                     Assert.AreEqual(59, serverBuffer.Length);
-                    //client has more commands (1 tick ahead)
+                    // 客户端的命令更多，因为它领先 1 个 Tick
                     Assert.AreEqual(60, clientBuffer.Length);
                     for (int cmd = 0; cmd < serverBuffer.Length; ++cmd)
                     {
                         var serverCmdTick = serverBuffer[cmd].Tick;
                         Assert.IsTrue(serverBuffer.GetDataAtTick(serverCmdTick, out var serverCommand));
                         Assert.AreEqual(serverCmdTick, serverCommand.Tick);
-                        //verify command data
+                        // 验证命令数据
                         Assert.IsTrue(clientBuffer.GetDataAtTick(serverCmdTick, out var clientCommand));
                         Assert.AreEqual(serverCmdTick, clientCommand.Tick);
                         Assert.AreEqual(clientCommand.Axis.Values.Length, serverCommand.Axis.Values.Length);
@@ -560,18 +560,18 @@ namespace Unity.NetCode.Tests
                     lengthInc = - lengthInc;
                 switch ((i % 3))
                 {
-                    //modify only length (and the new added if increasing)
+                    // 只修改长度，增加长度时同时写入新增元素
                     case 0:
                         serverData.Value4.Length = serverValues[i].Value4.Length + lengthInc;
                         if(lengthInc > 0)
                             serverData.Value4[^1] = 1000*i;
                         break;
-                    //modify only the elements. Only the odd ones
+                    // 只修改元素，并且只修改偶数索引位置
                     case 1:
                         for (int el = 0; el < serverData.Value4.Length; el+=2)
                             serverData.Value4[el] = 100*i;
                         break;
-                    // //modify both
+                    // 同时修改长度和元素
                     case 2:
                         serverData.Value4.Length = serverValues[i].Value4.Length + lengthInc;
                         for (int el = 0; el < serverData.Value4.Length; ++el)
@@ -718,7 +718,7 @@ namespace Unity.NetCode.Tests
             testWorld.CreateWorlds(true, 1, false);
             testWorld.Connect();
 
-            //TODO we can't easily verify 1024 element cap because we always serialize 4 bytes for a byte (silly)
+            // TODO：byte 始终按 4 字节序列化，因此难以直接验证 1024 个元素的上限
             var rpc = new CappedRpc();
             rpc.LargeList.Length = 1024;
             for (int i = 0; i < rpc.LargeList.Length; ++i)
@@ -730,7 +730,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 3; ++i)
                 testWorld.Tick();
 
-            //check received data
+            // 检查接收到的数据
             var rpcs = testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(CappedRpc))
                 .ToComponentDataArray<CappedRpc>(Allocator.Temp);
             Assert.AreEqual(1, rpcs.Length);
@@ -742,7 +742,7 @@ namespace Unity.NetCode.Tests
                     Assert.AreEqual((byte)i, rpc.LargeList[i]);
                 }
             }
-            //verify exceptions are throwns as expected. if we go over capacity (sender side)
+            // 验证发送端超出容量时会按预期抛出异常
             rpc = new CappedRpc();
             rpc.LargeList.Length = 1029;
             rcpEntity = testWorld.ClientWorlds[0].EntityManager.CreateEntity(typeof(CappedRpc), typeof(SendRpcCommandRequest));
@@ -778,14 +778,14 @@ namespace Unity.NetCode.Tests
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEnt, new GhostOwner { NetworkId = netId });
 
-                //wait for the client to spawn
+                // 等待客户端生成 Ghost
                 for (int i = 0; i < 4; ++i)
                     testWorld.Tick();
 
                 var clientEnt = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
 
-                //First: verify the limit up to the capacity
+                // 首先验证达到容量上限时仍能正常工作
                 var input = testWorld.ClientWorlds[0].EntityManager.GetComponentData<CappedInput>(clientEnt);
                 input.Capped8.Length = 8;
                 input.CappedDefault.Length = 64;
@@ -795,7 +795,7 @@ namespace Unity.NetCode.Tests
 
                 var clientBuffer = testWorld.ClientWorlds[0].EntityManager.GetBuffer<InputBufferData<CappedInput>>(clientEnt);
                 var serverBuffer = testWorld.ServerWorld.EntityManager.GetBuffer<InputBufferData<CappedInput>>(serverEnt);
-                //check that all received commands are fine
+                // 检查所有接收到的命令是否正确
                 for (int cmd = 0; cmd < serverBuffer.Length; ++cmd)
                 {
                     var serverCmdTick = serverBuffer[cmd].Tick;
@@ -804,7 +804,7 @@ namespace Unity.NetCode.Tests
                     serverCmd.InternalInput.Equals(clienCmd.InternalInput);
                 }
 
-                //For input buffer is somewhat more tricky: the exceptions is thrown for every
+                // Input Buffer 的情况更复杂，超限命令留在历史记录期间会在每个 Tick 重复触发异常
                 input.Capped8.Length = 10;
                 testWorld.ClientWorlds[0].EntityManager.SetComponentData(clientEnt, input);
                 LogAssert.Expect(LogType.Error, new Regex("^Fixed list field .InternalInput.Capped8"));
@@ -875,7 +875,7 @@ namespace Unity.NetCode.Tests
         [Test]
         public void FixedList_Snapshot_Capacity_Cap([Values]bool interpolated)
         {
-            //return the last full interpolated tick or the last applied based on the ghost mode
+            // 根据 Ghost 模式返回最后一个完整插值 Tick 或最后一个已应用 Tick
             NetworkTick GetLastAppliedTick(NetCodeTestWorld testWorld, Entity entity, bool interpolated)
             {
                 if (interpolated)
@@ -916,7 +916,7 @@ namespace Unity.NetCode.Tests
             for (int i = 0; i < 16; ++i)
             {
                 var clientData = testWorld.ClientWorlds[0].EntityManager.GetComponentData<MoreThan64Elements>(clientEntity);
-                //in prediction, the client is ahead. So the only thing we can check is the last applied tick (not the current server tick).
+                // 预测模式下客户端领先于服务端，因此只能检查最后一个已应用 Tick，而不能检查当前服务端 Tick
                 var tick = GetLastAppliedTick(testWorld, clientEntity, interpolated);
                 VerifyLargeData(serverValues[tick], clientData);
                 ++serverData.Value1.Value1;
@@ -936,12 +936,12 @@ namespace Unity.NetCode.Tests
                 serverData.Value3.Value7 += 5;
                 switch ((i % 3))
                 {
-                    //modify both length and the newly added element
+                    // 同时修改长度和新增元素
                     case 0:
                         serverData.Value2.Length = serverData.Value2.Length + 1;
                         serverData.Value2[^1] = (uint)(100*i);
                         break;
-                    //modify only the elements. Only the odd ones
+                    // 只修改元素，并且只修改偶数索引位置
                     case 1:
                         for (int el = 0; el < serverData.Value2.Length; el+=2)
                             serverData.Value2[el] = (uint)(1000*i);
@@ -953,7 +953,7 @@ namespace Unity.NetCode.Tests
                 testWorld.Tick();
                 serverValues[testWorld.GetNetworkTime(testWorld.ServerWorld).ServerTick] = serverData;
             }
-            //try to shrink the list over limit. This should trigger an exception caught by try-finally (so we track the log)
+            // 尝试从超限长度逐步缩短列表，超限时应触发由 try-finally 捕获的异常，以便测试追踪日志
             for (int i = 0; i < 8; ++i)
             {
                 if ((i % 4) == 0)

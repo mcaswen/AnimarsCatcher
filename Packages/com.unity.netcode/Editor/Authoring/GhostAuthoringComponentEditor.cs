@@ -34,7 +34,9 @@ namespace Unity.NetCode.Editor
         internal static Color brokenColorUIToolkitText = new Color(0.9f, 0.64f, 0.61f);
         private static readonly GUILayoutOption s_HelperWidth = GUILayout.Width(180);
 
-        /// <summary>Aligned with NetCode for GameObjects.</summary>
+        /// <summary>
+        /// 与 NetCode for GameObjects 的颜色保持一致
+        /// </summary>
         public static Color netcodeColor => new Color(0.91f, 0.55f, 0.86f, 1f);
 
         void OnEnable()
@@ -79,7 +81,7 @@ namespace Unity.NetCode.Editor
 
             var originalColor = GUI.color;
             GUI.color = originalColor;
-            // Importance:
+            // Importance 设置
             {
                 EditorGUILayout.BeginHorizontal();
                 var importanceContent = new GUIContent(nameof(Importance), GetImportanceFieldTooltip());
@@ -89,7 +91,7 @@ namespace Unity.NetCode.Editor
                 GUILayout.Box(importanceContent, s_HelperWidth);
                 EditorGUILayout.EndHorizontal();
             }
-            // MaxSendRate:
+            // MaxSendRate 设置
             {
                 var hasMaxSendRate = authoringComponent.MaxSendRate != 0;
                 EditorGUILayout.BeginHorizontal();
@@ -113,7 +115,7 @@ namespace Unity.NetCode.Editor
 
                 EditorGUILayout.EndHorizontal();
 
-                // MaxSendRate warning:
+                // MaxSendRate 警告
                 if (authoringComponent.SupportedGhostModes != GhostModeMask.Predicted)
                 {
                     var interpolationBufferWindowInTicks = clientTickRate.CalculateInterpolationBufferTimeInTicks(in tickRate);
@@ -134,7 +136,7 @@ namespace Unity.NetCode.Editor
             {
                 EditorGUILayout.PropertyField(DefaultGhostMode);
 
-                // Selecting OwnerPredicted on a ghost without a GhostOwner will cause an exception during conversion - display an error for that case in the inspector
+                // 未包含 GhostOwner 的 Ghost 若选择 OwnerPredicted，会在转换时抛出异常，因此在 Inspector 中直接提示错误
                 if (isOwnerPredictedError)
                 {
                     EditorGUILayout.HelpBox("Setting `Default Ghost Mode` to `Owner Predicted` is not valid unless the Ghost also supports being Owned by a player (via the `Ghost Owner Component`). Please resolve it one of the following ways.", MessageType.Error);
@@ -146,7 +148,7 @@ namespace Unity.NetCode.Editor
                 }
             }
 
-            var canBeStaticOptimized = !self.GhostGroup; // TODO - Disable if any child ghost components exist.
+            var canBeStaticOptimized = !self.GhostGroup; // TODO 存在子 Ghost 组件时也应禁用
             if (canBeStaticOptimized)
             {
                 EditorGUILayout.PropertyField(OptimizationMode);
@@ -200,14 +202,14 @@ namespace Unity.NetCode.Editor
             }
         }
 
-        // TODO - Add guard against nested Ghost prefabs as they're invalid (although a non-ghost prefab containing ghost nested prefabs is valid AFAIK).
+        // TODO 防止嵌套 Ghost Prefab，因为这种结构无效，但非 Ghost Prefab 包含嵌套 Ghost Prefab 应当有效
         /// <summary>
-        /// <para>Lots of valid and invalid ways to view a prefab. These API calls check to ensure we're either:</para>
-        /// <para>- IN the prefabs own scene (thus it's editable).</para>
-        /// <para>- Selecting the prefab in the PROJECT.</para>
-        /// <para>- NOT selecting this prefab in a SCENE.</para>
+        /// <para>Prefab 有多种有效或无效的查看方式，这些 API 调用用于确保当前满足以下任一条件：</para>
+        /// <para>- 位于 Prefab 自身的 Scene 中，因此可编辑</para>
+        /// <para>- 在 Project 中选中 Prefab</para>
+        /// <para>- 未在普通 Scene 中选中该 Prefab</para>
         /// </summary>
-        /// <remarks>Note that it is valid to add this Inspection onto a nested-prefab!</remarks>
+        /// <remarks>可以将该 Inspection 添加到嵌套 Prefab</remarks>
         internal static bool IsPrefabEditable(GameObject go)
         {
             if (PrefabUtility.IsPartOfImmutablePrefab(go))
@@ -243,10 +245,12 @@ namespace Unity.NetCode.Editor
             return suggestions.LastOrDefault();
         }
 
-        /// <summary>Adds the ordinal indicator/suffix to an integer.</summary>
+        /// <summary>
+        /// 为整数添加英文序数后缀
+        /// </summary>
         internal static string WithOrdinalSuffix(long number)
         {
-            // Numbers in the teens always end with "th".
+            // 11 到 19 的序数始终使用 th 后缀
             if((number % 100 > 10 && number % 100 < 20))
                 return number + "th";
             return (number % 10) switch

@@ -40,13 +40,13 @@ namespace Unity.NetCode.Tests
                 var serverEm = testWorld.ServerWorld.EntityManager;
                 var clientEm = testWorld.ClientWorlds[0].EntityManager;
 
-                // Client starts in Connecting state (transport is setting up connection)
+                // 客户端初始处于 Connecting 状态，此时 Transport 正在建立连接
                 Assert.AreEqual(ConnectionState.State.Connecting, clientQuery.GetSingleton<NetworkStreamConnection>().CurrentState);
 
                 for (int i = 0; i < 2; ++i)
                     testWorld.Tick();
 
-                // Server starts in Handshake state (as soon as connection is accepted), client switches to that after sending protocol version on transport connect
+                // 服务端接受连接后进入 Handshake 状态，客户端在 Transport 连接后发送协议版本并切换到该状态
                 serverEm.CompleteAllTrackedJobs();
                 clientEm.CompleteAllTrackedJobs();
                 Assert.AreEqual(ConnectionState.State.Handshake, serverQuery.GetSingleton<NetworkStreamConnection>().CurrentState);
@@ -74,7 +74,7 @@ namespace Unity.NetCode.Tests
 
                 testWorld.Tick();
 
-                // Client and server go from Approval to Connected
+                // 客户端与服务端从 Approval 切换到 Connected
                 clientEm.CompleteAllTrackedJobs();
                 serverEm.CompleteAllTrackedJobs();
                 Assert.AreEqual(ConnectionState.State.Connected, clientQuery.GetSingleton<NetworkStreamConnection>().CurrentState);
@@ -101,20 +101,20 @@ namespace Unity.NetCode.Tests
                 var serverEm = testWorld.ServerWorld.EntityManager;
                 var clientEm = testWorld.ClientWorlds[0].EntityManager;
 
-                for (int i = 0; i < 8; ++i) // Only need ~4 ticks, but pass in this many for defensive reasons.
+                for (int i = 0; i < 8; ++i) // 通常只需约 4 个 Tick，此处增加余量以提高测试稳定性
                     testWorld.Tick();
 
-                // Verify both parties are in the Approval state now
+                // 确认双方当前都处于 Approval 状态
                 clientEm.CompleteAllTrackedJobs();
                 serverEm.CompleteAllTrackedJobs();
                 Assert.AreEqual(ConnectionState.State.Approval, clientQuery.GetSingleton<NetworkStreamConnection>().CurrentState);
                 Assert.AreEqual(ConnectionState.State.Approval, serverQuery.GetSingleton<NetworkStreamConnection>().CurrentState);
 
-                // Hack the client into thinking he can send normal RPCs now (is connected)
+                // 强制客户端认为自己已连接并可发送普通 RPC
                 clientQuery.GetSingletonRW<NetworkStreamConnection>().ValueRW.CurrentState = ConnectionState.State.Connected;
                 testWorld.ClientWorlds[0].EntityManager.AddComponent<NetworkId>(clientConnectionEntity);
 
-                // Sending a normal RPC at this point will result in error and disconnection
+                // 此时发送普通 RPC 应触发错误并断开连接
                 var normalRpc = clientEm.CreateEntity();
                 clientEm.AddComponentData(normalRpc, new NormalRpc { Value = 1 });
                 clientEm.AddComponent<SendRpcCommandRequest>(normalRpc);

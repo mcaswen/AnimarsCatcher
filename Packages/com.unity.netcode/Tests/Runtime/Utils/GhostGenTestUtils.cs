@@ -10,7 +10,7 @@ namespace Unity.NetCode.Tests
 {
     internal static class GhostGenTestUtils
     {
-        #region Types
+        #region 类型
         internal struct int3
         {
             public int x;
@@ -39,8 +39,8 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Clamped ghostfields that can be used in all supported replicated data
-        /// They need to be split into multiple values, since there is a max size that commands can have
+        /// 可用于所有受支持复制数据的限幅 GhostField
+        /// 由于 Command 存在最大尺寸限制，需要将这些字段拆分到多个值集合中
         /// </summary>
         internal struct GhostGenTypesClamp_Values
         {
@@ -96,7 +96,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Interpolated ghostfields that are not supported for input, but for ghost snapshots
+        /// Input 不支持但 Ghost Snapshot 支持的插值 GhostField
         /// </summary>
         internal struct GhostGenTypesInterpolate
         {
@@ -149,7 +149,7 @@ namespace Unity.NetCode.Tests
             [GhostField] public GhostGenTypesClamp_Strings GhostGenTypesClamp_Strings;
         }
 
-        // InputEvent is already tested in the specific IInputComponentData tests, so they are not added here.
+        // InputEvent 已由专门的 IInputComponentData 测试覆盖，因此此处不再添加
         internal struct GhostGenTestType_IInputComponentData_Values : IInputComponentData
         {
             public GhostGenTestUtils.GhostGenTypesClamp_Values GhostGenTypesClamp_Values;
@@ -186,9 +186,9 @@ namespace Unity.NetCode.Tests
         }
         #endregion
 
-        #region Verification
-        // Verifies the clamped data is correct between server and client.
-        // isCommandData is used since some of the ghostfields have DontSend=false
+        #region 验证
+        // 验证客户端收到的限幅数据与服务器数据一致
+        // hasPartialSupport 表示当前复制类型是否支持标记为 SendData=false 的部分字段
         public static void VerifyGhostValuesClamp_Values(bool hasPartialSupport, GhostGenTypesClamp_Values serverValues, GhostGenTypesClamp_Values clientValues, Entity serverGhost, Entity clientGhost)
         {
             Assert.AreEqual(serverValues.Int3, clientValues.Int3);
@@ -310,7 +310,7 @@ namespace Unity.NetCode.Tests
         }
         #endregion
 
-        #region Field Generation
+        #region 字段生成
         public static GhostGenTypesClamp_Strings CreateTooLargeGhostValuesStrings()
         {
             return new GhostGenTypesClamp_Strings
@@ -466,7 +466,7 @@ String that is so big it explodes the ICommandData max size (of 1024 bytes)!
             return values;
         }
 
-        // The functions below have the specific contract from the test source.
+        // 以下函数遵循测试源代码约定的特定构造契约
         public static GhostGenTestType_ICommandData_Values CreateICommandDataValues_Values(NetworkTick tick, int baseValue, Entity ghostEntity)
         {
             return new GhostGenTestType_ICommandData_Values()
@@ -517,7 +517,7 @@ String that is so big it explodes the ICommandData max size (of 1024 bytes)!
                     toTest = NetworkEndpoint.Parse(adr, port, family);
                     break;
                 case NetworkFamily.Ipv6:
-                    adr = "2001:0db8:0000:0000:0000:ff00:0042:8329"; // 2001:0db8 addresses are "documentation" addresses, should still be valid here
+                    adr = "2001:0db8:0000:0000:0000:ff00:0042:8329"; // 2001:0db8 是文档示例地址，在此处仍应有效
                     toTest = NetworkEndpoint.Parse(adr, port, family);
                     break;
                 case NetworkFamily.Custom:

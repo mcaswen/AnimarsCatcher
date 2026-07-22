@@ -16,7 +16,9 @@ using Unity.Multiplayer;
 
 namespace Unity.NetCode
 {
-    /// <summary>Developer preferences for the `MultiplayerPlayModeWindow`. Only applicable in editor.</summary>
+    /// <summary>
+    /// `MultiplayerPlayModeWindow` 的开发者偏好设置，仅适用于 Editor
+    /// </summary>
     public static class MultiplayerPlayModePreferences
     {
         public const bool DefaultSimulatorEnabled = true;
@@ -54,7 +56,8 @@ namespace Unity.NetCode
         static string s_WarnBatchedTicksRollingWindow = s_PrefsKeyPrefix + "NetDebugLogger_WarnBatchedTicksRollingWindow";
         static string s_WarnAboveAverageTicksPerFrame = s_PrefsKeyPrefix + "NetDebugLogger_WarnAboveAverageTicksPerFrame";
 
-        /// <summary>Stores whether or not the user wishes to use the client simulator UTP module.
+        /// <summary>
+        /// 存储用户是否希望使用客户端模拟器 UTP 模块
         /// </summary>
         public static bool SimulatorEnabled
         {
@@ -62,7 +65,9 @@ namespace Unity.NetCode
             set => EditorPrefs.SetBool(s_SimulatorEnabledKey, value);
         }
 
-        /// <summary>Editor "mode". Stores the preferred mode that the Simulator is in.</summary>
+        /// <summary>
+        /// 存储 Simulator 在 Editor 中的首选模式
+        /// </summary>
         public static SimulatorView RequestedSimulatorView
         {
             get => (SimulatorView) EditorPrefs.GetInt(s_RequestedSimulatorViewKey, (int) DefaultSimulatorView);
@@ -119,7 +124,9 @@ namespace Unity.NetCode
         }
 #endif
 
-        /// <summary>Denotes what type of worlds are created by <see cref="ClientServerBootstrap"/> when entering playmode in the editor.</summary>
+        /// <summary>
+        /// 表示在 Editor 中进入 Play Mode 时由 <see cref="ClientServerBootstrap"/> 创建哪些类型的 World
+        /// </summary>
         public static ClientServerBootstrap.PlayType RequestedPlayType
         {
             get
@@ -181,8 +188,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Denotes how many thin client worlds are created in the editor (via the <see cref="AutomaticThinClientWorldsUtility"/> utility),
-        /// assuming that feature is enabled.
+        /// 启用相关功能时，表示通过 <see cref="AutomaticThinClientWorldsUtility"/>
+        /// 在 Editor 中创建多少个 Thin Client World
         /// </summary>
         public static int RequestedNumThinClients
         {
@@ -191,8 +198,8 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Denotes how many thin client worlds to spawn per second when in the editor (via the <see cref="AutomaticThinClientWorldsUtility"/> utility),
-        /// assuming that feature is enabled.
+        /// 启用相关功能时，表示通过 <see cref="AutomaticThinClientWorldsUtility"/>
+        /// 在 Editor 中每秒生成多少个 Thin Client World
         /// </summary>
         public static float ThinClientCreationFrequency
         {
@@ -212,31 +219,41 @@ namespace Unity.NetCode
             set => EditorPrefs.SetInt(s_AutoConnectionPortKey, value);
         }
 
-        /// <summary>Maps to a <see cref="SimulatorPreset"/>.</summary>
+        /// <summary>
+        /// 映射到一个 <see cref="SimulatorPreset"/>
+        /// </summary>
         public static string CurrentNetworkSimulatorPreset
         {
             get => EditorPrefs.GetString(s_SimulatorPreset, null);
             set => EditorPrefs.SetString(s_SimulatorPreset, value);
         }
 
-        /// <summary>True if is user-defined, custom preset.</summary>
+        /// <summary>
+        /// 当前为用户定义的自定义 Preset 时返回 true
+        /// </summary>
         public static bool IsCurrentNetworkSimulatorPresetCustom => SimulatorPreset.k_CustomProfileKey.Equals(CurrentNetworkSimulatorPreset, StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>There is a hardcoded list of lag spike values. This is the saved indexer.</summary>
+        /// <summary>
+        /// 硬编码 Lag Spike 值列表中保存的索引
+        /// </summary>
         public static int LagSpikeSelectionIndex
         {
-            get => EditorPrefs.GetInt(s_LagSpikeDurationSelectionKey, 4); // Default 1s.
+            get => EditorPrefs.GetInt(s_LagSpikeDurationSelectionKey, 4); // 默认 1 秒
             set => EditorPrefs.SetInt(s_LagSpikeDurationSelectionKey, value);
         }
 
-        /// <summary>If true, will force <see cref="NetDebugSystem"/> to set these values on boot.</summary>
+        /// <summary>
+        /// 为 true 时，强制 <see cref="NetDebugSystem"/> 在启动时设置这些值
+        /// </summary>
         public static bool ApplyLoggerSettings
         {
             get => EditorPrefs.GetBool(s_ApplyLoggerSettings, false);
             set => EditorPrefs.SetBool(s_ApplyLoggerSettings, value);
         }
 
-        /// <summary>If true, will force <see cref="NetDebugSystem"/> to display a warning when prediction ticks are batched.</summary>
+        /// <summary>
+        /// 为 true 时，强制 <see cref="NetDebugSystem"/> 在预测 Tick 被批处理时显示警告
+        /// </summary>
         public static bool WarnBatchedTicks
         {
             get => EditorPrefs.GetBool(s_WarnBatchedTicks, true);
@@ -253,7 +270,9 @@ namespace Unity.NetCode
             }
         }
 
-        /// <summary>Specifies the number of frames the rolling average is calculated over.</summary>
+        /// <summary>
+        /// 指定计算滚动平均值所使用的帧数
+        /// </summary>
         public static int WarnBatchedTicksRollingWindow
         {
             get => EditorPrefs.GetInt(s_WarnBatchedTicksRollingWindow, 4);
@@ -269,7 +288,9 @@ namespace Unity.NetCode
             }
         }
 
-        /// <summary>If the average is above this percent a warning will be displayed. Set to 0 to always warn when ticks are batched.</summary>
+        /// <summary>
+        /// 平均值高于此比例时显示警告，设为 0 时只要 Tick 被批处理就始终警告
+        /// </summary>
         public static float WarnAboveAverageBatchedTicksPerFrame
         {
             get => EditorPrefs.GetFloat(s_WarnAboveAverageTicksPerFrame, 1.2f);
@@ -287,14 +308,18 @@ namespace Unity.NetCode
 
 
 
-        /// <summary>If <see cref="ApplyLoggerSettings"/>, forces all <see cref="NetDebugSystem"/> loggers to this log level.</summary>
+        /// <summary>
+        /// 启用 <see cref="ApplyLoggerSettings"/> 时，强制所有 <see cref="NetDebugSystem"/> Logger 使用此日志级别
+        /// </summary>
         public static NetDebug.LogLevelType TargetLogLevel
         {
             get => (NetDebug.LogLevelType) EditorPrefs.GetInt(s_LoggerLevelType, (int) NetDebug.LogLevelType.Notify);
             set => EditorPrefs.SetInt(s_LoggerLevelType, (int)value);
         }
 
-        /// <summary>If <see cref="ApplyLoggerSettings"/>, forces all <see cref="NetDebugSystem"/> loggers to have this value for ShouldDumpPackets.</summary>
+        /// <summary>
+        /// 启用 <see cref="ApplyLoggerSettings"/> 时，强制所有 <see cref="NetDebugSystem"/> Logger 将 ShouldDumpPackets 设为此值
+        /// </summary>
         public static bool TargetShouldDumpPackets
         {
             get
@@ -307,20 +332,24 @@ namespace Unity.NetCode
             }
             set
             {
-#if !NETCODE_NDEBUG // Prevent writing the above force-false.
+#if !NETCODE_NDEBUG // 防止写入上方强制为 false 的值
                 EditorPrefs.SetBool(s_TargetShouldDumpPackets, value);
 #endif
             }
         }
 
-        /// <summary>If true, all simulator presets will be visible, rather than only platform specific ones.</summary>
+        /// <summary>
+        /// 为 true 时显示所有 Simulator Preset，而不只显示当前平台专用项
+        /// </summary>
         public static bool ShowAllSimulatorPresets
         {
             get => EditorPrefs.GetBool(s_ShowAllSimulatorPresets, false);
             set => EditorPrefs.SetBool(s_ShowAllSimulatorPresets, value);
         }
 
-        /// <summary>Returns true if the editor-inputted address is a valid connection address.</summary>
+        /// <summary>
+        /// Editor 中输入的地址是有效连接地址时返回 true
+        /// </summary>
         public static bool IsEditorInputtedAddressValidForConnect(out NetworkEndpoint ep)
         {
             if (AutoConnectionPort != 0 && NetworkEndpoint.TryParse(AutoConnectionAddress, AutoConnectionPort, out ep, NetworkFamily.Ipv4) && !ep.IsAny)
@@ -333,9 +362,10 @@ namespace Unity.NetCode
             return false;
         }
 
-        /// <summary>Apply the selected preset to the static, saved fields.
-        /// Clobbers any custom values the user may have entered.</summary>
-        /// <param name="preset">Preset to apply.</param>
+        /// <summary>
+        /// 将选定 Preset 应用到静态保存字段，并覆盖用户可能输入的所有自定义值
+        /// </summary>
+        /// <param name="preset">要应用的 Preset</param>
         public static void ApplySimulatorPresetToPrefs(SimulatorPreset preset)
         {
             if (!preset.IsCustom)
@@ -348,7 +378,9 @@ namespace Unity.NetCode
         }
     }
 
-    /// <summary>For the PlayMode Tools Window.</summary>
+    /// <summary>
+    /// 供 PlayMode Tools Window 使用的显示模式
+    /// </summary>
     public enum SimulatorView
     {
         [Obsolete("Disabled is no longer supported. Use MultiplayerPlayModePreferences.SimulatorEnabled instead. RemovedAfter Entities 1.x")]

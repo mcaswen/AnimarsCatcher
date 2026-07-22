@@ -6,27 +6,27 @@ namespace Unity.NetCode
 {
     /// <summary>
     /// <para>
-    /// The <see cref="EntityCommandBufferSystem"/> at the beginning of the <see cref="PredictedSimulationSystemGroup"/>.
-    /// This command buffer can update mulitple time per frame on the client, based on the network condition and the frequency of server packet received by the client.
+    /// 位于 <see cref="PredictedSimulationSystemGroup"/> 开始位置的 <see cref="EntityCommandBufferSystem"/>
+    /// 根据网络状况和客户端接收服务器数据包的频率，此 Command Buffer 在客户端每帧可能更新多次
     /// </para>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// This system update may not be called on the client if there are no predicted ghost entities. Pending commands may be stale and processed
-    /// later, when new predicted ghost entities are spawned. <br/>
+    /// 如果客户端没有预测 Ghost Entity，该 System 可能不会更新
+    /// 待处理 Command 可能延后到生成新的预测 Ghost Entity 时才执行 <br/>
     ///
-    /// Pending commands are executed in the same frame they are added to the buffer only in these cases:<br/>
-    /// - Commands are queued before the <see cref="PredictedSimulationSystemGroup"/> update.<br/>
-    /// - Commands are queued by a system or job executed inside the <see cref="PredictedSimulationSystemGroup"/> and the group still has to run at least another tick, either partial or full. <br/>
-    /// For the latter case, notice that for application that run at fixed tick rate (i.e the server or the client when v-synced) that is never the case and all commands
-    /// are always delayed by one tick.
+    /// 待处理 Command 仅在以下情况下会于加入 Buffer 的同一帧执行：<br/>
+    /// - Command 在 <see cref="PredictedSimulationSystemGroup"/> 更新前入队<br/>
+    /// - Command 由 <see cref="PredictedSimulationSystemGroup"/> 内执行的 System 或 Job 入队，且该组还会再运行至少一个完整或部分 Tick <br/>
+    /// 对于后一种情况，以固定 Tick Rate 运行的应用不会满足该条件，例如服务器或启用垂直同步的客户端
+    /// 因而所有 Command 都会延迟一个 Tick
     /// </para>
     /// <para>
-    /// In general, prefer using the <see cref="EndPredictedSimulationEntityCommandBufferSystem"/> to queue operation that are expected be executed
-    /// by the end of the prediction group update or in general in the current frame. For example:
+    /// 通常应优先使用 <see cref="EndPredictedSimulationEntityCommandBufferSystem"/> 将期望在预测组更新结束前
+    /// 或当前帧内执行的操作入队，例如：
     /// <list type="bullet">
-    /// <item>spawning entities (predicted spawning) on the client or the server</item>
-    /// <item>removing / adding components</item>
+    /// <item>在客户端或服务器生成 Entity，包括预测生成</item>
+    /// <item>移除或添加 Component</item>
     /// </list>
     /// </para>
     /// </remarks>
@@ -74,14 +74,14 @@ namespace Unity.NetCode
 
     /// <summary>
     /// <para>
-    /// The <see cref="EntityCommandBufferSystem"/> at the end of the <see cref="PredictedSimulationSystemGroup"/>.
+    /// 位于 <see cref="PredictedSimulationSystemGroup"/> 结束位置的 <see cref="EntityCommandBufferSystem"/>
     /// </para>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Prefer using this system to queue spawning operations that involved predicted ghosts, especially on the Client (predicted spawning).
-    /// This guarantee that they are initialized with the correct state at the tick they are spawned (no partial tick) if the usual
-    /// rules for spawning (NetworkTime.IsFirstTimePredictedTick true) are followed.
+    /// 涉及预测 Ghost 的生成操作应优先通过该 System 入队，尤其是客户端预测生成
+    /// 如果遵循常规生成规则，即 NetworkTime.IsFirstTimePredictedTick 为 true
+    /// 便可保证它们在生成 Tick 以正确状态完成初始化，并且不会处于部分 Tick
     /// </para>
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.ThinClientSimulation)]

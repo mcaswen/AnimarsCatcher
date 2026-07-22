@@ -2,9 +2,9 @@ using System;
 
 namespace Unity.NetCode.Generators
 {
-    // The following enums are copies of the one present in NetCode.GhostModifiers
-    // Any changes to those enums in the the package must be reflected also here.
-    // The use of enums is not mandatory, but make it easy to match the values 1:1 and generate the correct names
+    // 以下 Enum 是 NetCode.GhostModifiers 中对应定义的副本
+    // Package 中这些 Enum 的任何变更也必须同步到这里
+    // 虽然并非必须使用 Enum，但它便于逐值对应并生成正确名称
 
     enum SmoothingAction
     {
@@ -43,7 +43,7 @@ namespace Unity.NetCode.Generators
         All = 3,
     }
 
-    //Internal representation of the GhostFieldAttribute used to setup the Attribute field of the TypeInformation class.
+    // GhostFieldAttribute 的内部表示，用于配置 TypeInformation 的 Attribute 字段
     class GhostField
     {
         public int Quantization { get; set; } = -1;
@@ -54,9 +54,9 @@ namespace Unity.NetCode.Generators
         public bool SendData { get; set; } = true;
     }
 
-    //Internal copy of the TypeRegistryEntry in NetCode package. Is used to declare the default type registry and
-    //by in user land, to specify the custom type list inside the UserDefinedTemplate.RegisterTemplates.
-    //Please reflect here any changes to NetCode/Authoring/TypeRegistryEntry.cs
+    // NetCode Package 中 TypeRegistryEntry 的内部副本
+    // 用于声明默认类型注册表，也供用户在 UserDefinedTemplate.RegisterTemplates 中指定自定义类型列表
+    // NetCode/Authoring/TypeRegistryEntry.cs 的任何变更都必须同步到这里
     class TypeRegistryEntry
     {
         public string Type;
@@ -74,4 +74,3 @@ namespace Unity.NetCode.Generators
         }
     }
 }
-

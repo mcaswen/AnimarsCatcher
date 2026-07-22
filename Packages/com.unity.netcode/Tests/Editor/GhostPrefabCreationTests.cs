@@ -21,7 +21,7 @@ namespace Unity.NetCode.Tests
             CreatePrefab(testWorld.ClientWorlds[0].EntityManager);
             testWorld.Connect();
             testWorld.GoInGame();
-            //register the prefab to the ghost collection system
+            // 将 Prefab 注册到 Ghost Collection System
             testWorld.Tick();
             var serverCollection = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
             var components = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentType>(serverCollection);
@@ -29,7 +29,7 @@ namespace Unity.NetCode.Tests
             var indices = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionComponentIndex>(serverCollection);
             var serializers = testWorld.ServerWorld.EntityManager.GetBuffer<GhostComponentSerializer.State>(serverCollection);
             var typeData = types[0];
-            //all the component should be serialized on the root entity
+            // 根实体上的所有组件都应参与序列化
             for (int i = 0; i < typeData.NumComponents - typeData.NumChildComponents; ++i)
             {
                 Assert.AreNotEqual(GhostVariantsUtility.DontSerializeHash, serializers[indices[i + typeData.FirstComponent].SerializerIndex].VariantHash);
@@ -60,7 +60,7 @@ namespace Unity.NetCode.Tests
                 entityManager.AddComponentData(prefab, new EnableableComponent_2());
                 entityManager.AddComponentData(prefab, new EnableableComponent_3());
                 entityManager.AddComponentData(prefab, LocalTransform.Identity);
-                //this is just a random string for testing purpose
+                // 名称只用于测试，不承载业务语义
                 GhostPrefabCreation.ConvertToGhostPrefab(entityManager, prefab, new GhostPrefabCreation.Config
                 {
                     Name = "TestPrefab",
@@ -72,9 +72,9 @@ namespace Unity.NetCode.Tests
                     UsePreSerialization = false
                 });
             }
-            //This is just random hash
+            // 使用一个随机 Hash 作为测试输入
             var uuid5 = new Hash128("fab209a2a8812a72bffa3198aebaba9f");
-            //ensure proper UUID5. This is not enforced by the API, any hash is valid from our point of view.
+            // 转换为规范的 UUID5，API 本身不会强制这一点，但测试需要区分两种输入
             if(useValidGuid)
                 uuid5 = GhostPrefabCreation.ConvertHash128ToUUID5(uuid5);
             using var testWorld = new NetCodeTestWorld();
@@ -90,7 +90,7 @@ namespace Unity.NetCode.Tests
             Assert.DoesNotThrow(() => CreateGhost(testWorld.ClientWorlds[0].EntityManager, uuid5));
             testWorld.Connect();
             testWorld.GoInGame();
-            //register the prefab to the ghost collection system
+            // 将 Prefab 注册到 Ghost Collection System
             testWorld.Tick();
             var serverCollection = testWorld.TryGetSingletonEntity<GhostCollection>(testWorld.ServerWorld);
             var types = testWorld.ServerWorld.EntityManager.GetBuffer<GhostCollectionPrefab>(serverCollection);
@@ -100,8 +100,8 @@ namespace Unity.NetCode.Tests
 
         private static Entity CreatePrefab(EntityManager entityManager)
         {
-            //This create a ghost with 5 child entites, of which 3 in the same chunk, and other 2 in distinct chunks
-            //for an an overall use of 4 archetypes per ghost.
+            // 创建一个包含根实体和单个子实体的 Ghost
+            // 根实体与子实体的组件集合不同，因此会使用不同的 Archetype
             var prefab = entityManager.CreateEntity();
             entityManager.AddComponentData(prefab, new EnableableComponent_0());
             entityManager.AddComponentData(prefab, new EnableableComponent_1());
@@ -123,8 +123,8 @@ namespace Unity.NetCode.Tests
             entityManager.AddBuffer<EnableableBuffer_1>(child);
 
 
-            //Setup some variants to replicate EnableableComponent_0 and EnableableBuffer_0 using overrides.
-            //Expect EnableableComponent_1 .. EnableableComponent_3 are not replicated, as well as the EnableableBuffer_1
+            // 通过覆盖规则设置 Variant，使 EnableableComponent_0 和 EnableableBuffer_0 参与复制
+            // EnableableComponent_1 到 EnableableComponent_3 以及 EnableableBuffer_1 不应参与复制
             var overrides = SetupComponentOverrides();
 
             GhostPrefabCreation.ConvertToGhostPrefab(entityManager, prefab, new GhostPrefabCreation.Config

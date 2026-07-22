@@ -103,7 +103,7 @@ namespace Tests.Editor
         public int Count;
     }
 
-    // non bursted system to just expose a callback that's defined in the test itself, for clarity
+    // 使用非 Burst 系统暴露由测试定义的回调，使测试流程更清晰
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [DisableAutoCreation]
@@ -173,7 +173,7 @@ namespace Tests.Editor
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            // Setup
+            // 准备测试数据
             var testStateSaveSingleton = SystemAPI.GetSingleton<TestStateSaveSingleton>();
             var strategyToUse = testStateSaveSingleton.StrategyToUse;
             var requiredTypesToSave = new NativeHashSet<ComponentType>(5, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), ComponentType.ReadOnly<TestEnablebleComponent>(), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
@@ -198,8 +198,8 @@ namespace Tests.Editor
             requiredTypesToSave.Add(ComponentType.ReadOnly<PerfTestComp19>());
             requiredTypesToSave.Add(ComponentType.ReadOnly<PerfTestComp20>());
 
-            // Test
-            s_PerfTestMarker.Begin(); // Not including the above list allocations in the perf test as those shouldn't happen all the time anymore
+            // 执行性能测试
+            s_PerfTestMarker.Begin(); // 不计入上方列表分配，因为实际使用中不再需要每次执行这些分配
             WorldStateSave stateSave;
             switch (strategyToUse)
             {
@@ -220,11 +220,11 @@ namespace Tests.Editor
                 default:
                     throw new NotImplementedException($"{strategyToUse} not implemented");
             }
-            // state.Dependency.Complete(); // TODO should we complete as part of the perf test?
+            // state.Dependency.Complete(); // TODO：确认性能测试是否应在此完成依赖
             s_PerfTestMarker.End();
 
             state.Dependency = new ValidateAfterDependency(){Count = testStateSaveSingleton.Count, StateSave = stateSave, TypeCount = strategyToUse == StateSaveTests.SaveStrategyToUse.Indexed ? 26 : 25 }.Schedule(state.Dependency);
-            // Validate in test
+            // 将结果交给测试验证
             SystemAPI.SetSingleton(new TestStateSaveSingleton() { stateSaveToTest = stateSave });
             state.Enabled = false;
         }
@@ -428,7 +428,7 @@ namespace Tests.Editor
                     }
                 }
 
-                entry.types.Dispose(); // Editor should crash if this actually tries to dispose the main allocation. The editor not crashing means we pass :)
+                entry.types.Dispose(); // 如果此处实际释放主分配，Editor 应会崩溃，因此未崩溃即说明验证通过
                 iterationCount++;
             }
             Unity.Assertions.Assert.AreEqual(count, iterationCount, "state save entry count mismatch");
@@ -436,18 +436,18 @@ namespace Tests.Editor
 
         void SimpleStateSave(BehaviourTestCreateStateSaveSystem system, Entity singletonEntity)
         {
-            // Setup
+            // 准备测试数据
             ref var state = ref system.CheckedStateRef;
             var config = state.EntityManager.GetComponentData<TestStateSaveSingleton>(singletonEntity);
             var requiredTypesToSave = new NativeHashSet<ComponentType>(5, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), ComponentType.ReadOnly<TestEnablebleComponent>(), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
 
-            // Test
+            // 执行状态保存
             WorldStateSave stateSave;
             switch (config.StrategyToUse)
             {
                 case SaveStrategyToUse.Default:
                 {
-                    // no need to specify strategy with default
+                    // 默认策略无需显式指定
                     stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).Initialize(ref state);
                     state.Dependency = stateSave.ScheduleStateSaveJob(ref state);
                     break;
@@ -465,7 +465,7 @@ namespace Tests.Editor
             }
             state.Dependency.Complete();
 
-            // Validate in test
+            // 将结果交给测试验证
             config.stateSaveToTest = stateSave;
             state.EntityManager.SetComponentData(singletonEntity, config);
             state.Enabled = false;
@@ -502,7 +502,7 @@ namespace Tests.Editor
         {
             if (typesToAdd == null)
                 typesToAdd = new List<ComponentType>() { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), ComponentType.ReadOnly<TestEnablebleComponent>(), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
-            // Predicted ghost
+            // 预测 Ghost
             var predictedGhostGO = new GameObject("PredictedGO");
             predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new StateSaveTestDataConverter() { typesToAdd = typesToAdd};
             var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -530,11 +530,11 @@ namespace Tests.Editor
         [Test, Description("Test state save with indexed saving and make sure values are saved correctly and accessible by their index too")]
         public void StateSave_IndexedStrategy_Works([Values(0, 1, 5, 100, 500)] int count)
         {
-            // indexing saved state by ghost ID
+            // 按 Ghost ID 索引保存状态
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(BehaviourTestCreateStateSaveSystem));
 
-            // Setup
+            // 准备测试数据
             var prefabs = SetupWithPrefab(testWorld);
             var createStateSystem = testWorld.ServerWorld.GetExistingSystemManaged<BehaviourTestCreateStateSaveSystem>();
             createStateSystem.StateSaveTestCallback = SimpleStateSave;
@@ -549,13 +549,13 @@ namespace Tests.Editor
 
             testWorld.Tick();
 
-            // Test
+            // 执行状态保存
             createStateSystem.Enabled = true;
             testWorld.Tick();
             createStateSystem.Enabled = false;
 
             var result = testWorld.GetSingleton<TestStateSaveSingleton>(testWorld.ServerWorld);
-            ValidateStateSave(count, result.stateSaveToTest, expectedTypeCount: 6); // 6 types. GhostInstance (for the indexing), TestComponentA, TestComponentB, TestEnableableComponent, TestBufferA and TestBufferB
+            ValidateStateSave(count, result.stateSaveToTest, expectedTypeCount: 6); // 六种类型包括用于索引的 GhostInstance 和五种测试组件
 
             ValidateIndexedStateSave(count, allEntities, testWorld, result.stateSaveToTest, expectedTypesCount: 6);
         }
@@ -610,8 +610,8 @@ namespace Tests.Editor
         [Test, Description("Tests that optional types work as well and that we can have entities with different archetypes in the same save")]
         public void StateSave_OptionalTypes_Works()
         {
-            // Setup
-            var count = 200; // should be more than one chunk
+            // 准备测试数据
+            var count = 200; // 确保实体分布在多个 Chunk
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(BehaviourTestCreateStateSaveSystem));
             testWorld.CreateWorlds(true, 1);
@@ -632,22 +632,22 @@ namespace Tests.Editor
                 UpdateTestComponents(i, ent, testWorld);
             }
 
-            // testing assumption that all entities creates more than 1 chunk
+            // 验证测试前提，即全部实体占用多个 Chunk
             Assert.That(testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(TestComponentA)).CalculateChunkCount(), Is.GreaterThan(1));
 
             var createStateSystem = testWorld.ServerWorld.GetExistingSystemManaged<BehaviourTestCreateStateSaveSystem>();
-            // Test
+            // 执行状态保存
             createStateSystem.Enabled = true;
             WorldStateSave stateSave = default;
-            // Test optional types
+            // 测试可选类型
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备保存类型
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>() };
                 var optionalTypes = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentB>() };
 
-                // Test
+                // 执行状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).WithOptionalTypes(optionalTypes).Initialize(ref state, strategy);
 
@@ -655,16 +655,16 @@ namespace Tests.Editor
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             testWorld.Tick();
             createStateSystem.Enabled = false;
 
-            // Validate
+            // 验证保存结果
             Assert.That(stateSave.Initialized);
             Assert.AreEqual(count, stateSave.EntityCount);
-            // count components
+            // 统计保存的组件
             var compACount = 0;
             var compBCount = 0;
             foreach (var entry in stateSave)
@@ -675,35 +675,35 @@ namespace Tests.Editor
             Assert.AreEqual(count, compACount);
             Assert.AreEqual(count / 2f, compBCount);
 
-            // Test no required types
+            // 测试不指定必需类型
             createStateSystem.Enabled = true;
             stateSave.Dispose();
             Assert.That(!stateSave.Initialized);
             stateSave = default;
             Assert.That(!stateSave.Initialized);
-            // Test optional types
+            // 测试仅指定可选类型
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备保存类型
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(0, Allocator.Temp);
                 var optionalTypes = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentB>() };
 
-                // Test
+                // 执行状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).WithOptionalTypes(optionalTypes).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             testWorld.Tick();
             createStateSystem.Enabled = false;
             Assert.That(stateSave.Initialized);
             Assert.AreEqual(count / 2f, stateSave.EntityCount);
-            // count components
+            // 统计保存的组件
             compACount = 0;
             compBCount = 0;
             foreach (var entry in stateSave)
@@ -730,10 +730,10 @@ namespace Tests.Editor
             WorldStateSave stateSave = default;
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备错误输入
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>() };
-                var optionalTypes = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>() }; // test duplicate type
+                var optionalTypes = new NativeHashSet<ComponentType>(1, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>() }; // 测试必需类型与可选类型重复
                 Assert.Throws<ArgumentException>(() =>
                 {
                     ref SystemState s = ref system.CheckedStateRef;
@@ -741,7 +741,7 @@ namespace Tests.Editor
                 });
                 Unity.Assertions.Assert.IsFalse(stateSave.Initialized);
 
-                // Test having no required or optional types throws an error
+                // 验证既无必需类型也无可选类型时抛出错误
                 Assert.Throws<ArgumentException>(() =>
                 {
                     ref SystemState s = ref system.CheckedStateRef;
@@ -749,16 +749,16 @@ namespace Tests.Editor
                 });
                 Unity.Assertions.Assert.IsFalse(stateSave.Initialized);
 
-                optionalTypes = new NativeHashSet<ComponentType>(0, Allocator.Temp); // fix the issue for the next step
+                optionalTypes = new NativeHashSet<ComponentType>(0, Allocator.Temp); // 清除重复类型以继续下一项测试
 
-                // Test
+                // 执行有效的状态保存
                 var strategy = new IndexedByGhostSaveStrategy(state.GetComponentTypeHandle<GhostInstance>());
                 stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).WithOptionalTypes(optionalTypes).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
 
@@ -767,7 +767,7 @@ namespace Tests.Editor
             createStateSystem.Enabled = false;
 
             Assert.That(stateSave.Initialized);
-            // Test trying to access a type that's not present (comp B is not there)
+            // 测试访问未保存的类型，此处不存在 TestComponentB
             Assert.That(!testWorld.ServerWorld.EntityManager.HasComponent<TestComponentB>(entity));
             var savedGhostID = new SavedEntityID(testWorld.ServerWorld.EntityManager.GetComponentData<GhostInstance>(entity));
             var savedTypes = stateSave.GetComponentTypes(savedGhostID);
@@ -777,8 +777,8 @@ namespace Tests.Editor
             Assert.IsFalse(stateSave.TryGetComponentData(savedGhostID, ComponentType.ReadOnly<TestComponentB>(), out var _));
             Assert.IsFalse(stateSave.TryGetComponentData<TestComponentB>(savedGhostID, out var _));
 
-            savedTypes.Dispose(); // make sure we don't crash, this should no-op as this array's memory is just a slice of the main state save allocation
-            // Test initializing a second time the same state save
+            savedTypes.Dispose(); // 该数组只是主状态保存分配的切片，Dispose 应为空操作且不会崩溃
+            // 测试对同一个状态保存对象重复初始化
             Assert.Throws<InvalidOperationException>(() =>
             {
                 SystemState s = default;
@@ -810,18 +810,18 @@ namespace Tests.Editor
             WorldStateSave stateSave = default;
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备测试数据
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(5, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), typeof(TestEnablebleComponent), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
 
-                // Test
+                // 执行状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             createStateSystem.Enabled = true;
@@ -830,7 +830,7 @@ namespace Tests.Editor
             Assert.That(stateSave.Initialized);
             ValidateStateSave(count, stateSave, expectedTypeCount: 5);
 
-            // Test we can reuse allocation correctly if the size is the same
+            // 验证所需大小相同时能够复用分配
             int oldSize = stateSave.AsSpan.Length;
             var oldAdr = (byte*)UnsafeUtility.AddressOf(ref stateSave.AsSpan[0]);
 
@@ -841,20 +841,20 @@ namespace Tests.Editor
 
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备相同的保存配置
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(5, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), typeof(TestEnablebleComponent), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
 
-                // Test
+                // 初始化状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = stateSave.WithRequiredTypes(requiredTypesToSave).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
 
-                // initializing the same way, but not doing the save job means we should still have a valid state save if we're reusing the same memory allocation
+                // 使用相同配置初始化但不重新执行保存 Job，若复用同一内存分配则原状态仍应有效
                 // state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             createStateSystem.Enabled = true;
@@ -864,11 +864,11 @@ namespace Tests.Editor
             Assert.IsTrue(oldAdr == newAdr && oldSize == stateSave.AsSpan.Length);
             ValidateStateSave(count, stateSave, expectedTypeCount: 5);
 
-            // Test that if we need more space, then we can't reuse the allocation and still create a new allocation
+            // 验证所需空间增大时无法复用原分配并会创建新分配
             stateSave.Reset();
             Assert.IsFalse(stateSave.Initialized);
 
-            // increase number of tracked entities
+            // 增加需要跟踪的实体数量
             var newCount = count * 2;
             for (int i = count; i < newCount; i++)
             {
@@ -879,33 +879,33 @@ namespace Tests.Editor
 
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备扩容后的保存配置
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(5, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), typeof(TestEnablebleComponent), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
 
-                // Test
+                // 初始化状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = stateSave.WithRequiredTypes(requiredTypesToSave).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
 
-                // since we're not reusing the same adr, we still need to fill the new allocation
+                // 未复用原地址，因此需要填充新分配
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             createStateSystem.Enabled = true;
             testWorld.Tick();
             createStateSystem.Enabled = false;
             newAdr = (byte*)UnsafeUtility.AddressOf(ref stateSave.AsSpan[0]);
-            // doing both checks (adr and length) in the same check, since it's possible for Unity to return the same address when we're changing size. It'll just reuse the same spot in memory but with different size if space is available.
+            // 同时检查地址和长度，因为调整大小时 Unity 可能复用同一地址但改变分配长度
             Assert.IsTrue(oldAdr != newAdr || oldSize != stateSave.AsSpan.Length);
             Assert.That(oldSize, Is.LessThan(stateSave.AsSpan.Length));
             ValidateStateSave(newCount, stateSave, expectedTypeCount: 5);
 
-            // test that we don't grow forever
-            // remove enough entities to trigger the "this is 2x too large, let's shrink" logic. so remove half the entities + 1
+            // 验证分配不会只增不减
+            // 删除一半实体再多一个，以触发容量超过需求两倍时的收缩逻辑
             for (int i = count - 1; i < newCount; i++)
             {
                 testWorld.ServerWorld.EntityManager.DestroyEntity(allEntities[i]);
@@ -919,27 +919,27 @@ namespace Tests.Editor
             Assert.IsFalse(stateSave.Initialized);
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备收缩后的保存配置
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(4, Allocator.Temp) { ComponentType.ReadOnly<TestComponentA>(), ComponentType.ReadOnly<TestComponentB>(), typeof(TestEnablebleComponent), ComponentType.ReadOnly<TestBufferA>(), ComponentType.ReadOnly<TestBufferB>() };
 
-                // Test
+                // 初始化状态保存
                 var strategy = new DirectStateSaveStrategy();
                 stateSave = stateSave.WithRequiredTypes(requiredTypesToSave).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
 
-                // since we're not reusing the same adr, we still need to fill the new allocation
+                // 未复用原分配，因此需要填充新分配
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             createStateSystem.Enabled = true;
             testWorld.Tick();
             createStateSystem.Enabled = false;
             newAdr = (byte*)UnsafeUtility.AddressOf(ref stateSave.AsSpan[0]);
-            // doing both checks (adr and length) in the same check, since it's possible for Unity to return the same address when we're shrinking. It'll just reuse the same spot in memory but with different size.
+            // 同时检查地址和长度，因为收缩时 Unity 可能复用同一地址但改变分配长度
             Assert.IsTrue(doubledOldAllocationAdr != newAdr || doubledSize != stateSave.AsSpan.Length);
 
             ValidateStateSave(newCount, stateSave, expectedTypeCount: 5);
@@ -979,10 +979,10 @@ namespace Tests.Editor
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(BehaviourTestCreateStateSaveSystem));
 
-            // Setup
+            // 准备测试数据
             GameObject AddPrefab(List<ComponentType> typesToAdd)
             {
-                // Predicted ghost
+                // 预测 Ghost
                 var predictedGhostGO = new GameObject("PredictedGO");
                 predictedGhostGO.AddComponent<TestNetCodeAuthoring>().Converter = new StateSaveTestDataConverter() { typesToAdd = typesToAdd};
                 var ghostConfig = predictedGhostGO.AddComponent<GhostAuthoringComponent>();
@@ -1033,11 +1033,11 @@ namespace Tests.Editor
             Assert.AreEqual(3, testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(TestComponentB)).CalculateChunkCount());
             Assert.AreEqual(4, testWorld.ServerWorld.EntityManager.CreateEntityQuery(typeof(GhostInstance)).CalculateChunkCount());
 
-            // Test
+            // 执行状态保存
             WorldStateSave stateSave = default;
             createStateSystem.StateSaveTestCallback = (system, singletonEntity) =>
             {
-                // Setup
+                // 准备保存类型
                 ref var state = ref system.CheckedStateRef;
                 var requiredTypesToSave = new NativeHashSet<ComponentType>(0, Allocator.Temp) { };
                 var optionalTypes = new NativeHashSet<ComponentType>(3, Allocator.Temp)
@@ -1047,14 +1047,14 @@ namespace Tests.Editor
                     ComponentType.ReadOnly<PerfTestComp1>(),
                 };
 
-                // Test
+                // 执行状态保存
                 var strategy = new IndexedByGhostSaveStrategy(state.GetComponentTypeHandle<GhostInstance>());
                 stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypesToSave).WithOptionalTypes(optionalTypes).Initialize(ref state, strategy);
                 system.stateToDispose = stateSave;
                 state.Dependency = stateSave.ScheduleStateSaveJob(ref state, strategy);
                 state.Dependency.Complete();
 
-                // Validate in test
+                // 将结果交给测试验证
                 state.Enabled = false;
             };
             createStateSystem.Enabled = true;
@@ -1112,10 +1112,10 @@ namespace Tests.Editor
         [Test, Description("Write and read performance tests for state save")]
         [Performance]
         [Repeat(10)]
-        [Timeout(5 * 60 * 1000)] // 5 minutes
+        [Timeout(5 * 60 * 1000)] // 五分钟
         public void StateSave_PerformanceTest([Values(100, 1_000, 10_000, 50_000, 100_000)] int count, [Values] SaveStrategyToUse strategyToUse)
         {
-            // TODO test with various chunk composition and archetypes
+            // TODO 补充不同 Chunk 组成和 Archetype 的性能测试
             using var testWorld = new NetCodeTestWorld();
             testWorld.Bootstrap(includeNetCodeSystems: true, typeof(PerfTestCreateStateSave));
 
@@ -1194,7 +1194,7 @@ namespace Tests.Editor
                 UpdateTestComponents(i, allEntities[i], testWorld);
             }
 
-            // disable ghost spawning which takes a lot of time in this test. We only care about server side GhostInstances
+            // 禁用耗时的 Ghost 生成，本测试只关注服务器端 GhostInstance
             var relevancy = testWorld.GetSingleton<GhostRelevancy>(testWorld.ServerWorld);
             relevancy.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;
 

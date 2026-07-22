@@ -44,10 +44,14 @@ namespace Unity.NetCode.Samples.Common
         {
             None,
 
-            /// <summary>Draws a per-entity importance heatmap.</summary>
+            /// <summary>
+            /// 绘制逐 Entity 的 Importance 热力图
+            /// </summary>
             PerEntityImportanceHeatmap,
 
-            /// <summary>Assigns a random color for each chunk, and draws said random color for all entities in that chunk.</summary>
+            /// <summary>
+            /// 为每个 Chunk 分配随机颜色，并用该颜色绘制 Chunk 中的全部 Entity
+            /// </summary>
             PerChunk,
         }
 
@@ -59,7 +63,7 @@ namespace Unity.NetCode.Samples.Common
         }
 
         static DebugGhostDrawer.CustomDrawer s_CustomDrawer;
-        // UI parameters
+        // UI 参数
         static Entity s_SelectedConnectionEntity;
         static Entity[] s_ConnectionEntities;
         static string[] s_ConnectionIdLabels;
@@ -139,7 +143,7 @@ namespace Unity.NetCode.Samples.Common
 
         static void UpdateConnectionList()
         {
-            // Check if we need to update the connection list
+            // 检查是否需要更新连接列表
             var connectionEntitiesCount = 0;
             foreach (var world in ClientServerBootstrap.ServerWorlds)
             {
@@ -147,7 +151,7 @@ namespace Unity.NetCode.Samples.Common
                 connectionEntitiesCount += query.CalculateEntityCount();
             }
 
-            // If we have no new connections, return
+            // 没有新增或移除连接时直接返回
             if (connectionEntitiesCount == s_ConnectionEntities.Length)
                 return;
 
@@ -180,7 +184,7 @@ namespace Unity.NetCode.Samples.Common
             s_ConnectionIdLabels = labelIdPairs.ConvertAll(pair => pair.Label).ToArray();
             s_ConnectionEntities = labelIdPairs.ConvertAll(pair => pair.Id).ToArray();
 
-            // Update the selected connection if none are selected and at least one is available
+            // 未选择连接且至少有一个可用连接时，更新当前选择
             if (s_SelectedConnectionEntity == default && labelIdPairs.Count > 0)
                 s_SelectedConnectionEntity = labelIdPairs[0].Id;
         }
@@ -190,7 +194,7 @@ namespace Unity.NetCode.Samples.Common
             if(m_GridMesh != null && m_LineMesh != null)
                 return;
 
-            // Grid mesh
+            // 网格 Mesh
             m_GridMesh = DrawerHelpers.CreateMesh(nameof(m_GridMesh));
             m_GridMesh.MarkDynamic();
 
@@ -205,7 +209,7 @@ namespace Unity.NetCode.Samples.Common
             gridMeshRenderer.material = new Material(AssetDatabase.LoadAssetAtPath<Shader>(k_VertexColorShaderPath));
             gridMeshRenderer.material.renderQueue = (int)RenderQueue.Overlay + 20;
 
-            // Line mesh
+            // 连线 Mesh
             m_LineMesh = DrawerHelpers.CreateMesh(nameof(m_LineMesh));
             m_LineMesh.MarkDynamic();
 
@@ -335,7 +339,7 @@ namespace Unity.NetCode.Samples.Common
             if (!TryGetSingletonCustom(world, out GhostDistanceData tilingData))
             {
                 s_HasGhostDistanceData = false;
-                // If we don't have tilingData we generate a default one so that DrawPerEntityHeatmap as a TileSize reference for the render distance.
+                // 缺少 tilingData 时生成默认值，让 DrawPerEntityHeatmap 仍可使用 TileSize 计算渲染距离
                 tilingData = new GhostDistanceData() { TileSize = new int3(128, 128, 128) };
             }
             else
@@ -388,7 +392,7 @@ namespace Unity.NetCode.Samples.Common
             {
                 (jobHandle, connectionStateData) = ghostSendSystem.GetConnectionStateData(s_SelectedConnectionEntity);
             }
-            catch (ArgumentException) // No connection or invalid connection
+            catch (ArgumentException) // 连接不存在或无效
             {
                 return;
             }
@@ -399,7 +403,7 @@ namespace Unity.NetCode.Samples.Common
                 PrioChunks = m_PrioChunks
             };
 
-            // Use prioChunksSingleton.jobHandle as a dependency for scheduling
+            // 使用 PrioChunk 数据的 JobHandle 作为调度依赖
             var fetchPrioChunkJobHandle = job.Schedule(jobHandle);
             fetchPrioChunkJobHandle.Complete();
 
@@ -440,8 +444,8 @@ namespace Unity.NetCode.Samples.Common
                 if (positions.Length == 0)
                     continue;
 
-                // Don't draw chunks past render distance
-                // +1 chunk for the PerEntityImportanceHeatmap so that all the grid drawn is filled with the PerEntityImportanceHeatmap
+                // 不绘制超过渲染距离的 Chunk
+                // PerEntityImportanceHeatmap 额外包含一圈 Chunk，确保已绘制网格都被热力图覆盖
                 var firstPos = positions[0].Position;
                 var distance = math.abs(gcp.Position - firstPos);
                 if (distance.x > (s_RenderDistance+1) * tileSize.x ||
@@ -455,7 +459,7 @@ namespace Unity.NetCode.Samples.Common
                 {
                     case DrawMode.PerEntityImportanceHeatmap:
                     {
-                        // Color based on priority
+                        // 按 Priority 计算颜色
                         var f = ((prioChunk.priority / (float)scalingMultiplayer) - minPriority) / (maxPriority - minPriority);
                         for (var i = 0; i < positions.Length; ++i)
                         {
@@ -466,7 +470,7 @@ namespace Unity.NetCode.Samples.Common
                     }
                     case DrawMode.PerChunk:
                     {
-                        // One random color per spatial chunk
+                        // 每个空间 Chunk 使用一种随机颜色
                         var rand = Mathematics.Random.CreateFromIndex((uint)prioChunk.chunk.SequenceNumber);
                         var color = new Color(
                             rand.NextFloat(),
@@ -484,7 +488,7 @@ namespace Unity.NetCode.Samples.Common
                     default: throw new ArgumentOutOfRangeException(nameof(s_Mode), s_Mode, nameof(DrawPerEntityHeatmap));
                 }
 
-                // When we have just one ghost, draw a wire cross on it instead of a line to the first ghost position
+                // Chunk 中只有一个 Ghost 时绘制线框十字，而不是连接到首个 Ghost 位置
                 if (positions.Length == 1)
                 {
 #if USING_ENTITIES_GRAPHICS
@@ -525,7 +529,7 @@ namespace Unity.NetCode.Samples.Common
                 for (var z = -numTilesPos.z+1; z <= numTilesPos.z+1; z++)
                 {
                     var tilePos = ((centerTileIdx + new int3(x, 0, z)) * tileSize) + tilingData.TileCenter;
-                    tilePos.y = 0; // Removes tilingData.TileCenter offset
+                    tilePos.y = 0; // 移除 tilingData.TileCenter 的偏移
                     tilePos -= new float3(tileSize.x, 0, tileSize.z) * 0.5f;
                     DrawSquare(tilePos, ref m_GridIndices, ref m_GridVertices, false);
                 }
@@ -538,7 +542,7 @@ namespace Unity.NetCode.Samples.Common
                 for (var y = -numTilesPos.y+1; y <= numTilesPos.y+1; y++)
                 {
                     var tilePos = ((centerTileIdx + new int3(x, y, 0)) * tileSize) + tilingData.TileCenter;
-                    tilePos.z = 0; // Removes tilingData.TileCenter offset
+                    tilePos.z = 0; // 移除 tilingData.TileCenter 的偏移
                     tilePos -= new float3(tileSize.x, tileSize.y, 0) * 0.5f;
                     DrawSquare(tilePos, ref m_GridIndices, ref m_GridVertices,true);
                 }
@@ -553,7 +557,7 @@ namespace Unity.NetCode.Samples.Common
                 var priority = GhostDistanceImportance.CalculateDefaultScaledPriority(scalingMultiplayer, chunkTile, ghostTileIndex) / (float)scalingMultiplayer;
                 var color = s_HeatmapGradient.Evaluate(1f - priority);
 
-                // Use the largest axis for square size
+                // 使用较大的轴向尺寸作为正方形边长
                 float size = xyPlane ? math.max(drawSize.x, drawSize.y) : math.max(tileSize.x, drawSize.z);
                 DrawerHelpers.DrawWireSquare(tilePos, size, ref indices, ref verts, xyPlane, color);
             }
@@ -576,4 +580,3 @@ namespace Unity.NetCode.Samples.Common
     }
 }
 #endif
-

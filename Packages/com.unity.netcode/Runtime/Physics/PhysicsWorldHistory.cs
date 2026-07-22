@@ -15,23 +15,22 @@ namespace Unity.NetCode
 {
 
     /// <summary>
-    /// A singleton component from which you can get a physics collision world for a previous tick.
+    /// 可用于获取先前 Tick 对应 Physics Collision World 的 Singleton Component
     /// </summary>
     public partial struct PhysicsWorldHistorySingleton : IComponentData
     {
         /// <summary>
-        /// Get the <see cref="CollisionWorld"/> state for the given tick and interpolation delay.
+        /// 获取指定 Tick 和插值延迟对应的 <see cref="CollisionWorld"/> 状态
         /// </summary>
-        /// <param name="tick">The server tick we are simulating.</param>
-        /// <param name="interpolationDelay">The client interpolation delay, measured in ticks. This is used to look back in time
-        ///     and retrieve the state of the collision world at tick - interpolationDelay.
-        ///     The interpolation delay is internally clamped to the current collision history size (the number of saved history state).</param>
-        /// <param name="physicsWorld">The physics world which is use to get collision worlds for ticks which are not yet in the history buffer.</param>
-        /// <param name="collWorld">The <see cref="CollisionWorld"/> state retrieved from the history.</param>
-        /// <param name="expectedTick">The tick we should be fetching, after subtracting interpolationDelay.</param>
-        /// <param name="returnedTick">The tick index we actually fetched, due to clamping.
-        /// I.e. If clamped to the oldest stored tick, you'll see the eldest stored tick returned here.
-        /// <br/>Compare this to the expectedTick to determine that a players interpolationDelay is so high that they're hitting the clamp.</param>
+        /// <param name="tick">当前正在模拟的服务器 Tick</param>
+        /// <param name="interpolationDelay">以 Tick 为单位的客户端插值延迟，用于回溯并获取 tick - interpolationDelay 时的 Collision World 状态
+        ///     插值延迟会在内部限制为当前 Collision History 的长度，即已保存的历史状态数量</param>
+        /// <param name="physicsWorld">用于获取历史缓冲区中尚不存在的 Tick 所对应 Collision World 的 Physics World</param>
+        /// <param name="collWorld">从历史记录中取得的 <see cref="CollisionWorld"/> 状态</param>
+        /// <param name="expectedTick">减去 interpolationDelay 后应当获取的 Tick</param>
+        /// <param name="returnedTick">因限制范围而实际获取的 Tick 索引
+        /// 例如限制到最早存储的 Tick 时，此处会返回该最早 Tick
+        /// <br/>将其与 expectedTick 比较，可以判断玩家的 interpolationDelay 是否过高而触发了范围限制</param>
         public void GetCollisionWorldFromTick(NetworkTick tick, uint interpolationDelay, ref PhysicsWorld physicsWorld, out CollisionWorld collWorld, out NetworkTick expectedTick, out NetworkTick returnedTick)
         {
             expectedTick = tick;
@@ -51,29 +50,31 @@ namespace Unity.NetCode
             GetCollisionWorldFromTick(tick, interpolationDelay, ref physicsWorld, out collWorld, out _, out _);
         }
 
-        /// <summary>Returns the latest (i.e. newest) tick stored into the <see cref="CollisionHistoryBuffer"/>.</summary>
+        /// <summary>
+        /// 返回 <see cref="CollisionHistoryBuffer"/> 中存储的最新 Tick
+        /// </summary>
         public NetworkTick LatestStoredTick => m_History.m_LatestStoredTick;
         internal CollisionHistoryBufferRef m_History;
 
         /// <summary>
-        /// An optional collection specifying a manual whitelist of <see cref="CollisionWorld.Bodies"/> indexes that you want
-        /// to opt-into deep copying the collider blob assets of (each specified by its <see cref="CollisionWorld.GetRigidBodyIndex"/> index).
-        /// <br/>Must not contain duplicate entries, and must not contain indices of rigid bodies whose colliders will
-        /// already be deep copied due to the values chosen for the <see cref="LagCompensationConfig.DeepCopyDynamicColliders"/> and
-        /// <see cref="LagCompensationConfig.DeepCopyStaticColliders"/> parameters.
+        /// 可选集合，用于手动指定需要深拷贝 Collider Blob Asset 的 <see cref="CollisionWorld.Bodies"/> 索引白名单
+        /// 每一项都使用 <see cref="CollisionWorld.GetRigidBodyIndex"/> 返回的索引表示
+        /// <br/>集合中不能存在重复项，也不能包含已经因为
+        /// <see cref="LagCompensationConfig.DeepCopyDynamicColliders"/> 或
+        /// <see cref="LagCompensationConfig.DeepCopyStaticColliders"/> 配置而进行 Collider 深拷贝的刚体索引
         /// </summary>
         /// <remarks>
-        /// If you know exactly which set of ghosts you need lag compensation for, it may be simpler
-        /// to pass their indexes here. Use <see cref="CollisionWorld.GetRigidBodyIndex"/> to map an entity to a rigidbody.
+        /// 如果明确知道哪些 Ghost 需要延迟补偿，可以直接在此传入它们的索引
+        /// 使用 <see cref="CollisionWorld.GetRigidBodyIndex"/> 可将 Entity 映射到刚体
         /// </remarks>
         [NativeDisableContainerSafetyRestriction]
         public NativeList<int> DeepCopyRigidBodyCollidersWhitelist;
 
         /// <summary>
-        /// Helper to retrieve debug data from the history buffer.
+        /// 用于从历史缓冲区获取调试数据的辅助方法
         /// </summary>
-        /// <param name="physicsWorld">Physics world containing history buffer</param>
-        /// <returns>History buffer</returns>
+        /// <param name="physicsWorld">包含历史缓冲区的 Physics World</param>
+        /// <returns>历史缓冲区数据</returns>
         public unsafe string GetHistoryBufferData(ref PhysicsWorld physicsWorld)
         {
             string info = $"[PhysicsWorldHistorySingleton] Size:{m_History.m_Size} History.LastStoredTick:{LatestStoredTick.ToFixedString()}";
@@ -258,9 +259,9 @@ namespace Unity.NetCode
         [NativeDisableUnsafePtrRestriction]
         private unsafe void* m_bufferCopyPtr;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        //For job checks
+        // 用于 Job 安全检查
         private AtomicSafetyHandle m_Safety;
-        //To avoid accessing the buffer if already disposed
+        // 防止访问已经释放的缓冲区
         private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<CollisionHistoryBuffer>();
 #endif
 
@@ -295,7 +296,7 @@ namespace Unity.NetCode
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            // Clamp to the oldest physics copy when requesting older data than supported
+            // 请求的数据早于支持范围时，限制到最早的 Physics 副本
             if (interpolationDelay > Size-1)
                 interpolationDelay = (uint)Size-1;
             tick.Subtract(interpolationDelay);
@@ -333,7 +334,7 @@ namespace Unity.NetCode
             if (index >= Size || index >= Capacity)
                 throw new IndexOutOfRangeException($"Index {index} >= Size:{Size} or Capacity:{Capacity}!");
 
-            //Always dispose the current world
+            // 始终释放当前位置的 World
             m_buffer.GetWorldAt(index, Size, out _).Dispose();
             m_buffer.SetWorldAt(index, tick, Size, collWorld.Clone(config.DeepCopyDynamicColliders, config.DeepCopyStaticColliders));
             if(tick.IsValid && (!LatestStoredTick.IsValid || tick.IsNewerThan(LatestStoredTick)))
@@ -349,7 +350,7 @@ namespace Unity.NetCode
             if (index >= Size || index >= Capacity)
                 throw new IndexOutOfRangeException($"Index {index} >= Size:{Size} or Capacity:{Capacity}!");
 
-            //Always dispose the current world
+            // 始终释放当前位置的 World
             m_buffer.GetWorldAt(index, Size, out _).Dispose();
             m_buffer.SetWorldAt(index, tick, Size, collWorld.Clone(config.DeepCopyDynamicColliders, config.DeepCopyStaticColliders, pwhs.DeepCopyRigidBodyCollidersWhitelist));
             if(tick.IsValid && (!LatestStoredTick.IsValid || tick.IsNewerThan(LatestStoredTick)))
@@ -359,9 +360,9 @@ namespace Unity.NetCode
         public unsafe CollisionHistoryBufferRef AsCollisionHistoryBufferRef()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            //First check the CheckExistAndThrow to avoid bad access and return better error
+            // 先调用 CheckExistsAndThrow 防止非法访问，并返回更明确的错误
             AtomicSafetyHandle.CheckExistsAndThrow(m_Safety);
-            //Then validate the write access right
+            // 再验证写入权限
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             UnsafeUtility.AsRef<RawHistoryBuffer>(m_bufferCopyPtr) = m_buffer;
@@ -400,9 +401,9 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A safe reference to the <see cref="CollisionHistoryBuffer"/>.
-    /// Avoid copying the large world history data structure when accessing the buffer, and because of that
-    /// can easily passed around in function, jobs or used on the main thread without consuming to much stack space.
+    /// 对 <see cref="CollisionHistoryBuffer"/> 的安全引用
+    /// 访问缓冲区时可避免复制大型 World History 数据结构，
+    /// 因而可以在函数、Job 或主线程中方便地传递，而不会占用过多栈空间
     /// </summary>
     internal struct CollisionHistoryBufferRef
     {
@@ -414,28 +415,27 @@ namespace Unity.NetCode
         internal AtomicSafetyHandle m_Safety;
 #endif
         /// <summary>
-        /// Get the <see cref="CollisionWorld"/> state for the given tick and interpolation delay.
+        /// 获取指定 Tick 和插值延迟对应的 <see cref="CollisionWorld"/> 状态
         /// </summary>
-        /// <param name="tick">The server tick we are simulating</param>
-        /// <param name="interpolationDelay">The client interpolation delay, measured in ticks. This is used to look back in time
-        ///     and retrieve the state of the collision world at tick - interpolationDelay.
-        ///     The interpolation delay is internally clamped to the current collision history size (the number of saved history state)</param>
-        /// <param name="collWorld">The <see cref="CollisionWorld"/> state retrieved from the history</param>
-        /// <param name="expectedTick">The tick we should be fetching, after subtracting interpolationDelay.</param>
-        /// <param name="returnedTick">The tick index we actually fetched, due to clamping. I.e. If clamped to the oldest stored tick, you'll see the eldest stored tick returned here.</param>
+        /// <param name="tick">当前正在模拟的服务器 Tick</param>
+        /// <param name="interpolationDelay">以 Tick 为单位的客户端插值延迟，用于回溯并获取 tick - interpolationDelay 时的 Collision World 状态
+        ///     插值延迟会在内部限制为当前 Collision History 的长度，即已保存的历史状态数量</param>
+        /// <param name="collWorld">从历史记录中取得的 <see cref="CollisionWorld"/> 状态</param>
+        /// <param name="expectedTick">减去 interpolationDelay 后应当获取的 Tick</param>
+        /// <param name="returnedTick">因限制范围而实际获取的 Tick 索引，例如限制到最早存储的 Tick 时，此处会返回该最早 Tick</param>
         public void GetCollisionWorldFromTick(NetworkTick tick, uint interpolationDelay, out CollisionWorld collWorld, out NetworkTick expectedTick, out NetworkTick returnedTick)
         {
             int ringBufferIndex;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            //The error will be misleading (is going to mention a NativeArray) but at least is more consistent
-            //Rely only on CheckReadAndThrow give bad error messages
+            // 错误信息会提及 NativeArray，可能具有误导性，但至少与其他容器的行为更加一致
+            // 仅依赖 CheckReadAndThrow 会得到较差的错误信息
             AtomicSafetyHandle.CheckExistsAndThrow(this.m_Safety);
             AtomicSafetyHandle.CheckReadAndThrow(this.m_Safety);
 #endif
             tick.Subtract(interpolationDelay);
             expectedTick = tick;
 
-            // Clamp to the oldest physics copy when requesting older data than supported
+            // 请求的数据早于支持范围时，限制到最早的 Physics 副本
             if (m_LatestStoredTick.IsValid)
             {
                 if (tick.IsNewerThan(m_LatestStoredTick))
@@ -449,8 +449,7 @@ namespace Unity.NetCode
                 }
             }
 
-            // WARNING: This operation requires m_Size to be Pow2, otherwise we get invalid indexes
-            // when the TickIndexForValidTick wraps around uint.MaxValue.
+            // 警告：此运算要求 m_Size 是 2 的幂，否则 TickIndexForValidTick 越过 uint.MaxValue 时会得到无效索引
             UnityEngine.Debug.Assert(math.ispow2(m_Size));
             ringBufferIndex = (int)(tick.TickIndexForValidTick % m_Size);
             unsafe
@@ -467,13 +466,13 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// A system used to store old state of the physics world for lag compensation.
-    /// This system creates a PhysicsWorldHistorySingleton and from that you can
-    /// get a physics collision world for a previous tick.
+    /// 为延迟补偿存储 Physics World 历史状态的系统
+    /// 此系统会创建 PhysicsWorldHistorySingleton，
+    /// 可通过该 Singleton 获取先前 Tick 对应的 Physics Collision World
     /// </summary>
     /// <remarks>
-    /// This clone of the PhysicsWorld occurs shortly after building the physics world,
-    /// to ensure that collider BlobAssetReferences are valid and correctly copyable.
+    /// PhysicsWorld 的克隆发生在 Physics World 构建完成后不久，
+    /// 以确保 Collider BlobAssetReference 有效且能够正确复制
     /// </remarks>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PhysicsSystemGroup), OrderLast = true)]
@@ -481,11 +480,11 @@ namespace Unity.NetCode
     public partial struct PhysicsWorldHistory : ISystem
     {
         /// <summary>
-        /// Max quantity of CollisionWorld's that can be stored in the RawHistoryBuffer.
+        /// RawHistoryBuffer 可以存储的 CollisionWorld 最大数量
         /// </summary>
         /// <remarks>
-        /// Lag compensation queries that attempt to reach further back than the capacity will be clamped to the oldest.
-        /// The previous value was 16.
+        /// 延迟补偿查询超出容量允许的回溯范围时，会被限制到最早的记录
+        /// 此值以前为 16
         /// </remarks>
         public const int RawHistoryBufferMaxCapacity = RawHistoryBuffer.Capacity;
 
@@ -544,11 +543,11 @@ namespace Unity.NetCode
 
             state.CompleteDependency();
 
-            //We need to grab the physics world from a different source based on the physics configuration present or not
+            // 需要根据是否存在 Physics 配置，从不同来源获取 Physics World
             var physicsWorld = SystemAPI.GetSingleton<PhysicsWorldSingleton>().PhysicsWorld;
             ref var physicsWorldHistorySingleton = ref SystemAPI.GetSingletonRW<PhysicsWorldHistorySingleton>().ValueRW;
 
-            // Copy all ticks before this one to the buffer using the most recent physics world - which will be what that simulation used
+            // 使用最近的 Physics World 填充当前 Tick 之前的所有记录，因为这些模拟使用的就是该 World
             if (!m_CollisionHistory.LatestStoredTick.IsValid)
             {
                 var storeTick = serverTick;
@@ -561,23 +560,22 @@ namespace Unity.NetCode
             }
             else
             {
-                // Store a CollisionWorld for each tick that has not been stored yet.
+                // 为每个尚未保存的 Tick 存储一个 CollisionWorld
                 var ticksToStore = serverTick.TicksSince(m_CollisionHistory.LatestStoredTick);
                 if (ticksToStore <= 0) return;
 
-                // Copying more than m_CollisionHistory.Size would mean we overwrite a tick we copied this frame,
-                // so prevent that:
+                // 复制数量超过 m_CollisionHistory.Size 会覆盖本帧刚复制的 Tick，因此需要限制数量
                 var startStoreTick = serverTick;
                 startStoreTick.Subtract((uint) math.min(ticksToStore - 1, m_CollisionHistory.Size));
 
-                // Store:
+                // 存储 CollisionWorld
                 for (var storeTick = startStoreTick; !storeTick.IsNewerThan(serverTick); storeTick.Increment())
                 {
                     var index = (int)(storeTick.TickIndexForValidTick % m_CollisionHistory.Size);
                     m_CollisionHistory.CloneCollisionWorld(index, ref physicsWorld.CollisionWorld, ref config, ref physicsWorldHistorySingleton, storeTick);
                 }
 
-                // Note: If using multiple physics sub-steps, we only store the result of the first one in each ServerTick.
+                // 注意：使用多个 Physics 子步时，每个 ServerTick 只存储第一个子步的结果
             }
             physicsWorldHistorySingleton.m_History = m_CollisionHistory.AsCollisionHistoryBufferRef();
         }

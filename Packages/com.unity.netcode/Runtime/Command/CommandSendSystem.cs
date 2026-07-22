@@ -13,26 +13,23 @@ using Unity.Mathematics;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// This singleton is used by code-gen. It stores a mapping of which ticks the client
-    /// has changes to inputs so steps in the prediction loop can be batched when inputs
-    /// are not changing.
+    /// 代码生成器使用的 Singleton，保存客户端输入发生变化的 Tick 映射
+    /// 当输入没有变化时，预测循环可以据此批处理多个步骤
     /// </summary>
     public struct UniqueInputTickMap : IComponentData
     {
         /// <summary>
-        /// The set of ticks where inputs were changed compared to the frame before it. The value is not used but usually set to the same tick as the key.
+        /// 输入相较前一帧发生变化的 Tick 集合，Value 不会被使用，但通常设为与 Key 相同的 Tick
         /// </summary>
         public NativeParallelHashMap<NetworkTick, NetworkTick>.ParallelWriter Value;
         internal NativeParallelHashMap<NetworkTick, NetworkTick> TickMap;
     }
 
     /// <summary>
-    /// The parent group for all input gathering systems. Only present in client worlds
-    /// (and local worlds, to allow singleplayer to use the same input gathering system).
-    /// It runs before the <see cref="CommandSendSystemGroup"/> to remove any latency between
-    /// input gathering and command submission.
-    /// All systems that translate user input (for example, using the <see cref="UnityEngine.Input"/> into
-    /// <see cref="ICommandData"/> command data must update in this group).
+    /// 所有输入采集系统的父 Group，仅存在于 Client World 和 Local World，后者用于让单机模式复用同一套输入采集系统
+    /// 它在 <see cref="CommandSendSystemGroup"/> 之前运行，以消除输入采集与命令提交之间的延迟
+    /// 所有把用户输入转换为 <see cref="ICommandData"/> 命令数据的系统都必须在此 Group 中更新，
+    /// 例如读取 <see cref="UnityEngine.Input"/> 的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation | WorldSystemFilterFlags.LocalSimulation, WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.LocalSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
@@ -41,8 +38,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The parent group for all generated systems that copy data from the an <see cref="IInputComponentData"/> to the
-    /// underlying <see cref="InputBufferData{T}"/>, that is the ring buffer that will contains the generated user commands.
+    /// 所有生成系统的父 Group，这些系统把数据从 <see cref="IInputComponentData"/> 复制到其底层 <see cref="InputBufferData{T}"/>
+    /// 后者是保存已生成用户命令的环形 Buffer
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation,
         WorldSystemFilterFlags.ClientSimulation)]
@@ -52,8 +49,7 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// The parent group for all generated systems that copy data from and underlying <see cref="InputBufferData{T}"/>
-    /// to its parent <see cref="IInputComponentData"/>.
+    /// 所有生成系统的父 Group，这些系统把数据从底层 <see cref="InputBufferData{T}"/> 复制到其父 <see cref="IInputComponentData"/>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation,
                        WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
@@ -63,8 +59,8 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// This group contains all core-generated system that are used to compare commands for sake of identifing the ticks the client
-    /// has changed input (see <see cref="m_UniqueInputTicks"/>.
+    /// 此 Group 包含所有核心生成的命令比较系统，用于识别客户端输入发生变化的 Tick
+    /// 参见 <see cref="m_UniqueInputTicks"/>
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation, WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
@@ -73,8 +69,7 @@ namespace Unity.NetCode
     {
         private NativeParallelHashMap<NetworkTick, NetworkTick> m_UniqueInputTicks;
         /// <summary>
-        /// Create the <see cref="UniqueInputTickMap"/> singleton and store a reference to the
-        /// UniqueInputTicks hash map
+        /// 创建 <see cref="UniqueInputTickMap"/> Singleton，并保存 UniqueInputTicks HashMap 的引用
         /// </summary>
         protected override void OnCreate()
         {
@@ -92,7 +87,7 @@ namespace Unity.NetCode
             base.OnCreate();
         }
         /// <summary>
-        /// Dispose all the allocated resources.
+        /// 释放所有已分配资源
         /// </summary>
         protected override void OnDestroy()
         {
@@ -103,40 +98,40 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Parent group of all systems that serialize <see cref="ICommandData"/> structs into the
-    /// <see cref="OutgoingCommandDataStreamBuffer"/> buffer.
-    /// The serialized commands are then sent later by the <see cref="CommandSendPacketSystem"/>.
-    /// Only present in client world.
+    /// 所有命令序列化系统的父 Group，这些系统把 <see cref="ICommandData"/> 结构体序列化到
+    /// <see cref="OutgoingCommandDataStreamBuffer"/> 缓冲区
+    /// 随后由 <see cref="CommandSendPacketSystem"/> 发送序列化命令
+    /// 此 Group 仅存在于 Client World
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation, WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
     [UpdateAfter(typeof(GhostInputSystemGroup))]
-    // dependency just for acking
+    // 此依赖仅用于发送 Ack
     [UpdateAfter(typeof(GhostReceiveSystem))]
     public partial class CommandSendSystemGroup : ComponentSystemGroup
     {
         /// <summary>
-        /// The maximum serialized size of an individual Command payload, including command headers.
-        /// Thus, verified after delta-compression.
+        /// 单个 Command Payload 的最大序列化大小，包含 Command Header
+        /// 因此应在差分压缩后验证
         /// </summary>
         public const int k_MaxCommandSerializedPayloadBytes = 1024;
 
         /// <summary>
-        /// The maximum number of commands you can send from the client to the server - for a given ghost - in a single packet.
-        /// <see cref="k_MaxInputBufferSendBits"/>. 2^5 = (0,31), but we can exclude zero, so it's (1,32).
+        /// 单个数据包中客户端能够为指定 Ghost 向服务器发送的最大命令数量
+        /// 由 <see cref="k_MaxInputBufferSendBits"/> 决定，2^5 表示 (0,31)，排除零后得到 (1,32)
         /// </summary>
-        /// <remarks>The number of commands that will be sent is `<see cref="ClientTickRate.TargetCommandSlack"/> + <see cref="ClientTickRate.NumAdditionalCommandsToSend"/>`.</remarks>
+        /// <remarks>实际发送的命令数量为 `<see cref="ClientTickRate.TargetCommandSlack"/> + <see cref="ClientTickRate.NumAdditionalCommandsToSend"/>`</remarks>
         public const int k_MaxInputBufferSendSize = 1 << k_MaxInputBufferSendBits;
 
         /// <summary>
-        /// How many bits are allocated to sending the length of the buffer?
+        /// 用多少个 bit 发送 Buffer 长度
         /// <see cref="k_MaxInputBufferSendBits"/>
         /// </summary>
         internal const int k_MaxInputBufferSendBits = 5;
 
         /// <summary>
-        /// How many bits are used for sending the tick delta, for each previous tick in the buffer?
-        /// Note: The highest value is a sentinel value, reserved for 'use Huffman'.
+        /// 为 Buffer 中每个较早 Tick 的 Tick 差值分配多少个 bit
+        /// 注意：最大值是保留给“使用 Huffman”的哨兵值
         /// </summary>
         internal const int k_TickDeltaBits = 2;
 
@@ -152,7 +147,7 @@ namespace Unity.NetCode
         {
             var clientNetTime = SystemAPI.GetSingleton<NetworkTime>();
             var inputTargetTick = clientNetTime.InputTargetTick;
-            // Make sure we only send a single ack per tick - only triggers when using dynamic timestep
+            // 确保每个 Tick 只发送一次 Ack，仅在使用动态时间步时触发
             if (inputTargetTick.IsValid && inputTargetTick != m_LastInputTargetTick)
                 base.OnUpdate();
             m_LastInputTargetTick = inputTargetTick;
@@ -160,13 +155,13 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// <para>System responsible for building and sending the command packet to the server.
-    /// As part of the command protocol:</para>
-    /// <para>- Flushes all the serialized commands present in the <see cref="OutgoingCommandDataStreamBuffer"/>.</para>
-    /// <para>- Acks the latest received snapshot to the server.</para>
-    /// <para>- Sends the client local and remote time (used to calculate the Round Trip Time) back to the server.</para>
-    /// <para>- Sends the loaded ghost prefabs to the server.</para>
-    /// <para>- Calculates the current client interpolation delay (used for lag compensation).</para>
+    /// <para>负责构建 Command Packet 并发送到服务器的系统
+    /// 作为 Command 协议的一部分，它会执行以下操作：</para>
+    /// <para>- 刷新 <see cref="OutgoingCommandDataStreamBuffer"/> 中的全部序列化命令</para>
+    /// <para>- 向服务器确认最近收到的 Snapshot</para>
+    /// <para>- 把客户端本地时间和远端时间发回服务器，用于计算 RTT</para>
+    /// <para>- 把已加载的 Ghost Prefab 信息发送到服务器</para>
+    /// <para>- 计算当前客户端插值延迟，用于延迟补偿</para>
     /// </summary>
     [UpdateInGroup(typeof(CommandSendSystemGroup), OrderLast = true)]
     [BurstCompile]
@@ -174,17 +169,17 @@ namespace Unity.NetCode
     {
         private StreamCompressionModel m_CompressionModel;
         private EntityQuery m_connectionQuery;
-        //The packet header is composed by //tatal 29 bytes
+        // 数据包 Header 总计由 29 字节组成
         private const int k_CommandHeadersBytes =
-            1 + // the protocol id
-            4 + //last received snapshot tick from server
-            4 + //received snapshost mask
-            4 + //the local time (used for RTT calc)
-            4 + //the delta in between the local time and the last received remote time. Used to calculate the elapsed RTT and remove the time spent on client to resend the ack.
-            4 + //the interpolation delay
-            2 + //the loaded prefabs
-            1 +  //byte denoting if the command tick is for a full or partial tick,
-            4; //the first command tick
+            1 + // 协议 ID
+            4 + // 最近从服务器收到的 Snapshot Tick
+            4 + // 已接收 Snapshot Mask
+            4 + // 本地时间，用于计算 RTT
+            4 + // 本地时间与最近收到的远端时间之差，用于计算已流逝 RTT，并剔除客户端重发 Ack 所花费的时间
+            4 + // 插值延迟
+            2 + // 已加载 Prefab 数量
+            1 +  // 表示 Command Tick 是完整 Tick 还是 Partial Tick
+            4; // 第一条 Command 的 Tick
 
         [BurstCompile]
         public void OnCreate(ref SystemState state)
@@ -230,8 +225,7 @@ namespace Unity.NetCode
                     rpcData.Clear();
                     return;
                 }
-                //If you modify any of the following writes (add/remote/type) you shoul update the
-                //k_commandHeadersBytes constant.
+                // 如果修改下面任意写入操作，例如添加、移除或改变类型，也必须更新 k_CommandHeadersBytes 常量
                 writer.WriteByte((byte)NetworkStreamProtocol.Command);
                 writer.WriteUInt(ack.LastReceivedSnapshotByLocal.SerializedData);
                 writer.WriteUInt(ack.ReceivedSnapshotByLocalMask);
@@ -265,9 +259,9 @@ namespace Unity.NetCode
         {
             var clientNetTime = SystemAPI.GetSingleton<NetworkTime>();
             var inputTargetTick = clientNetTime.InputTargetTick;
-            // The time left util interpolation is at the given tick, the delta should be increased by this
+            // 插值到达指定 Tick 前的剩余时间，需要将其加入差值
             var subTickDeltaAdjust = 1 - clientNetTime.InterpolationTickFraction;
-            // The time left util we are actually at the server tick, the delta should be reduced by this
+            // 实际到达 Server Tick 前的剩余时间，需要从差值中扣除
             subTickDeltaAdjust -= 1 - clientNetTime.ServerTickFraction;
             var interpolationDelay = clientNetTime.ServerTick.TicksSince(clientNetTime.InterpolationTick);
             if (subTickDeltaAdjust >= 1)
@@ -296,82 +290,82 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// Helper struct for implementing systems to send commands.
-    /// This is generally used by code-gen and should only be used directly in special cases.
+    /// 用于实现命令发送系统的辅助结构体
+    /// 通常由代码生成器使用，只应在特殊情况下直接使用
     /// </summary>
-    /// <typeparam name="TCommandDataSerializer">Unmanaged CommandDataSerializer of type ICommandDataSerializer.</typeparam>
-    /// <typeparam name="TCommandData">Unmanaged CommandData of type ICommandData.</typeparam>
+    /// <typeparam name="TCommandDataSerializer">实现 ICommandDataSerializer 的 Unmanaged CommandDataSerializer</typeparam>
+    /// <typeparam name="TCommandData">实现 ICommandData 的 Unmanaged CommandData</typeparam>
     public struct CommandSendSystem<TCommandDataSerializer, TCommandData>
         where TCommandData : unmanaged, ICommandData
         where TCommandDataSerializer : unmanaged, ICommandDataSerializer<TCommandData>
     {
         /// <summary>
-        /// Helper struct used by code-generated command job to serialize the <see cref="ICommandData"/> into the
-        /// <see cref="OutgoingCommandDataStreamBuffer"/> for the client connection.
+        /// 代码生成的 Command Job 使用的辅助结构体，负责把 <see cref="ICommandData"/>
+        /// 序列化到客户端连接的 <see cref="OutgoingCommandDataStreamBuffer"/>
         /// </summary>
         public struct SendJobData
         {
             /// <summary>
-            /// The readonly <see cref="CommandTarget"/> type handle for accessing the chunk data.
+            /// 用于访问 Chunk 数据的只读 <see cref="CommandTarget"/> 类型句柄
             /// </summary>
             [ReadOnly] public ComponentTypeHandle<CommandTarget> commmandTargetType;
             /// <summary>
-            /// <see cref="OutgoingCommandDataStreamBuffer"/> buffer type handle for accessing the chunk data.
-            /// This is the output of buffer for the job
+            /// 用于访问 Chunk 数据的 <see cref="OutgoingCommandDataStreamBuffer"/> Buffer 类型句柄
+            /// 这是该 Job 的输出 Buffer
             /// </summary>
             public BufferTypeHandle<OutgoingCommandDataStreamBuffer> outgoingCommandBufferType;
             /// <summary>
-            /// <see cref="EnablePacketLogging"/> type handle, for packet dumping.
+            /// 用于转储数据包的 <see cref="EnablePacketLogging"/> 类型句柄
             /// </summary>
             public ComponentTypeHandle<EnablePacketLogging> enablePacketLoggingType;
             /// <summary>
-            /// Accessor for retrieving the input buffer from the target entity.
+            /// 用于从目标 Entity 获取 Input Buffer 的访问器
             /// </summary>
             [ReadOnly] public BufferLookup<TCommandData> inputFromEntity;
             /// <summary>
-            /// Reaonly <see cref="GhostInstance"/> type handle for accessing the chunk data.
+            /// 用于访问 Chunk 数据的只读 <see cref="GhostInstance"/> 类型句柄
             /// </summary>
             [ReadOnly] public ComponentLookup<GhostInstance> ghostFromEntity;
             /// <summary>
-            /// Readonly accessor to retrieve the <see cref="GhostOwner"/> from the target ghost entity.
+            /// 用于从目标 Ghost Entity 获取 <see cref="GhostOwner"/> 的只读访问器
             /// </summary>
             [ReadOnly] public ComponentLookup<GhostOwner> ghostOwnerFromEntity;
             /// <summary>
-            /// Readonly accessor to retrieve the <see cref="AutoCommandTarget"/> from the target ghost entity.
+            /// 用于从目标 Ghost Entity 获取 <see cref="AutoCommandTarget"/> 的只读访问器
             /// </summary>
             [ReadOnly] public ComponentLookup<AutoCommandTarget> autoCommandTargetFromEntity;
             /// <summary>
-            /// The compression model used to delta encode the old inputs. The first input (the one for the current tick)
-            /// is serialized as it is. The older ones, are serialized as delta in respect the first one to reduce the bandwidth.
+            /// 对旧输入进行差分编码时使用的压缩模型
+            /// 第一条输入，也就是当前 Tick 的输入，按原值序列化；较早的输入以第一条输入为 Baseline 进行差分序列化，以减少带宽
             /// </summary>
             public StreamCompressionModel compressionModel;
             /// <summary>
-            /// The server tick the command should be executed on the server.
+            /// 命令应在服务器上执行的 Server Tick
             /// </summary>
             public NetworkTick inputTargetTick;
             /// <summary>
-            /// The last server tick for which we send this command
+            /// 上一次发送此命令对应的 Server Tick
             /// </summary>
             public NetworkTick prevInputTargetTick;
             /// <summary>
-            /// The list of all ghost entities with a <see cref="AutoCommandTarget"/> component.
+            /// 所有具有 <see cref="AutoCommandTarget"/> 组件的 Ghost Entity 列表
             /// </summary>
             [ReadOnly] public NativeList<Entity> autoCommandTargetEntities;
             /// <summary>
-            /// The stable type hash for the command type. Serialized and used on the server side to match and verify the correctness
-            /// of the input data sent.
+            /// Command 类型的稳定类型 Hash
+            /// 该值会被序列化，并在服务器端用于匹配和验证已发送输入数据的正确性
             /// </summary>
             public ulong stableHash;
             /// <summary>
-            /// For how many ticks should we send input?
-            /// Value corresponds to the last n ticks, starting at the current tick.
+            /// 应发送多少个 Tick 的输入
+            /// 该值表示从当前 Tick 开始向前计算的最近 N 个 Tick
             /// </summary>
             public uint numCommandsToSend;
 
             void Serialize(DynamicBuffer<OutgoingCommandDataStreamBuffer> rpcData, Entity targetEntity, bool isAutoTarget, ref EnablePacketLogging enablePacketLogging)
             {
                 var inputBuffer = inputFromEntity[targetEntity];
-                // Check if the buffer has any data for the ticks we are trying to send, first chck if it has data at all
+                // 检查 Buffer 是否包含待发送 Tick 的数据，首先确认它是否包含任何数据
                 if (!inputBuffer.GetDataAtTick(inputTargetTick, out var baselineInputData))
                 {
 #if NETCODE_DEBUG
@@ -380,8 +374,8 @@ namespace Unity.NetCode
 #endif
                     return;
                 }
-                // Next check if we have previously sent the latest input, and the latest data we have would not fit in the buffer
-                // The check for previously sent is important to handle really bad client performance
+                // 接着检查最近输入是否已发送，以及当前最新数据是否已经超出 Buffer 容量
+                // 检查是否已发送对于处理客户端性能极差的情况十分重要
                 if (prevInputTargetTick.IsValid && !baselineInputData.Tick.IsNewerThan(prevInputTargetTick) && inputTargetTick.TicksSince(baselineInputData.Tick) >= CommandDataUtility.k_CommandDataMaxSize)
                 {
 #if NETCODE_DEBUG
@@ -392,12 +386,12 @@ namespace Unity.NetCode
                 }
 
                 var oldLen = rpcData.Length;
-                const int maxHeaderSize = sizeof(ulong) + //command hash
-                                       sizeof(ushort) + //serialised size
-                                       sizeof(int) + //ghost id | 0
-                                       sizeof(uint) + //spawnTick | 0
-                                       sizeof(byte) + // numCommandsToSend (5 bits technically!)
-                                       sizeof(int); // Current Tick
+                const int maxHeaderSize = sizeof(ulong) + // 命令 Hash
+                                       sizeof(ushort) + // 序列化大小
+                                       sizeof(int) + // Ghost ID 或 0
+                                       sizeof(uint) + // spawnTick 或 0
+                                       sizeof(byte) + // numCommandsToSend，实际只占 5 bit
+                                       sizeof(int); // 当前 Tick
 
                 rpcData.ResizeUninitialized(oldLen + CommandSendSystemGroup.k_MaxCommandSerializedPayloadBytes + maxHeaderSize);
                 var writer = new DataStreamWriter(rpcData.Reinterpret<byte>().AsNativeArray().GetSubArray(oldLen,
@@ -421,10 +415,10 @@ namespace Unity.NetCode
                     writer.WriteUInt(0);
                 }
 
-                // Num Commands To Send:
+                // 待发送命令数量
                 writer.WriteRawBits(numCommandsToSend - 1, CommandSendSystemGroup.k_MaxInputBufferSendBits);
 
-                // Write the first input:
+                // 写入第一条输入
                 var serializer = default(TCommandDataSerializer);
                 var serializerState = new RpcSerializerState
                 {
@@ -441,14 +435,14 @@ namespace Unity.NetCode
                 firstSerializeLengthInBits = writer.LengthInBits - firstSerializeLengthInBits;
 #endif
 
-                // Target tick is the most recent tick which is older than the one we just sampled
+                // Target Tick 是早于刚刚采样 Tick 的最近 Tick
                 var targetTick = baselineInputData.Tick;
                 if (targetTick.IsValid)
                 {
                     targetTick.Decrement();
                 }
 
-                // Write the next n, delta-compressed:
+                // 以差分压缩方式写入后续 N 条输入
                 TCommandData inputData = baselineInputData;
 
 
@@ -481,7 +475,7 @@ namespace Unity.NetCode
                     }
 #endif
 
-                    // If unchanged, skip Serializing entirely, using a 1bit change-mask flag:
+                    // 如果没有变化，则通过 1 bit Change Mask 标志完全跳过序列化
                     writer.WriteRawBits(changeBit, 1);
 
                     if (changeBit != 0)
@@ -522,14 +516,14 @@ namespace Unity.NetCode
 
                 if (writer.HasFailedWrites)
                 {
-                    //TODO further improvement
-                    //Ideally here we want to print the original TCommandData type. However, for IInputCommands this is pretty much impossible at this point (unless we percolate down the original component type)
-                    //since the type information is lost.
+                    // TODO 进一步改进
+                    // 理想情况下应在此输出原始 TCommandData 类型，但对于 IInputCommands，目前几乎无法做到
+                    // 除非把原始组件类型一直向下传递，因为类型信息此时已经丢失
                     UnityEngine.Debug.LogError($"CommandSendSystem failed to serialize '{ComponentType.ReadWrite<TCommandData>().ToFixedString()}' as the serialized payload is too large (limit: {CommandSendSystemGroup.k_MaxCommandSerializedPayloadBytes})! For redundancy, we pack the command for the current server tick and the last {numCommandsToSend} (configurable) values (delta-compressed) inside the payload. Please try to keep ICommandData or IInputComponentData small (tens of bytes). Remember they are serialized at the `SimulationTickRate` and can consume a lot of the client outgoing and server ingress bandwidth.\nContents:'{inputData.ToFixedString()}'.");
                 }
 
 #if NETCODE_DEBUG
-                var totalCommandBits = writer.LengthInBits; // Writer is invalidated after this.
+                var totalCommandBits = writer.LengthInBits; // 此操作之后 Writer 会失效
 #endif
                 var totalCommandBytes = (ushort)(writer.Length - startLength);
                 lengthWriter.WriteUShort(totalCommandBytes);
@@ -542,9 +536,9 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// First we assume the previous tick is -1 from the current input's tick.
-            /// We send 2 bits in the common case (a delta of -1, -2, or -3, or 0, 1, or 2 after the -1).
-            /// We then fallback on huffman if -4 (i.e. -3) or worse.
+            /// 首先假定前一个 Tick 是当前输入 Tick 减 1
+            /// 常见情况下发送 2 bit，即差值为 -1、-2 或 -3，在预先减 1 后对应 0、1 或 2
+            /// 差值为 -4 或更小时回退到 Huffman 编码
             /// </summary>
             /// <param name="assumedTickIndex"></param>
             /// <param name="writer"></param>
@@ -554,8 +548,8 @@ namespace Unity.NetCode
                 const int outOfRange = 3;
                 if (Hint.Likely(assumedTickIndex.IsValid && inputData.Tick.IsValid))
                 {
-                    // The common case is a delta of either 1, 2, or 3 ticks.
-                    // Thus, we allocate 0, 1, and 2 to this delta, then only fallback to Huffman if we need to.
+                    // 常见情况是相差 1、2 或 3 个 Tick
+                    // 因此分别用 0、1、2 表示这些差值，只在必要时回退到 Huffman 编码
                     var deltaTicks = assumedTickIndex.TicksSince(inputData.Tick);
                     if (Hint.Likely(deltaTicks >= 1 && deltaTicks < 3))
                     {
@@ -565,7 +559,7 @@ namespace Unity.NetCode
                     {
                         deltaTicks = outOfRange;
                         writer.WriteRawBits((uint) deltaTicks, CommandSendSystemGroup.k_TickDeltaBits);
-                        // Subtract 4 from the PREVIOUS VALUE because it can't be -1, -2, or -3.
+                        // 从上一个值减去 4，因为差值不可能是 -1、-2 或 -3
                         if(assumedTickIndex.IsValid) assumedTickIndex.Subtract(4);
                         writer.WritePackedUIntDelta(inputData.Tick.SerializedData, assumedTickIndex.SerializedData, compressionModel);
                     }
@@ -580,8 +574,8 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// Returns 1 if <see cref="prevInputData"/> is the same as the input at <see cref="targetTick"/>.
-            /// Returns 0 if no data or invalid tick.
+            /// 如果 <see cref="prevInputData"/> 与 <see cref="targetTick"/> 对应的输入相同则返回 1
+            /// 没有数据或 Tick 无效时返回 0
             /// </summary>
             private static uint GetDataAtTickAndCmp(NetworkTick targetTick, ref TCommandData prevInputData,
                 DynamicBuffer<TCommandData> input, ref TCommandData inputData, TCommandDataSerializer serializer)
@@ -594,15 +588,14 @@ namespace Unity.NetCode
             }
 
             /// <summary>
-            /// <para>Lookup all the ghost entities for which commands need to be serialized for the current
-            /// tick and enqueue them into the <see cref="OutgoingCommandDataStreamBuffer"/>.
-            /// Are considered as potential ghost targets:</para>
-            /// <para>- the entity referenced by the <see cref="CommandTarget"/></para>
-            /// <para>- All ghosts owned by the player (see <see cref="GhostOwner"/>) that present
-            /// an enabled <see cref="AutoCommandTarget"/> components.</para>
+            /// <para>查找当前 Tick 需要序列化命令的所有 Ghost Entity，
+            /// 并将其命令加入 <see cref="OutgoingCommandDataStreamBuffer"/> 队列
+            /// 以下 Entity 会被视为潜在 Ghost 目标：</para>
+            /// <para>- <see cref="CommandTarget"/> 引用的 Entity</para>
+            /// <para>- 由该玩家拥有且具有已启用 <see cref="AutoCommandTarget"/> 组件的全部 Ghost，参见 <see cref="GhostOwner"/></para>
             /// </summary>
-            /// <param name="chunk">The chunk that contains the connection entities</param>
-            /// <param name="orderIndex">unsed, the sorting index enequeing operation in the the entity command buffer</param>
+            /// <param name="chunk">包含连接 Entity 的 Chunk</param>
+            /// <param name="orderIndex">未使用，表示向 Entity Command Buffer 入队操作的排序索引</param>
             public void Execute(ArchetypeChunk chunk, int orderIndex)
             {
                 var commandTargets = chunk.GetNativeArray(ref commmandTargetType);
@@ -638,7 +631,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// The query to use when scheduling the processing job.
+        /// 调度处理 Job 时使用的查询
         /// </summary>
         public EntityQuery Query => m_connectionQuery;
         private EntityQuery m_connectionQuery;
@@ -656,7 +649,7 @@ namespace Unity.NetCode
         private ComponentLookup<GhostOwner> m_GhostOwnerLookup;
         private ComponentLookup<AutoCommandTarget> m_AutoCommandTargetFromEntity;
         /// <summary>
-        /// Initialize the helper struct, should be called from OnCreate in an ISystem.
+        /// 初始化辅助结构体，应从 ISystem 的 OnCreate 调用
         /// </summary>
         /// <param name="state"><see cref="SystemState"/></param>
         public void OnCreate(ref SystemState state)
@@ -694,10 +687,10 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Initialize the internal state of a processing job, should be called from OnUpdate of an ISystem.
+        /// 初始化处理 Job 的内部状态，应从 ISystem 的 OnUpdate 调用
         /// </summary>
-        /// <param name="state">Raw entity system state.</param>
-        /// <returns>Constructed <see cref="SendJobData"/> with initialized state.</returns>
+        /// <param name="state">原始 Entity System 状态</param>
+        /// <returns>已构造并完成状态初始化的 <see cref="SendJobData"/></returns>
         public SendJobData InitJobData(ref SystemState state)
         {
             m_CommandTargetComponentHandle.Update(ref state);
@@ -712,14 +705,12 @@ namespace Unity.NetCode
             var inputTargetTick = clientNetTime.InputTargetTick;
             var targetEntities = m_autoTargetQuery.ToEntityListAsync(state.WorldUpdateAllocator, out var autoHandle);
 
-            // NumAdditionalCommandsToSend is really important! Why?
-            // TargetCommandSlack tries to ensure our inputs arrive on the server N ticks before they need to be consumed.
-            // This is good, as it ensures we don't commonly "drop" inputs (i.e. inputs don't commonly arrive too late
-            // to be processed by the DGS's server-authoritative simulation).
-            // However, the client timeline can fall out of sync with the servers timeline by more
-            // than 16.67ms (i.e. one tick at 60Hz).
-            // Thus, if we didn't include an additional 1 tick in each packet, *and* we fall out of sync with the
-            // server (a very common case), we are now losing entire input packets (even with no packet loss at all).
+            // NumAdditionalCommandsToSend 非常重要，原因如下
+            // TargetCommandSlack 尝试确保输入在服务器需要消费前 N 个 Tick 到达
+            // 这样可以避免输入经常因到达过晚而被 DGS 的服务器权威模拟丢弃
+            // 但客户端时间线与服务器时间线的偏差可能超过 16.67 ms，即 60 Hz 下的一个 Tick
+            // 因此，如果每个数据包不额外包含一个 Tick，并且客户端与服务器发生不同步，这种情况非常常见，
+            // 即使网络没有丢包，也会丢失完整的输入数据包
             if (!m_clientTickRateQuery.TryGetSingleton(out ClientTickRate clientTickRate))
                 clientTickRate = NetworkTimeSystem.DefaultClientTickRate;
             var numCommandsToSend = Mathematics.math.clamp(clientTickRate.TargetCommandSlack + clientTickRate.NumAdditionalCommandsToSend, 1u, CommandSendSystemGroup.k_MaxInputBufferSendSize);
@@ -746,16 +737,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Utility method to check if the processing job needs to run, used as an early-out in OnUpdate of an ISystem.
+        /// 检查处理 Job 是否需要运行的工具方法，用于在 ISystem 的 OnUpdate 中提前退出
         /// </summary>
-        /// <param name="state">Raw entity system state.</param>
-        /// <returns>Whether the processing job needs to run.</returns>
+        /// <param name="state">原始 Entity System 状态</param>
+        /// <returns>处理 Job 是否需要运行</returns>
         public bool ShouldRunCommandJob(ref SystemState state)
         {
-            // If there are auto command target entities always run the job
+            // 存在自动命令目标 Entity 时始终运行 Job
             if (!m_autoTargetQuery.IsEmptyIgnoreFilter)
                 return true;
-            // Otherwise only run if CommandTarget exists and has this component type
+            // 否则仅当 CommandTarget 存在且具有此组件类型时运行
             if (!m_connectionQuery.TryGetSingleton<CommandTarget>(out var commandTarget))
                 return false;
             if (!state.EntityManager.HasComponent<TCommandData>(commandTarget.targetEntity))

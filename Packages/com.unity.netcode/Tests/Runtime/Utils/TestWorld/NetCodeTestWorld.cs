@@ -39,7 +39,7 @@ namespace Unity.NetCode.Tests
         public Entity Value;
     }
 
-    // Used to work around that Awaitable doesn't exist in 2022, so we don't have to ifdef all over the place
+    // 用于兼容 2022 版本中不存在 Awaitable 的情况，避免在各处重复编写条件编译分支
     internal class NetcodeAwaitable : IEnumerator, INotifyCompletion
     {
 #if UNITY_6000_0_OR_NEWER
@@ -115,22 +115,26 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// True if you want to forward all netcode logs from the server, to allow <see cref="LogAssert"/> usage.
-        /// <b>WARNING: DISABLE "Force Log Settings" TOOL OR THIS TEST WILL FAIL!</b>
+        /// 是否转发服务端的全部 NetCode 日志，以便使用 <see cref="LogAssert"/>
+        /// <b>警告：必须禁用 "Force Log Settings" 工具，否则测试会失败</b>
         /// </summary>
-        /// <remarks>Defaults to true. <see cref="DebugPackets"/> and <see cref="LogLevel"/>.</remarks>
+        /// <remarks>默认为 true，另请参阅 <see cref="DebugPackets"/> 和 <see cref="LogLevel"/></remarks>
         public bool EnableLogsOnServer = true;
         /// <summary>
-        /// True if you want to forward all netcode logs from the client, to allow <see cref="LogAssert"/> usage.
-        /// <b>WARNING: DISABLE "Force Log Settings" TOOL OR THIS TEST WILL FAIL!</b>
+        /// 是否转发客户端的全部 NetCode 日志，以便使用 <see cref="LogAssert"/>
+        /// <b>警告：必须禁用 "Force Log Settings" 工具，否则测试会失败</b>
         /// </summary>
-        /// <remarks>Defaults to true. <see cref="DebugPackets"/> and <see cref="LogLevel"/>.</remarks>
+        /// <remarks>默认为 true，另请参阅 <see cref="DebugPackets"/> 和 <see cref="LogLevel"/></remarks>
         public bool EnableLogsOnClients = true;
 
-        /// <summary>Enable packet dumping in tests? Useful to ensure serialization doesn't fail.</summary>
-        /// <remarks>Note: Packet dump files will not be cleaned up!</remarks>
+        /// <summary>
+        /// 是否在测试中启用数据包转储，可用于确认序列化没有失败
+        /// </summary>
+        /// <remarks>数据包转储文件不会自动清理</remarks>
         public bool DebugPackets = false;
-        /// <summary>If you want to test extremely verbose logs, you can modify this flag.</summary>
+        /// <summary>
+        /// 测试高详细度日志时可修改此级别
+        /// </summary>
         public NetDebug.LogLevelType LogLevel = NetDebug.LogLevelType.Notify;
 
         static readonly ProfilerMarker k_TickServerInitializationSystem = new ProfilerMarker("TickServerInitializationSystem");
@@ -155,8 +159,8 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Logs how many times we've called <see cref="Tick"/>, zero-indexed
-        /// (i.e. -1 before Tick is called, 0 on the first frame).
+        /// 记录 <see cref="Tick"/> 的调用次数，索引从零开始
+        /// 调用前为 -1，首帧为 0
         /// </summary>
         public static int TickIndex { get; private set; }
 
@@ -170,7 +174,7 @@ namespace Unity.NetCode.Tests
         public int DriverFixedTime = 16;
         public int ConnectTimeout = NetworkParameterConstants.ConnectTimeoutMS;
         public int MaxConnectAttempts = NetworkParameterConstants.MaxConnectAttempts;
-        public int DriverSimulatedDelay = 0; // ms
+        public int DriverSimulatedDelay = 0; // 毫秒
         public int DriverSimulatedJitter = 0;
         public int DriverSimulatedDrop = 0;
         public ApplyMode DriverSimulatorPacketMode = ApplyMode.AllPackets;
@@ -199,14 +203,16 @@ namespace Unity.NetCode.Tests
         public bool AlwaysDispose;
         ITestWorldStrategy m_WorldStrategy;
 
-        /// <summary>Configure how logging should occur in tests. We apply <see cref="LogLevel"/> and <see cref="DebugPackets"/> here.</summary>
-        /// <param name="world">World to apply this config on.</param>
+        /// <summary>
+        /// 配置测试日志，并应用 <see cref="LogLevel"/> 和 <see cref="DebugPackets"/>
+        /// </summary>
+        /// <param name="world">应用该配置的 World</param>
         private void SetupNetDebugConfig(World world)
         {
             var shouldLog = (world.IsServer() && EnableLogsOnServer) || (world.IsClient() && EnableLogsOnClients);
             world.EntityManager.CreateSingleton(new NetCodeDebugConfig
             {
-                // Hack essentially disabling all logging for this world, as we should never have exceptions going via this logger anyway.
+                // 通过仅保留 Exception 级别近似禁用该 World 的日志，此 Logger 正常情况下不应收到异常
                 LogLevel = shouldLog ? LogLevel : NetDebug.LogLevelType.Exception,
                 DumpPackets = DebugPackets,
             });
@@ -219,7 +225,7 @@ namespace Unity.NetCode.Tests
     #if UNITY_SERVER
             Debug.Log("WARNING: Your editor target is Server, some netcode tests (especially those involving connection) may fail!");
     #endif
-            // Not having a default world means RegisterUnloadOrPlayModeChangeShutdown has not been called which causes memory leaks
+            // 缺少默认 World 会导致 RegisterUnloadOrPlayModeChangeShutdown 未被调用并产生内存泄漏
             DefaultWorldInitialization.DefaultLazyEditModeInitialize();
 #endif
             m_OldConfigsList.AddRange(Resources.FindObjectsOfTypeAll<NetCodeConfig>());
@@ -246,7 +252,7 @@ namespace Unity.NetCode.Tests
 
         public void Dispose()
         {
-            // destroy configs that were generated by tests (the ones that weren't there when starting the test)
+            // 销毁测试期间生成且测试开始前不存在的配置
             foreach (var config in Resources.FindObjectsOfTypeAll<NetCodeConfig>())
             {
                 if (!m_OldConfigsList.Contains(config))
@@ -263,7 +269,7 @@ namespace Unity.NetCode.Tests
                 }
             }
 
-            if (m_ServerWorld != null && m_ServerWorld.IsCreated) // already disposed above
+            if (m_ServerWorld != null && m_ServerWorld.IsCreated) // Host World 可能已在上方随客户端列表释放
             {
                 //Assert.That(m_ServerWorld.IsHost(), Is.Not.True, "sanity check failed! world should already have been disposed above");
                 m_WorldStrategy.DisposeServerWorld(m_ServerWorld);
@@ -285,7 +291,7 @@ namespace Unity.NetCode.Tests
             m_GlobalConfigForTests = null;
             m_OldGlobalConfig = null;
 
-            // sanity check
+            // 最终检查并强制清理测试遗留的网络 World
             {
                 List<World> toForceCleanup = new();
                 foreach (var world in World.All)
@@ -313,7 +319,7 @@ namespace Unity.NetCode.Tests
         {
             for (int i = 0; i < m_ClientWorlds.Count; ++i)
             {
-                if (m_ClientWorlds[i].IsHost()) continue; // gonna be disposed server side
+                if (m_ClientWorlds[i].IsHost()) continue; // Host World 由服务端清理流程释放
                 m_WorldStrategy.DisposeClientWorld(m_ClientWorlds[i]);
             }
 
@@ -512,7 +518,7 @@ namespace Unity.NetCode.Tests
 #endif
             if (!m_DefaultWorldInitialized)
             {
-                TypeManager.SortSystemTypesInCreationOrder(m_ControlSystems); // Ensure CreationOrder is respected.
+                TypeManager.SortSystemTypesInCreationOrder(m_ControlSystems); // 确保遵循 CreationOrder
                 DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(m_DefaultWorld,
                     m_ControlSystems);
                 m_DefaultWorldInitialized = true;
@@ -528,13 +534,13 @@ namespace Unity.NetCode.Tests
                 SetupNetDebugConfig(m_ServerWorld);
             }
 
-            // calling this before client world creation, so that the order of update calls when ticking remains server/host first then clients second
+            // 在普通客户端之前创建 Host，确保 Tick 时始终先更新 Server/Host，再更新客户端
             if (numHostWorlds > 0)
             {
                 if (numHostWorlds > 1) throw new NotImplementedException();
-                // TODO handle calling this more than once per test
-                // We don't add the host world to the client list, as we want a deterministic way to retrieve extra client worlds. If I do testWorld.ClientWorlds[0], which client is it going to return if it can contain hosts?
-                // For now, treating a host world as just a server world.
+                // TODO: 支持单个测试中多次调用此流程
+                // Host World 不加入客户端列表，以保证额外客户端可按确定顺序访问
+                // 如果列表包含 Host，testWorld.ClientWorlds[0] 的含义将不再稳定，因此当前仅将 Host 视为服务端 World
                 m_ServerWorld = (m_WorldStrategy.CreateHostWorld($"ServerTest-{testMethodName}"));
                 SetupNetDebugConfig(m_ServerWorld);
             }
@@ -574,26 +580,26 @@ namespace Unity.NetCode.Tests
 #endif
             NetworkStreamReceiveSystem.DriverConstructor = oldConstructor;
 
-            // This needs to execute before the first tick
+            // 必须在首次 Tick 前完成日志抑制配置
             TrySuppressNetDebug(true, true, hasServer: server || numHostWorlds > 0);
 
-            //Run 1 tick so that all the ghost collection and the ghost collection component run once.
+            // 运行一次 Tick，使 Ghost Collection 相关系统和组件完成首次更新
             if (tickWorldAfterCreation)
                 await TickAsync();
 
         }
 
         /// <summary>
-        /// Suppress netcode warnings via the NetDebug.
+        /// 通过 NetDebug 抑制指定的 NetCode 警告
         /// </summary>
         /// <param name="suppressRunInBackground">
-        /// Tests will fail on CI due to `runInBackground = false`, so we must suppress the warning:
-        /// Note that if netcode systems don't exist (i.e. no NetDebug), no suppression is necessary.
+        /// CI 环境会因 runInBackground=false 警告导致测试失败，因此需要抑制该警告
+        /// 如果不存在 NetCode 系统，即没有 NetDebug，则无需抑制
         /// </param>
         /// <param name="suppressApprovalRpc">
-        /// This log can get very spammy in RPC tests, and it can bring down the logger (lol), so suppressed by default.
+        /// 此日志在 RPC 测试中可能大量重复并压垮 Logger，因此默认抑制
         /// </param>
-        /// <remarks>Called multiple times as some tests don't tick until they've established a collection.</remarks>
+        /// <remarks>部分测试会在建立 Collection 前暂停 Tick，因此此方法可能被多次调用</remarks>
         public bool TrySuppressNetDebug(bool suppressRunInBackground, bool suppressApprovalRpc, bool hasServer = true)
         {
             var success = true;
@@ -656,12 +662,12 @@ namespace Unity.NetCode.Tests
             //Debug.Log($"[{TickIndex}]: TICK");
             if (m_IsFirstTimeTicking)
             {
-                // to emulate time system's logic
+                // 模拟时间系统首次更新时的逻辑
                 m_IsFirstTimeTicking = false;
                 m_ElapsedTime = -dt;
             }
 
-            // Use fixed timestep in network time system to prevent time dependencies in tests
+            // 在网络时间系统中使用固定时间步，避免测试依赖真实时间
             m_ElapsedTime += dt;
             m_DefaultWorld.SetTime(new TimeData(m_ElapsedTime, dt));
             if (m_ServerWorld != null)
@@ -712,12 +718,12 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Executes a full engine frame, including all systems.
-        /// This will execute until the EndOfFrame, contrary to yield return null which executes until after Update()
-        /// In edit mode tests, this ticks NetcodeTestWorld normally with no frame yield and so this method is not really async.
+        /// 执行包含全部系统的完整引擎帧
+        /// 默认运行到 EndOfFrame，而 yield return null 只运行到 Update 之后
+        /// 在 Edit Mode 测试中会直接 Tick NetCodeTestWorld 且不让出帧，因此并非真正异步
         /// </summary>
         /// <param name="dt"></param>
-        /// <param name="waitInstruction">By default, ticking ticks for the full frame (so until EndOfFrame). To end up in a different part of the frame, use Awaitable.Something to and pass it in as an argument here.</param>
+        /// <param name="waitInstruction">默认执行完整帧直到 EndOfFrame，如需停在帧内其他阶段，请传入对应的 Awaitable 等待指令</param>
         /// <returns></returns>
         public async Task TickAsync(float dt=k_defaultDT, NetcodeAwaitable waitInstruction = null)
         {
@@ -739,8 +745,8 @@ namespace Unity.NetCode.Tests
 
 #if !UNITY_SERVER || UNITY_EDITOR
 
-        // This is close to the same as the Tick method, but only ticks the client world
-        // This is useful if a test needs to do partial ticks without ticking the server, or to get very specific timings between server and client
+        // 与 Tick 类似，但只更新客户端 World
+        // 用于在不更新服务端的情况下执行部分 Tick，或精确控制服务端与客户端之间的更新时序
         public void TickClientWorld(float dt = k_defaultDT)
         {
             m_WorldStrategy.TickClientWorld(dt);
@@ -813,10 +819,9 @@ namespace Unity.NetCode.Tests
 
         public void CreateClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
         {
-            //We are forcing here the connection type to be a socket but thxe connection is instead based on IPC.
-            //The reason for that is that we want to be able to disable any check/logic that optimise for that use case
-            //by default in the test.
-            //It is possible however to disable this behavior using the provided opt
+            // 实际连接基于 IPC，但默认将连接类型强制标记为 Socket
+            // 这样可以禁用专门针对 IPC 的检查和优化，使测试覆盖更通用的连接路径
+            // 可通过 UseFakeSocketConnection 关闭此行为
             var transportType = UseFakeSocketConnection == 1 ? TransportType.Socket : TransportType.IPC;
 
             var networkSettings = GetClientNetworkSettings(world, out int fuzzFactor);
@@ -835,7 +840,7 @@ namespace Unity.NetCode.Tests
                 }
             }
 
-            //Fake the driver as it is always using a socket, even though we are also using IPC as a transport medium
+            // 即使传输介质为 IPC，也按 Socket 类型注册 Driver
             if (DriverSimulatedDelay + fuzzFactor > 0)
             {
                 DefaultDriverBuilder.CreateClientSimulatorPipelines(ref driverInstance);
@@ -853,11 +858,11 @@ namespace Unity.NetCode.Tests
             var packetDelay = DriverSimulatedDelay;
             int networkRate = 60;
 
-            // All 3 packet types every frame stored for maximum delay, doubled for safety margin
+            // 按最大延迟缓存每帧的三类数据包，并将容量加倍作为安全余量
             int maxPackets = 2 * (networkRate * 3 * (packetDelay + DriverSimulatedJitter) + 999) / 1000;
 
             fuzzFactor = 0;
-            // We name it "ClientTestXX-NameOfTest", so extract the XX.
+            // World 命名格式为 ClientTestXX-NameOfTest，此处提取其中的 XX
             var worldId = CalculateWorldId(world);
             if (DriverFuzzFactor?.Length >= worldId + 1)
             {
@@ -941,7 +946,7 @@ namespace Unity.NetCode.Tests
         }
 
         /// <summary>
-        /// Will throw if connect fails.
+        /// 建立连接，连接失败时抛出异常
         /// </summary>
         public async Task ConnectAsync(float dt = k_defaultDT, int maxSteps = 7, bool failTestIfConnectionFails = true, bool tickUntilConnected = true, bool enableGhostReplication = false, bool withConnectionState = false)
         {
@@ -959,7 +964,7 @@ namespace Unity.NetCode.Tests
             {
                 if (ClientWorlds[i].IsHost())
                 {
-                    Tick(dt); // Do a single tick to actually let the connections be updated
+                    Tick(dt); // 执行一次 Tick，使连接状态实际完成更新
                     continue;
                 }
 
@@ -1228,10 +1233,9 @@ namespace Unity.NetCode.Tests
 
         private Entity BakeGameObject(GameObject go, World world, BlobAssetStore blobAssetStore)
         {
-            // We need to use an intermediate world as BakingUtility.BakeGameObjects cleans up previously baked
-            // entities. This means that we need to move the entities from the intermediate world into the final
-            // world. As BakeGameObject returns the main baked entity, we use the EntityGUID to find that
-            // entity in the final world
+            // BakingUtility.BakeGameObjects 会清理此前烘焙的实体，因此需要使用中间 World
+            // 烘焙完成后将实体从中间 World 移入目标 World
+            // BakeGameObject 需要返回主烘焙实体，所以通过 EntityGuid 在目标 World 中重新定位该实体
             using var intermediateWorld = new World("NetCodeBakingWorld");
 
             var bakingSettings = new BakingSettings(BakingUtility.BakingFlags.AddEntityGUID, blobAssetStore);
@@ -1243,14 +1247,14 @@ namespace Unity.NetCode.Tests
             var intermediateEntity = bakingSystem.GetEntity(go);
             var intermediateEntityGuid = intermediateWorld.EntityManager.GetComponentData<EntityGuid>(intermediateEntity);
 
-            // Copy all the tracked/baked entities. That TransformAuthoring is present on all entities added by the baker for the
-            // converted gameobject. It is sufficient condition to copy all the additional entities as well.
+            // 复制所有被追踪和烘焙的实体
+            // Baker 为该 GameObject 创建的实体都带有 EntityGuid，因此该查询也能覆盖附加实体
             var builder = new EntityQueryBuilder(Allocator.Temp).WithAll<EntityGuid>().WithOptions(EntityQueryOptions.IncludePrefab);
 
             using var bakedEntities = intermediateWorld.EntityManager.CreateEntityQuery(builder);
             world.EntityManager.MoveEntitiesFrom(intermediateWorld.EntityManager, bakedEntities);
 
-            // Search for the entity in the final world by comparing the EntityGuid from entity in the intermediate world
+            // 将中间 World 的 EntityGuid 与目标 World 实体逐一比较，定位主烘焙实体
             using var query = builder.Build(world.EntityManager);
             var entityArray = query.ToEntityArray(Allocator.Temp);
             var entityGUIDs = query.ToComponentDataArray<EntityGuid>(Allocator.Temp);
@@ -1347,20 +1351,22 @@ namespace Unity.NetCode.Tests
             Profile = latencyProfile;
             DriverSimulatedDelay = latencyProfile switch
             {
-                NetCodeTestLatencyProfile.RTT60ms => 30, // Rounds up to 33.34ms i.e. 2 ticks each way.
-                NetCodeTestLatencyProfile.RTT16ms_PL5 => 16, // Rounds up to 16.67ms i.e. 1 tick each way.
+                NetCodeTestLatencyProfile.RTT60ms => 30, // 每方向向上取整为 33.34ms，即 2 个 Tick
+                NetCodeTestLatencyProfile.RTT16ms_PL5 => 16, // 每方向向上取整为 16.67ms，即 1 个 Tick
                 _ => 0,
             };
             DriverSimulatedDrop = latencyProfile switch
             {
-                NetCodeTestLatencyProfile.PL33 => 3, // Every Nth.
-                NetCodeTestLatencyProfile.RTT16ms_PL5 => 20, // Every Nth.
+                NetCodeTestLatencyProfile.PL33 => 3, // 每第 N 个包丢失一次
+                NetCodeTestLatencyProfile.RTT16ms_PL5 => 20, // 每第 N 个包丢失一次
                 _ => 0,
             };
         }
 
-        /// <summary>Attempt to log to all available packet dumps.</summary>
-        /// <param name="msg">Message to log.</param>
+        /// <summary>
+        /// 尝试向所有可用的数据包转储记录日志
+        /// </summary>
+        /// <param name="msg">要记录的消息</param>
         public void TryLogPacket(in FixedString512Bytes msg)
         {
 #if NETCODE_DEBUG

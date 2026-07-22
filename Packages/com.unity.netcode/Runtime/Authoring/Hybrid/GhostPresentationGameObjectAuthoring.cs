@@ -6,13 +6,13 @@ using System.Collections.Generic;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// Add the component to a ghost prefab to configure the presentation gameobject for the ghost.
+    /// 将此组件添加到 Ghost Prefab，以配置该 Ghost 的表现层 GameObject
     /// </summary>
     /// <remarks>
-    /// If <see cref="ServerPrefab"/> or <see cref="ClientPrefab"/> are not null, the baking
-    /// create a new additional entity with <see cref="GhostPresentationGameObjectPrefab"/> managed component that contains the prefab references.
-    /// It also add to the converted entity an <see cref="GhostPresentationGameObjectPrefabReference"/> that references the new created entity.
-    /// It finally register itself has a producer of IRegisterPlayableData.
+    /// 如果 <see cref="ServerPrefab"/> 或 <see cref="ClientPrefab"/> 不为 null，烘焙过程会创建一个新的附加 Entity，
+    /// 并为其添加包含 Prefab 引用的 <see cref="GhostPresentationGameObjectPrefab"/> 托管组件
+    /// 同时还会向转换后的 Entity 添加 <see cref="GhostPresentationGameObjectPrefabReference"/>，使其引用新创建的 Entity
+    /// 最后将自身注册为 IRegisterPlayableData 的生产者
     /// </remarks>
     [DisallowMultipleComponent]
     [HelpURL(Authoring.HelpURLs.GhostPresentationGameObjectAuthoring)]
@@ -22,13 +22,13 @@ namespace Unity.NetCode.Hybrid
 #endif
     {
         /// <summary>
-        /// The GameObject prefab which should be used as a visual representation of an entity on the server.
-        /// See <see cref="GhostPresentationGameObjectPrefab"/> for further information.
+        /// 在服务器上用作 Entity 视觉表现的 GameObject Prefab
+        /// 更多信息参见 <see cref="GhostPresentationGameObjectPrefab"/>
         /// </summary>
         public GameObject ServerPrefab;
         /// <summary>
-        /// The GameObject prefab which should be used as a visual representation of an entity on the client.
-        /// See <see cref="GhostPresentationGameObjectPrefab"/> for further information.
+        /// 在客户端上用作 Entity 视觉表现的 GameObject Prefab
+        /// 更多信息参见 <see cref="GhostPresentationGameObjectPrefab"/>
         /// </summary>
         public GameObject ClientPrefab;
         private EntityManager regEntityManager;
@@ -36,10 +36,10 @@ namespace Unity.NetCode.Hybrid
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         /// <summary>
-        /// Implementation of <see cref="IRegisterPlayableData"/>. Should not be called directly. It is invoked as part
-        /// of the GhostAnimationController initialization.
+        /// <see cref="IRegisterPlayableData"/> 的实现，不应直接调用
+        /// 此方法会作为 GhostAnimationController 初始化流程的一部分被调用
         /// </summary>
-        /// <typeparam name="T">PlayableComponent type</typeparam>
+        /// <typeparam name="T">PlayableComponent 类型</typeparam>
         public void RegisterPlayableData<T>() where T: unmanaged, IComponentData
         {
             regEntityManager.AddComponentData(regEntity, default(T));
@@ -76,7 +76,7 @@ namespace Unity.NetCode.Hybrid
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent(entity, new GhostPresentationGameObjectPrefabReference{Prefab = presPrefab});
 
-            // Register all the components needed for animation data
+            // 注册动画数据所需的全部组件
             m_AddedTypes = new HashSet<Type>();
             if (prefabComponent.Client != null)
             {

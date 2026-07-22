@@ -3,7 +3,7 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Prediction group's rate manager. Since the parent simulation group is in charge of tick rate, this is mostly a passthrough in charge of setting the right flags on networkTime
+    /// 预测组的速率管理器，父级模拟组负责控制 Tick 率，因此该管理器主要负责透传更新并正确设置 NetworkTime 标志
     /// </summary>
     class NetcodeServerPredictionRateManager : IRateManager
     {
@@ -31,7 +31,7 @@ namespace Unity.NetCode
         void OnExitPredictionLoop(ComponentSystemGroup group)
         {
             ref var networkTime = ref m_NetworkTimeQuery.GetSingletonRW<NetworkTime>().ValueRW;
-            // Reset all the prediction flags. They are not valid outside the prediction loop
+            // 重置全部预测标志，因为它们在预测循环之外无效
             networkTime.Flags &= ~k_ServerPredictionFlags;
         }
 

@@ -22,8 +22,8 @@ namespace Unity.NetCode.Analytics
 
 #if UNITY_2023_2_OR_NEWER
         /// <summary>
-        /// Used for mocking.
-        /// Default is null which uses EditorAnalytics.
+        /// 用于模拟测试
+        /// 默认值为 null，此时使用 EditorAnalytics
         /// </summary>
         internal static IAnalyticsSender s_AnalyticsSender { get; set; }
 #endif

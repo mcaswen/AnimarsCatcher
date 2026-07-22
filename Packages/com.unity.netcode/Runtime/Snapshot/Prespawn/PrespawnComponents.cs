@@ -5,96 +5,93 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// The hash of all the ghost component data which exists in the scene. This can be
-    /// used to sort the subscenes so the ghost IDs of the pre-spawned scene objects line
-    /// up deterministically.
+    /// 场景中全部 Ghost Component 数据的 Hash
+    /// 可用于对 SubScene 排序，使预生成场景对象的 GhostId 以确定性方式排列
     /// </summary>
     public struct SubSceneGhostComponentHash : ISharedComponentData
     {
         /// <summary>
-        /// The value of the unique hash computed by the <see cref="Unity.NetCode.PreSpawnedGhostsConversion"/> system.
+        /// 由 <see cref="Unity.NetCode.PreSpawnedGhostsConversion"/> System 计算的唯一 Hash 值
         /// </summary>
         public ulong Value;
     }
 
     /// <summary>
-    /// Unique within a subscene and used to deterministically assign ghost id to pre-spawned ghost entities.
+    /// 在 SubScene 内唯一，用于为预生成 Ghost Entity 确定性地分配 GhostId
     /// </summary>
     public struct PreSpawnedGhostIndex : IComponentData
     {
         /// <summary>
-        /// The pre-sorted prespawned ghost index assigned to the ghost as part of the conversion.
+        /// 转换期间分配给 Ghost 的预排序 Prespawn 索引
         /// </summary>
         public int Value;
     }
 
     /// <summary>
-    /// Added to SubScene entity when all the baselines and the pre-spawned ghosts has been processed.
+    /// 所有 Baseline 和预生成 Ghost 处理完成后添加到 SubScene Entity
     /// </summary>
     internal struct PrespawnsSceneInitialized : IComponentData
     {
     }
 
     /// <summary>
-    /// Force the creation of the PrespawnSceneList entity prefab instead of waiting for an entity
-    /// scene with prespawned ghosts inside to be loaded.
+    /// 强制创建 PrespawnSceneList Entity Prefab
+    /// 而不是等待包含预生成 Ghost 的 Entity Scene 加载
     /// </summary>
     internal struct ForcePrespawnListPrefabCreate : IComponentData
     {
     }
 
     /// <summary>
-    /// Added during conversion to all subscenes that contains pre-spawned ghosts.
+    /// 转换期间添加到所有包含预生成 Ghost 的 SubScene
     /// </summary>
     public struct SubSceneWithPrespawnGhosts : IComponentData
     {
         /// <summary>
-        /// Deterministic unique Hash used to query for all the ghost belonging to the scene
+        /// 用于查询属于该场景的所有 Ghost 的确定性唯一 Hash
         /// </summary>
         public ulong SubSceneHash;
 
         /// <summary>
-        /// Computed at runtime, when the scene is processed
+        /// 处理场景时在运行时计算
         /// </summary>
         public ulong BaselinesHash;
 
         /// <summary>
-        /// Total number of prespawns in the scene
+        /// 场景中的 Prespawn 总数
         /// </summary>
         public int PrespawnCount;
     }
 
 #if UNITY_EDITOR
-    // When sub-scene are open for edit the SubSceneSectionData is not present on the entity.
-    // This component is added instead to these entity to track which section they are referring to.
-    // The SceneGUI and Section are necessary to correctly add the SceneSection component to the pre-spawned ghosts when
-    // they are re-spawned (because of relevancy for example)
+    // 打开 SubScene 进行编辑时，Entity 上不存在 SubSceneSectionData
+    // 此时改为添加该 Component，以跟踪 Entity 所引用的 Section
+    // 当预生成 Ghost 因相关性等原因重新生成时，需要 SceneGUID 和 Section 才能正确添加 SceneSection Component
     internal struct LiveLinkPrespawnSectionReference : IComponentData
     {
         /// <summary>
-        /// The GUID of the scene
+        /// 场景 GUID
         /// </summary>
         public Hash128 SceneGUID;
         /// <summary>
-        /// The section index
+        /// Section 索引
         /// </summary>
         public int Section;
     }
 #endif
 
     /// <summary>
-    /// Tag component added to subscene entity when the prespawn baselines has been serialized.
+    /// Prespawn Baseline 序列化完成后添加到 SubScene Entity 的标签 Component
     /// </summary>
     internal struct SubScenePrespawnBaselineResolved : IComponentData
     {
     }
 
     /// <summary>
-    /// Buffer added during conversion to all the ghost with a PrespawnId component
-    /// The buffer will contains the a pre-serialized ghost snapshot, generated at the time the PrespawnGhostBaselineSystem
-    /// process the entity.
-    /// The Prespawn baselines are used for bandwidth optimization for late joining player. The server will send only the
-    /// prespawn ghost that has changed in respect to that baseline to the new client.
+    /// 转换期间添加到所有具有 PrespawnId Component 的 Ghost 上的 Buffer
+    /// 其中包含 PrespawnGhostBaselineSystem 处理 Entity 时生成的预序列化 Ghost Snapshot
+    /// Prespawn Baseline 用于优化晚加入玩家的带宽
+    /// 服务器只向新客户端发送相对于该 Baseline 已发生变化的 Prespawn Ghost
     /// </summary>
     [InternalBufferCapacity(0)]
     internal struct PrespawnGhostBaseline : IBufferElementData
@@ -103,95 +100,94 @@ namespace Unity.NetCode
     }
 
     /// <summary>
-    /// For each loaded and process subscene, the server authoritatively populate this buffer.
-    /// The client will receive it as part of the snapshot stream and will use the information to correctly
-    /// process any matching loaded subscene.
-    /// Hash are used to verify on the client that everything match the server to correctly use the prefab baseline
-    /// optimization.
-    /// InternalBufferCapacity allocated to almost max out chunk memory.
+    /// 服务器为每个已加载并处理的 SubScene 权威填充该 Buffer
+    /// 客户端通过 Snapshot 流接收它，并使用其中信息正确处理匹配的已加载 SubScene
+    /// 客户端使用 Hash 验证本地数据与服务器一致，以正确使用 Prefab Baseline 优化
+    /// InternalBufferCapacity 原本可以分配到接近占满 Chunk 内存
     /// </summary>
     [InternalBufferCapacity(0)]
     [GhostComponent(PrefabType = GhostPrefabType.All)]
     internal struct PrespawnSceneLoaded : IBufferElementData
     {
         /// <summary>
-        /// The unique sub-scene hash <see cref="SubSceneWithPrespawnGhosts"/> loaded
+        /// 已加载 <see cref="SubSceneWithPrespawnGhosts"/> 的唯一 SubScene Hash
         /// </summary>
         [GhostField]public ulong SubSceneHash;
         /// <summary>
-        /// The hash of all pre-spawned ghosts baselines. Used to verify data consistency
+        /// 所有预生成 Ghost Baseline 的 Hash，用于验证数据一致性
         /// </summary>
         [GhostField]public ulong BaselineHash;
         /// <summary>
-        /// The fist ghost id assigned by the server to the ghosts in this scene.
+        /// 服务器为该场景内 Ghost 分配的首个 GhostId
         /// </summary>
         [GhostField]public int FirstGhostId;
         /// <summary>
-        /// Number of ghosts in the scene. Used for consistency checks.
+        /// 场景中的 Ghost 数量，用于一致性检查
         /// </summary>
         [GhostField]public int PrespawnCount;
     }
 
     /// <summary>
-    /// Added to the PrespawnGhostIdAllocator singleton entity.
-    /// GhostId allocation map for prespawn object. Used by the server to track the subset of ghost ids that are associated
-    /// to a scene that contains prespawned ghosts.
-    /// InternalBufferCapacity is set to (approximately) max out the chunk.
+    /// 添加到 PrespawnGhostIdAllocator Singleton Entity
+    /// 这是 Prespawn 对象的 GhostId 分配 Map，服务器用它跟踪与包含预生成 Ghost 的场景关联的 GhostId 子集
+    /// InternalBufferCapacity 设置为近似占满 Chunk
     /// </summary>
     [InternalBufferCapacity(0)]
     internal struct PrespawnGhostIdRange : IBufferElementData
     {
-        // the scene for which the range is applied to
+        // 该范围所应用的场景
         public ulong SubSceneHash;
-        //the first id in the range
+        // 范围内的首个 GhostId
         public int FirstGhostId;
-        //the number of prespawns
+        // Prespawn 数量
         public short Count;
-        // 1 when the range is reserved, 0 when it can be re-used
+        // 范围已保留时为 1，可复用时为 0
         public short Reserved;
     }
 
     /// <summary>
-    /// Cleanup component added to all subscenes with ghost. Used for tracking when a subscene is unloaded on both client and server
+    /// 添加到所有包含 Ghost 的 SubScene 上的 Cleanup Component
+    /// 用于在客户端和服务器跟踪 SubScene 的卸载
     /// </summary>
     internal struct SubSceneWithGhostCleanup : ICleanupComponentData
     {
         /// <summary>
-        /// The sub-scene hash <see cref="SubSceneWithPrespawnGhosts"/>
+        /// <see cref="SubSceneWithPrespawnGhosts"/> 的 SubScene Hash
         /// </summary>
         public ulong SubSceneHash;
         /// <summary>
-        /// The unity scene GUID
+        /// Unity 场景 GUID
         /// </summary>
         public Hash128 SceneGUID;
         /// <summary>
-        /// The scene section that contains the pre-spawned ghosts
+        /// 包含预生成 Ghost 的 Scene Section
         /// </summary>
         public int SectionIndex;
         /// <summary>
-        /// The first ghost id assigned to the ghost in scene
+        /// 分配给场景内 Ghost 的首个 GhostId
         /// </summary>
         public int FirstGhostId;
         /// <summary>
-        /// The number of ghost present in the scene.
+        /// 场景内的 Ghost 数量
         /// </summary>
         public int PrespawnCount;
         /// <summary>
-        /// Used only on client, On/Off flag to request start/stop scene streaming.
+        /// 仅供客户端使用，请求开始或停止场景流式传输的开关标志
         /// </summary>
         public int Streaming;
     }
 
     /// <summary>
-    /// Component added by the server to to the NetworkStream entity. Used to track witch prespawned ghost sections
-    /// has been loaded/acked by the client.
-    /// The server streams prespawned ghost only for the sections that as been notified ready by the client.
+    /// 由服务器添加到 NetworkStream Entity 的 Component
+    /// 用于跟踪客户端已加载并确认的 Prespawn Ghost Section
+    /// 服务器只为客户端已通知就绪的 Section 流式传输预生成 Ghost
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct PrespawnSectionAck : IBufferElementData
     {
         /// <summary>
-        /// Deterministic unique Hash for each sub-scene that contains pre-spawned ghost. See <see cref="SubSceneWithPrespawnGhosts"/>
+        /// 每个包含预生成 Ghost 的 SubScene 所对应的确定性唯一 Hash
+        /// 参见 <see cref="SubSceneWithPrespawnGhosts"/>
         /// </summary>
         public ulong SceneHash;
     }

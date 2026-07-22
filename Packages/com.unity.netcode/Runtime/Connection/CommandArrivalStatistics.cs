@@ -3,56 +3,60 @@ using Unity.Collections;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Stores statistics pertaining to the frequency and reliability of received commands from a client.
-    /// Thus, only valid on the server.
-    /// May help you diagnose input/command issues.
+    /// 保存从客户端接收命令的频率与可靠性统计信息
+    /// 因此仅在服务器上有效，可用于诊断输入或命令问题
     /// </summary>
     public struct CommandArrivalStatistics
     {
-        // TODO - Add support for num commands EXPECTED to arrive, thus allowing users to see command losses.
+        // TODO 增加预期到达命令数量统计，让用户能够查看命令丢失情况
         /// <summary>
-        /// The total count of command PACKETS that arrived.
-        /// A single netcode command packet will typically contain multiple commands, for redundancy.
+        /// 已到达 Command Packet 的总数
+        /// 为提供冗余，单个 NetCode Command Packet 通常包含多条命令
         /// </summary>
         public int NumCommandPacketsArrived;
 
         /// <summary>
-        /// The total count of commands that arrived.
-        /// A single netcode command packet will typically contain multiple commands, for redundancy.
+        /// 已到达命令的总数
+        /// 为提供冗余，单个 NetCode Command Packet 通常包含多条命令
         /// </summary>
         public uint NumCommandsArrived;
 
         /// <summary>
-        /// How many commands that arrived were resends of commands we already received?
+        /// 已到达命令中有多少是对已接收命令的重复发送
         /// </summary>
         public uint NumRedundantResends;
 
         /// <summary>
-        /// The number of individual commands that didn't arrive in time to be used.
-        /// Therefore, they were pointless to send.
-        /// A single netcode command packet will typically contain multiple commands, for redundancy.
+        /// 未能及时到达并被使用的单条命令数量，因此发送这些命令已经没有意义
+        /// 为提供冗余，单个 NetCode Command Packet 通常包含多条命令
         /// </summary>
-        /// <remarks>Use this field to optimize <see cref="ClientTickRate.NumAdditionalCommandsToSend"/>.</remarks>
+        /// <remarks>使用此字段优化 <see cref="ClientTickRate.NumAdditionalCommandsToSend"/></remarks>
         public uint NumArrivedTooLate;
 
         /// <summary>
-        /// Rolling average of the payload size of the received input (i.e. command) packets, not including Transport headers.
+        /// 已接收输入数据包，即 Command Packet 的 Payload 大小滚动平均值，不包含 Transport Header
         /// </summary>
         public float AvgCommandPayloadSizeInBits;
 
-        /// <summary>Percentage of commands arrived too late.</summary>
+        /// <summary>
+        /// 到达过晚的命令百分比
+        /// </summary>
         public double ArrivedTooLatePercent => NumCommandsArrived != 0 ? ((double) NumArrivedTooLate / NumCommandsArrived) : 0;
 
-        /// <summary>Percentage of commands that were resent redundantly.</summary>
+        /// <summary>
+        /// 冗余重发命令的百分比
+        /// </summary>
         public double ResendPercent => NumCommandsArrived != 0 ? ((double) NumRedundantResends / NumCommandsArrived) : 0;
 
-        /// <summary>Average commands packed into each packet.</summary>
+        /// <summary>
+        /// 每个数据包平均包含的命令数量
+        /// </summary>
         public double AvgCommandsPerPacket => NumCommandPacketsArrived != 0 ? ((double)NumCommandsArrived / NumCommandPacketsArrived) : 0;
 
         /// <summary>
-        /// Debug string.
+        /// 调试字符串
         /// </summary>
-        /// <returns>A formatted debug string.</returns>
+        /// <returns>格式化后的调试字符串</returns>
         [GenerateTestsForBurstCompatibility]
         public FixedString128Bytes ToFixedString()
         {

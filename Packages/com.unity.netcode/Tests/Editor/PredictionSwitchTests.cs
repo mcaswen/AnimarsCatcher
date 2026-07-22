@@ -7,7 +7,7 @@ using Unity.Transforms;
 
 namespace Unity.NetCode.Tests
 {
-    internal struct PredictionSwitchComponent : IComponentData { } // Component to identify the ghosts we're testing
+    internal struct PredictionSwitchComponent : IComponentData { } // 标识本测试使用的 Ghost
 
     internal class PredictionSwitchTestConverter : TestNetCodeAuthoring.IConverter
     {
@@ -39,7 +39,7 @@ namespace Unity.NetCode.Tests
     }
 
     [GhostComponent(PrefabType = GhostPrefabType.InterpolatedClient)]
-    [InternalBufferCapacity(0)] // to make sure if there's wrong memory access that we crash instead of running the risk of silently overwriting. Without this, we still get an error in the test about wrong length for the buffer without the buffer length fix, but better safe than sorry.
+    [InternalBufferCapacity(0)] // 让错误内存访问立即暴露，避免内部容量掩盖越界覆盖问题
     internal struct BufferInterpolatedOnlyTestComponent : IBufferElementData
     {
         [GhostField] public int Value;
@@ -63,7 +63,7 @@ namespace Unity.NetCode.Tests
         {
             var currentTick = SystemAPI.GetSingleton<NetworkTime>().ServerTick;
             if (TickFreeze != NetworkTick.Invalid && currentTick.IsNewerThan(TickFreeze)) return;
-            // Only update transform every second tick
+            // 启用跳帧时只在奇数 Tick 更新 Transform
             if (SkipOneOfTwo && (currentTick.TickIndexForValidTick&1u) == 0)
                 return;
             foreach (var trans in SystemAPI.Query<RefRW<LocalTransform>>().WithAll<PredictionSwitchComponent>().WithAll<Simulate>())
@@ -86,7 +86,7 @@ namespace Unity.NetCode.Tests
                 var ghostGameObject = new GameObject();
                 ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new PredictionSwitchTestConverter();
                 var ghostConfig = ghostGameObject.AddComponent<GhostAuthoringComponent>();
-                // Ghost is interpolated by default
+                // Ghost 默认使用插值模式
 
                 Assert.IsTrue(testWorld.CreateGhostCollection(ghostGameObject));
 
@@ -95,13 +95,13 @@ namespace Unity.NetCode.Tests
                 var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
                 Assert.AreNotEqual(Entity.Null, serverEnt);
 
-                // Connect and make sure the connection could be established
+                // 建立连接并确认连接成功
                 testWorld.Connect();
 
-                // Go in-game
+                // 进入游戏状态
                 testWorld.GoInGame();
 
-                // Let the game run for a bit so the ghosts are spawned on the client
+                // 运行若干 Tick，让客户端生成 Ghost
                 for (int i = 0; i < 16; ++i)
                     testWorld.Tick();
 
@@ -109,7 +109,7 @@ namespace Unity.NetCode.Tests
                 var clientEnt = testWorld.TryGetSingletonEntity<PredictionSwitchComponent>(firstClientWorld);
                 Assert.AreNotEqual(Entity.Null, clientEnt);
 
-                // Validate that the entity is interpolated
+                // 验证实体初始为插值模式，并仅包含插值模式组件
                 var entityManager = firstClientWorld.EntityManager;
                 ref var ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
 
@@ -156,7 +156,7 @@ namespace Unity.NetCode.Tests
             }
         }
 
-        // To get as much precision as possible with no interpolation noise
+        // 使用 Clamp 且不量化，尽量消除插值噪声并提高验证精度
         [GhostComponentVariation(typeof(Transforms.LocalTransform), nameof(ClampedTransformVariant))]
         [GhostComponent(PrefabType=GhostPrefabType.All, SendTypeOptimization=GhostSendType.AllClients)]
         internal struct ClampedTransformVariant
@@ -191,7 +191,7 @@ namespace Unity.NetCode.Tests
             childGameObject.AddComponent<NetcodeTransformUsageFlagsTestAuthoring>();
             ghostGameObject.AddComponent<TestNetCodeAuthoring>().Converter = new PredictionSwitchTestConverter();
             originalRotation = 45f;
-            ghostGameObject.transform.Rotate(new Vector3(0, originalRotation, 0)); // give it an original rotation that's non-zero, to make sure matrix operations work properly
+            ghostGameObject.transform.Rotate(new Vector3(0, originalRotation, 0)); // 使用非零初始旋转，验证矩阵运算正确
             originalPosParent = new Vector3(10, 20, 30);
             ghostGameObject.transform.position = originalPosParent;
             var ghostConfig = ghostGameObject.AddComponent<GhostAuthoringComponent>();
@@ -206,24 +206,24 @@ namespace Unity.NetCode.Tests
             var serverEnt = testWorld.SpawnOnServer(ghostGameObject);
             Assert.AreNotEqual(Entity.Null, serverEnt);
 
-            // Connect and make sure the connection could be established
+            // 建立连接并确认连接成功
             testWorld.Connect();
 
-            // Go in-game
+            // 进入游戏状态
             testWorld.GoInGame();
 
             firstClientWorld = testWorld.ClientWorlds[0];
             entityManager = firstClientWorld.EntityManager;
             timeQuery = entityManager.CreateEntityQuery(typeof(NetworkTime));
             PredictionSwitchMoveTestSystem.SkipOneOfTwo = false;
-            // Let time sync client side and so the ghosts are spawned on the client
+            // 等待客户端时间同步并生成 Ghost
             for (int i = 0; i < 60; ++i)
                 testWorld.Tick();
 
             clientEnt = testWorld.TryGetSingletonEntity<PredictionSwitchComponent>(firstClientWorld);
             Assert.AreNotEqual(Entity.Null, clientEnt);
 
-            // Validate that the entity is interpolated
+            // 验证实体初始处于插值模式
             Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), Is.Not.True, "Sanity check failed, the entity should be marked as interpolated now");
             return ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
         }
@@ -249,18 +249,17 @@ namespace Unity.NetCode.Tests
 
                 var originalLocalToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
 
-                testWorld.Tick(); // one prediction iteration, position everything in its place
-                PredictionSwitchMoveTestSystem.TickFreeze = timeQuery.GetSingleton<NetworkTime>().ServerTick; // have the entity interpolate to a now frozen predicted position (to make testing value changes easier)
+                testWorld.Tick(); // 执行一次预测迭代，使各 Transform 进入目标状态
+                PredictionSwitchMoveTestSystem.TickFreeze = timeQuery.GetSingleton<NetworkTime>().ServerTick; // 冻结预测目标位置，便于验证平滑过程
 
                 Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), "Sanity check failed, the entity should be marked as predicted now");
                 var networkTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
-                // Expected min tick count between predicted tick and interpolated tick. 2 InterpolationTimeNetTicks + 2 TargetCommandSlack + 2 syncing + partial
+                // 预测 Tick 与插值 Tick 的最小差值由 2 个插值延迟、2 个 TargetCommandSlack、2 个同步 Tick 及小数部分组成
                 var currentDeltaTickBetweenInterpAndPredictTick = networkTime.ServerTick.TicksSince(networkTime.InterpolationTick);
                 Assert.GreaterOrEqual(currentDeltaTickBetweenInterpAndPredictTick, 6);
-                currentDeltaTickBetweenInterpAndPredictTick += 1; // since we're doing one more tick after copying originalLocalToWorld
-                var expectedIncrementPerTick = (currentDeltaTickBetweenInterpAndPredictTick * PredictionSwitchMoveTestSystem.k_valueIncrease) / 60f; // we expect to move by this much to catch up to the predicted value
-                // with 1 second interpolation duration and 60 hz, it should take 60 frames to reach the target predicted position
-                // with a +1 per tick and 8 ticks of diff between interpolated pos and predicted pos, we should expect a move of 8/60 per frame to reach the target
+                currentDeltaTickBetweenInterpAndPredictTick += 1; // 复制 originalLocalToWorld 后又推进了一个 Tick
+                var expectedIncrementPerTick = (currentDeltaTickBetweenInterpAndPredictTick * PredictionSwitchMoveTestSystem.k_valueIncrease) / 60f; // 每帧补偿预测与插值位置差值的六十分之一
+                // 平滑持续 1 秒且以 60 Hz 运行，因此需要 60 帧到达预测目标
                 {
                     var localToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
                     var predictedTargetTransform = entityManager.GetComponentData<LocalTransform>(clientEnt);
@@ -268,7 +267,7 @@ namespace Unity.NetCode.Tests
                     Assert.That(math.distance(localToWorld.Position, predictedTargetTransform.Position), Is.Not.InRange(-fuzzyEqual, fuzzyEqual), "Sanity check failed, current value shouldn't be equal to predicted value");
                     Assert.That(math.degrees(math.angle(localToWorld.Rotation, predictedTargetTransform.Rotation)), Is.Not.InRange(-fuzzyEqual, fuzzyEqual), "Sanity check failed, current value shouldn't be equal to predicted value");
 
-                    // validate the start transform is close to original value (in interpolation mode). This is testing we don't have a regression on MTT-8430
+                    // 验证平滑首帧仍接近切换前的插值 Transform，防止 MTT-8430 回归
                     Assert.That(math.distance(localToWorld.Position, originalLocalToWorld.Position), Is.InRange(expectedIncrementPerTick - fuzzyEqual, expectedIncrementPerTick + fuzzyEqual), "Wrong expected first tick value for pos after switch smoothing lerp");
                     Assert.That(math.degrees(math.angle(localToWorld.Rotation, originalLocalToWorld.Rotation)), Is.InRange(expectedIncrementPerTick - fuzzyEqual, expectedIncrementPerTick + fuzzyEqual), "Wrong expected first tick value for rot after switch smoothing lerp");
                     Assert.That((localToWorld.Position - originalLocalToWorld.Position).x, Is.InRange(expectedIncrementPerTick - fuzzyEqual, expectedIncrementPerTick + fuzzyEqual));
@@ -286,18 +285,18 @@ namespace Unity.NetCode.Tests
 
                     localToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
 
-                    // make sure we're now at the predicted target position
+                    // 确认 60 帧后已到达预测目标 Transform
                     Assert.That(localToWorld.Position, Is.EqualTo(predictedTargetTransform.Position));
                     Assert.That(math.angle(localToWorld.Rotation, predictedTargetTransform.Rotation), Is.InRange(-fuzzyEqual, +fuzzyEqual));
                 }
 
                 {
-                    // validate that the position updates every frame and that the child and parent entity has identical LocalToWorld
-                    // and that this works with a moving predicted ghost
+                    // 验证移动中的预测 Ghost 每帧更新位置
+                    // 同时确保父实体与子实体的 LocalToWorld 始终一致
 
-                    // Setup
+                    // 准备测试状态
                     {
-                        // Set it back to interpolated
+                        // 先切回插值模式
                         ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
                         Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), Is.True, "Sanity check failed, the entity should be marked as interpolated now");
                         ghostPredictionSwitchingQueues.ConvertToInterpolatedQueue.Enqueue(new ConvertPredictionEntry
@@ -311,7 +310,7 @@ namespace Unity.NetCode.Tests
                         }
                     }
                     {
-                        // Set it to predicted for following test step
+                        // 再切到预测模式，执行后续测试
                         ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
                         Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), Is.Not.True, "Sanity check failed, the entity should be marked as interpolated now");
 
@@ -322,15 +321,15 @@ namespace Unity.NetCode.Tests
                         });
                     }
 
-                    // allow movements
+                    // 恢复移动，并启用隔 Tick 更新
                     PredictionSwitchMoveTestSystem.SkipOneOfTwo = true;
                     PredictionSwitchMoveTestSystem.TickFreeze = NetworkTick.Invalid;
 
-                    testWorld.Tick(); // converting and predicting
+                    testWorld.Tick(); // 执行模式转换与预测
 
                     var oldLocalToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
 
-                    // Test
+                    // 验证平滑期间的逐帧更新
 
                     for (int i = 0; i < 60; ++i)
                     {
@@ -344,7 +343,7 @@ namespace Unity.NetCode.Tests
                     }
                     PredictionSwitchMoveTestSystem.TickFreeze = testWorld.GetSingleton<NetworkTime>(testWorld.ClientWorlds[0]).ServerTick;
 
-                    testWorld.Tick(); // one last tick to make sure things stabilize
+                    testWorld.Tick(); // 再推进一个 Tick，确认状态稳定
 
                     Assert.That(math.distance(oldLocalToWorld.Position, entityManager.GetComponentData<LocalToWorld>(clientEnt).Position), Is.InRange(-fuzzyEqual, fuzzyEqual));
                     Assert.That(math.angle(oldLocalToWorld.Rotation, entityManager.GetComponentData<LocalToWorld>(clientEnt).Rotation), Is.InRange(-fuzzyEqual, +fuzzyEqual));
@@ -365,7 +364,7 @@ namespace Unity.NetCode.Tests
             ref var ghostPredictionSwitchingQueues = ref InitTest(testWorld, UseOwnerPredicted, out var originalPosParent, out var firstClientWorld, out var entityManager, out var timeQuery, out var clientEnt, out var originalRotation);
 
             var oldLocalToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
-            // Set it to predicted for following test step
+            // 切到预测模式，执行后续平滑测试
             ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
             Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), Is.Not.True, "Sanity check failed, the entity should be marked as interpolated now");
 
@@ -379,11 +378,11 @@ namespace Unity.NetCode.Tests
 
             Assert.That(entityManager.HasComponent<PredictedGhost>(clientEnt), Is.True, "Sanity check failed, the entity should be marked as interpolated now");
 
-            var predictedTickDiff = 7; // number of ticks between predicted and interpolated
+            var predictedTickDiff = 7; // 预测 Tick 与插值 Tick 的差值
             var valueIncreasePerTick = PredictionSwitchMoveTestSystem.k_valueIncrease;
             var distancePredictedToInterpolated = valueIncreasePerTick * predictedTickDiff;
             var incrementApproximation = distancePredictedToInterpolated / 60f + valueIncreasePerTick;
-            var veryFuzzyEqual = incrementApproximation * 0.5f; // We don't care about precise movements of this double interpolation, just that it moves forward in a somewhat expected manner. So we +/- 50%
+            var veryFuzzyEqual = incrementApproximation * 0.5f; // 双重插值只验证移动方向与大致幅度，允许正负 50% 误差
 
             for (int i = 0; i < 59; ++i)
             {
@@ -391,7 +390,7 @@ namespace Unity.NetCode.Tests
                 var nextLocalToWorld = entityManager.GetComponentData<LocalToWorld>(clientEnt);
                 if (testInterruptSwitch)
                 {
-                    // This is undefined, so not testing for value changes, but still shouldn't error out
+                    // 中途反复切换的数值结果未定义，此处只验证流程不报错
                     ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
                     if (i == 20)
                     {
@@ -413,8 +412,7 @@ namespace Unity.NetCode.Tests
                 }
                 else
                 {
-                    // we expect the ghost to move at +PredictionSwitchMoveTestSystem.k_valueIncrease per 2 ticks.
-                    // with a +1 per tick and 8 ticks of diff between interpolated pos and predicted pos, we should expect a move of 8/60 per frame to reach the target
+                    // 每帧包含正常预测位移 k_valueIncrease，以及为追上预测目标而分摊的平滑补偿
                     Assert.That((nextLocalToWorld.Position - oldLocalToWorld.Position).x, Is.InRange(incrementApproximation - veryFuzzyEqual, incrementApproximation + veryFuzzyEqual), $"i is {i}");
                 }
 
@@ -422,12 +420,12 @@ namespace Unity.NetCode.Tests
             }
 
             testWorld.Tick();
-            // we're done switching, increment should be simple expected k_valueIncrease
+            // 切换完成后，每 Tick 位移应恢复为固定的 k_valueIncrease
             Assert.That((entityManager.GetComponentData<LocalToWorld>(clientEnt).Position - oldLocalToWorld.Position).x, Is.EqualTo(valueIncreasePerTick));
         }
 
-        // If there is a single predicted ghost, then no ghost for a while, then a predicted ghost again,
-        // we should not rollback to the last tick there was a predicted ghost.
+        // 如果先存在一个预测 Ghost，随后一段时间没有预测 Ghost，之后再次切回预测模式
+        // 系统不应回滚到上一次存在预测 Ghost 的旧 Tick
         [Test]
         public void DoesNotRollbackAfterPredictionSwitching()
         {
@@ -467,7 +465,7 @@ namespace Unity.NetCode.Tests
                 var clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 Assert.Greater(clientTime.PredictedTickIndex, 0);
 
-                // Switch to non-predicted
+                // 切换到非预测模式
                 var clientEntity = testWorld.TryGetSingletonEntity<GhostOwner>(testWorld.ClientWorlds[0]);
                 var ghostPredictionSwitchingQueues = testWorld.GetSingleton<GhostPredictionSwitchingQueues>(testWorld.ClientWorlds[0]);
                 ghostPredictionSwitchingQueues.ConvertToInterpolatedQueue.Enqueue(new ConvertPredictionEntry
@@ -479,13 +477,13 @@ namespace Unity.NetCode.Tests
                 clientTime = testWorld.GetNetworkTime(testWorld.ClientWorlds[0]);
                 Assert.AreEqual(0, clientTime.PredictedTickIndex);
 
-                // Run to the max ticks (2 less because we predict 2 ticks ahead)
+                // 运行到 Command 历史上限，减去预测提前的 2 个 Tick
                 for (i = 0; i < CommandDataUtility.k_CommandDataMaxSize - 2; ++i)
                 {
                     testWorld.Tick();
                 }
 
-                // Switch back to predicted
+                // 再切回预测模式
                 ghostPredictionSwitchingQueues.ConvertToPredictedQueue.Enqueue(new ConvertPredictionEntry
                 {
                     TargetEntity = clientEntity,

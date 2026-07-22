@@ -4,8 +4,8 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Base class for all the tick system, provide a common update mehod that deal with proper and safe
-    /// handling of system removal at runtime, in particular when the world in which those systems are created is destroyd.
+    /// 所有手动 Tick 系统的基类，提供统一的更新流程以安全处理运行时系统移除
+    /// 尤其用于处理创建这些系统的 World 已被销毁的情况
     /// </summary>
     internal abstract partial class TickComponentSystemGroup : ComponentSystemGroup
     {
@@ -18,7 +18,7 @@ namespace Unity.NetCode
         private List<int> m_InvalidUpdateGroups = new List<int>();
 
         /// <summary>
-        /// Add the group to the update list.
+        /// 将系统组添加到手动更新列表
         /// </summary>
         /// <param name="grp"></param>
         public void AddSystemGroupToTickList(ComponentSystemGroup grp)
@@ -28,7 +28,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Update all the children groups and remove them from the update list if they become invalid or destroyed.
+        /// 更新所有子系统组，并将已失效或已销毁的系统组移出更新列表
         /// </summary>
         protected override void OnUpdate()
         {
@@ -39,7 +39,7 @@ namespace Unity.NetCode
             }
             if (m_InvalidUpdateGroups.Count > 0)
             {
-                // Rever order to make sure we remove largest indices first
+                // 按倒序移除，确保先处理较大的索引，避免后续索引因元素前移而失效
                 for (int i = m_InvalidUpdateGroups.Count - 1; i >= 0; --i)
                 {
                     var idx = m_InvalidUpdateGroups[i];

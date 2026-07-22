@@ -8,7 +8,9 @@ using UnityEngine.UIElements;
 
 namespace Unity.NetCode.Editor
 {
-    /// <summary>Internal structs used by the GhostComponentInspector to store post-conversion (i.e. Baked) data.</summary>
+    /// <summary>
+    /// GhostComponentInspector 用于保存转换后 Baking 数据的内部结构
+    /// </summary>
     class BakedResult
     {
         public Dictionary<GameObject, BakedGameObjectResult> GameObjectResults;
@@ -56,11 +58,17 @@ namespace Unity.NetCode.Editor
         public BakedEntityResult EntityParent;
         public string fullname;
         public Type managedType;
-        /// <summary>Determined by the ComponentOverride (fallback is <see cref="defaultSerializationStrategy"/>).</summary>
+        /// <summary>
+        /// 由 ComponentOverride 决定，未覆盖时使用 <see cref="defaultSerializationStrategy"/>
+        /// </summary>
         public ComponentTypeSerializationStrategy serializationStrategy;
-        /// <summary>Cache the default variant so we can mark it up as such in the Inspection UI.</summary>
+        /// <summary>
+        /// 缓存默认 Variant，以便在 Inspection 界面中标记
+        /// </summary>
         public ComponentTypeSerializationStrategy defaultSerializationStrategy;
-        /// <summary>Lists all strategies available to this baked component.</summary>
+        /// <summary>
+        /// 该 Baked 组件可用的全部序列化策略
+        /// </summary>
         public ComponentTypeSerializationStrategy[] availableSerializationStrategies;
         public string[] availableSerializationStrategyDisplayNames;
 
@@ -93,27 +101,31 @@ namespace Unity.NetCode.Editor
         }
 
         /// <summary>
-        /// Denotes if this type supports user modification of <see cref="ComponentTypeSerializationStrategy"/>.
-        /// We obviously support it "implicitly" if we have multiple variant types.
+        /// 表示该类型是否允许用户修改 <see cref="ComponentTypeSerializationStrategy"/>
+        /// 若存在多个 Variant 类型，则隐式支持修改
         /// </summary>
         public bool DoesAllowVariantModification => serializationStrategy.HasDontSupportPrefabOverridesAttribute == 0 && serializationStrategy.IsInput == 0;
 
         /// <summary>
-        /// Denotes if this type supports user modification of <see cref="SendTypeOptimization"/>.
+        /// 表示该类型是否允许用户修改 <see cref="SendTypeOptimization"/>
         /// </summary>
         public bool DoesAllowSendTypeOptimizationModification => serializationStrategy.HasDontSupportPrefabOverridesAttribute == 0 && anyVariantIsSerialized && !serializationStrategy.IsDontSerializeVariant && EntityParent.GoParent.RootAuthoring.SupportsSendTypeOptimization && serializationStrategy.IsInput == 0;
 
         /// <summary>
-        /// Denotes if this type supports user modification of <see cref="GhostAuthoringInspectionComponent.ComponentOverride.PrefabType"/>.
+        /// 表示该类型是否允许用户修改 <see cref="GhostAuthoringInspectionComponent.ComponentOverride.PrefabType"/>
         /// </summary>
         public bool DoesAllowPrefabTypeModification => serializationStrategy.HasDontSupportPrefabOverridesAttribute == 0 && serializationStrategy.IsInput == 0;
 
-        /// <summary>I.e. Implicitly supports prefab overrides.</summary>
+        /// <summary>
+        /// 表示该类型隐式支持 Prefab Override
+        /// </summary>
         internal bool HasMultipleVariants => availableSerializationStrategies.Length > 1;
 
         internal bool HasMultipleVariantsExcludingDontSerializeVariant => HasMultipleVariants && availableSerializationStrategies.Count(x => !x.IsDontSerializeVariant) > 1;
 
-        /// <summary>Returns by ref. Throws if not found. Use <see cref="HasPrefabOverride"/>.</summary>
+        /// <summary>
+        /// 按引用返回 Prefab Override，未找到时抛出异常，调用前可使用 <see cref="HasPrefabOverride"/> 检查
+        /// </summary>
         public ref GhostAuthoringInspectionComponent.ComponentOverride GetPrefabOverride()
         {
             if (EntityParent.GoParent.SourceInspection.TryFindExistingOverrideIndex(managedType, entityGuid, out var index))
@@ -121,13 +133,17 @@ namespace Unity.NetCode.Editor
             throw new InvalidOperationException($"No override created for '{fullname}'! '{serializationStrategy.ToFixedString()}', EntityGuid: {entityGuid.ToString()}!");
         }
 
-        /// <summary>Returns true if this Inspection Component has a prefab override for this Baked Component Type.</summary>
+        /// <summary>
+        /// 若该 Inspection Component 为此 Baked 组件类型配置了 Prefab Override，则返回 true
+        /// </summary>
         public bool HasPrefabOverride()
         {
             return EntityParent.GoParent.SourceInspection != null && EntityParent.GoParent.SourceInspection.TryFindExistingOverrideIndex(managedType, entityGuid, out _);
         }
 
-        /// <summary>Returns the current override if it exists, or a new one, by ref.</summary>
+        /// <summary>
+        /// 按引用返回现有 Override，不存在时创建并返回新实例
+        /// </summary>
         public ref GhostAuthoringInspectionComponent.ComponentOverride GetOrAddPrefabOverride()
         {
             var defaultPrefabType = (GhostPrefabType)GhostAuthoringInspectionComponent.ComponentOverride.NoOverride;
@@ -136,8 +152,8 @@ namespace Unity.NetCode.Editor
         }
 
         /// <summary>
-        /// Called during initialization and whenever a variant is modified by the user.
-        /// Ensures we actually save any custom variants if we need to.
+        /// 在初始化以及用户修改 Variant 时调用
+        /// 确保需要时实际保存自定义 Variant
         /// </summary>
         public void SaveVariant(bool warnIfChosenIsNotAlreadySaved, bool allowSettingDefaultToRevertOverride)
         {
@@ -163,7 +179,7 @@ namespace Unity.NetCode.Editor
 
         internal bool VariantIsTheDefault => serializationStrategy.Hash == defaultSerializationStrategy.Hash;
 
-        /// <remarks>Note that this is an "override" action. Reverting to default is a different action.</remarks>
+        /// <remarks>这是 Override 操作，恢复默认值属于另一种操作</remarks>
         public void TogglePrefabType(GhostPrefabType type)
         {
             var newValue = PrefabType ^ type;
@@ -172,7 +188,7 @@ namespace Unity.NetCode.Editor
             EntityParent.GoParent.SourceInspection.SavePrefabOverride(ref @override, $"Toggled GhostPrefabType.{type} on {fullname}, set type flag to GhostPrefabType.{newValue}");
         }
 
-        /// <remarks>Note that this is an "override" action. Reverting to default is a different action.</remarks>
+        /// <remarks>这是 Override 操作，恢复默认值属于另一种操作</remarks>
         public void SetSendTypeOptimization(GhostSendType newValue)
         {
             ref var @override = ref GetOrAddPrefabOverride();

@@ -1,4 +1,4 @@
-#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
+#pragma warning disable CS0618 // 禁用 Entities.ForEach 的过时警告
 using System;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -344,7 +344,7 @@ namespace Unity.NetCode.Tests
         public FixedString512Bytes value1;
     }
 
-    #region Send Systems
+    #region 发送系统
     [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     internal partial class ClientRcpSendSystem : SystemBase
@@ -399,12 +399,10 @@ namespace Unity.NetCode.Tests
 
         protected override void OnCreate()
         {
-            //This is the most correct and best practice to use on the client side.
-            //However, it still does not catch the issue when a client enqueue an rpc in the same frame we tag the connection
-            //as RequestDisconnected (enqued in the command buffer)
-            //Even if we would tag the connection synchronously (in the middle of the frame)
-            //if the client system is schedule to execute AFTER the RpcCommandRequestSystem (or the RpcSystem) or the system that
-            //change the connection state, clients can still queue commands even though the connection will be closed.
+            // RequireForUpdate<NetworkId> 是客户端侧推荐的基本保护
+            // 但连接通过 CommandBuffer 在同一帧标记为 RequestDisconnected 时仍可能排队 RPC
+            // 即使同步修改连接状态，只要客户端系统排在 RpcCommandRequestSystem、RpcSystem
+            // 或连接状态修改系统之后，仍可能在即将关闭的连接上排队 Command
             RequireForUpdate<NetworkId>();
             worldId = NetCodeTestWorld.CalculateWorldId(World);
         }
@@ -520,7 +518,7 @@ namespace Unity.NetCode.Tests
     }
     #endregion
 
-    #region Receive Systems
+    #region 接收系统
     [DisableAutoCreation]
     [RequireMatchingQueriesForUpdate]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -663,7 +661,7 @@ namespace Unity.NetCode.Tests
     {
         public static int ReceivedLargeCount = 0;
         public static int ReceivedSmallCount = 0;
-        // Test multiple RPCs being sent.
+        // 同时测试发送多种 RPC
         public static SerializedLargeRpcCommand ReceivedLargeCmd;
         public static SerializedSmallRpcCommand ReceivedSmallCmd;
 
@@ -1153,7 +1151,7 @@ internal struct FastReconnectRpc : IRpcCommand
             var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (rpcRequest, rpcData, entity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>, RefRO<FastReconnectRpc>>().WithEntityAccess())
             {
-                // If connection is gone this will throw an exception
+                // 连接实体已删除时此操作会抛出异常
                 commandBuffer.AddComponent<NetworkStreamInGame>(rpcRequest.ValueRO.SourceConnection);
                 commandBuffer.DestroyEntity(entity);
             }
@@ -1171,7 +1169,7 @@ internal struct FastReconnectRpc : IRpcCommand
             var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (rpcRequest, rpcData, entity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>, RefRO<FastReconnectRpc>>().WithEntityAccess())
             {
-                // If connection is gone this will throw an exception
+                // 连接实体已删除时此操作会抛出异常
                 commandBuffer.AddComponent<NetworkStreamInGame>(rpcRequest.ValueRO.SourceConnection);
                 commandBuffer.DestroyEntity(entity);
             }

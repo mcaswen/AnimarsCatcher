@@ -9,55 +9,51 @@ using UnityEngine.Jobs;
 namespace Unity.NetCode.Hybrid
 {
     /// <summary>
-    /// The GameObject prefabs which should be used as a visual representation of an entity.
+    /// 用作 Entity 视觉表现的 GameObject Prefab
     /// </summary>
     public class GhostPresentationGameObjectPrefab : IComponentData
     {
         /// <summary>
-        /// The GameObject prefab which should be used as a visual representation of an entity on the server.
-        /// Since this is the server instance it should usually not be visible, but it is needed to for example
-        /// run animations on the server.
+        /// 在服务器上用作 Entity 视觉表现的 GameObject Prefab
+        /// 服务器实例通常不可见，但在服务器上运行动画等场景中仍然需要它
         /// </summary>
         public GameObject Server;
         /// <summary>
-        /// The GameObject prefab which should be used as a visual representation of an entity on the client.
-        /// It is not possible to have separate GameObjects for interpolated and predicted ghosts, doing
-        /// that would break prediction switching.
+        /// 在客户端上用作 Entity 视觉表现的 GameObject Prefab
+        /// 插值 Ghost 和 Predicted Ghost 不能使用不同的 GameObject，否则会破坏预测模式切换
         /// </summary>
         public GameObject Client;
     }
     /// <summary>
-    /// A reference to an entity containing the GhostPresentationGameObjectPrefab. The GameObject prefabs
-    /// are not stored directly on the ghosts to avoid all ghosts having a managed component, instead
-    /// a separate entity is created for storing the managed component and this component has a reference
-    /// to that entity.
+    /// 对包含 GhostPresentationGameObjectPrefab 的 Entity 的引用
+    /// 为避免所有 Ghost 都带有托管组件，GameObject Prefab 不会直接存储在 Ghost 上
+    /// 系统会创建单独的 Entity 存储该托管组件，而此组件保存对该 Entity 的引用
     /// </summary>
     public struct GhostPresentationGameObjectPrefabReference : IComponentData
     {
         /// <summary>
-        /// The entity containing the GameObject prefabs to instantiate.
+        /// 包含待实例化 GameObject Prefab 的 Entity
         /// </summary>
         public Entity Prefab;
     }
     /// <summary>
-    /// Internal state tracking which GameObject prefabs have been initialized.
+    /// 用于跟踪哪些 GameObject Prefab 已初始化的内部状态
     /// </summary>
     internal struct GhostPresentationGameObjectState : ICleanupComponentData
     {
         /// <summary>
-        /// Index used by the <see cref="GhostPresentationGameObjectSystem"/> to retrieve the instantiated
-        /// GameObject for this entity.
+        /// <see cref="GhostPresentationGameObjectSystem"/> 用于获取此 Entity 对应 GameObject 实例的索引
         /// </summary>
         public int GameObjectIndex;
     }
 
     /// <summary>
-    /// This system will spawn presentation game object for ghosts which requested it.
-    /// The system runs right after the client spawning code to make sure the game object is created right away.
-    /// On the server it is important to either deal with not having a presentation game object (by filtering on the cleanup component)
-    /// or do all spawning in the BeginSimulationCommandBufferSystem to make sure the game objects are created at the same time
+    /// 为请求了表现对象的 Ghost 生成 GameObject 的系统
+    /// 该系统紧随客户端生成代码运行，以确保 GameObject 立即创建
+    /// 在服务器上，必须处理尚无表现 GameObject 的情况，例如通过 Cleanup Component 过滤，
+    /// 或者在 BeginSimulationCommandBufferSystem 中完成全部生成操作，确保 GameObject 同时创建
     /// </summary>
-    // This is right after GhostSpawnSystemGroup on a client and right after BeginSimulationEntityCommandBufferSystem on server
+    // 在客户端紧随 GhostSpawnSystemGroup，在服务器紧随 BeginSimulationEntityCommandBufferSystem
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [RequireMatchingQueriesForUpdate]
     [UpdateInGroup(typeof(NetworkReceiveSystemGroup), OrderFirst = true)]
@@ -71,13 +67,12 @@ namespace Unity.NetCode.Hybrid
         private ComponentLookup<GhostPresentationGameObjectState> m_GhostPresentationGameObjectStateLookup;
 
         /// <summary>
-        /// Lookup the presentation GameObject for a specific entity. The entity
-        /// does not have a direct reference to the GameObject, it needs to go through
-        /// this method to find it.
+        /// 查找指定 Entity 的表现 GameObject
+        /// Entity 不直接引用 GameObject，必须通过此方法查找
         /// </summary>
-        /// <param name="entityManager">For looking up the entity <paramref name="ent"/>.</param>
-        /// <param name="ent">Entity to find presentation <see cref="GameObject"/> for.</param>
-        /// <returns><see cref="GameObject"/> for entity.</returns>
+        /// <param name="entityManager">用于查找 <paramref name="ent"/> 的 EntityManager</param>
+        /// <param name="ent">需要查找表现 <see cref="GameObject"/> 的 Entity</param>
+        /// <returns>该 Entity 对应的 <see cref="GameObject"/></returns>
         public GameObject GetGameObjectForEntity(EntityManager entityManager, Entity ent)
         {
             if (!entityManager.HasComponent<GhostPresentationGameObjectState>(ent))
@@ -90,7 +85,7 @@ namespace Unity.NetCode.Hybrid
         protected override void OnCreate()
         {
             m_GameObjects = new List<GameObject>();
-            // The values for capacity and desired job count have not been heavily optimized
+            // 容量和期望 Job 数量尚未经过充分优化
             m_Transforms = new TransformAccessArray(16, 16);
             m_Entities = new NativeList<Entity>(16, Allocator.Persistent);
             m_NewPresentationQuery = SystemAPI.QueryBuilder()
@@ -172,8 +167,7 @@ namespace Unity.NetCode.Hybrid
     }
 
     /// <summary>
-    /// This system will update the presentation GameObjects transform based on the current transform
-    /// of the entity owning it.
+    /// 根据所属 Entity 的当前 Transform 更新表现 GameObject Transform 的系统
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(TransformSystemGroup))]
@@ -190,32 +184,29 @@ namespace Unity.NetCode.Hybrid
         struct TransformUpdateJob : IJobParallelForTransform
         {
             [ReadOnly] public NativeList<Entity> Entities;
-            //Why we need to use LocalToWorld here and it work. Both Physics and Netcode for Entities
-            //can alter the perceived position of the Entity on screen by modifying directly the
-            //LTW. In particular: Physics interpolation/extrapolation, Prediction switching.
-            //Because of that, the entity and its rendering can be "out of sync" (1d for simplicity):
+            // 此处需要使用 LocalToWorld 的原因如下
+            // Physics 和 NetCode for Entities 都可以通过直接修改 LTW，改变 Entity 在屏幕中的感知位置
+            // 典型情况包括 Physics 插值或外推以及预测模式切换
+            // 因此 Entity 与其渲染结果可能不同步，以下使用一维坐标简化说明
             //
-            //  (interpolated/prediction switching)
+            //  插值或预测模式切换
             //   |       (S)
             //   |     (D)
             //   | ------------------
             //
-            //  (exrapolated)
+            //  外推
             //   |     (S)
             //   |       (D)
             //   | ------------------
             //
-            //  [Simulated Entity (S)]
-            //  [Displayed Entity (D)]
+            //  模拟 Entity (S)
+            //  显示 Entity (D)
             //
-            // The GameObject is the representation of the entity on the screen.
-            // We need to decide where we should render it. We can either use:
-            // - The local position of the entity (simulated)
-            // - The "perceived" one (LTW)
-            // The correct answer is actually even simpler: we need to have the rendered position in sync.
-            // So, the GameObject position MUST be taken from the LTW. That is a world position.
-            // However, because usually the GameObject is a root one (no parent) we can set the LocalPosition
-            // instead of Position.
+            // GameObject 是 Entity 在屏幕中的表现
+            // 渲染位置可以选择 Entity 的本地模拟位置，或 LTW 表示的感知位置
+            // 真正需要保证的是渲染位置与屏幕上的感知位置同步
+            // 因此 GameObject 的位置必须取自 LTW，而 LTW 表示世界坐标
+            // 不过 GameObject 通常是没有父级的根对象，因此可以设置 LocalPosition 而不是 Position
             //
             [ReadOnly] public ComponentLookup<LocalToWorld> TransformFromEntity;
             public void Execute(int index, TransformAccess transform)

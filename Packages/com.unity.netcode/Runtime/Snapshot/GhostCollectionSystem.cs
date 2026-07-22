@@ -18,7 +18,7 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// A list of ghost prefabs created from code.
+    /// 通过代码创建的 Ghost Prefab 列表
     /// </summary>
     [InternalBufferCapacity(0)]
     struct CodeGhostPrefab : IBufferElementData
@@ -29,14 +29,14 @@ namespace Unity.NetCode
 
     /// <summary>
     /// <para>
-    /// System responsible to construct and manage the <see cref="GhostCollection"/> singleton data.
+    /// 负责构建和管理 <see cref="GhostCollection"/> Singleton Data 的系统
     /// </para>
     /// <para>
-    /// The system processes all the ghost prefabs present in the world by:</para>
-    /// <para>- stripping and removing components from the entity prefab based on <see cref="GhostPrefabType"/></para>
-    /// <para>- populating the <see cref="GhostCollectionPrefab"/></para>
-    /// <para>- preparing and constructing all the necessary data structure (<see cref="GhostCollectionPrefabSerializer"/>, <see cref="GhostCollectionComponentIndex"/> and
-    /// <see cref="GhostCollectionComponentType"/>) for serializing ghosts</para>
+    /// 系统通过以下步骤处理 World 中的全部 Ghost Prefab</para>
+    /// <para>- 根据 <see cref="GhostPrefabType"/> 从 Entity Prefab 剥离并移除 Component</para>
+    /// <para>- 填充 <see cref="GhostCollectionPrefab"/></para>
+    /// <para>- 为 Ghost 序列化准备并构建全部必要数据结构，包括 <see cref="GhostCollectionPrefabSerializer"/>、
+    /// <see cref="GhostCollectionComponentIndex"/> 和 <see cref="GhostCollectionComponentType"/></para>
     /// </summary>
     [BurstCompile]
     [UpdateInGroup(typeof(GhostSimulationSystemGroup))]
@@ -55,7 +55,7 @@ namespace Unity.NetCode
                     return -1;
                 if (hashX > hashY)
                     return 1;
-                //same component are sorted by variant hash
+                // 相同 Component 按 Variant Hash 排序
                 if (x.VariantHash < y.VariantHash)
                     return -1;
                 if (x.VariantHash > y.VariantHash)
@@ -70,7 +70,7 @@ namespace Unity.NetCode
         private NativeList<PredictionErrorNames> m_PredictionErrorNames;
         private NativeList<FixedString64Bytes> m_GhostNames;
 
-        //Cache all component prediction error names, by parsing the GhostComponentSerializer.State.PredictionErrorName list)
+        // 解析 GhostComponentSerializer.State.PredictionErrorName 列表，缓存全部 Component 预测错误名称
         private UnsafeList<(short, short)> m_PredictionErrorNamesStartEndCache;
         private NativeList<PendingNameAssignment> m_PendingNameAssignments;
         private int m_currentPredictionErrorNamesCount;
@@ -96,7 +96,9 @@ namespace Unity.NetCode
             public GhostCollectionComponentType ComponentType;
         }
         private NativeList<UsedComponentType> m_AllComponentTypes;
-        /// <summary>Retrieve the index inside the GhostCollectionComponentIndex for a component, given its stable hash.</summary>
+        /// <summary>
+        /// 根据 Component 的 Stable Hash 获取其在 GhostCollectionComponentIndex 中的索引
+        /// </summary>
         private NativeHashMap<ulong, int> m_StableHashToComponentTypeIndex;
         private NativeHashMap<GhostType, int> m_GhostTypeToGhostCollectionPrefab;
         private NativeHashMap<GhostType, int> m_PendingAssignment;
@@ -111,11 +113,11 @@ namespace Unity.NetCode
         private ProfilerMarker m_Processing;
         private ProfilerMarker m_UpdateNameMarker;
 
-        //Hash requirements:
-        // R0: if components are different or in different order the hash should change
-        // R1: different size, owner offsets, mask bits, partial components etc must result in a different hash
-        // R2: if a ghost present the same components, with the same fields but different [GhostField] attributes (such as, subType, interpolated, composite)
-        //     must result in a different hash, even though the resulting serialization sizes and masks are the same
+        // Hash 要求
+        // R0：Component 不同或顺序不同时，Hash 必须变化
+        // R1：大小、Owner Offset、Mask Bit、Partial Component 等不同时，必须得到不同 Hash
+        // R2：Ghost 具有相同 Component 和字段，但 [GhostField] 属性不同，例如 SubType、Interpolated、Composite 时，
+        //     即使最终序列化大小和 Mask 相同，也必须得到不同 Hash
         internal static ulong CalculateComponentCollectionHash(DynamicBuffer<GhostComponentSerializer.State> ghostComponentCollection)
         {
             ulong componentCollectionHash = 0;
@@ -135,8 +137,8 @@ namespace Unity.NetCode
             FixedString32Bytes title = "Type: ";
             hashString.Append(title);
             hashString.Append(TypeManager.GetTypeInfo(comp.ComponentType.TypeIndex).DebugTypeName);
-            // GhostFieldsHash hashes the composite/smoothing/subtype/quantization parameters for each GhostField inside the component
-            // This hash is determined at build time from generated code
+            // GhostFieldsHash 对 Component 中每个 GhostField 的 Composite、Smoothing、SubType 和 Quantization 参数计算 Hash
+            // 此 Hash 在构建时由生成代码确定
             title = " GhostFieldHash: ";
             hashString.Append(title);
             hashString.Append(comp.GhostFieldsHash);
@@ -182,7 +184,7 @@ namespace Unity.NetCode
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GhostCollection>();
-            // TODO - Deduplicate this data by removing all unnecessary buffers.
+            // TODO：移除全部不必要的 Buffer，消除此数据中的重复项
             m_CollectionSingleton = state.EntityManager.CreateSingleton<GhostCollection>("Ghost Collection");
             state.EntityManager.AddBuffer<GhostCollectionPrefabSerializer>(m_CollectionSingleton);
             state.EntityManager.AddBuffer<GhostCollectionComponentIndex>(m_CollectionSingleton);
@@ -304,7 +306,7 @@ namespace Unity.NetCode
 
             if (m_InGameQuery.IsEmptyIgnoreFilter)
             {
-                // Was in-game but we aren't anymore. Clearing everything so that if we do a scene switch for example, rebuilding the ghost collection will be from a clean state.
+                // 之前已进入游戏但现在不再处于游戏中，清除全部数据，使场景切换等情况下能从干净状态重建 Ghost Collection
                 if (SystemAPI.GetSingletonRW<GhostCollection>().ValueRO.IsInGame)
                 {
                     state.EntityManager.GetBuffer<GhostCollectionPrefab>(m_CollectionSingleton).Clear();
@@ -350,13 +352,12 @@ namespace Unity.NetCode
                 return;
             }
 
-            // TODO: Using run on these is only required because the prefab processing cannot run in a job yet
+            // TODO：这里只需使用 Run，因为 Prefab 处理目前尚不能在 Job 中运行
             var ghostCollectionFromEntity = SystemAPI.GetBufferLookup<GhostCollectionPrefab>();
             var collectionSingleton = m_CollectionSingleton;
-            //if a prefab has been unloaded or destroyed, reset the association in the GhostCollectionPrefab and try
-            //to find another candidate prefab for the same ghost type if present.
-            //In order to do so, we need to know if exists other prefab for the same ghost type. A way to do that is to use
-            //a query and setup a SharedComponentFilter,
+            // Prefab 被卸载或销毁时，重置 GhostCollectionPrefab 中的关联，
+            // 并在存在候选项时尝试为同一 Ghost 类型查找另一个 Prefab
+            // 为此需要判断是否存在同类型的其他 Prefab，可使用 Query 并设置 SharedComponentFilter
             if(!m_DestroyedGhostPrefabQuery.IsEmpty)
             {
                 using var _ = m_TrackingMarker.Auto();
@@ -370,7 +371,7 @@ namespace Unity.NetCode
                     RemoveGhostPrefabFromTracking(tracking, ghostPrefabEntities[i]);
                     if (tracking.GhostType != default)
                     {
-                        //Need to remap this with other ghosts of the same types. How to find this fast enough?
+                        // 需要重新映射到同类型的其他 Ghost，待优化查找效率
                         if (m_GhostPrefabForGhostType.TryGetFirstValue(tracking.GhostType, out var newPrefabEntity, out var _))
                         {
                             ghostCollectionList.ElementAt(tracking.GhostCollectionPrefabIndex).GhostPrefab = newPrefabEntity;
@@ -401,7 +402,7 @@ namespace Unity.NetCode
 #endif
                 ghostCollectionFromEntity.Update(ref state);
                 var ghostCollectionList = ghostCollectionFromEntity[collectionSingleton];
-                // The server adds all ghost prefabs to the ghost collection if they are not already there
+                // 服务器将尚未存在于 Ghost Collection 的全部 Ghost Prefab 加入集合
                 for (int i = 0; i < ghostPrefabEntities.Length; i++)
                 {
                     var ent = ghostPrefabEntities[i];
@@ -414,8 +415,7 @@ namespace Unity.NetCode
                     {
                         var prefabIndex = ghostCollectionList.Length;
                         ghostCollectionList.Add(new GhostCollectionPrefab {GhostType = ghostType, GhostPrefab = ent});
-                        //add the entry to mapping for faster retrieval so we can update the prefab in case one of the instances
-                        //has been unloaded or destroyed
+                        // 将条目加入映射以便快速查找，从而在某个实例被卸载或销毁时更新 Prefab
                         m_GhostTypeToGhostCollectionPrefab.Add(ghostType, prefabIndex);
                         state.EntityManager.SetComponentData(ghostPrefabEntities[i], new GhostPrefabTracking
                         {
@@ -423,10 +423,10 @@ namespace Unity.NetCode
                             GhostType = ghostType
                         });
                     }
-                    //why there is this path: because with sub-scene is possible (at least it was, now with the new logic in 1.0 little less,
-                    //but can still be case, that multiple prefab for the same ghost archetype are loaded (i.e you have the same spawner)
-                    //because we can technically load/unload sub-scenes as we want (partially true for server), after we invalidate the entry
-                    //for this prefab in the list, we can immediately remap another one if present for that type.
+                    // 存在此路径的原因是 SubScene 可能加载同一 Ghost Archetype 的多个 Prefab，例如使用相同 Spawner
+                    // 1.0 新逻辑使这种情况减少，但仍然可能发生
+                    // 由于技术上可以按需加载或卸载 SubScene，服务器上部分成立，
+                    // 当列表中的 Prefab 条目失效后，可以立即重新映射该类型的另一个 Prefab
                     else if (ghostCollectionList[index].GhostPrefab == Entity.Null)
                     {
                         ghostCollectionList.ElementAt(index).GhostPrefab = ghostPrefabEntities[i];
@@ -441,11 +441,9 @@ namespace Unity.NetCode
             else if(state.WorldUnmanaged.IsClient())
             {
                 using var _ = m_MappingMarker.Auto();
-                //on the client side things are slightly different. The client receive from the server the list
-                //of prefabs he is suppose to load. (that are added to the the GhostCollectionPrefab buffer, in the
-                //order the server send them and expect the client to ack (progressively).
-                //The m_GhostTypeToPrefabIndex in this case is used to track if there is any pending assignment to process
-                //and for which ghost.
+                // 客户端逻辑略有不同，它会从服务器收到应加载的 Prefab 列表
+                // 这些 Prefab 按服务器发送顺序加入 GhostCollectionPrefab Buffer，服务器期望客户端逐步 Ack
+                // 此时 m_GhostTypeToPrefabIndex 用于跟踪是否存在待处理分配，以及对应哪个 Ghost
                 var pendingAssigment = SystemAPI.GetSingletonRW<GhostCollection>().ValueRW.PendingGhostPrefabAssignment;
                 if (!m_NewPrefabGhostQuery.IsEmptyIgnoreFilter)
                 {
@@ -458,7 +456,7 @@ namespace Unity.NetCode
 #endif
                     ghostCollectionFromEntity.Update(ref state);
                     var ghostCollectionList = ghostCollectionFromEntity[collectionSingleton];
-                    //map the loaded prefab to the corresponding pending entries (if any)
+                    // 将已加载 Prefab 映射到对应的待处理条目
                     for (int i = 0; i < ghostPrefabEntities.Length; i++)
                     {
                         var ent = ghostPrefabEntities[i];
@@ -466,10 +464,9 @@ namespace Unity.NetCode
 #if NETCODE_DEBUG
                         ValidatePrefabGUID(ent, ghostType, codePrefabs, ghostTypeFromEntity);
 #endif
-                        //add the prefabs to the list of available ones for the given ghost type. This is used to
-                        //remap the ghost prefab entity to another candidate if necessary.
+                        // 将 Prefab 加入指定 Ghost 类型的可用列表，必要时用于将 Ghost Prefab Entity 重新映射到另一候选项
                         m_GhostPrefabForGhostType.Add(ghostType, ghostPrefabEntities[i]);
-                        //if there are any pending prefabs to assign for this ghost type, do it
+                        // 如果此 Ghost 类型存在待分配 Prefab，则立即进行分配
                         if (pendingAssigment.TryGetValue(ghostType, out var index))
                         {
                             ghostCollectionList.ElementAt(index).GhostPrefab = ent;
@@ -479,14 +476,14 @@ namespace Unity.NetCode
                                 GhostCollectionPrefabIndex = index,
                                 GhostType = ghostType
                             });
-                            //remove the pending assignment
+                            // 移除待处理分配
                             pendingAssigment.Remove(ghostType);
                         }
                     }
                     pendingAssigment[default] = 0;
                 }
-                //If the pending list is not empty and it is changed since last time, try to map any pending assignment
-                //to the current registered prefabs for the ghost type.
+                // 待处理列表不为空且自上次起发生变化时，
+                // 尝试将所有待处理分配映射到该 Ghost 类型当前已注册的 Prefab
                 else
                 {
                     if (pendingAssigment.TryGetValue(default, out var pendingAssignmentFlag) && pendingAssignmentFlag != 0)
@@ -527,15 +524,15 @@ namespace Unity.NetCode
             };
             var data = SystemAPI.GetSingletonRW<GhostComponentSerializerCollectionData>().ValueRW;
             var ghostPrefabSerializerErrors = 0;
-            //Process the new loaded prefabs
+            // 处理新加载的 Prefab
             for (int i = ctx.ghostPrefabSerializerCollection.Length; i < ctx.ghostPrefabCollection.Length; ++i)
             {
                 using var _ = m_Processing.Auto();
                 var ghost = ctx.ghostPrefabCollection[i];
-                // Load each ghost in this set and add it to m_GhostTypeCollection
-                // If the prefab is not loaded yet, do not process any more ghosts
+                // 加载集合中的每个 Ghost 并加入 m_GhostTypeCollection
+                // Prefab 尚未加载时，不再处理后续 Ghost
 
-                // This can give the client some time to load the prefabs by having a loading countdown
+                // 通过加载倒计时为客户端留出加载 Prefab 的时间
                 if (ghost.GhostPrefab == Entity.Null && ghost.Loading == GhostCollectionPrefab.LoadingState.LoadingActive)
                 {
                     ghost.Loading = GhostCollectionPrefab.LoadingState.LoadingNotActive;
@@ -547,9 +544,9 @@ namespace Unity.NetCode
                 ctx.ghostType = ghost.GhostType;
                 if (ghost.GhostPrefab != Entity.Null)
                 {
-                    // This can be setup - do so
+                    // Prefab 已可配置，开始处理
                     ProcessGhostPrefab(ref state, ref data, ref ctx, ref tickRate, ghost.GhostPrefab);
-                    // Ensure it was added (can fail due to collection checks):
+                    // 确认已成功添加，Collection Check 可能导致失败
                     if (ctx.ghostPrefabSerializerCollection.Length > i)
                         hash = HashGhostType(ctx.ghostPrefabSerializerCollection[i], in netDebug, in ctx.ghostName, in entityPrefabName, in ghost.GhostPrefab);
                 }
@@ -573,8 +570,7 @@ namespace Unity.NetCode
                 }
                 ghost.Hash = hash;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                //FIXME the GhostTypePartition should be always valid (never equals 0:0:0:0) and in general
-                //equals to the GhostType
+                // FIXME：GhostTypePartition 应始终有效，不能等于 0:0:0:0，并且通常应等于 GhostType
                 if (state.EntityManager.HasComponent<GhostTypePartition>(ghost.GhostPrefab) &&
                     state.EntityManager.GetSharedComponent<GhostTypePartition>(ghost.GhostPrefab).SharedValue == default)
                 {
@@ -587,12 +583,12 @@ namespace Unity.NetCode
             if (ghostPrefabSerializerErrors > 0)
             {
                 netDebug.LogError("Disconnecting all the connections because of errors while processing the ghost prefabs (see previous reported errors).");
-                // This cannot be jobified because the query is created to avoid a dependency on these entities
+                // 此逻辑不能 Job 化，因为创建该 Query 正是为了避免对这些 Entity 产生依赖
                 var connections = m_AllConnectionsQuery.ToEntityArray(Allocator.Temp);
                 for (int con = 0; con < connections.Length; ++con)
                     state.EntityManager.AddComponentData(connections[con], new NetworkStreamRequestDisconnect{Reason = NetworkStreamDisconnectReason.BadProtocolVersion});
 #if UNITY_EDITOR || NETCODE_DEBUG
-                //Reset any pending assignment.
+                // 重置全部待处理分配
                 m_PrevPredictionErrorNamesCount = 0;
                 m_PrevGhostNamesCount = 0;
                 m_currentPredictionErrorNamesCount = 0;
@@ -659,7 +655,7 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Small helper function (a hack, really) to manually look for this invalid hash inside the in-process ServerWorld[s], for easier debugging.
+        /// 为便于调试，在同一进程内的 ServerWorld 中手动查找此无效 Hash 的辅助函数
         /// </summary>
         [BurstDiscard]
         private void BurstDiscardAppendBetterExceptionMessage(in GhostCollectionPrefab clientGhost,
@@ -674,8 +670,8 @@ namespace Unity.NetCode
                 if(!serverWorld.IsCreated) continue;
                 if (serverWorld != state.World)
                 {
-                    // Completing all tracked jobs on this world causes safety handles to be invalidated,
-                    // so we only do so on the other worlds we query.
+                    // 完成此 World 中全部已跟踪 Job 会使 Safety Handle 失效，
+                    // 因此只对要查询的其他 World 执行该操作
                     serverWorld.EntityManager.CompleteAllTrackedJobs();
                 }
                 using var query = serverWorld.EntityManager.CreateEntityQuery(ComponentType.ReadOnly<GhostCollectionPrefab>());
@@ -704,12 +700,12 @@ namespace Unity.NetCode
 #endif
         }
 
-        //TODO: this can be an hashmap too.
+        // TODO：此处也可以使用 HashMap
         [Conditional("NETCODE_DEBUG")]
         private static void ValidatePrefabGUID(Entity ent, in GhostType ghostType, DynamicBuffer<CodeGhostPrefab> codePrefabs, ComponentLookup<GhostType> ghostTypeFromEntity)
         {
 #if NETCODE_DEBUG
-            // Check for collisions with code prefabs
+            // 检查是否与代码创建的 Prefab 冲突
             for (int codePrefabIdx = 0; codePrefabIdx < codePrefabs.Length; ++codePrefabIdx)
             {
                 if (ent != codePrefabs[codePrefabIdx].entity && ghostTypeFromEntity[codePrefabs[codePrefabIdx].entity] == ghostType)
@@ -742,12 +738,13 @@ namespace Unity.NetCode
                 }
             }
 
-            // Burst hack: Convert the FS into an unmanaged string (via an interpolated string) so it can be passed into ProfilerMarker (which has an explicit constructor override supporting unmanaged strings).
+            // Burst 变通方案：通过插值字符串将 FixedString 转换为 Unmanaged String，
+            // 以便传给具有 Unmanaged String 显式构造函数重载的 ProfilerMarker
             var profilerMarker = new ProfilerMarker($"{ctx.ghostName}");
             using var auto = profilerMarker.Auto();
 
-            //Compute the total number of components that include also all entities children.
-            //The blob array contains for each entity child a list of component hashes
+            // 计算包含所有 Child Entity 在内的 Component 总数
+            // BlobArray 为每个 Child Entity 保存一份 Component Hash 列表
             var hasLinkedGroup = state.EntityManager.HasComponent<LinkedEntityGroup>(prefabEntity);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (ghostMetaData.SupportedModes != GhostPrefabBlobMetaData.GhostMode.Both && ghostMetaData.SupportedModes != ghostMetaData.DefaultMode)
@@ -787,7 +784,7 @@ namespace Unity.NetCode
 
             ctx.childOffset = 0;
             ctx.ghostChildIndex = 0;
-            // Map the component types to things in the collection and create lists of function pointers
+            // 将 Component 类型映射到 Collection 中的对应项，并创建函数指针列表
             AddComponents(ref ctx, ref data, ref ghostMetaData, ref ghostType);
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -838,7 +835,7 @@ namespace Unity.NetCode
             {
                 ghostType.PredictionOwnerOffset += GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + GhostComponentSerializer.ChangeMaskArraySizeInUInts(ghostType.ChangeMaskBits)*sizeof(uint) + GhostComponentSerializer.ChangeMaskArraySizeInUInts(ghostType.EnableableBits)*sizeof(uint));
             }
-            // Reserve space for tick and change mask in the snapshot
+            // 在 Snapshot 中为 Tick 和 ChangeMask 预留空间
             var enabledBitsInBytes = GhostComponentSerializer.ChangeMaskArraySizeInBytes(ghostType.EnableableBits);
             var changeMaskBitsInBytes = GhostComponentSerializer.ChangeMaskArraySizeInBytes(ghostType.ChangeMaskBits);
             ghostType.SnapshotSize += GhostComponentSerializer.SnapshotSizeAligned(sizeof(uint) + changeMaskBitsInBytes + enabledBitsInBytes);
@@ -856,7 +853,9 @@ namespace Unity.NetCode
 #endif
         }
 
-        /// <summary>Perform runtime stripping of all prefabs which need it.</summary>
+        /// <summary>
+        /// 对全部需要运行时剥离的 Prefab 执行剥离
+        /// </summary>
         /// <param name="state"></param>
         /// <exception cref="InvalidOperationException"></exception>
         private void RuntimeStripPrefabs(ref SystemState state, in NetDebug netDebug)
@@ -864,11 +863,11 @@ namespace Unity.NetCode
             using var prefabEntities = m_RuntimeStripQuery.ToEntityArray(Allocator.Temp);
             if (state.WorldUnmanaged.IsHost())
             {
-                // On single world host, manually strip essentials and early return
+                // 在 Single World Host 中手动剥离必要项并提前返回
                 state.EntityManager.RemoveComponent(m_RuntimeStripQuery, GhostPrefabCreation.RemoveOnServerWorldsSharedList(Entity.Null, state.EntityManager));
                 state.EntityManager.RemoveComponent<GhostPrefabRuntimeStrip>(m_RuntimeStripQuery);
 
-                // Since this is a single world host, we can't strip anything else so early return
+                // Single World Host 无法继续剥离其他内容，因此提前返回
                 return;
             }
 
@@ -878,12 +877,12 @@ namespace Unity.NetCode
                 var prefabEntity = prefabEntities[i];
                 ref var ghostMetaData = ref metaDatas[i].Value.Value;
 
-                // Delete everything from toBeDeleted from the prefab
+                // 从 Prefab 中删除待移除列表里的全部内容
                 ref var removeOnWorld = ref GetRemoveOnWorldList(ref ghostMetaData, state.WorldUnmanaged.IsServer());
                 if (removeOnWorld.Length > 0)
                 {
-                    //Need to make a copy since we are making structural changes (removing components). The entity values
-                    //remains the same but the chunks (and so the memory) they pertains does not.
+                    // 移除 Component 属于结构性变更，因此需要创建副本
+                    // Entity 值保持不变，但其所属 Chunk 及对应内存会变化
                     var entities = state.EntityManager.GetBuffer<LinkedEntityGroup>(prefabEntity).ToNativeArray(Allocator.Temp);
                     for (int rm = 0; rm < removeOnWorld.Length; ++rm)
                     {
@@ -925,7 +924,7 @@ namespace Unity.NetCode
             var ghostComponentCollectionCount = data.Serializers.Length;
             m_StableHashToComponentTypeIndex = new NativeHashMap<ulong, int>(ghostComponentCollectionCount, Allocator.Persistent);
 
-            // Sort and remap Serializers to their SerializationStrategies.
+            // 对 Serializer 排序，并重新映射到对应 SerializationStrategy
             data.Serializers.Sort(default(ComponentHashComparer));
             for (var i = 0; i < data.Serializers.Length; i++)
             {
@@ -935,21 +934,21 @@ namespace Unity.NetCode
             }
 
             data.Validate();
-            data.CollectionFinalized.Value = 2; // 2 denotes this method has been called.
+            data.CollectionFinalized.Value = 2; // 2 表示此方法已经调用
 
-            // Populate the ghost serializer collection buffer with all states.
+            // 使用全部状态填充 Ghost Serializer Collection Buffer
             var ghostSerializerCollection = state.EntityManager.GetBuffer<GhostComponentSerializer.State>(m_CollectionSingleton);
             ghostSerializerCollection.Clear();
             ghostSerializerCollection.AddRange(data.Serializers.AsArray());
 
-            // Reset & resize the following buffer so that we can write into it later.
+            // 重置并调整以下 Buffer 的大小，以便后续写入
             {
                 var ghostComponentCollection = state.EntityManager.GetBuffer<GhostCollectionComponentType>(m_CollectionSingleton);
                 ghostComponentCollection.Clear();
                 ghostComponentCollection.Capacity = data.Serializers.Length;
             }
 
-            // Create the unique list of component types that provide an inverse mapping into the ghost serializer list.
+            // 创建 Component 类型唯一列表，为 Ghost Serializer 列表提供反向映射
             m_AllComponentTypes = new NativeList<UsedComponentType>(data.Serializers.Length, Allocator.Persistent);
             for (int i = 0; i < data.Serializers.Length;)
             {
@@ -973,8 +972,8 @@ namespace Unity.NetCode
                 m_StableHashToComponentTypeIndex.Add(TypeManager.GetTypeInfo(compType.TypeIndex).StableTypeHash, m_AllComponentTypes.Length - 1);
             }
 
-            //This list does not depend on the number of prefabs but only on the number of serializers avaialable in the project.
-            //The construction time is linear in number of predicted fields, instead of becoming "quadratic" (number of prefabs x number of predicted fields)
+            // 此列表不取决于 Prefab 数量，只取决于项目中可用 Serializer 数量
+            // 构建时间与预测字段数量呈线性关系，不会变为 Prefab 数量乘以预测字段数量的二次复杂度
 #if UNITY_EDITOR || NETCODE_DEBUG
             PrecomputeComponentErrorNameList(ref ghostSerializerCollection);
 #endif
@@ -1001,12 +1000,12 @@ namespace Unity.NetCode
                 var type = usedComponent.ComponentType.Type;
                 var variant = data.GetCurrentSerializationStrategyForComponent(type, componentInfo.Variant, isRoot);
 
-                // Skip component if client only or don't send variants are selected.
+                // 选中 Client Only 或 Don't Send Variant 时跳过 Component
                 if (variant.IsSerialized == 0 || (!isRoot && variant.SendForChildEntities == 0))
                     continue;
 
-                //The search is sub-linear, since this is a sort of multi-hashmap (O(1) on average), but the
-                //cache misses (component indices) are random are the dominating factor.
+                // 此查找接近 MultiHashMap，平均复杂度为 O(1)，低于线性
+                // 但随机的 Component Index Cache Miss 是主要成本
                 var serializerIndex = usedComponent.ComponentType.FirstSerializer;
                 while (serializerIndex <= usedComponent.ComponentType.LastSerializer &&
                        ctx.ghostSerializerCollection.ElementAt(serializerIndex).VariantHash != variant.Hash)
@@ -1023,7 +1022,7 @@ namespace Unity.NetCode
                 }
 #endif
 
-                //Apply prefab overrides if any
+                // 应用可能存在的 Prefab Override
                 ref var compState = ref ctx.ghostSerializerCollection.ElementAt(serializerIndex);
 
                 var sendMask = componentInfo.SendMaskOverride >= 0
@@ -1040,7 +1039,7 @@ namespace Unity.NetCode
                     supportedModes == GhostPrefabBlobMetaData.GhostMode.Predicted)
                     continue;
 
-                // Found something
+                // 找到可序列化 Component
                 ++ghostType.NumComponents;
                 if (!isRoot)
                     ++ghostType.NumChildComponents;
@@ -1060,9 +1059,9 @@ namespace Unity.NetCode
                         ghostType.ChangeMaskBits += compState.ChangeMaskBits;
                     }
                 }
-                ghostType.EnableableBits += compState.SerializesEnabledBit; // 1 = true, 0 = false; implicit map to counter here.
+                ghostType.EnableableBits += compState.SerializesEnabledBit; // 1 表示 true，0 表示 false，此处隐式映射为计数器
 
-                // Make sure the component is now in use
+                // 确保此 Component 已标记为正在使用
                 if (usedComponent.UsedIndex < 0)
                 {
                     usedComponent.UsedIndex = ctx.ghostComponentCollection.Length;
@@ -1105,8 +1104,7 @@ namespace Unity.NetCode
 
 #if UNITY_EDITOR || NETCODE_DEBUG
         /// <summary>
-        /// Internal structure used to track to which component serialization, ghost, child tuple we need
-        /// to process and append prediction error names.
+        /// 用于跟踪待处理并追加预测错误名称的 Component Serialization、Ghost 和 Child 元组的内部结构体
         /// </summary>
         internal struct PendingNameAssignment
         {
@@ -1117,15 +1115,15 @@ namespace Unity.NetCode
                 serializerIndex = serializer;
             }
             /// <summary>
-            /// The index in the GhostName collection array
+            /// GhostName Collection 数组中的索引
             /// </summary>
             public int ghostName;
             /// <summary>
-            /// The child index in the prefab
+            /// Prefab 中的 Child 索引
             /// </summary>
             public int ghostChildIndex;
             /// <summary>
-            /// The index in the ghost component serializer collection
+            /// Ghost Component Serializer Collection 中的索引
             /// </summary>
             public int serializerIndex;
         }
@@ -1178,14 +1176,14 @@ namespace Unity.NetCode
             predictionErrors.AddRange(predictionErrorNames.AsArray());
         }
         /// <summary>
-        /// Pre-process the GhostComponentSerializer.State collection and pre-parse the PredictionErrorNames for all the
-        /// serializers.
+        /// 预处理 GhostComponentSerializer.State Collection，
+        /// 并预先解析全部 Serializer 的 PredictionErrorNames
         /// </summary>
         /// <param name="serializers"></param>
         private void PrecomputeComponentErrorNameList(ref DynamicBuffer<GhostComponentSerializer.State> serializers)
         {
             int totalNameCount = 0;
-            //calculated how many names are necessary. This is the upperbound.
+            // 计算所需名称数量，此值为上限
             for (int i = 0; i < serializers.Length; ++i)
             {
                 ref var serializer = ref serializers.ElementAt(i);
@@ -1208,7 +1206,7 @@ namespace Unity.NetCode
                     m_PredictionErrorNamesStartEndCache.Add(ValueTuple.Create(strStart, strEnd));
                     strStart = (short)(strEnd + 1);
                 }
-                //Assign the subset of names available. This must be always less or equals
+                // 分配可用名称子集，其数量必须始终小于或等于错误总数
                 serializer.NumPredictionErrorNames = m_PredictionErrorNamesStartEndCache.Length - serializer.FirstNameIndex;
                 Assertions.Assert.IsTrue(serializer.NumPredictionErrorNames <= serializer.NumPredictionErrors);
             }

@@ -9,23 +9,22 @@ using static Unity.NetCode.ClientServerTickRate.FrameRateMode;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Keeps track of time and tick counts, accumulating time until ready to run a tick.
+    /// 追踪时间和 Tick 数量，并持续累加时间直至可以运行一个 Tick
     /// </summary>
     internal unsafe class NetcodeTimeTracker
     {
         internal struct Count
         {
-            // The total number of step the simulation should take. Correspond 1:1 to number of PredictedSimulationSystemGroup iterations (ignoring the effects of batching).
+            // 模拟应执行的总步数，忽略批处理影响时与 PredictedSimulationSystemGroup 迭代次数一一对应
             public int TotalSteps;
-            // The number of short steps, if for example Total is 4 and Short is 1 the update will
-            // take 3 long steps followed by on short step
+            // 短步数量，例如总步数为 4 且短步数为 1 时，会先执行 3 个长步再执行 1 个短步
             public int ShortStepCount;
-            // The length of the long steps, if this is for example 3 the long steps should use deltaTime*3
-            // while the short steps should reduce it by one and use deltaTime*2
+            // 长步包含的基础步数，例如该值为 3 时，长步使用 DeltaTime 乘以 3
+            // 短步则少一个基础步，使用 DeltaTime 乘以 2
             public int LengthLongSteps;
         }
 
-        internal int RemainingTicksToRun; // number of prediction loops to run
+        internal int RemainingTicksToRun; // 剩余需要运行的预测循环次数
         private float m_AccumulatedTime;
         private bool m_IsFirstTimeExecuting = true;
         private double m_ElapsedTime;
@@ -64,16 +63,16 @@ namespace Unity.NetCode
         {
             accumulatedTime += deltaTime;
             int updateCount = (int)(accumulatedTime / fixedTimeStep);
-            // ex:
+            // 示例
             // accumulatedTime = 0.16666666
-            // fixedTimeStep = 0.0.016666666
+            // fixedTimeStep = 0.016666666
             // updateCount = 10, maxTimeSteps = 4, maxTimeStepLength = 4
             int shortSteps = 0;
             int length = 1;
             if (updateCount > maxTimeSteps) // 10 > 4
             {
-                // Required length
-                // +maxTimeSteps-1 to get the implicit int cast to "round up"
+                // 计算所需的批处理长度
+                // 加上 maxTimeSteps - 1，使整数除法得到向上取整结果
                 length = (updateCount + maxTimeSteps - 1) / maxTimeSteps; // (10 + 4 - 1) / 4 = 13/4 = (int)3.25 = 3
                 if (length > maxTimeStepLength) // 3 ! > 4
                 {
@@ -81,7 +80,7 @@ namespace Unity.NetCode
                 }
                 else
                 {
-                    // Check how many will need to be long vs short
+                    // 计算需要多少长步和短步
                     shortSteps = length * maxTimeSteps - updateCount; // 3 * 4 - 10 = 2
                 }
                 updateCount = maxTimeSteps; // 4
@@ -107,13 +106,14 @@ namespace Unity.NetCode
 #endif
         }
         /// <summary>
-        /// called on each prediction iteration, to update network time state accordingly
-        /// returns true if has simulation to run
+        /// 每次预测迭代时调用，用于更新对应的网络时间状态
+        /// 存在需要运行的模拟时返回 true
         /// </summary>
         internal bool InitializeNetworkTimeForFrame(ComponentSystemGroup group, ClientServerTickRate tickRate, Count updateCount)
         {
-            // initialize all runs of prediction system group this frame
-            // for whole frame server side. for prediction group only host side. TODO-2.0 all this should only be prediction group even for DGS? more consistent DGS vs host?
+            // 初始化本帧预测系统组的全部运行次数
+            // DGS 侧覆盖整帧，Host 侧仅覆盖预测组
+            // TODO-2.0：考虑让 DGS 也只在预测组中执行，以统一 DGS 与 Host 行为
             m_UpdateCount = updateCount;
             RemainingTicksToRun = m_UpdateCount.TotalSteps;
             m_PredictedFixedStepSimulationSystemGroup.ConfigureTimeStep(tickRate); // TODO-MovePred
@@ -146,14 +146,14 @@ namespace Unity.NetCode
             if (m_IsFirstTimeExecuting)
             {
                 m_IsFirstTimeExecuting = false;
-                // we want to keep the same behaviour as UpdateWorldTimeSystem which starts at 0 for the first frame
-                // here this will be negative and then clamped to 0 later
+                // 保持与 UpdateWorldTimeSystem 相同的行为，使首帧从零开始
+                // 此处结果会暂时为负数，之后再钳制到零
                 m_ElapsedTime = group.World.Time.ElapsedTime - group.World.Time.DeltaTime;
             }
             if (RemainingTicksToRun == (m_UpdateCount.ShortStepCount))
                 --m_UpdateCount.LengthLongSteps;
             var dt = GetDeltaTimeForCurrentTick(tickRate);
-            // Check for wrap around
+            // 检查 Tick 回绕
             var currentServerTick = networkTime.ServerTick;
             currentServerTick.Increment();
             var nextTick = currentServerTick;
@@ -167,27 +167,27 @@ namespace Unity.NetCode
             else
                 networkTime.Flags |= NetworkTimeFlags.IsCatchUpTick;
             m_ElapsedTime += dt;
-            // At the beginning of the world, we'll be a few prediction ticks with a negative elapsedTime value if the first frame has a high deltaTime. This is needed so that during that first frame, if we execute multiple batched ticks that we're still following the world's elapsed time.
+            // World 启动时，如果首帧 DeltaTime 较大，前几个预测 Tick 的 ElapsedTime 会是负数
+            // 这样首帧执行多个批处理 Tick 时，累计时间仍能与 World 的 ElapsedTime 对齐
             networkTime.ElapsedNetworkTime = math.max(m_ElapsedTime, 0);
         }
 
         private void AdjustTargetFrameRate(int tickRate, float fixedTimeStep)
         {
             //
-            // If running as headless we nudge the Application.targetFramerate back and forth
-            // around the actual framerate -- always trying to have a remaining time of half a frame
-            // The goal is to have the while loop above tick exactly 1 time
+            // Headless 模式下会围绕实际帧率来回微调 Application.targetFrameRate
+            // 目标是始终保留约半帧的累计时间，使上方循环恰好执行一次 Tick
             //
-            // The reason for using targetFramerate is to allow Unity to sleep between frames
-            // reducing cpu usage on server.
+            // 使用 targetFrameRate 是为了让 Unity 能在帧之间休眠
+            // 从而降低服务端 CPU 占用
             //
             int rate = tickRate;
             const float aboveHalfRange = 0.75f;
             const float belowHalfRange = 0.25f;
             if (m_AccumulatedTime > aboveHalfRange * fixedTimeStep)
-                rate += 2; // higher rate means smaller deltaTime which means remaining accumulatedTime gets smaller
+                rate += 2; // 更高帧率意味着更小的 DeltaTime，从而减少剩余累计时间
             else if (m_AccumulatedTime < belowHalfRange * fixedTimeStep)
-                rate -= 2; // lower rate means bigger deltaTime which means remaining accumulatedTime gets bigger
+                rate -= 2; // 更低帧率意味着更大的 DeltaTime，从而增加剩余累计时间
 
             UnityEngine.Application.targetFrameRate = rate;
         }

@@ -9,11 +9,11 @@ using Unity.NetCode.LowLevel.Unsafe;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Helper class used by code-gen to setup the serialisation function pointers.
+    /// 代码生成用于配置序列化函数指针的辅助类
     /// </summary>
-    /// <typeparam name="TComponentType">The unmanaged buffer the helper serialise</typeparam>
-    /// <typeparam name="TSnapshot">The snaphost data struct that contains the <see cref="IBufferElementData"/> data.</typeparam>
-    /// <typeparam name="TSerializer">A concrete type that implement the <see cref="IGhostSerializer"/> interface.</typeparam>
+    /// <typeparam name="TComponentType">此辅助类要序列化的 Unmanaged Component</typeparam>
+    /// <typeparam name="TSnapshot">包含 Component 数据的 Snapshot Data 结构体</typeparam>
+    /// <typeparam name="TSerializer">实现 <see cref="IGhostSerializer"/> 接口的具体类型</typeparam>
     public static unsafe class ComponentSerializationHelper<TComponentType, TSnapshot, TSerializer>
         where TComponentType : unmanaged
         where TSnapshot : unmanaged
@@ -31,7 +31,7 @@ namespace Unity.NetCode
                 ref var startuint = ref GhostComponentSerializer.TypeCast<int>(entityStartBit, IntSize * 2 * ent);
                 startuint = writer.Length / IntSize;
 
-                // Calculate the baseline
+                // 计算 Baseline
                 TSnapshot baseline = default;
                 var baseline0Ptr = GhostComponentSerializer.TypeCast<IntPtr>(baselines, PtrSize * ent * BaselinesPerEntity);
                 if (baseline0Ptr != IntPtr.Zero)
@@ -64,19 +64,18 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// For internal use by source generator, write pre-serialized components data to the <paramref name="writer"/>
-        /// stream.
+        /// 供 Source Generator 内部使用，将预序列化的 Component Data 写入 <paramref name="writer"/> 数据流
         /// </summary>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to each individual entity</param>
-        /// <param name="maskOffsetInBits">the offset in the changemask bit array</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="baselines">the baselines for each entity</param>
-        /// <param name="writer">the output data stream</param>
-        /// <param name="compressionModel">the compression model used to compressed the stream</param>
-        /// <param name="entityStartBit">an array of start/end offset in the data stream, that denote for each individual component where their compressed data is stored in the data stream.</param>
+        /// <param name="serializer">用于序列化 Component 内容的 IGhostSerialized 实例</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">应用于每个 Entity 的 Stride</param>
+        /// <param name="maskOffsetInBits">ChangeMask 位数组中的 Offset</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="baselines">每个 Entity 的 Baseline</param>
+        /// <param name="writer">输出 Data Stream</param>
+        /// <param name="compressionModel">用于压缩数据流的 Compression Model</param>
+        /// <param name="entityStartBit">Data Stream 中起止 Offset 的数组，表示每个 Component 的压缩数据存储位置</param>
         public static void PostSerializeComponents(TSerializer serializer,
             IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             int maskOffsetInBits,
@@ -89,22 +88,21 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// For internal use by source generator, copy the component data to the snapshot,
-        /// calculate the change masks, and write the delta compressed snapshot data to the <paramref name="writer"/>
-        /// stream.
+        /// 供 Source Generator 内部使用，将 Component Data 复制到 Snapshot，计算 ChangeMask，
+        /// 并将经过 Delta Compression 的 Snapshot Data 写入 <paramref name="writer"/> 数据流
         /// </summary>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to each individual entity</param>
-        /// <param name="maskOffsetInBits">the offset in the changemask bit array</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="baselines">the baselines for each entity</param>
-        /// <param name="writer">the output data stream</param>
-        /// <param name="compressionModel">the compression model used to compressed the stream</param>
-        /// <param name="entityStartBit">an array of start/end offset in the data stream, that denote for each individual component where their compressed data is stored in the data stream.</param>
+        /// <param name="serializer">用于序列化 Component 内容的 IGhostSerialized 实例</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">应用于每个 Entity 的 Stride</param>
+        /// <param name="maskOffsetInBits">ChangeMask 位数组中的 Offset</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="baselines">每个 Entity 的 Baseline</param>
+        /// <param name="writer">输出 Data Stream</param>
+        /// <param name="compressionModel">用于压缩数据流的 Compression Model</param>
+        /// <param name="entityStartBit">Data Stream 中起止 Offset 的数组，表示每个 Component 的压缩数据存储位置</param>
         public static void SerializeComponents(TSerializer serializer,
             IntPtr stateData, IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             int maskOffsetInBits, IntPtr componentData, int count, IntPtr baselines, ref DataStreamWriter writer,
@@ -131,16 +129,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Copy component data to the snapshot buffer using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略将 Component Data 复制到 Snapshot Buffer
         /// </summary>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to snapshot pointer for each individual entity</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="componentStride">the stride to apply to component pointer for each individual entity</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">每个 Entity 应用于 Snapshot 指针的 Stride</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="componentStride">每个 Entity 应用于 Component 指针的 Stride</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="serializer">用于序列化 Component 内容的 IGhostSerialized 实例</param>
         public static void CopyComponentsToSnapshot(IntPtr stateData, IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             IntPtr componentData, int componentStride, int count, TSerializer serializer)
         {
@@ -154,16 +152,16 @@ namespace Unity.NetCode
         }
 
         /// <summary>
-        /// Copy the component data from the snapshot buffer using the <paramref name="serializer"/> strategy.
+        /// 使用 <paramref name="serializer"/> 策略从 Snapshot Buffer 复制 Component Data
         /// </summary>
-        /// <param name="stateData">a pointer to the <see cref="GhostSerializerState"/> struct </param>
-        /// <param name="snapshotData">the snapshot buffer</param>
-        /// <param name="snapshotOffset">the current offset in the snapshot buffer</param>
-        /// <param name="snapshotStride">the stride to apply to snapshot pointer for each individual entity</param>
-        /// <param name="componentData">a pointer to the chunk component data </param>
-        /// <param name="componentStride">the stride to apply to component pointer for each individual entity</param>
-        /// <param name="count">the number of entities</param>
-        /// <param name="serializer">the IGhostSerialized instance used to serialize the buffer content</param>
+        /// <param name="stateData">指向 <see cref="GhostSerializerState"/> 结构体的指针</param>
+        /// <param name="snapshotData">Snapshot Buffer 数据</param>
+        /// <param name="snapshotOffset">Snapshot Buffer 中的当前 Offset</param>
+        /// <param name="snapshotStride">每个 Entity 应用于 Snapshot 指针的 Stride</param>
+        /// <param name="componentData">指向 Chunk Component Data 的指针</param>
+        /// <param name="componentStride">每个 Entity 应用于 Component 指针的 Stride</param>
+        /// <param name="count">Entity 数量</param>
+        /// <param name="serializer">用于序列化 Component 内容的 IGhostSerialized 实例</param>
         public static void CopyComponentsFromSnapshot(IntPtr stateData, IntPtr snapshotData, int snapshotOffset, int snapshotStride,
             IntPtr componentData, int componentStride, int count, TSerializer serializer)
         {
@@ -171,7 +169,7 @@ namespace Unity.NetCode
             for (int i = 0; i < count; ++i)
             {
                 ref var snapshotInterpolationData = ref GhostComponentSerializer.TypeCast<SnapshotData.DataAtTick>(snapshotData, snapshotStride * i);
-                //Compute the required owner mask for the components and buffers by retrievieng the ghost owner id from the data for the current tick.
+                // 从当前 Tick 数据获取 Ghost Owner ID，并据此计算 Component 与 Buffer 所需的 Owner Mask
                 if((deserializerState.SendToOwner & snapshotInterpolationData.RequiredOwnerSendMask) == 0)
                     continue;
 

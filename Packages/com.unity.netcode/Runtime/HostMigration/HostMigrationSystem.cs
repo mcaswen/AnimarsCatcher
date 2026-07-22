@@ -14,24 +14,24 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.NetCode.HostMigration
 {
     /// <summary>
-    /// Enable the host migration feature. This will enable the host migration systems and
-    /// is required for host migration to work.
+    /// 启用 Host Migration 功能
+    /// 此组件会启用 Host Migration System，是 Host Migration 正常工作的必要条件
     /// </summary>
     public struct EnableHostMigration : IComponentData { }
 
     /// <summary>
-    /// This tag is added to ghost entities on the new server when they have been respawned after a host migration.
+    /// Host Migration 后在新服务器上重新生成 Ghost Entity 时添加的 Tag
     /// </summary>
     public struct IsMigrated : IComponentData { }
 
     /// <summary>
-    /// This component will be present for the duration of a host migration. It can be used when certain
-    /// systems or operations should run or not run according to host migration state.
+    /// 此组件在 Host Migration 期间始终存在
+    /// 可用于根据 Host Migration 状态决定某些系统或操作是否运行
     /// </summary>
     public struct HostMigrationInProgress : IComponentData { }
 
     /// <summary>
-    /// Tag a connection to have the migrated component data copied into the components
+    /// 标记连接，使迁移的组件数据复制到其组件中
     /// </summary>
     struct MigrateComponents : IComponentData
     {
@@ -47,54 +47,51 @@ namespace Unity.NetCode.HostMigration
     }
 
     /// <summary>
-    /// Request a host migration using HostMigrationData. Will wait until the given
-    /// entity scenes have finished loading. While this component
-    /// is present you know a host migration is still in process.
+    /// 使用 HostMigrationData 请求 Host Migration
+    /// 系统会等待指定 Entity Scene 加载完成
+    /// 此组件存在时表示 Host Migration 仍在进行
     /// </summary>
     struct HostMigrationRequest : IComponentData
     {
         /// <summary>
-        /// The subscenes the new server taking over hosting duties is loading. These
-        /// should finish loading before host migration can proceed to spawning ghosts.
+        /// 接管 Host 职责的新服务器正在加载的 SubScene
+        /// 必须完成加载后，Host Migration 才能继续生成 Ghost
         /// </summary>
         public NativeArray<Entity> ServerSubScenes;
 
         /// <summary>
-        /// How many ghost prefab types should exist on the new host after loading
-        /// all subscenes and preparing ghost prefab collection.
+        /// 加载全部 SubScene 并准备好 Ghost Prefab Collection 后，
+        /// 新 Host 应存在的 Ghost Prefab 类型数量
         /// </summary>
         public int ExpectedPrefabCount;
     }
 
     /// <summary>
-    /// Configuration that can be tune the behaviour of certain internal systems
-    /// within the host migration feature.
+    /// 用于调整 Host Migration 功能中部分内部系统行为的配置
     /// </summary>
     public struct HostMigrationConfig : IComponentData
     {
         /// <summary>
-        /// Store ghosts owned by the local client on the host. As during a host migration
-        /// the original host including the client are gone it might be ok to not include the
-        /// ghosts owned by the now gone client.
+        /// 是否保存 Host 上本地客户端拥有的 Ghost
+        /// Host Migration 期间原 Host 及其客户端都会离开，
+        /// 因此可以不包含这个已离开客户端拥有的 Ghost
         /// </summary>
         [MarshalAs(UnmanagedType.U1)]
         public bool StoreOwnGhosts;
 
         /// <summary>
-        /// The time given for the data of the host migration to be deployed. Is
-        /// mostly the time needed to wait for subscenes to load and the full list of ghost prefabs
-        /// to be loaded.
+        /// 部署 Host Migration 数据允许使用的时间
+        /// 主要用于等待 SubScene 和完整 Ghost Prefab 列表加载完成
         /// </summary>
         public float MigrationTimeout;
 
         /// <summary>
-        /// The amount of time to elapse between gathering all the host migration data
-        /// to be sent to the service.
+        /// 每次采集准备发送到服务的完整 Host Migration 数据之间的时间间隔
         /// </summary>
         public float ServerUpdateInterval;
 
         /// <summary>
-        /// Returns the default config options for host migration.
+        /// 返回 Host Migration 的默认配置选项
         /// </summary>
         public static HostMigrationConfig Default = new HostMigrationConfig()
         {
@@ -105,28 +102,30 @@ namespace Unity.NetCode.HostMigration
     }
 
     /// <summary>
-    /// Statistics for a running host migration system on the host.
+    /// Host 上正在运行的 Host Migration System 统计信息
     /// </summary>
     public struct HostMigrationStats : IComponentData
     {
         /// <summary>
-        /// How many ghosts are present in the host migration data.
+        /// Host Migration 数据中的 Ghost 数量
         /// </summary>
         public int GhostCount;
         /// <summary>
-        /// How many ghost prefabs are in the host migration data.
+        /// Host Migration 数据中的 Ghost Prefab 数量
         /// </summary>
         public int PrefabCount;
         /// <summary>
-        /// The size of the last serialized host migration data blob. This is the blob accessed via <see cref="HostMigrationData.Get"/>.
+        /// 最近一次序列化 Host Migration Data Blob 的大小
+        /// 该 Blob 通过 <see cref="HostMigrationData.Get"/> 访问
         /// </summary>
         public int UpdateSize;
         /// <summary>
-        /// The total size collected so far from the host migration system.
+        /// Host Migration System 目前累计采集的数据总大小
         /// </summary>
         public int TotalUpdateSize;
         /// <summary>
-        /// The last time the host migration data blob was updated. Accessed via <see cref="HostMigrationData.Get"/>.
+        /// Host Migration Data Blob 最近一次更新的时间
+        /// 通过 <see cref="HostMigrationData.Get"/> 访问
         /// </summary>
         public double LastDataUpdateTime;
     }
@@ -160,19 +159,18 @@ namespace Unity.NetCode.HostMigration
 
     struct GhostData
     {
-        // Assumes GhostType guid will match type index. A matching GhostCollectionPrefab
-        // must exist
+        // 假定 GhostType GUID 与类型索引匹配，并且必须存在匹配的 GhostCollectionPrefab
         public int GhostType;
         /// <summary>
-        /// The ghost ID of this particular spawned ghost type
+        /// 此已生成 Ghost 类型的 Ghost ID
         /// </summary>
         public int GhostId;
         /// <summary>
-        /// The spawn tick of this ghost
+        /// 此 Ghost 的 Spawn Tick
         /// </summary>
         public NetworkTick SpawnTick;
         /// <summary>
-        /// The component data for each ghost component
+        /// 每个 Ghost 组件的组件数据
         /// </summary>
         public NativeArray<DataComponent> DataComponents;
     }
@@ -192,23 +190,23 @@ namespace Unity.NetCode.HostMigration
 
     struct HostPrespawnGhostIdRangeData
     {
-        // the scene for which the range is applied to
+        // 此范围所应用的 Scene
         public ulong SubSceneHash;
-        // the first id in the range
+        // 范围中的第一个 ID
         public int FirstGhostId;
     }
 
     struct HostConnectionData
     {
-        // NOTE: - transport already exchanges a unique connection token but it is internal connection data atm
-        //       - transport NetworkConnection also already has a unique ConnectionId but it is also internal
-        //         (consists of ID+Version, so a reused ID 0 will be Id=0,Version=2 which together will be unique)
-        //       - this could simply be an incrementing integer, only difference to NetworkId is that it's never re-used
-        //         throughout session, but this seems like duplicated data (we already have this but just internal transport data)
-        public uint UniqueId;               // Unique ID to know what ghosts you owned before
-        public int NetworkId;               // This doesn't matter when there is a unique connection Id, maybe good for debugging
-        public bool NetworkStreamInGame;    // Maybe it was off when the migration occured, should return to same status
-        public int ScenesLoadedCount;       // PrespawnSectionAck buffer will follow up to the count value
+        // 注意：Transport 已经交换唯一连接 Token，但目前它属于内部连接数据
+        // Transport NetworkConnection 也已有唯一 ConnectionId，但同样属于内部数据
+        // 它由 ID 和 Version 组成，因此复用的 ID 0 可能表示 Id=0、Version=2，组合后仍然唯一
+        // 此值也可以只是递增整数，与 NetworkId 的唯一区别是整个会话期间绝不复用
+        // 但这样似乎会重复保存 Transport 内部已经存在的数据
+        public uint UniqueId;               // 用于识别之前拥有过哪些 Ghost 的唯一 ID
+        public int NetworkId;               // 存在唯一 Connection ID 后此值并非必要，但可能便于调试
+        public bool NetworkStreamInGame;    // 迁移发生时可能处于关闭状态，应恢复到相同状态
+        public int ScenesLoadedCount;       // PrespawnSectionAck Buffer 会延续到此计数值
         public NativeArray<ConnectionComponent> Components;
     }
 
@@ -224,14 +222,13 @@ namespace Unity.NetCode.HostMigration
     }
 
     /// <summary>
-    /// This system monitors for the host migration request and handles the actual
-    /// migration itself with the data set in the HostMigrationData class. It also
-    /// gathers the migration data for sending to the lobby (the sender will
-    /// monitor the update timer on the data for detecting when new data is ready).
+    /// 此系统监控 Host Migration 请求，并使用 HostMigrationData 类中设置的数据执行实际迁移
+    /// 它还采集准备发送到 Lobby 的迁移数据，
+    /// 发送方会监控数据上的更新时间，以检测新数据何时就绪
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
-    [UpdateAfter(typeof(GhostSendSystem))]  // Send system assigns GhostID/GhostType on new entity instantiations (we need those set/ready in the host migration data)
+    [UpdateAfter(typeof(GhostSendSystem))]  // Send System 为新实例化 Entity 分配 Ghost ID 和 GhostType，Host Migration 数据需要这些值已设置并就绪
     [BurstCompile]
     partial struct ServerHostMigrationSystem : ISystem
     {
@@ -343,16 +340,16 @@ namespace Unity.NetCode.HostMigration
             var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
             var hostMigrationData = SystemAPI.GetSingleton<HostMigrationStorage>();
 
-            // Restore the connection data from previous session, this happens after accepting the connection
+            // 接受连接后恢复上一个会话的连接数据
             foreach (var (uniqueId, migrate, entity) in SystemAPI.Query<RefRO<ConnectionUniqueId>, RefRW<MigrateComponents>>().WithEntityAccess())
             {
-                // First we need to add the component, causing a structural change
+                // 首先添加组件并触发结构变更
                 if (migrate.ValueRW.Step == 0)
                 {
                     migrate.ValueRW.Step++;
                     HostMigrationData.HandleReconnection(hostMigrationData.HostData.Connections, commandBuffer, entity, uniqueId.ValueRO);
                 }
-                // After the component is added to the connection entity we can copy the migrated connection data
+                // 向连接 Entity 添加组件后，即可复制迁移的连接数据
                 else if (migrate.ValueRW.Step == 1)
                 {
                     commandBuffer.RemoveComponent<MigrateComponents>(entity);
@@ -374,7 +371,7 @@ namespace Unity.NetCode.HostMigration
                     state.EntityManager.AddComponentData(connectionMapEntity, new ConnectionMap(){UniqueIdToPreviousNetworkId = m_NetworkIdMap});
                 }
 
-                // Start loading the entity scenes as soon as the prespawn list prefab has been created
+                // Prespawn List Prefab 创建后立即开始加载 Entity Scene
                 if (migrationRequest.ServerSubScenes.Length == 0 && hostMigrationData.HostData.SubScenes.Length > 0)
                 {
                     var sceneEntities = new NativeArray<Entity>(hostMigrationData.HostData.SubScenes.Length, Allocator.Persistent);
@@ -404,7 +401,7 @@ namespace Unity.NetCode.HostMigration
                     SpawnAllGhosts(ref state, hostMigrationData.Ghosts.Ghosts, hostMigrationData.Ghosts.GhostPrefabs);
                 }
 
-                // Host migration has timed out (not all subscenes have finished loading and/or not all ghost prefabs exist)
+                // Host Migration 已超时，即并非所有 SubScene 都已加载完成，或并非所有 Ghost Prefab 都存在
                 if (state.WorldUnmanaged.Time.ElapsedTime > m_MigrationTime)
                 {
                     var ghostPrefabs = SystemAPI.GetSingletonBuffer<GhostCollectionPrefab>();
@@ -421,7 +418,7 @@ namespace Unity.NetCode.HostMigration
                         Debug.LogError($"No connection with NetworkStreamInGame found, no ghost prefab will be loaded into the ghost collection until that happens.");
                 }
             }
-            // Only do updates when no host migration is taking place
+            // 仅在没有进行 Host Migration 时执行更新
             else if (m_LastServerUpdate + config.ServerUpdateInterval < state.WorldUnmanaged.Time.ElapsedTime)
             {
                 if (SystemAPI.GetSingleton<GhostCollection>().NumLoadedPrefabs == 0)
@@ -431,9 +428,10 @@ namespace Unity.NetCode.HostMigration
                 state.EntityManager.CompleteAllTrackedJobs();
                 GetHostConfigurationForSerializer(ref state, hostMigrationData.HostDataBlob, config, networkTime);
 
-                // TODO: Find a better way to gather the ghost component types we need, this iterates all ghost components
-                // and figures out which are being used currently by a ghost prefab because we have ca 500 ghost
-                // types, only 128 types (can be increased to 256 via define) is supported by netcode (DynamicTypeList limitation)
+                // TODO 寻找更好的方式采集所需 Ghost 组件类型
+                // 当前会遍历全部 Ghost 组件并判断 Ghost Prefab 正在使用哪些组件
+                // 项目大约有 500 种 Ghost 类型，但受 DynamicTypeList 限制，NetCode 只支持 128 种，
+                // 可通过定义提升到 256 种
                 var ghostComponentCollection = SystemAPI.GetSingletonBuffer<GhostComponentSerializer.State>();
                 var ghostPrefabsBuffer = SystemAPI.GetSingletonBuffer<GhostCollectionPrefab>();
                 var ghostTypes = new NativeHashSet<ComponentType>(ghostComponentCollection.Length, Allocator.Temp);
@@ -462,7 +460,7 @@ namespace Unity.NetCode.HostMigration
                 var stateSave = new WorldStateSave(Allocator.Persistent).WithRequiredTypes(requiredTypes).WithOptionalTypes(ghostTypes).Initialize(ref state);
                 var stateSaveJob = stateSave.ScheduleStateSaveJob(ref state);
 
-                // TODO: Cache prefab list, update when count changes
+                // TODO 缓存 Prefab 列表，仅在数量变化时更新
                 var ghostPrefabs = new NativeArray<GhostPrefabData>(ghostPrefabsBuffer.Length, Allocator.Persistent);
                 for (int i = 0; i < ghostPrefabs.Length; ++i)
                 {
@@ -473,7 +471,7 @@ namespace Unity.NetCode.HostMigration
                     };
                 }
 
-                // Find the network ID of the local client
+                // 查找本地客户端的 Network ID
                 int localNetworkId = 0;
                 if (!config.StoreOwnGhosts)
                 {
@@ -502,7 +500,7 @@ namespace Unity.NetCode.HostMigration
                 state.Dependency.Complete();
             }
 
-            // For new connections check if they previously owned any ghosts
+            // 对新连接检查其之前是否拥有过任何 Ghost
             var connectionEventsForTick = SystemAPI.GetSingleton<NetworkStreamDriver>().ConnectionEventsForTick;
             for (int i = 0; i < connectionEventsForTick.Length; ++i)
             {
@@ -516,7 +514,7 @@ namespace Unity.NetCode.HostMigration
             commandBuffer.Playback(state.EntityManager);
         }
 
-        // TODO: Cache the result, or find a better way to figure this out in burst friendly way
+        // TODO 缓存结果，或寻找更兼容 Burst 的判断方式
         bool IsInputBuffer(ComponentType componentType, DynamicBuffer<GhostComponentSerializer.State> ghostComponentCollection)
         {
             var collectionData = SystemAPI.GetSingleton<GhostComponentSerializerCollectionData>();
@@ -544,10 +542,10 @@ namespace Unity.NetCode.HostMigration
         NativeList<Entity> SpawnAllGhosts(ref SystemState state, NativeArray<GhostData> ghosts, NativeArray<GhostPrefabData> ghostPrefabs)
         {
             var ghostEntities = new NativeList<Entity>(ghosts.Length, Allocator.Temp);
-            // Create ghost type mapping in case the ghost type indexes are not the same (subscene load ordering changed for example)
+            // 创建 Ghost Type 映射，以处理 Ghost 类型索引不一致的情况，例如 SubScene 加载顺序发生变化
             var ghostTypeMap = CreateGhostTypeMap(ghostPrefabs);
 
-            // save the ghostIds we have used so we can mark unused ids as free once we have added all the override components
+            // 保存已经使用的 Ghost ID，以便添加全部 Override 组件后把未使用 ID 标记为空闲
             var hostMigrationData = SystemAPI.GetSingleton<HostMigrationStorage>();
             NativeBitArray migratedGhostIds = new NativeBitArray(hostMigrationData.HostData.NextNewGhostId, Allocator.Temp);
 
@@ -598,11 +596,11 @@ namespace Unity.NetCode.HostMigration
                 state.EntityManager.AddComponent<IsMigrated>(entity);
             }
 
-            // after instancing all the migrated ghosts we have added the override components so we move any unused ids back to the free list
-            // this will keep the ids from wandering after multiple migrations
+            // 实例化全部迁移 Ghost 并添加 Override 组件后，把未使用 ID 移回空闲列表
+            // 这样可以防止 ID 在多次迁移后不断增长
             var spawnedGhostEntityMapData = SystemAPI.GetSingletonRW<SpawnedGhostEntityMap>();
 
-            for (int i = 1; i < hostMigrationData.HostData.NextNewGhostId; ++i) // start on 1 since GhostId 0 is not a valid id
+            for (int i = 1; i < hostMigrationData.HostData.NextNewGhostId; ++i) // 从 1 开始，因为 Ghost ID 0 无效
             {
                 if (!migratedGhostIds.IsSet(i))
                 {
@@ -617,9 +615,8 @@ namespace Unity.NetCode.HostMigration
         {
             var ghostPrefabs = SystemAPI.GetSingletonBuffer<GhostCollectionPrefab>();
             var ghostTypeMap = new NativeHashMap<int, int>(ghostPrefabs.Length, Allocator.Temp);
-            // Go though all registered prefabs and verify the ghost type hash matches what the type index
-            // from the migrated ghost types. When you say spawn index X you know the actual underlying ghost type
-            // struct is the same as it was before the migration.
+            // 遍历全部已注册 Prefab，验证 Ghost Type Hash 是否与迁移 Ghost 类型中的类型索引匹配
+            // 这样按索引 X 生成时，可以确定底层实际 Ghost 类型结构体与迁移前相同
             for (int i = 0; i < ghostPrefabs.Length; ++i)
             {
                 for (int j = 0; j < ghostData.Length; ++j)
@@ -671,7 +668,7 @@ namespace Unity.NetCode.HostMigration
                 }
                 else
                 {
-                    // Deserialize buffer, the new ghosts will have 0 elements to start with
+                    // 反序列化 Buffer，新 Ghost 初始时包含 0 个元素
                     var bufferData = chunk.GetUntypedBufferAccessor(ref typeHandle);
                     var length = componentData.Length;
                     if (length > 0)
@@ -685,8 +682,8 @@ namespace Unity.NetCode.HostMigration
         }
 
         /// <summary>
-        /// Gather the host data to be used for the host migration. The data is always stored
-        /// in minified json.
+        /// 采集 Host Migration 使用的 Host Data
+        /// 数据始终以精简 JSON 保存
         /// </summary>
         unsafe void GetHostConfigurationForSerializer(ref SystemState state, NativeList<byte> hostDataBlob, HostMigrationConfig config, NetworkTime networkTime)
         {
@@ -730,7 +727,7 @@ namespace Unity.NetCode.HostMigration
                             var connectionComponent = new ConnectionComponent()
                             {
                                 StableHash = typeInfo.StableTypeHash,
-                                // TODO: Cleanup allocation
+                                // TODO 清理此次分配
                                 Data = new NativeArray<byte>(compSize, Allocator.Persistent)
                             };
                             if (compSize != 0)
@@ -759,7 +756,7 @@ namespace Unity.NetCode.HostMigration
                 migrationData.Connections[i] = conData;
             }
 
-            // Collect scene host data
+            // 采集 Scene Host Data
             var subsceneData = m_SubsceneQuery.ToComponentDataArray<SceneSectionData>(Allocator.Temp);
             migrationData.SubScenes = new NativeArray<HostSubSceneData>(subsceneData.Length, Allocator.Persistent);
             for (int i = 0; i < subsceneData.Length; ++i)
@@ -770,12 +767,12 @@ namespace Unity.NetCode.HostMigration
                 };
             }
 
-            // Get the highest allocated ghost id, we use this to start the migrated server at the same value
-            // so no new ghosts are created with clashing GhostIds when we migrate them
+            // 获取已分配的最大 Ghost ID，并让迁移后的服务器从相同值开始
+            // 确保迁移 Ghost 时不会创建 Ghost ID 冲突的新 Ghost
             migrationData.NextNewGhostId = SystemAPI.GetSingleton<SpawnedGhostEntityMap>().m_ServerAllocatedGhostIds[0];
             migrationData.NextNewPrespawnGhostId = SystemAPI.GetSingleton<SpawnedGhostEntityMap>().m_ServerAllocatedGhostIds[1];
 
-            // Collect the Prespawn GhostId Ranges, these are used to ensure prespans are given matching Ids between migrations
+            // 采集 Prespawn Ghost ID Range，用于确保 Prespawn 在多次迁移之间获得匹配 ID
             if (SystemAPI.HasSingleton<PrespawnGhostIdRange>())
             {
                 var prespawnGhostIdRanges = SystemAPI.GetBuffer<PrespawnGhostIdRange>(SystemAPI.GetSingletonEntity<PrespawnGhostIdRange>());
@@ -787,7 +784,7 @@ namespace Unity.NetCode.HostMigration
                     {
                         SubSceneHash = prespawnGhostIdRanges[i].SubSceneHash,
                         FirstGhostId = prespawnGhostIdRanges[i].FirstGhostId
-                        // We don't need to copy the count here as it will be reassigned correctly in ServerPopulatePrespawnedGhostsSystem::AllocatePrespawnGhostRange
+                        // 此处无需复制 Count，ServerPopulatePrespawnedGhostsSystem::AllocatePrespawnGhostRange 会正确地重新赋值
                     };
                 }
             }
@@ -865,9 +862,9 @@ namespace Unity.NetCode.HostMigration
 
 
         /// <summary>
-        /// On the server check if an incoming connection is a known connection reconnecting
-        /// which should then be placed in game immediately (as it was so before). Needs to be
-        /// done after the connection is ready (has fully connected and has a network ID).
+        /// 在服务器上检查入站连接是否为已知连接的重连
+        /// 如果是，则应立即让它进入游戏，恢复之前的状态
+        /// 必须在连接就绪，即完全连接并取得 Network ID 后执行
         /// </summary>
         void HandleNetworkStreamInGame(NativeArray<HostConnectionData> hostMigrationConnections, EntityCommandBuffer commandBuffer, Entity connectionEntity, ConnectionUniqueId uniqueId)
         {
@@ -905,7 +902,7 @@ namespace Unity.NetCode.HostMigration
             unsafe
             {
                 GhostDataBlob.Clear();
-                // Use double estimated size, the actual size could be bigger than the estimate
+                // 使用估算大小的两倍，因为实际大小可能超过估算值
                 var requiredSize =2*(StateSave.Size + GhostPrefabs.Length * sizeof(GhostPrefabData) + 2 * sizeof(int));
                 if (GhostDataBlob.Capacity < requiredSize)
                     GhostDataBlob.Resize(2*requiredSize, NativeArrayOptions.ClearMemory);
@@ -931,7 +928,7 @@ namespace Unity.NetCode.HostMigration
 
         bool WriteAllGhostData(ref DataStreamWriter writer)
         {
-            // Write prefab data
+            // 写入 Prefab 数据
             writer.WriteShort((short)GhostPrefabs.Length);
             foreach (var ghostPrefab in GhostPrefabs)
             {
@@ -957,11 +954,12 @@ namespace Unity.NetCode.HostMigration
 
         unsafe bool WriteGhost(ref DataStreamWriter writer, WorldStateSave.StateSaveEntry entry)
         {
-            // TODO: Maybe have a quick convencience method to get these bits (this is in SavedEntityID but can't get it from entry)
-            // First find the GhostInstance to get the ghost ID/type information
+            // TODO 可以增加快速获取这些 bit 的便捷方法
+            // 这些信息位于 SavedEntityID 中，但无法从 Entry 取得
+            // 首先查找 GhostInstance，以获取 Ghost ID 和类型信息
             var foundGhostInstance = false;
             GhostInstance ghostInstance = default;
-            // TODO: Could add this API
+            // TODO 可以添加此 API
             //entry.TryGetComponent<GhostInstance>(out ghostInstance);
             foreach (var compData in entry)
             {
@@ -976,12 +974,13 @@ namespace Unity.NetCode.HostMigration
                 if (compData.Type == ComponentType.ReadOnly<GhostOwner>())
                 {
                     compData.ToConcrete(out GhostOwner ghostOwner);
-                    // Omit the ghosts owned by the host as he's leaving the session
+                    // Host 即将离开会话，因此忽略它拥有的 Ghost
                     if (!StoreOwnGhosts && ghostOwner.NetworkId == LocalNetworkId)
                         return false;
                 }
 
-                // Skip the special case of the entity tracking loaded prespawn scenes, the whole entity must be skipped, not just the component (it will be recreated automatically)
+                // 跳过跟踪已加载 Prespawn Scene 的特殊 Entity
+                // 必须跳过整个 Entity 而不只是组件，因为它会自动重建
                 if (compData.Type == ComponentType.ReadOnly<PrespawnSceneLoaded>())
                     return false;
             }

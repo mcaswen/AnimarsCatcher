@@ -76,7 +76,7 @@ namespace Unity.NetCode.Tests
                 for(int i=0; i<16; ++i)
                     testWorld.Tick();
 
-                //we should not have any object yet attached to the ghost. But the ghost must have some component data here.
+                // Ghost 刚生成时尚未挂接表现对象，但必须已经包含表现系统所需的组件数据
                 var entity = testWorld.SpawnOnServer(0);
                 if (presentOnServer)
                 {
@@ -86,14 +86,14 @@ namespace Unity.NetCode.Tests
                     Assert.IsTrue(testWorld.ServerWorld.EntityManager.HasComponent<GhostPresentationGameObjectPrefab>(prefabReference.Prefab));
                     Assert.AreEqual(cube, testWorld.ServerWorld.EntityManager.GetComponentObject<GhostPresentationGameObjectPrefab>(prefabReference.Prefab).Server);
                     testWorld.Tick();
-                    //the server should now add the cleanup to track the object and a gameobject should have been spawned
+                    // 推进一个 Tick 后，服务端应添加清理状态用于追踪对象，并生成对应 GameObject
                     Assert.IsTrue(testWorld.ServerWorld.EntityManager.HasComponent<GhostPresentationGameObjectState>(entity));
                     Assert.AreEqual(0, testWorld.ServerWorld.EntityManager.GetComponentData<GhostPresentationGameObjectState>(entity).GameObjectIndex);
                     var serverGameObject = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().GetGameObjectForEntity(testWorld.ServerWorld.EntityManager, entity);
                     Assert.IsNotNull(serverGameObject);
                 }
 
-                //spawn on client side
+                // 等待客户端生成 Ghost 及其表现对象
                 for(int i=0; i<8; ++i)
                     testWorld.Tick();
 
@@ -121,12 +121,12 @@ namespace Unity.NetCode.Tests
                 var lt = world.EntityManager.GetComponentData<LocalTransform>(entity);
                 var ltw = world.EntityManager.GetComponentData<LocalToWorld>(entity);
                 var go = world.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().GetGameObjectForEntity(world.EntityManager,entity);
-                //the LT and LTW must be different
+                // LocalTransform 与 LocalToWorld 应存在差异
                 Assert.AreNotEqual(0f, math.distance(ltw.Position, lt.Position));
                 Assert.AreNotEqual(0f, math.angle(ltw.Rotation, lt.Rotation));
                 var scale = ltw.Value.Scale();
                 Assert.AreEqual(0f, math.distance(scale, lt.Scale));
-                //and transform should be identical to LTW
+                // GameObject 的位置和旋转应与 LocalToWorld 一致，但缩放保持为自身默认值
                 Assert.AreEqual(0f, math.distance(go.transform.localPosition, ltw.Position));
                 Assert.AreEqual(0f, math.angle(go.transform.localRotation, ltw.Rotation));
                 Assert.AreNotEqual(0f, math.distance(go.transform.localScale, scale));
@@ -135,9 +135,8 @@ namespace Unity.NetCode.Tests
             using (var testWorld = new NetCodeTestWorld())
             {
                 testWorld.TestSpecificAdditionalAssemblies.Add("Unity.NetCode.Hybrid");
-                //We use a custom transform system here that guarantee we are doing something custom for transform so we can
-                //easily test.
-                //Another possible test is to use either prediction switching or physics with interpolation.
+                // 使用自定义 Transform System 强制生成与 LocalTransform 不同的 LocalToWorld，便于明确验证同步来源
+                // 也可以通过预测模式切换或物理插值构造类似测试场景
                 testWorld.Bootstrap(true, typeof(CustomPresetationSystem), typeof(UpdateTransformSystem));
                 var cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 var go = new GameObject("GhostPresentation");
@@ -159,13 +158,12 @@ namespace Unity.NetCode.Tests
                     testWorld.GetSingletonBuffer<GhostCollectionPrefab>(testWorld.ClientWorlds[0])[0].GhostPrefab);
 
                 var serverEntity = testWorld.SpawnOnServer(0);
-                //we don't sync scale, nor the PostfixMatrix is supported for PresentationGameObject.
-                //that may make sense or depending on the context.
-                //But we are definitively assert in the test that the scaling can be different
+                // PresentationGameObject 不同步缩放，也不支持 PostfixMatrix
+                // 这种行为是否合理取决于具体场景，本测试只明确验证表现对象允许使用不同缩放
                 testWorld.ServerWorld.EntityManager.SetComponentData(serverEntity, LocalTransform.FromPositionRotationScale(new float3(10f, 10f, 10f), quaternion.identity, 5f));
                 testWorld.Tick();
-                //TODO: this is the wrong patter an we should change this (we should not call other systems)
-                //TODO: seems to complicate retrieve the GameObject (we should just have an UnityObjectRef in a unmanaged component).
+                // TODO：当前模式不理想，不应直接调用其他 System
+                // TODO：获取 GameObject 的过程过于复杂，后续应通过非托管组件中的 UnityObjectRef 直接访问
                 var serverGo = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().GetGameObjectForEntity(testWorld.ServerWorld.EntityManager, serverEntity);
 
                 VerifyPositionEqualsLTW(testWorld.ServerWorld, serverEntity);
@@ -203,25 +201,25 @@ namespace Unity.NetCode.Tests
                 for(int i=0; i<16; ++i)
                     testWorld.Tick();
 
-                //spawn a bunch
+                // 批量生成 Ghost
                 var spawnedEntities = new NativeArray<Entity>(31, Allocator.Temp);
                 for (int i = 0; i < 31; ++i)
                     spawnedEntities[i] = testWorld.SpawnOnServer(0);
 
-                //sync all
+                // 等待全部 Ghost 同步到客户端
                 for(int i=0; i<16; ++i)
                     testWorld.Tick();
 
                 var ghosts = testWorld.ClientWorlds[0].EntityManager.CreateEntityQuery(typeof(GhostInstance));
                 Assert.AreEqual(31, ghosts.CalculateEntityCount());
 
-                //we need to test one specific edge case that it despawn the last object in the list
+                // 先覆盖销毁内部列表最后一个对象的特殊边界情况
                 var lastEntity = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_Entities[^1];
                 var serverEntities = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_Entities.ToArray(Allocator.Temp);
                 var serverGameObjects = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_GameObjects.ToArray();
                 var clientEntities = testWorld.ClientWorlds[0].GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_Entities.ToArray(Allocator.Temp);
                 var clientGameObjects = testWorld.ClientWorlds[0].GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_GameObjects.ToArray();
-                //building a ghost-id to gameobject mapping here for
+                // 建立 Ghost ID 到客户端 GameObject 的映射，便于在实体销毁后验证原对象引用
                 var ghostIdToGameObject = new Dictionary<int, GameObject>();
                 var serverGhostIds = new NativeArray<int>(serverEntities.Length, Allocator.Temp);
                 for (var index = 0; index < serverGhostIds.Length; index++)
@@ -229,31 +227,31 @@ namespace Unity.NetCode.Tests
                 for (var index = 0; index < clientEntities.Length; index++)
                     ghostIdToGameObject[testWorld.ClientWorlds[0].EntityManager.GetComponentData<GhostInstance>(clientEntities[index]).ghostId] = clientGameObjects[index];
                 testWorld.ServerWorld.EntityManager.DestroyEntity(lastEntity);
-                //everthing should be still fine
+                // 推进同步后，系统状态仍应保持正确
                 for(int i=0; i<8; ++i)
                     testWorld.Tick();
-                //there should be no gameobject associated with this entity anymore
+                // 被销毁实体不应再关联 GameObject
                 Assert.IsFalse(serverGameObjects[^1]);
                 Assert.AreEqual(30, ghosts.CalculateEntityCount());
-                //and not more gameobject for it too.
+                // 继续销毁一半实体，并等待客户端同步销毁结果
                 for (int i = 0; i < 15; ++i)
                     testWorld.ServerWorld.EntityManager.DestroyEntity(serverEntities[i*2]);
                 for(int i=0; i<16; ++i)
                     testWorld.Tick();
                 Assert.AreEqual(15, ghosts.CalculateEntityCount());
-                //No more of these gameobjects present for the server and client
+                // 服务端与客户端上对应的 GameObject 都应已销毁
                 for (int i = 0; i < 15; ++i)
                 {
                     Assert.IsFalse(serverGameObjects[i * 2]);
                     Assert.IsFalse(ghostIdToGameObject[serverGhostIds[i * 2]]);
                 }
-                //despawn everything at once
+                // 一次性销毁所有剩余 Ghost
                 var remainingEntities = testWorld.ServerWorld.GetExistingSystemManaged<GhostPresentationGameObjectSystem>().m_Entities;
                 for (int i = 0; i < remainingEntities.Length; ++i)
                     testWorld.ServerWorld.EntityManager.DestroyEntity(remainingEntities[i]);
                 for(int i=0; i<16; ++i)
                     testWorld.Tick();
-                //all gameobjects should be gone at this point
+                // 此时所有服务端和客户端 GameObject 都应已销毁
                 for (int i = 0; i < serverGameObjects.Length; ++i)
                 {
                     Assert.IsFalse(serverGameObjects[i]);

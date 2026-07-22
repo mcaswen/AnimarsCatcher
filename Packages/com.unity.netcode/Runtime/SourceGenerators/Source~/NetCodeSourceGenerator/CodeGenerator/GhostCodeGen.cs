@@ -6,11 +6,10 @@ using Microsoft.CodeAnalysis.Text;
 namespace Unity.NetCode.Generators
 {
     /// <summary>
-    /// A simple cache that store an clone templates.
-    /// Is created and owned by the code-generation Context. Is not multithread safe and each SourceGenerator
-    /// has its own instance.
-    /// The cache is used by ComponentGenerator and CommandGenerator to retrieve the necessary template-fragments and
-    /// avoid reading and parsing text-file multiple time.
+    /// 存储 Template 克隆的简单缓存
+    /// 由代码生成 Context 创建并持有，本身不支持多线程，但每个 SourceGenerator 都具有独立实例
+    /// ComponentGenerator 与 CommandGenerator 通过该缓存获取所需 Template 片段
+    /// 避免重复读取和解析文本文件
     /// </summary>
     internal class GhostCodeGen
     {
@@ -51,7 +50,7 @@ namespace Unity.NetCode.Generators
             m_HeaderTemplate = "";
 
             int regionStart;
-            //every template start with an header (for now it is only #templateid). so skip the first line
+            // 每个 Template 都以 Header 开始，目前只有 #templateid，因此跳过第一行
             templateData = templateData.Substring(templateData.IndexOf('\n'));
             while ((regionStart = templateData.IndexOf("#region", StringComparison.Ordinal)) >= 0)
             {
@@ -91,14 +90,12 @@ namespace Unity.NetCode.Generators
                     {
                         m_Context.diagnostic.LogError($"The template {templateName} already contains the key [{regionNameTokens[1]}], while generating '{m_Context.generatedNs}.{m_Context.generatorName}'.");
                     }
-                    //Why are we doing this?
-                    //We need a way to customize the name of the field and component in a more flexible way.
-                    //Ideally, we should just change the template and expose a __GHOST_FIELD_PATH__ and __GHOST_REFERENCE_PATH__
-                    //or just remove the snapshot. and component., data. etc part from the templates.
-                    //However, this would cause breaking changes to user projects right now, if they are using templates.
-                    //So, as an incremental solution to the problem, we are patching this internally while processing the text.
-                    //At the moment the only substitution necessary is to remove the `.` and allow code generator to specify
-                    //if the accessor need to use a . or and indexer (for example).
+                    // 这里需要以更灵活的方式自定义字段与 Component 名称
+                    // 理想方案是修改 Template 并公开 __GHOST_FIELD_PATH__ 与 __GHOST_REFERENCE_PATH__
+                    // 或从 Template 中移除 snapshot.、component.、data. 等固定前缀
+                    // 但当前直接修改会破坏使用自定义 Template 的用户项目
+                    // 因此采用渐进方案，在处理文本时于内部修补
+                    // 目前只需移除固定的 `.`，让代码生成器决定访问器使用点号还是索引器等形式
                     regionData = regionData
                         .Replace(".__GHOST_FIELD_NAME__", "__GHOST_FIELD_PATH__")
                         .Replace(".__GHOST_FIELD_REFERENCE__", "__GHOST_FIELD_REFERENCE__");
@@ -251,10 +248,11 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
+        /// 渲染 Template 并将生成文件加入当前批次
         /// </summary>
-        /// <param name="generatorName"></param>
-        /// <param name="replacements"></param>
-        /// <param name="batch"></param>
+        /// <param name="generatorName">生成文件名称</param>
+        /// <param name="replacements">Template 替换项</param>
+        /// <param name="batch">接收生成文件的批次</param>
         public void GenerateFile(
             string generatorName,
             Dictionary<string, string> replacements, List<CodeGenerator.GeneratedFile> batch)
@@ -268,7 +266,7 @@ namespace Unity.NetCode.Generators
         }
 
         /// <summary>
-        /// Render the template to a string by emitting all the fragments and replacing all the replacements strings
+        /// 输出全部片段并应用所有替换项，将 Template 渲染为字符串
         /// </summary>
         /// <param name="replacements"></param>
         /// <returns></returns>

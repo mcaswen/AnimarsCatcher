@@ -9,148 +9,143 @@ using Unity.Jobs;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Structure that contains the ghost <see cref="ArchetypeChunk"/> to serialize.
-    /// Each chunk has its own priority, that is calculated based on the importance scaling
-    /// factor (set for each ghost prefab at authoring time) and that can be further scaled
-    /// using a custom <see cref="GhostImportance.BatchScaleImportanceFunction"/>.
+    /// 包含待序列化 Ghost <see cref="ArchetypeChunk"/> 的结构
+    /// 每个 Chunk 都有自己的优先级，该优先级根据 Authoring 时为各 Ghost Prefab 设置的 Importance 缩放系数计算
+    /// 还可以通过自定义 <see cref="GhostImportance.BatchScaleImportanceFunction"/> 进一步缩放
     /// </summary>
     public struct PrioChunk : IComparable<PrioChunk>
     {
         /// <summary>
-        /// The ghost chunk that should be processed.
+        /// 应处理的 Ghost Chunk
         /// </summary>
         public ArchetypeChunk chunk;
         /// <summary>
-        /// The priority of the chunk. When using the <see cref="GhostImportance.BatchScaleImportanceFunction"/>
-        /// scaling, it is the method responsibility to update this with the scaled priority.
+        /// Chunk 的优先级，使用 <see cref="GhostImportance.BatchScaleImportanceFunction"/> 缩放时
+        /// 该方法负责将此字段更新为缩放后的优先级
         /// </summary>
         public int priority;
         /// <summary>
-        /// Fast-path denoting the relevancy of the entire chunk.
+        /// 表示整个 Chunk 相关性的快速路径字段
         /// </summary>
         /// <remarks>
         /// <para>
-        ///     Defaults to <c>true</c> when relevancy is in mode <see cref="GhostRelevancyMode.Disabled"/> or <see cref="GhostRelevancyMode.SetIsIrrelevant"/>,
-        ///     otherwise defaults to <c>false</c>.
+        /// 当相关性模式为 <see cref="GhostRelevancyMode.Disabled"/> 或 <see cref="GhostRelevancyMode.SetIsIrrelevant"/> 时默认为 <c>true</c>
+        /// 否则默认为 <c>false</c>
         /// </para>
         /// <para>
-        ///     When using this bool, there is no need to write ghost instances into the global `GhostRelevancySet`, unless
-        ///     you need to add an exception (e.g. a ghost that is very far away from the player, yet should remain relevant).
+        /// 使用此布尔值时，无需将 Ghost 实例写入全局 GhostRelevancySet
+        /// 除非需要添加例外，例如某个 Ghost 距离玩家很远但仍应保持相关
         /// </para>
         /// <para>
-        ///     Note: Why not use <see cref="priority"/> to denote relevancy? Because relevancy still requires the chunk
-        ///     to be processed occassionally. In other words; there is a risk of breaking relevancy by forcing the importance
-        ///     to be artificially low.
+        /// 注意：不能使用 <see cref="priority"/> 表示相关性，因为相关性逻辑仍要求偶尔处理该 Chunk
+        /// 换言之，人为压低 Importance 可能会破坏相关性处理
         /// </para>
         /// </remarks>
         public bool isRelevant;
         /// <summary>
-        /// The first entity index in the chunk that should be serialized. Normally 0, but if was not possible to
-        /// serialize the whole chunk, the next time we will start replicating ghosts from that index.
+        /// Chunk 中应开始序列化的第一个实体索引，通常为 0
+        /// 如果本次无法序列化整个 Chunk，下次会从此索引继续复制 Ghost
         /// </summary>
         internal int startIndex;
         /// <summary>
-        /// The type index in the <see cref="GhostCollectionPrefab"/> used to retrieve the information for
-        /// serializing the ghost.
+        /// <see cref="GhostCollectionPrefab"/> 中的类型索引，用于获取序列化 Ghost 所需信息
         /// </summary>
         internal int ghostType;
         /// <summary>
-        /// Used for sorting the based on the priority in descending order.
+        /// 用于按优先级降序排序
         /// </summary>
-        /// <param name="other">Prio chunk</param>
-        /// <returns>Descending order.</returns>
+        /// <param name="other">另一个 PrioChunk</param>
+        /// <returns>降序比较结果</returns>
         public int CompareTo(PrioChunk other)
         {
-            // Reverse priority for sorting
+            // 反转优先级比较方向以实现降序排序
             return other.priority - priority;
         }
     }
     /// <summary>
-    /// Singleton component used to control importance scaling (also called priority scaling) settings on the server.
-    /// Used by the <see cref="GhostSendSystem"/> to help it prioritize which ghost chunks to write into each snapshot sent
-    /// to each individual connection. I.e. Importance scaling is applied on a per-connection basis.
-    /// Create this singleton in a server-only, user-code system to enable this feature.
-    /// Further reading: https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/manual/optimizations.html#importance-scaling
+    /// 用于控制服务器 Importance 缩放，也称优先级缩放设置的单例组件
+    /// <see cref="GhostSendSystem"/> 使用它确定写入各连接每个 Snapshot 的 Ghost Chunk 优先级
+    /// 因此 Importance 缩放按连接分别应用
+    /// 在仅服务器的用户代码系统中创建此单例即可启用该功能
+    /// 延伸阅读：https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/manual/optimizations.html#importance-scaling
     /// </summary>
     /// <remarks>
-    /// The most common use-case of importance scaling is "distance importance scaling". I.e. To send updates for nearby ghosts
-    /// at a significantly higher frequency than for far away ghosts. Our default implementation (<see cref="GhostDistanceImportance"/>)
-    /// does exactly that.
+    /// Importance 缩放最常见的用例是基于距离的重要度缩放
+    /// 即附近 Ghost 的更新发送频率显著高于远处 Ghost
+    /// 默认实现 <see cref="GhostDistanceImportance"/> 正是采用这种方式
     /// </remarks>
     [BurstCompile]
     public struct GhostImportance : IComponentData
     {
         /// <summary>
-        /// Scale importance delegate. This describes the interface <see cref="GhostSendSystem"/> will use to compute
-        /// importance scaling. The higher importance value returned from this method, the more often a ghost's data is synchronized.
-        /// See <see cref="GhostDistanceImportance"/> for example implementation.
+        /// Importance 缩放委托，定义 <see cref="GhostSendSystem"/> 计算 Importance 缩放时使用的接口
+        /// 此方法返回的 Importance 值越高，Ghost 数据同步越频繁
+        /// 示例实现参见 <see cref="GhostDistanceImportance"/>
         /// </summary>
-        /// <param name="connectionData">Per connection data. Ex. position in the world that should be prioritized.</param>
-        /// <param name="importanceData">Optional configuration data. Ex. Each tile's configuration. Handle IntPtr.Zero!</param>
-        /// <param name="chunkTile">Per chunk information. Ex. each entity's tile index.</param>
-        /// <param name="basePriority">Priority computed by <see cref="GhostSendSystem"/> after computing tick when last updated and irrelevance.</param>
-        /// <returns>Scale importance value.</returns>
+        /// <param name="connectionData">每个连接的数据，例如世界中应优先处理的位置</param>
+        /// <param name="importanceData">可选配置数据，例如各 Tile 的配置，必须处理 IntPtr.Zero</param>
+        /// <param name="chunkTile">每个 Chunk 的信息，例如实体的 Tile 索引</param>
+        /// <param name="basePriority"><see cref="GhostSendSystem"/> 根据上次更新 Tick 和非相关状态计算的优先级</param>
+        /// <returns>缩放后的 Importance 值</returns>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate int ScaleImportanceDelegate(IntPtr connectionData, IntPtr importanceData, IntPtr chunkTile, int basePriority);
 
         /// <summary>
-        /// Default implementation of <see cref="ScaleImportanceDelegate"/>. Will return basePriority without computation.
+        /// <see cref="ScaleImportanceDelegate"/> 的默认实现，不进行计算并直接返回 basePriority
         /// </summary>
         public static readonly PortableFunctionPointer<ScaleImportanceDelegate> NoScaleFunctionPointer =
             new PortableFunctionPointer<ScaleImportanceDelegate>(NoScale);
 
         /// <summary>
-        /// Scale importance delegate. This describes the interface <see cref="GhostSendSystem"/> will use to compute
-        /// importance scaling.
-        /// The method is responsible to modify the <see cref="PrioChunk.priority"/> property for all the chunks (the higher the prioriy, the more often a ghost's data is synchronized).
-        /// See <see cref="GhostDistanceImportance"/> for example implementation.
+        /// Importance 缩放委托，定义 <see cref="GhostSendSystem"/> 计算 Importance 缩放时使用的接口
+        /// 此方法负责修改所有 Chunk 的 <see cref="PrioChunk.priority"/> 属性
+        /// 优先级越高，Ghost 数据同步越频繁，示例实现参见 <see cref="GhostDistanceImportance"/>
         /// </summary>
-        /// <param name="connectionData">Per connection data. Ex. position in the world that should be prioritized.</param>
-        /// <param name="importanceData">Optional configuration data. Ex. Each tile's configuration. Handle IntPtr.Zero!</param>
-        /// <param name="sharedComponentTypeHandlePtr"><see cref="DynamicSharedComponentTypeHandle"/> to retrieve the per-chunk tile information. Ex. each chunk's tile index.</param>
-        /// <param name="chunkData">Chunk data.</param>
+        /// <param name="connectionData">每个连接的数据，例如世界中应优先处理的位置</param>
+        /// <param name="importanceData">可选配置数据，例如各 Tile 的配置，必须处理 IntPtr.Zero</param>
+        /// <param name="sharedComponentTypeHandlePtr">用于获取每个 Chunk Tile 信息的 <see cref="DynamicSharedComponentTypeHandle"/>，例如各 Chunk 的 Tile 索引</param>
+        /// <param name="chunkData">Chunk 数据</param>
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate void BatchScaleImportanceDelegate(IntPtr connectionData, IntPtr importanceData, IntPtr sharedComponentTypeHandlePtr,
             ref UnsafeList<PrioChunk> chunkData);
         /// <summary>
         /// <para>
-        /// This function pointer will be invoked with collected data as described in <see cref="BatchScaleImportanceDelegate"/>.
+        /// 将按照 <see cref="BatchScaleImportanceDelegate"/> 的说明，使用收集的数据调用此函数指针
         /// </para>
-        /// <para>It is mandatory to set either this or <see cref="BatchScaleImportanceFunction"/> function pointer.
-        /// It is also valid to set both, in which case the BatchScaleImportanceFunction is preferred.
+        /// <para>必须设置此函数指针或 <see cref="BatchScaleImportanceFunction"/> 中的一个
+        /// 也可以同时设置两者，此时优先使用 BatchScaleImportanceFunction
         /// </para>
         /// </summary>
         [Obsolete("Prefer `BatchScaleImportanceDelegate` as it significantly reduces the total number of function pointer calls. RemoveAfter 1.x", false)]
         public PortableFunctionPointer<ScaleImportanceDelegate> ScaleImportanceFunction;
         /// <summary>
         /// <para>
-        /// This function pointer will be invoked with collected data as described in <see cref="BatchScaleImportanceDelegate"/>.
+        /// 将按照 <see cref="BatchScaleImportanceDelegate"/> 的说明，使用收集的数据调用此函数指针
         /// </para>
-        /// <para>It is mandatory to set either this or <see cref="ScaleImportanceFunction"/> function pointer.
-        /// It is also valid to set both, in which case the BatchScaleImportanceFunction is preferred.
+        /// <para>必须设置此函数指针或 <see cref="ScaleImportanceFunction"/> 中的一个
+        /// 也可以同时设置两者，此时优先使用 BatchScaleImportanceFunction
         /// </para>
         /// </summary>
         public PortableFunctionPointer<BatchScaleImportanceDelegate> BatchScaleImportanceFunction;
         /// <summary>
-        /// ComponentType for connection data. <see cref="GhostSendSystem"/> will query for this component type before
-        /// invoking the function assigned to <see cref="BatchScaleImportanceFunction"/>.
+        /// 连接数据的 ComponentType
+        /// <see cref="GhostSendSystem"/> 会在调用 <see cref="BatchScaleImportanceFunction"/> 指向的函数前查询此组件类型
         /// </summary>
         public ComponentType GhostConnectionComponentType;
         /// <summary>
-        /// Optional singleton ComponentType for configuration data.
-        /// Leave default if not required. <see cref="IntPtr.Zero"/> will be passed into the <see cref="BatchScaleImportanceFunction"/>.
-        /// <see cref="GhostSendSystem"/> will query for this component type, passing the data into the
-        /// <see cref="BatchScaleImportanceFunction"/> function when invoking it.
+        /// 配置数据的可选单例 ComponentType
+        /// 不需要时保留默认值，此时会将 <see cref="IntPtr.Zero"/> 传入 <see cref="BatchScaleImportanceFunction"/>
+        /// <see cref="GhostSendSystem"/> 会查询此组件类型，并在调用 <see cref="BatchScaleImportanceFunction"/> 时传入数据
         /// </summary>
         public ComponentType GhostImportanceDataType;
         /// <summary>
-        /// ComponentType for per chunk data. Must be a shared component type! Each chunk represents a group of entities,
-        /// collected as they share some importance-related value (e.g. distance to the players character controller).
-        /// <see cref="GhostSendSystem"/> will query for this component type before invoking the function assigned to <see cref="BatchScaleImportanceFunction"/>.
+        /// 每个 Chunk 数据对应的 ComponentType，必须是 Shared Component 类型
+        /// 每个 Chunk 表示一组共享某个 Importance 相关值的实体，例如到玩家角色控制器的距离
+        /// <see cref="GhostSendSystem"/> 会在调用 <see cref="BatchScaleImportanceFunction"/> 指向的函数前查询此组件类型
         /// </summary>
         /// <remarks>
-        /// Tip: You can use the existence of this type to filter/decide which ghost chunks should even undergo importance scaling
-        /// by the <see cref="GhostSendSystem"/>. To exclude a type from importance scaling, do not add this shared component to their chunk.
+        /// 提示：可以根据此类型是否存在，筛选或决定哪些 Ghost Chunk 需要由 <see cref="GhostSendSystem"/> 执行 Importance 缩放
+        /// 如需排除某类型，不要向其 Chunk 添加此 Shared Component
         /// </remarks>
         public ComponentType GhostImportancePerChunkDataType;
 
@@ -161,12 +156,12 @@ namespace Unity.NetCode
             return basePriority;
         }
 
-#pragma warning disable 618 // Type or member is obsolete.
+#pragma warning disable 618 // 类型或成员已过时
         /// <summary>
-        /// This property successfully suppresses the obsolete warning.
-        /// Attempting to do so inside the <see cref="GhostSendSystem"/> did not work (presumably for SystemAPI code-gen reasons).
+        /// 此属性用于成功抑制过时警告
+        /// 在 <see cref="GhostSendSystem"/> 内抑制警告无效，推测与 SystemAPI 代码生成有关
         /// </summary>
         internal PortableFunctionPointer<ScaleImportanceDelegate> ScaleImportanceFunctionSuppressedWarning => ScaleImportanceFunction;
-#pragma warning restore 618 // Type or member is obsolete.
+#pragma warning restore 618 // 类型或成员已过时
     }
 }

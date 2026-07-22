@@ -10,8 +10,7 @@ using UnityEngine;
 namespace Unity.NetCode.Editor
 {
     /// <summary>
-    /// Extract from the prefab the converted entities components, in respect to the selected variant and default
-    /// mapping provided by the user
+    /// 按用户选择的 Variant 与默认映射，从 Prefab 中提取转换后的 Entity 组件
     /// </summary>
     class EntityPrefabComponentsPreview
     {
@@ -21,7 +20,9 @@ namespace Unity.NetCode.Editor
                 string.Compare(x.GetManagedType().FullName, y.GetManagedType().FullName, StringComparison.Ordinal);
         }
 
-        /// <summary>Triggers the baking conversion process on the 'authoringComponent' and appends all resulting baked entities and components to the 'bakedDataMap'.</summary>
+        /// <summary>
+        /// 对 Ghost Authoring 触发 Baking 转换，并将生成的全部 Baked Entity 与组件加入缓存结果
+        /// </summary>
         public void BakeEntireNetcodePrefab(GhostAuthoringComponent ghostAuthoring, GhostAuthoringInspectionComponent inspectionComponent, Dictionary<GhostAuthoringInspectionComponent, BakedResult> cachedBakedResults)
         {
             GhostAuthoringInspectionComponent.forceBake = false;
@@ -35,7 +36,7 @@ namespace Unity.NetCode.Editor
             {
                 EditorUtility.DisplayProgressBar($"Baking '{ghostAuthoring}'...", "Baking triggered by the GhostAuthoringInspectionComponent.", .9f);
 
-                // TODO - Handle exceptions due to invalid prefab setup. E.g.
+                // TODO 处理 Prefab 配置无效导致的异常，例如
                 // "InvalidOperationException: OwnerPrediction mode can only be used on prefabs which have a GhostOwner"
                 using var world = new World(nameof(EntityPrefabComponentsPreview));
                 using var blobAssetStore = new BlobAssetStore(128);
@@ -104,11 +105,10 @@ namespace Unity.NetCode.Editor
 
         static void CreatedBakedResultForAdditionalEntities(BakedResult bakedResult, World world, HashSet<Entity> primaryEntitiesMap, BlobAssetReference<GhostPrefabBlobMetaData> blobAssetReference, BakingSystem bakingSystem)
         {
-            // Note: We only expect the ROOT entity to have a LinkedEntityGroup,
-            // but checking EVERY baked GameObject as this is not an assumption we control.
+            // 通常只有根 Entity 应包含 LinkedEntityGroup，但该前提不受此处控制，因此检查每个 Baked GameObject
             foreach (var kvp in bakedResult.GameObjectResults)
             {
-                // TODO - Test-case to ensure the root entity does not contain ALL linked entities (even for children + additional).
+                // TODO 增加测试，确保根 Entity 不会包含全部 Linked Entity，包括子 Entity 与 Additional Entity
                 for (int index = 0, max = kvp.Value.BakedEntities.Count; index < max; index++)
                 {
                     var bakedEntityResult = kvp.Value.BakedEntities[index];
@@ -121,12 +121,12 @@ namespace Unity.NetCode.Editor
                     {
                         var linkedEntity = linkedEntityGroup[i].Value;
 
-                        // Child entities are considered 'primary' entities. Thus, ignore them.
-                        // I.e. During Baking, if users call `CreateAdditionalEntity`, it won't be 'primary'.
+                        // 子 Entity 视为 Primary Entity，因此在此忽略
+                        // Baking 期间通过 CreateAdditionalEntity 创建的 Entity 不属于 Primary Entity
                         if (primaryEntitiesMap.Contains(linkedEntity))
                             continue;
 
-                        // Find the actual authoring GameObject for this linked entity. It might be one of our children.
+                        // 查找该 Linked Entity 对应的实际 Authoring GameObject，它可能来自某个子对象
                         var foundActualAuthoring = TryGetAuthoringForAdditionalEntity(linkedEntity, bakingSystem, bakedResult.GameObjectResults.Values, out var actualAuthoring);
                         if (!foundActualAuthoring)
                         {
@@ -220,11 +220,11 @@ namespace Unity.NetCode.Editor
             var compTypes = world.EntityManager.GetComponentTypes(convertedEntity);
             compTypes.Sort(default(ComponentNameComparer));
 
-            // Store all types:
+            // 保存全部类型
             for (int i = 0; i < compTypes.Length; ++i)
                 CreateBakedComponentItem(compTypes[i]);
 
-            // Store the types that have been removed from BOTH the server and client (as they'd not be found via the above):
+            // 补充同时从服务端和客户端移除的类型，因为上面的查询无法找到它们
             TryAddRemoved(ref blobAssetReference.Value.RemoveOnServerOnlyWorld);
             TryAddRemoved(ref blobAssetReference.Value.RemoveOnClientWorlds);
 
@@ -259,7 +259,7 @@ namespace Unity.NetCode.Editor
                 var canSerializeInAtLeastOneVariant = GhostComponentSerializerCollectionData.AnyVariantsAreSerialized(in availableSs);
                 var defaultVariant = collectionData.GetCurrentSerializationStrategyForComponent(managedType, 0, parent.IsRoot);
 
-                // Remove test variants as they cannot be selected:
+                // Test Variant 无法选择，因此将其移除
                 for (var j = availableSs.Length - 1; j >= 0; j--)
                 {
                     var ss = availableSs[j];
@@ -267,7 +267,7 @@ namespace Unity.NetCode.Editor
                         availableSs.RemoveAt(j);
                 }
 
-                // Cache the availableVariants names.
+                // 缓存可用 Variant 的名称
                 var ssDisplayNames = new string[availableSs.Length];
                 for (var j = 0; j < availableSs.Length; j++)
                 {

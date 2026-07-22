@@ -6,82 +6,81 @@ using UnityEngine.Scripting;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Interface that expose a raw, unsafe interface to copy all the component ghost fields to
-    /// the snapshot buffer. It is mostly for internal use by code-gen and should not be used direcly nor implemented
-    /// by user code.
+    /// 公开底层不安全接口，用于将 Component 的全部 Ghost Field 复制到 Snapshot Buffer
+    /// 主要供代码生成内部使用，用户代码不应直接使用或实现
     /// </summary>
     public interface IGhostSerializer
     {
         /// <summary>
-        /// The number of bits necessary for change mask
+        /// ChangeMask 所需的位数
         /// </summary>
         public int ChangeMaskSizeInBits { get; }
 
         /// <summary>
-        /// True if the serialized component has some serialized fields.
+        /// 序列化 Component 包含序列化字段时为 true
         /// </summary>
         public bool HasGhostFields { get; }
 
         /// <summary>
-        /// The size of the serialized data in the snapshot buffer.
+        /// 序列化数据在 Snapshot Buffer 中的大小
         /// </summary>
         public int SizeInSnapshot { get; }
 
         /// <summary>
-        /// Copy/Convert the component data to the snapshot.
+        /// 将 Component Data 复制或转换到 Snapshot
         /// </summary>
-        /// <param name="serializerState">Serializer state</param>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="component">Component</param>
+        /// <param name="serializerState">Serializer 状态</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="component">组件数据</param>
         void CopyToSnapshot(in GhostSerializerState serializerState, [NoAlias]IntPtr snapshot, [ReadOnly][NoAlias]IntPtr component);
 
         /// <summary>
-        /// Copy/Convert the snapshot to component. Perform interpolation if necessary.
+        /// 将 Snapshot 复制或转换到 Component，并在需要时执行插值
         /// </summary>
-        /// <param name="serializerState">Serializer state</param>
-        /// <param name="component">Component</param>
-        /// <param name="snapshotInterpolationFactor">Interpolation factor</param>
-        /// <param name="snapshotInterpolationFactorRaw">Interpolation factor</param>
-        /// <param name="snapshotBefore">Snapshot before</param>
-        /// <param name="snapshotAfter">Snapshot after</param>
+        /// <param name="serializerState">Serializer 状态</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="snapshotInterpolationFactor">插值系数</param>
+        /// <param name="snapshotInterpolationFactorRaw">原始插值系数</param>
+        /// <param name="snapshotBefore">插值前 Snapshot</param>
+        /// <param name="snapshotAfter">插值后 Snapshot</param>
         public void CopyFromSnapshot(in GhostDeserializerState serializerState, [NoAlias] IntPtr component,
             float snapshotInterpolationFactor, float snapshotInterpolationFactorRaw,
             [NoAlias] [ReadOnly] IntPtr snapshotBefore, [NoAlias] [ReadOnly] IntPtr snapshotAfter);
 
         /// <summary>
-        /// Compute the change mask for the snapshot in respect to the given baseline
+        /// 相对指定 Baseline 计算 Snapshot 的 ChangeMask
         /// </summary>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
         void CalculateChangeMask([NoAlias][ReadOnly]IntPtr snapshot, [NoAlias][ReadOnly]IntPtr baseline, [NoAlias]IntPtr changeMaskData, int startOffset);
 
         /// <summary>
-        /// Serialise the snapshot data to the <paramref name="writer"/> and calculate the current changemask.
+        /// 将 Snapshot Data 序列化到 <paramref name="writer"/> 并计算当前 ChangeMask
         /// </summary>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
-        /// <param name="writer">Datastream writer</param>
-        /// <param name="compressionModel">Compression model</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="writer">数据流写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
         void SerializeCombined([ReadOnly][NoAlias] IntPtr snapshot, [ReadOnly][NoAlias] IntPtr baseline,
             [NoAlias][ReadOnly]IntPtr changeMaskData, int startOffset,
             ref DataStreamWriter writer, in StreamCompressionModel compressionModel);
 
         /// <summary>
-        /// Serialise the snapshot dato to the <paramref name="writer"/> and calculate the current changemask.
+        /// 将 Snapshot Data 序列化到 <paramref name="writer"/> 并计算当前 ChangeMask
         /// </summary>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="baseline0">Snapshot baseline</param>
-        /// <param name="baseline1">Snapshot baseline</param>
-        /// <param name="baseline2">Snapshot baseline</param>
-        /// <param name="predictor">Delta predicot</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
-        /// <param name="writer">Datastream writer</param>
-        /// <param name="compressionModel">Compression model</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="baseline0">Snapshot 基线</param>
+        /// <param name="baseline1">Snapshot 基线</param>
+        /// <param name="baseline2">Snapshot 基线</param>
+        /// <param name="predictor">Delta 预测器</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="writer">数据流写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
         void SerializeWithPredictedBaseline([ReadOnly] [NoAlias] IntPtr snapshot,
             [ReadOnly] [NoAlias] IntPtr baseline0,
             [ReadOnly] [NoAlias] IntPtr baseline1,
@@ -91,66 +90,66 @@ namespace Unity.NetCode
             ref DataStreamWriter writer, in StreamCompressionModel compressionModel);
 
         /// <summary>
-        /// Serialise the snapshot data to the <paramref name="writer"/> based on the calculated changemask.
-        /// Expect the changemask bits be all already set.
+        /// 根据已计算的 ChangeMask 将 Snapshot Data 序列化到 <paramref name="writer"/>
+        /// 要求 ChangeMask 位已经全部设置
         /// </summary>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">start offset</param>
-        /// <param name="writer">data stream writer</param>
-        /// <param name="compressionModel">Compression model</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="writer">数据流写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
         void Serialize([ReadOnly][NoAlias] IntPtr snapshot, [ReadOnly][NoAlias] IntPtr baseline,
             [NoAlias][ReadOnly]IntPtr changeMaskData, int startOffset,
             ref DataStreamWriter writer, in StreamCompressionModel compressionModel);
 
         /// <summary>
-        /// Calculate the predicted snapshot from the two baseline
+        /// 根据两个 Baseline 计算预测 Snapshot
         /// </summary>
-        /// <param name="snapshotData">Predicted snapshot data</param>
-        /// <param name="baseline1Data">Snapshot baseline</param>
-        /// <param name="baseline2Data">Snapshot baseline</param>
-        /// <param name="predictor">Delta predictor</param>
+        /// <param name="snapshotData">预测 Snapshot Data</param>
+        /// <param name="baseline1Data">Snapshot 基线</param>
+        /// <param name="baseline2Data">Snapshot 基线</param>
+        /// <param name="predictor">Delta 预测器</param>
         void PredictDelta([NoAlias] IntPtr snapshotData, [NoAlias] IntPtr baseline1Data, [NoAlias] IntPtr baseline2Data, ref GhostDeltaPredictor predictor);
 
         /// <summary>
-        /// Read the data from the <paramref name="reader"/> stream into the snapshot data.
+        /// 从 <paramref name="reader"/> 数据流读取数据并写入 Snapshot Data
         /// </summary>
-        /// <param name="reader">Data stream reader</param>
-        /// <param name="compressionModel">compression model</param>
-        /// <param name="changeMask">change mask</param>
-        /// <param name="startOffset">start offset</param>
-        /// <param name="snapshot">Snapshot pointer</param>
-        /// <param name="baseline">Snapshot baseline</param>
+        /// <param name="reader">数据流读取器</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="changeMask">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="snapshot">Snapshot 指针</param>
+        /// <param name="baseline">Snapshot 基线</param>
         void Deserialize(ref DataStreamReader reader, in StreamCompressionModel compressionModel,
             IntPtr changeMask,
             int startOffset, [NoAlias]IntPtr snapshot, [NoAlias][ReadOnly]IntPtr baseline);
 
         /// <summary>
-        /// Restore the component data from the prediction backup buffer. Only serialised fields are restored.
+        /// 从预测备份缓冲区恢复 Component Data，仅恢复已序列化字段
         /// </summary>
-        /// <param name="component">Component</param>
-        /// <param name="backup">Backup buffer</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="backup">备份缓冲区</param>
         void RestoreFromBackup([NoAlias]IntPtr component, [NoAlias][ReadOnly]IntPtr backup);
 
 #if UNITY_EDITOR || NETCODE_DEBUG
         /// <summary>
-        /// Calculate the prediction error for this component.
+        /// 计算此 Component 的预测误差
         /// </summary>
-        /// <param name="component">Component</param>
-        /// <param name="backup">Backup buffer</param>
-        /// <param name="errorsList">Error list pointer</param>
-        /// <param name="errorsCount">Number of errors</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="backup">备份缓冲区</param>
+        /// <param name="errorsList">错误列表指针</param>
+        /// <param name="errorsCount">错误数量</param>
         void ReportPredictionErrors([NoAlias][ReadOnly]IntPtr component, [NoAlias][ReadOnly]IntPtr backup, IntPtr errorsList,
             int errorsCount);
 #endif
     }
 
     /// <summary>
-    /// Interface implemented by all the component/buffer serialiser. For internal use only.
+    /// 所有 Component 和 Buffer Serializer 实现的接口，仅供内部使用
     /// </summary>
-    /// <typeparam name="TSnapshot">The snapshot struct type that will contains the component data.</typeparam>
-    /// <typeparam name="TComponent">The component type that this interface serialize.</typeparam>
+    /// <typeparam name="TSnapshot">包含 Component Data 的 Snapshot 结构体类型</typeparam>
+    /// <typeparam name="TComponent">此接口要序列化的 Component 类型</typeparam>
     [RequireImplementors]
     [Obsolete("The IGhostSerializer<TComponent, TSnapshot> has been deprecated. Please use the IGhostComponentSerializer instead")]
     public interface IGhostSerializer<TComponent, TSnapshot>
@@ -158,99 +157,99 @@ namespace Unity.NetCode
         where TComponent: unmanaged
     {
         /// <summary>
-        /// Calculate the predicted baseline.
+        /// 计算预测 Baseline
         /// </summary>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="baseline1">Snapshot baseline</param>
-        /// <param name="baseline2">Snapshot baseline</param>
-        /// <param name="predictor">Delta predictor</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="baseline1">Snapshot 基线</param>
+        /// <param name="baseline2">Snapshot 基线</param>
+        /// <param name="predictor">Delta 预测器</param>
         void PredictDeltaGenerated(ref TSnapshot snapshot, in TSnapshot baseline1, in TSnapshot baseline2, ref GhostDeltaPredictor predictor);
 
         /// <summary>
-        /// Compute the change mask for the snapshot in respect to the given baseline
+        /// 相对指定 Baseline 计算 Snapshot 的 ChangeMask
         /// </summary>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
         void CalculateChangeMaskGenerated(in TSnapshot snapshot, in TSnapshot baseline, IntPtr changeMaskData, int startOffset){}
 
         /// <summary>
-        /// Copy/Convert the data form the snapshot to the component. Support interpolation and extrapolation.
+        /// 将 Snapshot 中的数据复制或转换到 Component，支持插值和外推
         /// </summary>
-        /// <param name="serializerState">Serializer state</param>
-        /// <param name="component">Component</param>
-        /// <param name="interpolationFactor">Interpolation factor</param>
-        /// <param name="snapshotInterpolationFactorRaw">Snapshot interpolation factor</param>
-        /// <param name="snapshotBefore">Snapshot before</param>
-        /// <param name="snapshotAfter">Snapshot after</param>
+        /// <param name="serializerState">Serializer 状态</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="interpolationFactor">插值系数</param>
+        /// <param name="snapshotInterpolationFactorRaw">Snapshot 原始插值系数</param>
+        /// <param name="snapshotBefore">插值前 Snapshot</param>
+        /// <param name="snapshotAfter">插值后 Snapshot</param>
         void CopyFromSnapshotGenerated(in GhostDeserializerState serializerState, ref TComponent component,
             float interpolationFactor, float snapshotInterpolationFactorRaw, in TSnapshot snapshotBefore,
             in TSnapshot snapshotAfter);
 
         /// <summary>
-        /// Copy/Convert the component data to the snapshot.
+        /// 将 Component Data 复制或转换到 Snapshot
         /// </summary>
-        /// <param name="serializerState">Serializer state</param>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="component">Component</param>
+        /// <param name="serializerState">Serializer 状态</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="component">组件数据</param>
         void CopyToSnapshotGenerated(in GhostSerializerState serializerState, ref TSnapshot snapshot,
             in TComponent component);
 
         /// <summary>
-        /// Serialise the snapshot dato to the <paramref name="writer"/> based on the calculated changemask.
+        /// 根据已计算的 ChangeMask 将 Snapshot Data 序列化到 <paramref name="writer"/>
         /// </summary>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
-        /// <param name="writer">Datastream writer</param>
-        /// <param name="compressionModel">Compression model</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="writer">数据流写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
         void SerializeGenerated(in TSnapshot snapshot, in TSnapshot baseline,
             [ReadOnly][NoAlias]IntPtr changeMaskData, int startOffset, ref DataStreamWriter writer,
             in StreamCompressionModel compressionModel);
 
         /// <summary>
-        /// Serialise the snapshot dato to the <paramref name="writer"/> based on the calculated changemask.
+        /// 根据已计算的 ChangeMask 将 Snapshot Data 序列化到 <paramref name="writer"/>
         /// </summary>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="baseline">Snapshot baseline</param>
-        /// <param name="changeMaskData">Change mask data</param>
-        /// <param name="startOffset">Start offset</param>
-        /// <param name="writer">Datastream writer</param>
-        /// <param name="compressionModel">Compression model</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="baseline">Snapshot 基线</param>
+        /// <param name="changeMaskData">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="writer">数据流写入器</param>
+        /// <param name="compressionModel">压缩模型</param>
         void SerializeCombinedGenerated(in TSnapshot snapshot, in TSnapshot baseline,
             [NoAlias][ReadOnly]IntPtr changeMaskData, int startOffset,
             ref DataStreamWriter writer, in StreamCompressionModel compressionModel);
 
         /// <summary>
-        /// Read the data from the <paramref name="reader"/> stream into the snapshot data.
+        /// 从 <paramref name="reader"/> 数据流读取数据并写入 Snapshot Data
         /// </summary>
-        /// <param name="reader">Data stream reader</param>
-        /// <param name="compressionModel">Compression model</param>
-        /// <param name="changeMask">Change mask</param>
-        /// <param name="startOffset">Starting offset</param>
-        /// <param name="snapshot">Snapshot reference</param>
-        /// <param name="baseline">Snapshot baseline</param>
+        /// <param name="reader">数据流读取器</param>
+        /// <param name="compressionModel">压缩模型</param>
+        /// <param name="changeMask">ChangeMask 数据</param>
+        /// <param name="startOffset">起始 Offset</param>
+        /// <param name="snapshot">Snapshot 引用</param>
+        /// <param name="baseline">Snapshot 基线</param>
         void DeserializeGenerated(ref DataStreamReader reader, in StreamCompressionModel compressionModel,
             IntPtr changeMask,
             int startOffset, ref TSnapshot snapshot, in TSnapshot baseline);
 
         /// <summary>
-        /// Restore the component data from the prediction backup buffer. Only serialised fields are restored.
+        /// 从预测备份缓冲区恢复 Component Data，仅恢复已序列化字段
         /// </summary>
-        /// <param name="component">Component</param>
-        /// <param name="backup">Backup buffer</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="backup">备份缓冲区</param>
         void RestoreFromBackupGenerated(ref TComponent component, in TComponent backup);
 
 #if UNITY_EDITOR || NETCODE_DEBUG
         /// <summary>
-        /// Calculate the prediction error for this component.
+        /// 计算此 Component 的预测误差
         /// </summary>
-        /// <param name="component">Component</param>
-        /// <param name="backup">Backup buffer</param>
-        /// <param name="errorsList">Data for errors</param>
-        /// <param name="errorsCount">Error count</param>
+        /// <param name="component">组件数据</param>
+        /// <param name="backup">备份缓冲区</param>
+        /// <param name="errorsList">错误数据</param>
+        /// <param name="errorsCount">错误数量</param>
         void ReportPredictionErrorsGenerated(in TComponent component, in TComponent backup, IntPtr errorsList,
             int errorsCount);
 #endif

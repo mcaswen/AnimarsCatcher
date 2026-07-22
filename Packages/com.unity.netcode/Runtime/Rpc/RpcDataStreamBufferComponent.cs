@@ -4,56 +4,56 @@ using Unity.Entities;
 namespace Unity.NetCode
 {
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新 Component 类型的临时类型，应在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("OutgoingRpcDataStreamBufferComponent has been deprecated. Use OutgoingRpcDataStreamBuffer instead (UnityUpgradable) -> OutgoingRpcDataStreamBuffer", true)]
     [InternalBufferCapacity(0)]
     public struct OutgoingRpcDataStreamBufferComponent
     {
         /// <summary>
-        /// The element value.
+        /// 元素值
         /// </summary>
         public byte Value;
     }
     /// <summary>
-    /// Temporary type, used to upgrade to new component type, to be removed before final 1.0
+    /// 用于升级到新 Component 类型的临时类型，应在最终 1.0 版本前移除
     /// </summary>
     [Obsolete("IncomingRpcDataStreamBufferComponent has been deprecated. Use IncomingRpcDataStreamBuffer instead (UnityUpgradable) -> IncomingRpcDataStreamBuffer", true)]
     [InternalBufferCapacity(0)]
     public struct IncomingRpcDataStreamBufferComponent
     {
         /// <summary>
-        /// The element value.
+        /// 元素值
         /// </summary>
         public byte Value;
     }
 
     /// <summary>
-    /// One per NetworkConnection. Stores queued, outgoing RPC data.
-    /// Thus, buffer size is related to client-authored RPC count * size.
-    /// InternalBufferCapacity is zero as RPCs can vary in size, and we don't want to constantly
-    /// move the RPC data into and out of the chunk.
+    /// 每个 NetworkConnection 一个，用于存储队列中的出站 RPC 数据
+    /// 因此缓冲区大小与客户端创建的 RPC 数量乘以单条大小有关
+    /// RPC 大小可能不同，且不希望持续将 RPC 数据移入或移出 Chunk，
+    /// 因而 InternalBufferCapacity 设为 0
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct OutgoingRpcDataStreamBuffer : IBufferElementData
     {
         /// <summary>
-        /// The element value.
+        /// 元素值
         /// </summary>
         public byte Value;
     }
 
     /// <summary>
-    /// One per NetworkConnection. Stores queued, incoming RPC data.
-    /// Thus, buffer size is related to inbound-from-server RPC count * size.
-    /// InternalBufferCapacity is zero as RPCs can vary in size, and we don't want to constantly
-    /// move the RPC data into and out of the chunk.
+    /// 每个 NetworkConnection 一个，用于存储队列中的入站 RPC 数据
+    /// 因此缓冲区大小与来自服务器的 RPC 数量乘以单条大小有关
+    /// RPC 大小可能不同，且不希望持续将 RPC 数据移入或移出 Chunk，
+    /// 因而 InternalBufferCapacity 设为 0
     /// </summary>
     [InternalBufferCapacity(0)]
     public struct IncomingRpcDataStreamBuffer : IBufferElementData
     {
         /// <summary>
-        /// The element value.
+        /// 元素值
         /// </summary>
         public byte Value;
     }
