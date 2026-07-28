@@ -1,212 +1,242 @@
-# Ghost optimization
+# Ghost 优化
 
-Optimize your ghosts to improve the performance of your game.
+通过优化 Ghost 改善游戏性能
 
-* [Importance scaling](#importance-scaling)
-* [Ghost relevancy](#ghost-relevancy)
-* [Preserialize ghosts](#preserialize-ghosts)
-* [__Optimization Mode__](#optimization-mode)
+- [重要度缩放](#importance-scaling)
+- [Ghost 相关性](#ghost-relevancy)
+- [预序列化 Ghost](#preserialize-ghosts)
+- [Optimization Mode](#optimization-mode)
 
-## Importance scaling
+<a id="importance-scaling"></a>
 
-The server operates with a fixed bandwidth target and sends a single snapshot packet of customizable size on every network tick.
-It fills this packet with the ghosts with the highest importance, determined by a priority queue of ghost chunks (rebuilt each tick).
-Therefore, importance is determined at the ghost chunk level, not on each instance individually.
+## 重要度缩放
 
-Several factors determine the importance of each ghost chunk:
+服务器以固定带宽目标运行，并在每个网络 Tick 发送一个大小可配置的快照数据包。服务器使用 Ghost Chunk 的优先级队列填充数据包，优先发送重要度最高的 Ghost；该队列每个 Tick 都会重建
 
-* You can specify the base [`GhostAuthoringComponent.Importance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_Importance) per ghost type.
-    * Netcode for Entities multiplies this base importance value by `ticksSinceLastSent` (not `ticksSinceLastAcked`), as well as other modifiers such as [`GhostSendSystemData.IrrelevantImportanceDownScale`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSendSystemData.html#Unity_NetCode_GhostSendSystemData_IrrelevantImportanceDownScale) and [`GhostSendSystemData.FirstSendImportanceMultiplier`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSendSystemData.html#Unity_NetCode_GhostSendSystemData_FirstSendImportanceMultiplier).
-* You can also supply your own method to scale importance on a per-chunk, per-connection basis, using [`GhostImportance.BatchScaleImportanceFunction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_BatchScaleImportanceFunction). For example, this allows you to [deprioritize far away ghosts, in favor of nearby ones](#distance-based-importance).
-* [`GhostAuthoringComponent.MaxSendRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_MaxSendRate) doesn't directly impact importance values. It's a pre-pass that prevents a ghost chunk from being added to the priority queue at all (for this tick).
+因此，重要度是在 Ghost Chunk 层级确定的，而不是针对每个实体实例分别计算
 
-Once a packet has reached the bandwidth target, the server sends it. The remaining ghost entities aren't sent on this tick, but they are more likely to be in the next snapshot because of `ticksSinceLastSent` scaling.
+每个 Ghost Chunk 的重要度由以下因素决定：
+
+- 可以按 Ghost 类型设置基础 [`GhostAuthoringComponent.Importance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_Importance)
+  - Netcode for Entities 会将基础重要度乘以 `ticksSinceLastSent`，而不是 `ticksSinceLastAcked`，还会应用 [`GhostSendSystemData.IrrelevantImportanceDownScale`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSendSystemData.html#Unity_NetCode_GhostSendSystemData_IrrelevantImportanceDownScale) 和 [`GhostSendSystemData.FirstSendImportanceMultiplier`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSendSystemData.html#Unity_NetCode_GhostSendSystemData_FirstSendImportanceMultiplier) 等修正项
+- 可以通过 [`GhostImportance.BatchScaleImportanceFunction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_BatchScaleImportanceFunction)，按 Chunk、按连接提供自定义的重要度缩放函数。例如，可以[降低远处 Ghost 的优先级，提高附近 Ghost 的优先级](#distance-based-importance)
+- [`GhostAuthoringComponent.MaxSendRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_MaxSendRate) 不会直接改变重要度值。它在预处理阶段决定某个 Ghost Chunk 本 Tick 是否能进入优先级队列
+
+数据包达到带宽目标后，服务器就会发送它。本 Tick 未发送的 Ghost 实体会因为 `ticksSinceLastSent` 增长，而更可能进入下一份快照
 
 > [!NOTE]
-> Ghost group children do not support relevancy (nor importance, MaxSendRate, static-optimization etc.) until they've left the group, refer to the [ghost groups page](../ghost-groups.md) for more information.
+> Ghost Group 的子实体在离开 Group 之前不支持相关性、重要度、`MaxSendRate`、静态优化等功能，详情请参阅 [Ghost Group](../ghost-groups.md)
 
-### Set up ghost importance scaling
+<a id="set-up-ghost-importance-scaling"></a>
 
-The following is an example of how to set up the built-in distance-based importance scaling in Netcode for Entities. If you want to use a custom importance implementation, you can reuse parts of the built-in solution or replace it with your own.
+### 配置 Ghost 重要度缩放
+
+下面演示如何配置 Netcode for Entities 内置的基于距离的重要度缩放。如果需要自定义重要度实现，可以复用内置方案的一部分，也可以完全替换它
+
+<a id="ghostimportance"></a>
 
 #### `GhostImportance`
 
-[`GhostImportance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostImportance.html) is the configuration component for setting up importance scaling. [`GhostSendSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSendSystem.html) invokes the `BatchScaleImportanceFunction` only if the `GhostConnectionComponentType` and `GhostImportanceDataType` are created.
+[`GhostImportance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostImportance.html) 是重要度缩放的配置组件。只有创建了 `GhostConnectionComponentType` 和 `GhostImportanceDataType`，`GhostSendSystem` 才会调用 `BatchScaleImportanceFunction`
 
-You can set the following fields on `GhostImportance`:
+可以设置 `GhostImportance` 的以下字段：
 
-- [`BatchScaleImportanceFunction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_BatchScaleImportanceFunction) allows you to write and assign a custom scaling function (to scale the importance, with chunk granularity).
-- [`GhostConnectionComponentType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostConnectionComponentType) is the type added per connection, allowing you to store per-connection data that's needed in the scaling calculation.
-- [`GhostImportanceDataType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostImportanceDataType) is an optional singleton component, allowing you to pass in any of your own static data necessary in the scaling calculation.
-- [`GhostImportancePerChunkDataType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostImportancePerChunkDataType) is the shared component added per chunk, storing any chunk-specific data used in the scaling calculation.
+- [`BatchScaleImportanceFunction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_BatchScaleImportanceFunction)：编写并指定自定义缩放函数，以 Chunk 为粒度缩放重要度
+- [`GhostConnectionComponentType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostConnectionComponentType)：添加到每条连接上的类型，用于保存缩放计算所需的连接级数据
+- [`GhostImportanceDataType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostImportanceDataType)：可选的单例组件，用于向缩放计算传入自定义静态数据
+- [`GhostImportancePerChunkDataType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostImportance.html#Unity_NetCode_GhostImportance_GhostImportancePerChunkDataType)：添加到各 Chunk 的共享组件，用于保存缩放计算所需的 Chunk 级数据
 
-#### Order of operations
+<a id="order-of-operations"></a>
 
-First, the function pointer is invoked by the `GhostSendSystem` for each chunk and returns the importance scaling for the entities contained within that chunk. The signature of the method is of the delegate type `GhostImportance.ScaleImportanceDelegate` and the parameters are `IntPtr`s, which point to instances of the three types of data described above.
+#### 执行顺序
 
-You must add a `GhostConnectionComponentType` component to each connection to determine which tile the connection should prioritize. The `GhostSendSystem` then passes this per-connection information to the `BatchScaleImportanceFunction` function.
+`GhostSendSystem` 会先为每个 Chunk 调用函数指针，函数返回该 Chunk 内实体的重要度缩放值。方法签名采用 `GhostImportance.ScaleImportanceDelegate` 委托类型，参数是指向上述三种数据类型实例的 `IntPtr`
 
-The `GhostImportanceDataType` is global, static, singleton data that configures how chunks are constructed. It's optional, and `IntPtr.Zero` is passed if it's not found. `GhostSendSystem` fetches this singleton data and passes it to the importance scaling function.
+必须为每条连接添加 `GhostConnectionComponentType` 组件，用于确定该连接应优先处理哪个空间分块。`GhostSendSystem` 会把这份连接级信息传入 `BatchScaleImportanceFunction`
+
+`GhostImportanceDataType` 是一份全局、静态的单例数据，用于配置 Chunk 的构造方式。它是可选项；找不到时系统会传入 `IntPtr.Zero`。`GhostSendSystem` 会读取该单例，再把它传给重要度缩放函数
 
 > [!NOTE]
-> The `GhostImportanceDataType` must be added to the same entity as the `GhostImportance` singleton. If it isn't, an exception is thrown in the Editor.
+> `GhostImportanceDataType` 必须与 `GhostImportance` 单例添加到同一个实体上，否则 Editor 中会抛出异常
 
-`GhostImportancePerChunkDataType` is then added to each ghost, essentially forcing it into a specific chunk. The `GhostSendSystem` expects the type to be a shared component. This ensures that the elements in the same chunk are all grouped together by the entity system. A user-created system is required to update each entity's chunk to regroup them (example below). It's important to think about how entity transfer between chunks actually works (namely the performance implications) because regularly changing an entity's chunk is not efficient.
+随后需要为每个 Ghost 添加 `GhostImportancePerChunkDataType`，实质上是强制它进入特定 Chunk。`GhostSendSystem` 要求该类型是共享组件，从而让实体系统把相同值的元素组织在同一 Chunk 内。需要由自定义系统更新每个实体的共享组件值，使实体按需重新分组，下面提供了示例
 
-### Distance-based importance
+应仔细评估实体在 Chunk 间迁移的性能影响，因为频繁改变实体所属 Chunk 的效率并不高
 
-The built-in form of importance scaling in Netcode for Entities is distance-based ([`GhostDistanceImportance.Scale`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceImportance.html)) and uses tiling to group entities into spatial chunks. The `GhostDistanceData` component describes the size and borders of the tiles entities are grouped into.
+<a id="distance-based-importance"></a>
 
-#### Distance-based importance in Asteroids
+### 基于距离的重要度
 
-The [Asteroids sample project](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/Asteroids) uses Netcode for Entities' default scaling implementation. The `LoadLevelSystem` sets up an entity to act as a singleton with `GhostDistanceData` and `GhostImportance` added:
+Netcode for Entities 内置的重要度缩放实现是 [`GhostDistanceImportance.Scale`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceImportance.html)。它基于距离，并使用空间分块把实体组织成 Chunk。`GhostDistanceData` 组件描述实体分组所用空间分块的大小与边界
 
-```c#
-    var gridSingleton = state.EntityManager.CreateSingleton(new GhostDistanceData
-    {
-        TileSize = new int3(tileSize, tileSize, 256),
-        TileCenter = new int3(0, 0, 128),
-        TileBorderWidth = new float3(16f, 16f, 16f),
-    });
-    state.EntityManager.AddComponentData(gridSingleton, new GhostImportance
-    {
-        BatchScaleImportanceFunction = GhostDistanceImportance.ScaleFunctionPointer,
-        GhostConnectionComponentType = ComponentType.ReadOnly<GhostConnectionPosition>(),
-        GhostImportanceDataType = ComponentType.ReadOnly<GhostDistanceData>(),
-        GhostImportancePerChunkDataType = ComponentType.ReadOnly<GhostDistancePartitionShared>(),
-    });
+<a id="distance-based-importance-in-asteroids"></a>
+
+#### Asteroids 中基于距离的重要度
+
+[Asteroids 示例项目](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/Asteroids)使用 Netcode for Entities 的默认缩放实现。`LoadLevelSystem` 创建一个单例实体，并为其添加 `GhostDistanceData` 与 `GhostImportance`：
+
+```csharp
+var gridSingleton = state.EntityManager.CreateSingleton(new GhostDistanceData
+{
+    TileSize = new int3(tileSize, tileSize, 256),
+    TileCenter = new int3(0, 0, 128),
+    TileBorderWidth = new float3(16f, 16f, 16f),
+});
+state.EntityManager.AddComponentData(gridSingleton, new GhostImportance
+{
+    BatchScaleImportanceFunction = GhostDistanceImportance.ScaleFunctionPointer,
+    GhostConnectionComponentType = ComponentType.ReadOnly<GhostConnectionPosition>(),
+    GhostImportanceDataType = ComponentType.ReadOnly<GhostDistanceData>(),
+    GhostImportancePerChunkDataType = ComponentType.ReadOnly<GhostDistancePartitionShared>(),
+});
 ```
 
->[!NOTE]
-> Again, you must add both singleton components to the same entity.
+> [!NOTE]
+> 两个单例组件必须添加到同一个实体上
 
-The [`GhostDistancePartitioningSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistancePartitioningSystem.html) then splits all the ghosts in the world into chunks, based on the tile size defined above. Using the configurable component [`GhostConnectionPosition`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostConnectionPosition.html) and the Entities concept of [chunks](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/components-chunk-introducing.html), Netcode for Entities can create spatial partitions that enable the fast culling of entire sets of entities based on distance to the connection's character controller (or other notable object).
+[`GhostDistancePartitioningSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistancePartitioningSystem.html) 会根据上述分块大小，把 World 中的所有 Ghost 拆分到不同 Chunk。通过可配置的 [`GhostConnectionPosition`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostConnectionPosition.html) 组件和 Entities 的 [Chunk](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/components-chunk-introducing.html) 机制，Netcode for Entities 可以建立空间分区，并依据分区与该连接角色控制器或其他关键对象的距离，快速剔除整组实体
 
-`GhostConnectionPosition` stores the position of a player's entity (`Ship.prefab` in the Asteroids example), which is passed into the `Scale` function via the `GhostSendSystem`, allowing each connection to determine which tiles (chunks) that connection should prioritize.
+`GhostConnectionPosition` 保存玩家实体的位置，在 Asteroids 示例中对应 `Ship.prefab`。`GhostSendSystem` 会把该位置传入 `Scale` 函数，使每条连接分别判断自己应优先处理哪些空间分块或 Chunk
 
-In Asteroids, this component is added to the connection entity when the (Asteroids-specific) `RpcLevelLoaded` RPC is invoked:
+Asteroids 在调用项目自定义的 `RpcLevelLoaded` RPC 时，把该组件添加到连接实体：
 
-```c#
-    [BurstCompile(DisableDirectCall = true)]
-    [AOT.MonoPInvokeCallback(typeof(RpcExecutor.ExecuteDelegate))]
-    private static void InvokeExecute(ref RpcExecutor.Parameters parameters)
-    {
-        var rpcData = default(RpcLevelLoaded);
-        rpcData.Deserialize(ref parameters.Reader, parameters.DeserializerState, ref rpcData);
+```csharp
+[BurstCompile(DisableDirectCall = true)]
+[AOT.MonoPInvokeCallback(typeof(RpcExecutor.ExecuteDelegate))]
+private static void InvokeExecute(ref RpcExecutor.Parameters parameters)
+{
+    var rpcData = default(RpcLevelLoaded);
+    rpcData.Deserialize(ref parameters.Reader, parameters.DeserializerState, ref rpcData);
 
-        parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, new PlayerStateComponentData());
-        parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, default(NetworkStreamInGame));
-        parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, default(GhostConnectionPosition)); // <-- Here.
-    }
+    parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, new PlayerStateComponentData());
+    parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, default(NetworkStreamInGame));
+    parameters.CommandBuffer.AddComponent(parameters.JobIndex, parameters.Connection, default(GhostConnectionPosition)); // 在这里添加
+}
 ```
 
-Which is then updated via the Asteroids server system `UpdateConnectionPositionSystemJob`:
+随后由 Asteroids 服务器系统中的 `UpdateConnectionPositionSystemJob` 更新它：
 
-```c#
-        [BurstCompile]
-        partial struct UpdateConnectionPositionSystemJob : IJobEntity
+```csharp
+[BurstCompile]
+partial struct UpdateConnectionPositionSystemJob : IJobEntity
+{
+    [ReadOnly] public ComponentLookup<LocalTransform> transformFromEntity;
+
+    public void Execute(ref GhostConnectionPosition conPos, in CommandTarget target)
+    {
+        if (!transformFromEntity.HasComponent(target.targetEntity))
+            return;
+        conPos = new GhostConnectionPosition
         {
-            [ReadOnly] public ComponentLookup<LocalTransform> transformFromEntity;
-            public void Execute(ref GhostConnectionPosition conPos, in CommandTarget target)
-            {
-                if (!transformFromEntity.HasComponent(target.targetEntity))
-                    return;
-                conPos = new GhostConnectionPosition
-                {
-                    Position = transformFromEntity[target.targetEntity].Position
-                };
-            }
-        }
+            Position = transformFromEntity[target.targetEntity].Position
+        };
+    }
+}
 ```
 
-### Create a custom importance scaling function
+<a id="create-a-custom-importance-scaling-function"></a>
 
-Every component and function used in importance scaling is configurable. To create a custom importance scaling function, you need to do three things:
+### 创建自定义重要度缩放函数
 
-1. Define the three components above (a per-connection component, an optional singleton config component, and a per-chunk shared component), and set them in the `GhostImportance` singleton.
-2. Define your own scaling function and set it via the `GhostImportance` singleton.
-3. Define your own version of a `GhostDistancePartitioningSystem` which moves your entities between chunks (via writing to the shared component).
+重要度缩放使用的所有组件和函数都可以配置。创建自定义缩放函数需要完成三项工作：
 
-## Ghost relevancy
+1. 定义上述三种组件：连接级组件、可选的单例配置组件和 Chunk 级共享组件，并在 `GhostImportance` 单例中指定它们
+2. 定义缩放函数，并通过 `GhostImportance` 单例指定它
+3. 实现自己的 `GhostDistancePartitioningSystem`，通过写入共享组件在 Chunk 之间移动实体
 
-Ghost relevancy, also known as ghost filtering, is a server feature that allows you to define under what conditions a specific ghost entity is replicated on a client. You can use this to:
+<a id="ghost-relevancy"></a>
 
-* Define a maximum replication distance for ghosts so that they only spawn when near a player.
-* Create a server-side, anti-cheat fog of war that prevents clients from knowing about ghosts that they shouldn't be able to see.
-* Only allow specific clients to be notified of a ghost's state, such as an item being dropped in a hidden information game.
-* Create client-specific ghosts, such as NPCs that are only visible to a player when they've completed some quest condition.
-* Temporarily pause all replication on a client while that client is in a specific state, such as when a player has died and is waiting to respawn.
+## Ghost 相关性
 
-Use ghost relevancy to avoid replicating entities that the player can neither see nor interact with.
+Ghost 相关性也称为 Ghost 过滤，是一项服务器功能，用于定义特定 Ghost 实体在什么条件下向某个客户端复制。它可以用于：
+
+- 为 Ghost 定义最大复制距离，使其只在玩家附近生成
+- 实现服务器侧的防作弊战争迷雾，避免客户端获知本不应看到的 Ghost
+- 只向特定客户端告知某个 Ghost 的状态，例如隐藏信息游戏中掉落的物品
+- 创建客户端专属 Ghost，例如只在玩家完成特定任务条件后可见的 NPC
+- 客户端处于特定状态时暂时停止对其进行全部复制，例如玩家死亡并等待重生期间
+
+对于玩家既看不到也无法交互的实体，应使用 Ghost 相关性避免复制它们
 
 > [!NOTE]
-> Ghost group children do not support relevancy (nor importance, MaxSendRate, static-optimization etc.) until they've left the group, refer to the [ghost groups page](../ghost-groups.md) for more information.
+> Ghost Group 的子实体在离开 Group 之前不支持相关性、重要度、`MaxSendRate`、静态优化等功能，详情请参阅 [Ghost Group](../ghost-groups.md)
 
-The [`GhostRelevancy`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html) singleton component has the following controls:
+[`GhostRelevancy`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html) 单例组件提供以下控制项：
 
-* [`GhostRelevancyMode`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_GhostRelevancyMode) defines the behavior of the relevancy subsystem:
-    * **Disabled**: The default setting. No relevancy is applied under any circumstances.
-    * **SetIsRelevant**: Only ghosts added to the relevancy set (`GhostRelevancySet`) are considered relevant to that client and serialized for the specified connection (where possible: eventual consistency and importance scaling rules still apply).
-        * If you have this setting as the default, then no ghosts will be replicated to any client unless they're in the `GhostRelevancySet`. This can be useful when it's rare or impossible for a player to be viewing the entire world.
-    * **SetIsIrrelevant**: Ghosts added to relevancy set (`GhostRelevancySet`) are considered not relevant to that client and won't be serialized for the specified connection. In other words, use this mode if you want to specifically ignore entities for a given client.
-* [`GhostRelevancySet`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_GhostRelevancySet) stores the connection-ghost pairs. The behavior of the set is defined by `GhostRelevancyMode`.
-* [`DefaultRelevancyQuery`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_DefaultRelevancyQuery) is a global rule denoting that all ghost chunks matching this query are always considered relevant to all connections (unless you've added the ghosts in said chunk to the `GhostRelevancySet`). This is useful for creating general relevancy rules (for example: the entities in charge of tracking player scores are always relevant). `GhostRelevancySet` takes precedence over this rule. Refer to the [Asteroids sample](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/Asteroids/Authoring/Server/SetAlwaysRelevantSystem.cs) for an example implementation.
+- [`GhostRelevancyMode`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_GhostRelevancyMode) 定义相关性子系统的行为
+  - **Disabled**：默认设置，任何情况下都不应用相关性
+  - **SetIsRelevant**：只有添加到相关性集合 `GhostRelevancySet` 的 Ghost 才会被视为与该客户端相关，并尽可能为指定连接序列化。最终一致性和重要度缩放规则仍然适用
+  - 如果默认使用该模式，则除非 Ghost 位于 `GhostRelevancySet` 中，否则不会复制给任何客户端。当玩家很少或不可能看到整个 World 时，该模式很有用
+  - **SetIsIrrelevant**：添加到 `GhostRelevancySet` 的 Ghost 会被视为与该客户端无关，不会为指定连接序列化。需要为某个客户端明确忽略实体时使用该模式
+- [`GhostRelevancySet`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_GhostRelevancySet) 保存“连接与 Ghost”的配对，其行为由 `GhostRelevancyMode` 决定
+- [`DefaultRelevancyQuery`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostRelevancy.html#Unity_NetCode_GhostRelevancy_DefaultRelevancyQuery) 是一项全局规则：匹配该查询的所有 Ghost Chunk 默认与所有连接相关，除非相应 Ghost 已加入 `GhostRelevancySet`。它适合定义通用相关性规则，例如追踪玩家分数的实体始终相关。`GhostRelevancySet` 的优先级高于这项规则。示例实现请参阅 [Asteroids 示例](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/Asteroids/Authoring/Server/SetAlwaysRelevantSystem.cs)
 
-```c#
+```csharp
 var relevancy = SystemAPI.GetSingletonRW<GhostRelevancy>();
 relevancy.ValueRW.DefaultRelevancyQuery = GetEntityQuery(typeof(AsteroidScore));
 ```
 
 > [!NOTE]
-> If a ghost has been replicated to a client and is then set to **not be** relevant to that client, the client will be notified that the entity has been **destroyed**, and will replicate that change locally. This misnomer can be confusing, as the entity being despawned does not imply the server entity was destroyed.
-> For example: despawning an enemy monster in a MOBA because it became hidden in the fog of war shouldn't trigger a death animation (nor S/VFX). Thus, use some other data to notify what kind of entity-destruction state your entity has entered (such as enabling an `IsDead`/`IsCorpse` component).
+> 如果某个 Ghost 已复制到客户端，之后又被设为与该客户端无关，客户端会收到该实体已被“销毁”的通知，并在本地执行 Despawn。这个名称容易引起误解，因为 Despawn 并不代表服务器实体真的被销毁
+>
+> 例如，MOBA 中的敌方单位因进入战争迷雾而在客户端 Despawn 时，不应播放死亡动画或声音、视觉特效。因此，应使用其他数据说明实体进入了哪种销毁状态，例如启用 `IsDead` 或 `IsCorpse` 组件
 
-### Relevancy fast-path via importance scaling
+<a id="relevancy-fast-path-via-importance-scaling"></a>
 
-You can merge the ghost relevancy calculation with the batched importance scaling function pointer (assuming relevancy can be expressed via the same data as importance scaling).
-As shown in the [`GhostDistanceImportance.BatchScaleWithRelevancy` sample code](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceImportance.html#Unity_NetCode_GhostDistanceImportance_BatchScaleWithRelevancyFunctionPointer), enabling this fast-path requires the following steps:
+### 通过重要度缩放使用相关性快速路径
 
-1. Enabling relevancy via `SystemAPI.GetSingletonRW<GhostRelevancy>().ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;` (or `SetIsIrrelevant`).
-2. Setting the `PrioChunk.isRelevant` flag for each chunk (this flag ignores the `SetIsRelevant` vs `SetIsIrrelevant` distinction, so setting `isRelevant = true` will cause the chunk to be relevant, regardless of which mode we're in).
+如果相关性可以用与重要度缩放相同的数据表达，就可以把 Ghost 相关性计算合并到批量重要度缩放函数指针中
+
+如 [`GhostDistanceImportance.BatchScaleWithRelevancy` 示例代码](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceImportance.html#Unity_NetCode_GhostDistanceImportance_BatchScaleWithRelevancyFunctionPointer) 所示，启用该快速路径需要以下步骤：
+
+1. 通过 `SystemAPI.GetSingletonRW<GhostRelevancy>().ValueRW.GhostRelevancyMode = GhostRelevancyMode.SetIsRelevant;` 启用相关性，也可以使用 `SetIsIrrelevant`
+2. 为每个 Chunk 设置 `PrioChunk.isRelevant` 标志。该标志不区分 `SetIsRelevant` 和 `SetIsIrrelevant`，因此无论当前采用哪种模式，只要设置 `isRelevant = true`，该 Chunk 就会被视为相关
+
 ```csharp
-    ...
-    data.priority = basePriority;
-    data.isRelevant = distSq <= 16; // Any chunks greater than 4 tiles from the player will be irrelevant (unless explicitly added to the `GhostRelevancySet`).
+...
+data.priority = basePriority;
+data.isRelevant = distSq <= 16; // 距离玩家超过四个空间分块的 Chunk 将被视为无关，除非明确加入 GhostRelevancySet
 ```
-When using this fast-path, there is no need to write ghost instances into the global `GhostRelevancySet` unless they would not be added via the ghost importance function `isRelevant` flag.
-For example; a map marker ghost far outside the practical `BatchScaleWithRelevancy` radius, but that you still want to replicate.
+
+使用该快速路径时，无需把 Ghost 实例写入全局 `GhostRelevancySet`，除非它不会通过 Ghost 重要度函数的 `isRelevant` 标志变为相关。例如，某个地图标记 Ghost 远远超出 `BatchScaleWithRelevancy` 的实际半径，但仍然需要复制
 
 > [!NOTE]
-> `PrioChunk.isRelevant` has lower precedence than the per-entity `GhostRelevancySet`.
+> `PrioChunk.isRelevant` 的优先级低于实体级 `GhostRelevancySet`
 
-## Preserialize ghosts
+<a id="preserialize-ghosts"></a>
 
-By default, all ghosts are serialized once per connection on the server. This is done on demand and each ghost is only serialized when it's actually sent to a client. This serialization process can be expensive in terms of CPU, especially when the server has many connections and many ghosts. To reduce this cost, you can use preserialization.
+## 预序列化 Ghost
 
-Preserialization is a feature that allows you to serialize ghost data once and reuse it for all connections on the server. You can enable preserialization in two ways:
+默认情况下，服务器会为每条连接分别序列化一次 Ghost。序列化按需进行，只有 Ghost 实际要发送给某个客户端时才会处理。当服务器拥有大量连接和 Ghost 时，这项工作可能消耗大量 CPU。可以使用预序列化降低此成本
 
-1. Enabling [`UsePreserialization`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_UsePreSerialization) in the `GhostAuthoringComponent` inspector on your ghost prefab. This causes all ghosts of this type to use preserialization.
-2. Adding the [`PreSerializedGhost`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSerializedGhost.html) component to the ghost entity in the server world. This causes only this specific ghost to use preserialization.
+预序列化允许服务器只序列化一次 Ghost 数据，再为所有连接复用结果。有两种启用方式：
 
-When preserialization is enabled the server only serializes the ghost once for all connections. However, preserialized ghosts are serialized regularly on every tick, even if the ghost isn't going to be sent to any client. As a result, preserialization is only recommended for ghosts that are frequently sent to multiple clients (otherwise the CPU cost might be higher than the default behavior of serializing ghosts on demand).
+1. 在 Ghost Prefab 的 `GhostAuthoringComponent` Inspector 中启用 [`UsePreserialization`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html#Unity_NetCode_GhostAuthoringComponent_UsePreSerialization)，使该类型的所有 Ghost 都使用预序列化
+2. 在服务器 World 的 Ghost 实体上添加 [`PreSerializedGhost`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSerializedGhost.html) 组件，只让该特定 Ghost 使用预序列化
 
-## __Optimization Mode__
+启用后，服务器只为所有连接序列化一次该 Ghost。但预序列化 Ghost 会在每个 Tick 定期序列化，即使它不会发送给任何客户端。因此，只建议对频繁发送给多个客户端的 Ghost 使用预序列化，否则 CPU 开销可能高于默认的按需序列化
 
-__Optimization Mode__ is a setting available on the `GhostAuthoringComponent` that changes how often Netcode for Entities resends the `GhostField` on a spawned entity. It has two modes: __Dynamic__ and __Static__.
+<a id="optimization-mode"></a>
 
-* __Dynamic__: This is the default setting. Use this when you expect the ghost to change often. The ghost is optimized for a small snapshot size when both changing and not changing.
-* __Static__: Use this when you expect the ghost to change infrequently. The ghost isn't optimized for a small snapshot size when changing, but isn't sent at all when it's not changing.
+## Optimization Mode
 
-For example, if you spawn objects that never move, set the __Optimization Mode__ to __Static__ to ensure that Netcode for Entities doesn't resynchronize their Transform.
+**Optimization Mode** 是 `GhostAuthoringComponent` 上的一项设置，用于改变 Netcode for Entities 重新发送已生成实体的 `GhostField` 的频率。它有两种模式：**Dynamic** 和 **Static**
 
-When a `GhostField` changes, Netcode for Entities sends the changes regardless of the __Optimization Mode__. It just optimizes the number and size of the snapshots sent.
+- **Dynamic**：默认模式，适合预期会频繁变化的 Ghost。无论数据变化与否，它都会尽量减小快照大小
+- **Static**：适合预期很少变化的 Ghost。数据变化时不会针对快照大小进行优化，但数据不变时完全不会发送
 
-### Limitations with static-optimized ghosts
+例如，对于生成后永不移动的对象，应把 **Optimization Mode** 设为 **Static**，避免 Netcode for Entities 重复同步它们的 Transform
 
-* Static-optimized ghosts are forced to enable [`UseSingleBaseline`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostPrefabCreation.Config.html#Unity_NetCode_GhostPrefabCreation_Config_UseSingleBaseline).
-* Static optimization isn't supported for ghosts involved in a [ghost group](../ghost-groups.md) (neither the root, nor ghost group children), nor for ghosts containing any replicated child components. In both of these cases, ghosts are treated as __Dynamic__ at runtime.
-* Ghosts that are both static-optimized and interpolated won't run `GhostField` extrapolation (`SmoothingAction.InterpolateAndExtrapolate` is forced into `SmoothingAction.Interpolate`).
+`GhostField` 发生变化时，无论采用哪种 **Optimization Mode**，Netcode for Entities 都会发送变更。该选项只优化快照的发送数量和大小
 
-## Additional resources
+<a id="limitations-with-static-optimized-ghosts"></a>
 
-* [Ghosts and snapshots](../ghost-snapshots.md)
+### Static 优化 Ghost 的限制
+
+- Static 优化 Ghost 会被强制启用 [`UseSingleBaseline`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostPrefabCreation.Config.html#Unity_NetCode_GhostPrefabCreation_Config_UseSingleBaseline)
+- [Ghost Group](../ghost-groups.md) 中的 Ghost 无法使用 Static 优化，无论它是根实体还是 Group 子实体；包含任何已复制子组件的 Ghost 也不支持。上述情况下，Ghost 运行时会被视为 **Dynamic**
+- 同时采用 Static 优化和插值模式的 Ghost 不会执行 `GhostField` 外推，`SmoothingAction.InterpolateAndExtrapolate` 会被强制改为 `SmoothingAction.Interpolate`
+
+## 其他资源
+
+- [Ghost 与快照](../ghost-snapshots.md)

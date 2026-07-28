@@ -1,105 +1,106 @@
-# Netcode for Entities multi-driver architecture
+# Netcode for Entities 多驱动架构
 
-Netcode for Entities has a multi-driver architecture, allowing you to use multiple [`NetworkDriver`s](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.NetworkDriver.html), stored in the [`NetworkDriverStore`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkDriverStore.html), at the same time.
+Netcode for Entities 采用多驱动架构，可以同时使用多个 [`NetworkDriver`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.NetworkDriver.html)，并将其存储在 [`NetworkDriverStore`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkDriverStore.html) 中
 
-`NetworkDriver` configuration is designed to be customizable and is implemented using a delegate/strategy pattern. Netcode for Entities provides a [default strategy implementation](#default-driver-setup) that can be changed by creating your own custom strategy class that implements the [`INetworkStreamDriverConstructor`](https://docs.unity3d.com/Packages/com.unity.netcode.adapter.utp@latest?subfolder=/api/Unity.Netcode.INetworkStreamDriverConstructor.html) interface.
+`NetworkDriver` 配置支持自定义，并采用委托/策略模式实现。Netcode for Entities 提供一套[默认策略实现](#default-driver-setup)。也可以创建实现 [`INetworkStreamDriverConstructor`](https://docs.unity3d.com/Packages/com.unity.netcode.adapter.utp@latest?subfolder=/api/Unity.Netcode.INetworkStreamDriverConstructor.html) 接口的自定义策略类进行替换
 
-The most common use cases for implementing a custom initialization strategy, or [resetting the `NetworkDriverStore`](#resetting-the-networkdriverstore-setup), are usually:
+实现自定义初始化策略或[重置 `NetworkDriverStore`](#resetting-the-networkdriverstore-setup)的常见场景包括：
 
-- Using [Unity Relay](networking-using-relay.md) for self-hosting and letting remote players connect to a local machine.
-- Listening to all interfaces on the server-side (to support connecting web and standalone).
-- Configuring the driver to use DTLS, as shown in the [secure connection sample](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/2_Intermediate/08_SecureConnection).
+- 使用 [Unity Relay](networking-using-relay.md) 进行自托管，并允许远程玩家连接到本地计算机
+- 在服务器端监听全部网络接口，同时支持 Web 和独立客户端连接
+- 配置驱动使用 DTLS，参阅[安全连接示例](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/2_Intermediate/08_SecureConnection)
 
 > [!NOTE]
-> When using web as a platform, Relay must be used to start listening for incoming
-> connections. Relay is not required to connect your game to a deployed server using WebSocket.
+> 以 Web 为目标平台时，必须使用 Relay 才能开始监听传入连接。但是，通过 WebSocket 将游戏连接到已部署服务器并不要求使用 Relay
 
+<a id="networkdriverstore"></a>
 ## `NetworkDriverStore`
 
-The [`NetworkDriverStore`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkDriverStore.html) struct stores `NetworkDriver` instances and, by default, is automatically configured by [`NetworkStreamReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html) at world creation time.
+[`NetworkDriverStore`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkDriverStore.html) 结构用于存储 `NetworkDriver` 实例。默认情况下，创建 World 时由 [`NetworkStreamReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html) 自动配置
 
-`NetworkDriverStore` allows up to three drivers to be used, each using a different [`INetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.INetworkInterface.html). While it's possible to listen or connect to different addresses at the same time, the `NetworkDriverStore` interface limits the options to the most common use cases that Netcode for Entities is designed for:
+`NetworkDriverStore` 最多可以使用三个驱动，每个驱动使用不同的 [`INetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.INetworkInterface.html)。虽然可以同时监听或连接不同地址，但 `NetworkDriverStore` 接口将选项限制为 Netcode for Entities 面向的常见用例：
 
-- The server can listen from multiple `NetworkDriver`s, commonly listening to the same server port.
-- The client is primarily designed to use only a single `NetworkDriver` and connection.
+- 服务器可以通过多个 `NetworkDriver` 监听，通常监听同一个服务器端口
+- 客户端主要设计为只使用单个 `NetworkDriver` 和单条连接
 
-## Default driver setup
+<a id="default-driver-setup"></a>
+## 默认驱动配置
 
-Netcode for Entities provides a default `NetworkDriver` setup, implemented by the [`IPCAndSocketDriverConstructor`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IPCAndSocketDriverConstructor.html). The driver setup is different for each world type and depends on the [PlayMode Tool](playmode-tool.md) settings.
+Netcode for Entities 提供由 [`IPCAndSocketDriverConstructor`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IPCAndSocketDriverConstructor.html) 实现的默认 `NetworkDriver` 配置。每种 World 类型的驱动配置不同，并受 [PlayMode Tool](playmode-tool.md) 设置影响
 
-### Default server configuration
+<a id="default-server-configuration"></a>
+### 默认服务器配置
 
-For the server world, the `NetworkDriverStore` contains multiple drivers to listen for incoming connections:
+对于服务器 World，`NetworkDriverStore` 包含多个用于监听传入连接的驱动：
 
-| Slot   | Interface                                                            | Description                                                                      |
-|--------|----------------------------------------------------------------------|----------------------------------------------------------------------------------|
-| Slot 1 | [`IPCNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.IPCNetworkInterface.html)                                                  | Used to connect local client instances directly to the server for self-hosting.   |
-| Slot 2 | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html) (standalone)<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html) (web) | For accepting external connections.                                               |
+| 槽位 | 接口 | 说明 |
+|------|------|------|
+| Slot 1 | [`IPCNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.IPCNetworkInterface.html) | 用于自托管时将本地客户端实例直接连接到服务器 |
+| Slot 2 | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html)，独立平台<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html)，Web 平台 | 用于接受外部连接 |
 
-### Default client configuration
+<a id="default-client-configuration"></a>
+### 默认客户端配置
 
-For the client world, the `NetworkDriverStore` always uses a single `NetworkDriver`, but the interface used depends on the [PlayMode Tool](playmode-tool.md) settings.
+对于客户端 World，`NetworkDriverStore` 始终只使用一个 `NetworkDriver`，但具体接口取决于 [PlayMode Tool](playmode-tool.md) 设置
 
-| Mode          | Network Emulator |                                                                        |
-|---------------|------------------|------------------------------------------------------------------------|
-| Client        | On/Off           | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html) (standalone)<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html) (web)   |
-| Client/Server | Off              | [`IPCNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.IPCNetworkInterface.html)                                                    |
-| Client/Server | On               | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html) (standalone)<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html) (web)   |                                                   |
+| 模式 | Network Emulator | 接口 |
+|------|------------------|------|
+| Client | 开启或关闭 | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html)，独立平台<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html)，Web 平台 |
+| Client/Server | 关闭 | [`IPCNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.IPCNetworkInterface.html) |
+| Client/Server | 开启 | [`UDPNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.UDPNetworkInterface.html)，独立平台<br/>[`WebsocketNetworkInterface`](https://docs.unity3d.com/Packages/com.unity.transport@latest?subfolder=/api/Unity.Networking.Transport.WebSocketNetworkInterface.html)，Web 平台 |
 
-When a game runs in Client/Server mode, the client can connect to the local server in two different ways, depending on whether the Network Emulator is turned on or off.
+游戏以 Client/Server 模式运行时，客户端可以通过两种不同方式连接本地服务器，具体取决于是否开启 Network Emulator
 
-#### Self-hosting scenario
+<a id="self-hosting-scenario"></a>
+#### 自托管场景
 
-When the Network Emulator is turned off, Netcode for Entities assumes a self-hosting scenario and the `IPCNetworkInteface` is used
-to connect to the server. When using this interface, the client optimizes its prediction loop to ensure that:
+Network Emulator 关闭时，Netcode for Entities 假定当前为自托管场景，并使用 `IPCNetworkInterface` 连接服务器。使用该接口时，客户端会优化预测循环，确保：
 
-- At most one prediction tick is done every frame.
-- Packet loss, jitter, and round trip time (RTT) are assumed to be 0 (for time synchronization purposes).
+- 每帧最多执行一个预测 Tick
+- 为了时间同步，假定数据包丢失、抖动和往返时间 RTT 均为 0
 
-#### Client connection emulation
+<a id="client-connection-emulation"></a>
+#### 客户端连接模拟
 
-When the Network Emulator is turned on, Netcode for Entities sets up the client driver to use the `WebsocketNetworkInterface`, to simulate a client
-connecting to a remote server (even though the server is locally located on the same machine). This modality is used mostly for testing
-network conditions.
+Network Emulator 开启时，Netcode for Entities 会将客户端驱动配置为使用 `WebsocketNetworkInterface`，模拟客户端连接远程服务器，即使服务器实际位于同一台计算机上。该模式主要用于测试网络条件
 
-## Customize network driver creation
+<a id="customize-network-driver-creation"></a>
+## 自定义网络驱动创建
 
-You can customize how the `NetworkDriverStore` is set up at world creation by creating a class implementing the `INetworkStreamDriverConstructor`.
+可以创建实现 `INetworkStreamDriverConstructor` 的类，自定义创建 World 时如何设置 `NetworkDriverStore`
 
-The `DefaultDriverBuilder` class provides a set of utility methods that can be used to help create and initialize the drivers required by Netcode for Entities.
+`DefaultDriverBuilder` 类提供一组辅助方法，帮助创建和初始化 Netcode for Entities 所需的驱动
 
 ```csharp
-
 public class MyCustomDriverConstructor : INetworkStreamDriverConstructor
-
+{
     public void CreateClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
     {
-        var settings = DefaultDriverBuilder.GetClientNetworkSettings();
-        #if !UNITY_WEBGL
+        var settings = DefaultDriverBuilder.GetNetworkClientSettings();
+#if !UNITY_WEBGL
         DefaultDriverBuilder.RegisterClientUdpDriver(world, ref driverStore, netDebug, settings);
-        #else
+#else
         DefaultDriverBuilder.RegisterClientWebSocketDriver(world, ref driverStore, netDebug, settings);
-        #endif
+#endif
     }
 
-        public void CreateServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
-        {
-            var settings = DefaultDriverBuilder.GetNetworkServerSettings();
+    public void CreateServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
+    {
+        var settings = DefaultDriverBuilder.GetNetworkServerSettings();
 #if !UNITY_WEBGL
-            DefaultDriverBuilder.RegisterServerUdpDriver(world, ref driverStore, netDebug, relaySettings);
+        DefaultDriverBuilder.RegisterServerUdpDriver(world, ref driverStore, netDebug, settings);
 #else
-            DefaultDriverBuilder.RegisterServerWebSocketDriver(world, ref driverStore, netDebug, relaySettings);
+        DefaultDriverBuilder.RegisterServerWebSocketDriver(world, ref driverStore, netDebug, settings);
 #endif
-        }
     }
 }
 ```
 
-To use a custom strategy, you need to assign a new instance of your class to the `NetworkStreamReceiveSystem.DriverConstructor` static property before the worlds are created.
+若要使用自定义策略，必须在创建 World 前，将自定义类的新实例赋给静态属性 `NetworkStreamReceiveSystem.DriverConstructor`
 
 ```csharp
 var oldConstructor = NetworkStreamReceiveSystem.DriverConstructor;
-//The try/finally pattern can be used to avoid any exceptions resetting back to the old default.
+// 使用 try/finally，确保即使出现异常也能恢复原默认构造器
 try
 {
     NetworkStreamReceiveSystem.DriverConstructor = new MyCustomDriverConstructor();
@@ -112,58 +113,55 @@ finally
 }
 ```
 
+> [!NOTE]
+> `DefaultDriverConstructor.RegisterServerDriver` 和 `DefaultDriverConstructor.RegisterClientDriver` 分别实现服务器与客户端的默认策略。特别是客户端策略，它会根据 Network Emulator 设置通过 IPC 或 Socket 连接。创建自定义驱动构造器时，建议始终使用面向具体接口的 Builder 方法，例如 `RegisterServerUdpDriver`，从而精确控制所需接口
+
+<a id="resetting-the-networkdriverstore-setup"></a>
+## 重置 `NetworkDriverStore` 配置
+
+创建 World 后，可以使用 `NetworkStreamDriver.ResetDriverStore` 方法修改当前 `NetworkDriverStore` 的驱动配置
+
+必须创建新的 `NetworkDriverStore` 实例，手动配置后将其作为参数传给重置方法
 
 > [!NOTE]
-> The `DefaultDriverConstructor.RegisterServerDriver` and `DefaultDriverConstructor.RegisterClientDriver` methods implement
-> the default strategy for both server and client. For the latter in particular, the Network Emulator used has can connect
-> via IPC or Socket. When creating a custom driver constructor, it's recommended to always use the interface-specific builder methods (i.e. `RegisterServerUdpDriver`)
-> to control exactly the interfaces you want.
+> 存在活动连接时不能重置驱动。只有 World 中不存在 `NetworkStreamConnection` 时才能重置
 
-## Reset the `NetworkDriverStore` setup
+在某些情况下，重置 `NetworkDriverStore` 比使用自定义驱动构造器更合适。常见用例之一是连接或监听需要异步设置，例如[使用 Relay](networking-using-relay.md)时
 
-You can change the current `NetworkDriverStore` drivers setup after world creation using the `NetworkStreamDriver.ResetDriverStore` method.
+另一个常见场景是使用[瘦客户端](thin-clients.md)并且需要异步连接逻辑。Play Mode Tool 原生不支持这种情况，因为它要求同步设置连接
 
-A new `NetworkDriverStore` instance must be created, manually configured, and passed as an argument to the reset method.
+<a id="reset-the-driver-store"></a>
+### 重置驱动存储
 
-> [!NOTE]
-> Resetting can't be done if there are live connections. Drivers can be reset only when no `NetworkStreamConnection` exists in the world.
+可以通过多种方式重置驱动存储
 
-Resetting the `NetworkDriverStore` instead of using a custom driver constructor can be useful or preferred in some cases. One
-of the most common use cases is when connecting or listening requires an asynchronous setup, such as when [using relay](configure-drivers-for-relay.md).
-
-Another common scenario is when using [thin clients](thin-clients.md), if asynchronous connection logic is required and thus not supported natively by the Play Mode Tool (because it requires a synchronous connection setup).
-
-### Reset the driver store
-
-There are multiple ways to reset the driver store:
-
-- You can use an `INetworkDriverConstructor` instance to delegate the creation of the drivers.
+- 使用 `INetworkDriverConstructor` 实例委托驱动创建
 
 ```csharp
 var driverStore = new NetworkDriverStore();
 var clientWorld = ClientServerBootstrap.ClientWorld;
-var netDebug = ClientServerBootstrap.ClientWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-// you can use any constructor to initialize the store
-NetworkStreamReceiveSystem.DriverConstructor.CreateClientDriver(m_ClientWorld, ref driverStore, netDebug);
-var networkStreamDriver = ClientServerBootstrap.ClientWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
-networkStreamDriver.ResetDriverStore(ClientServerBootstrap.ServerWorld, ref driverStore);
+var netDebug = clientWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
+// 可以使用任意构造器初始化存储
+NetworkStreamReceiveSystem.DriverConstructor.CreateClientDriver(clientWorld, ref driverStore, netDebug);
+var networkStreamDriver = clientWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
+networkStreamDriver.ResetDriverStore(clientWorld, ref driverStore);
 ```
 
-- You can manually populate them directly.
+- 直接手动填充驱动
 
 ```csharp
 var driverStore = new NetworkDriverStore();
-var netDebug = SystemAPI.Query<NetDebug>();
-var settings = DefaultDriverBuilder.GetServerNetworkSettings();
-var netDebug = ClientServerBootstrap.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
-//register some drivers
-DefaultDriverBuilder.RegisterServerIpcDriver(ClientServerBootstrap.ServerWorld, ref driverStore, netDebug, settings);
-DefaultDriverBuilder.RegisterServerUpdDriver(ClientServerBootstrap.ServerWorld, ref driverStore, netDebug, settings);
-//reset
-var networkStreamDriver = ClientServerBootstrap.ServerWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
-networkStreamDriver.ResetDriverStore(ClientServerBootstrap.ServerWorld, ref driverStore);
+var serverWorld = ClientServerBootstrap.ServerWorld;
+var settings = DefaultDriverBuilder.GetNetworkServerSettings();
+var netDebug = serverWorld.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
+// 注册所需驱动
+DefaultDriverBuilder.RegisterServerIpcDriver(serverWorld, ref driverStore, netDebug, settings);
+DefaultDriverBuilder.RegisterServerUdpDriver(serverWorld, ref driverStore, netDebug, settings);
+// 重置
+var networkStreamDriver = serverWorld.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
+networkStreamDriver.ResetDriverStore(serverWorld, ref driverStore);
 ```
 
-## Additional resources
+## 其他资源
 
-* [Use Unity Relay with Netcode for Entities](networking-using-relay.md)
+* [在 Netcode for Entities 中使用 Unity Relay](networking-using-relay.md)

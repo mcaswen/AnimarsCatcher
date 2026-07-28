@@ -1,21 +1,22 @@
-# Netcode for Entities source generators
+# Netcode for Entities 源码生成器
 
-The Netcode for Entities package uses Roslyn SourceGenerator to automatically generate at compile time:
-- All the serialization code for replicated Components and Buffers, ICommand, Rpc and IInputCommandData.
-- All the necessary boiler template systems that handle Rpc and Commands handling
-- Systems that copy to/from from IInputCommandData to the underlying ICommand buffer
-- Other internal system (mostly used for registration of the replicated types).
-- Extract all the information from the replicate types to avoid using reflection at runtime.
+Netcode for Entities 包使用 Roslyn Source Generator，在编译时自动生成以下内容：
 
-The project is organized as follow:
+- 复制组件、缓冲区、`ICommandData`、RPC 和 `IInputCommandData` 的全部序列化代码
+- 处理 RPC 和命令所需的全部样板系统
+- 在 `IInputCommandData` 与底层 `ICommandData` 缓冲区之间复制数据的系统
+- 其他内部系统，主要用于注册复制类型
+- 从复制类型提取全部信息，避免运行时使用反射
 
-```
+项目结构如下：
+
+```text
 Unity.NetCode
 - Editor
 - Runtime
-  -- SourceGenerators      Labels
+  -- SourceGenerators       标签
   --- NetCodeGenerator.dll  *SourceGenerator*
-  ---- Source~  (hidden, not handled by Unity)
+  ---- Source~  （隐藏，不由 Unity 处理）
   ------ NetCodeSourceGenerator
   ------- CodeGenerator
   ------- Generators
@@ -24,82 +25,93 @@ Unity.NetCode
   ------ SourceGenerators.sln
 ```
 
-The NetCodeSourceGenerator.dll is generated from the Source~ folder and used by the Editor compilation pipeline to inject the generate code in each assemply definitions (and also Assembly-CSharp and similar).
-> IMPORTANT
+`NetCodeSourceGenerator.dll` 由 `Source~` 文件夹生成，并由编辑器编译管线使用，将生成代码注入各程序集定义以及 `Assembly-CSharp` 等程序集
+
+> [!IMPORTANT]
+> 生成器 DLL 比较特殊，具有以下明确要求：
 >
-> The generator dll is quite special and as some specific requirements:
-> 1) It MUST be not imported by Unity Editor or any platform (incompatibility)
-> 2) In order to be detected by the compilation pipeline and used as generator it MUST be labelled with the 'SourceGenerator' label.
+> 1. Unity 编辑器或任何平台都**不能**导入它，因为它们不兼容
+> 2. 为了让编译管线检测到它并将其作为生成器使用，DLL **必须**带有 `SourceGenerator` 标签
 
-The dll present in the package is alredy configured appropiately. However, in case after recompiling the dll, some of the settings are lost
-you can either use the Editor, edit the meta file, or restore the previous meta file, to reset the settings.
+包内 DLL 已经正确配置。不过，重新编译 DLL 后如果部分设置丢失，可以通过编辑器重新设置、编辑 `.meta` 文件，或恢复先前的 `.meta` 文件
 
-## Generator output
-By default, the Netcode generators emits all the generated files in the `Temp/NetcodeGenerated` folder (accessible also from the MultiplayerMenu shortcut).
-A sub-folder is created for each assembly for which serialization code as been generated.
+<a id="generator-output"></a>
+## 生成器输出
 
-The generator also write all the info/debug logs inside the `Temp/NetcodeGenerated/sourcegenerator.log`. Errors and Warning are emitted also in the Editor console.
+默认情况下，Netcode 生成器会将全部生成文件输出到 `Temp/NetcodeGenerated` 文件夹，也可以通过 Multiplayer 菜单快捷方式访问该目录
+生成器会为每个产生了序列化代码的程序集创建一个子文件夹
 
-## Configuring the files and logging generator behaviour
-It is possible to configure the generator using the Roslyn Analyzer Config file. Unity 2022+ detect the presence of GlobalAnalyzerConfig assets, either global (root of the Assets folder)
-or on per assembly definition level, similarly to the .buildrule files.
+生成器还会将全部信息和调试日志写入 `Temp/NetcodeGenerated/sourcegenerator.log`。错误和警告也会输出到编辑器 Console
 
-In order to configure the options to pass to our generator, it is necessary to create a `Default.globalconfig` text file should be added to the `Assets` folder in your project.</br>
-The file must contains a list of key/value pairs and must have the following format:
+<a id="configuring-the-files-and-logging-generator-behaviour"></a>
+## 配置生成文件与日志行为
 
-```
-# you can write comment like this
+可以使用 Roslyn Analyzer 配置文件设置生成器。Unity 2022 及更高版本可以检测 `GlobalAnalyzerConfig` 资源；配置既可以放在 `Assets` 根目录作为全局配置，也可以像 `.buildrule` 文件一样按程序集定义设置
+
+若要配置传给 Netcode 生成器的选项，需要在项目的 `Assets` 文件夹中创建 `Default.globalconfig` 文本文件<br/>
+该文件必须包含键值对列表，格式如下：
+
+```ini
+# 可以这样写注释
 is_global=true
 
 your_key=your value
 your_key=your value
 ...
 ```
-More information about the format and the analyzer configuration be found in the [Global Analyzer Config](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/configuration-files#global-analyzerconfig) microsoft documentation.
 
-The Netcode generators supports the following flags/keys:
+有关格式和 Analyzer 配置的详细信息，请参阅 Microsoft 的 [Global Analyzer Config 文档](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/configuration-files#global-analyzerconfig)
 
-| Key                                               | Value                            | Description                                                                                                                                                                        |
-|---------------------------------------------------|----------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| unity.netcode.sourcegenerator.outputfolder        | a valid relative string          | Override the output folder where the generator flush logs and generated files. Should be relative to the project path. Default is Temp/NetCodeGenerated.                           |
-| unity.netcode.sourcegenerator.write_files_to_disk | empty or 1 (enable). 0 (disable) | Enable/Disable the output generated files to output folder                                                                                                                         |
-| unity.netcode.sourcegenerator.write_logs_to_disk  | empty or 1 (enable). 0 (disable) | Enable/Disable writing the logs to the output folder. All logs are redirected to the Editor logs if disabled                                                                       |
-| unity.netcode.sourcegenerator.emit_timing         | empty or 1 (enable). 0 (disable) | Logs timings information for each compiled assembly.                                                                                                                               |
-| unity.netcode.sourcegenerator.logging_level       | info, warning, error             | Set the logging level to use. **Default is error**.                                                                                                                                |
-| unity.netcode.sourcegenerator.attach_debugger     | an optional assembly name        | Stop the generator execution and wait for a debugger to be attached. If assembly name is non empty, the generator wait for the debugger only when the assembly is being processed. |
+Netcode 生成器支持以下标志和键：
 
-## How to build the source generators
-There are cases when you may need to recompile the generator that come with package. For example, to fix an issue or to extend them.
+| 键 | 值 | 说明 |
+|----|----|------|
+| `unity.netcode.sourcegenerator.outputfolder` | 有效的相对路径字符串 | 覆盖生成器写入日志和生成文件的输出目录。路径应相对于项目目录，默认为 `Temp/NetCodeGenerated` |
+| `unity.netcode.sourcegenerator.write_files_to_disk` | 空或 1 表示启用，0 表示禁用 | 启用或禁用将生成文件写入输出目录 |
+| `unity.netcode.sourcegenerator.write_logs_to_disk` | 空或 1 表示启用，0 表示禁用 | 启用或禁用将日志写入输出目录。禁用后，全部日志都会重定向到编辑器日志 |
+| `unity.netcode.sourcegenerator.emit_timing` | 空或 1 表示启用，0 表示禁用 | 记录每个已编译程序集的耗时信息 |
+| `unity.netcode.sourcegenerator.logging_level` | `info`、`warning` 或 `error` | 设置日志级别，**默认为 `error`** |
+| `unity.netcode.sourcegenerator.attach_debugger` | 可选程序集名称 | 暂停生成器执行并等待调试器附加。如果程序集名称非空，生成器只在处理该程序集时等待调试器 |
 
-The generator DLLs need to be compiled manually outside of the Unity using the .NET SDK 6.0 or higher: https://dotnet.microsoft.com/en-us/download/dotnet/6.0.
-That can be done with dotnet from within the Packages\com.unity.netcode\Runtime\SourceGenerators\Source~ directory via command prompt.
+<a id="how-to-build-the-source-generators"></a>
+## 构建源码生成器
 
-`dotnet publish -c Release` to compile a release build </br>
-`dotnet publish -c Debug` to compile a debug build. (recommended for debugging)
+某些情况下可能需要重新编译包内生成器，例如修复问题或扩展功能
 
-Additionally, they can be built/debugged using the provide **Packages/com.unity.netcode/Runtime/SourceGenerators/Source~/SourceGenerators.sln** solution.
+生成器 DLL 必须在 Unity 外部使用 [.NET SDK 6.0](https://dotnet.microsoft.com/en-us/download/dotnet/6.0) 或更高版本手动编译。可以在命令提示符中进入 `Packages\com.unity.netcode\Runtime\SourceGenerators\Source~` 目录，再执行 dotnet 命令
 
-## How to debug generator problems
+使用 `dotnet publish -c Release` 编译 Release 构建<br/>
+使用 `dotnet publish -c Debug` 编译 Debug 构建，调试时推荐使用
 
-Debugging source generators can a little hard at first. The generator execution is invoked by an external process and you need to attach the debugger to it in order to be able to step throuhg the code.
+也可以使用提供的 **Packages/com.unity.netcode/Runtime/SourceGenerators/Source~/SourceGenerators.sln** 解决方案构建和调试
 
-The first step is to open the SourceGenerators.sln in either Rider or VisualStudio and recompile the generator using the [**Debug configuration**](#how-to-build-the-source-generators).
+<a id="how-to-debug-generator-problems"></a>
+## 调试生成器问题
 
-To simplify the process of attaching the debugger when generator is invoked, we provide some utilities that let you attach the debugger to the running process in a controllable manner.
+源码生成器的调试起初可能比较困难。生成器由外部进程调用，必须将调试器附加到该进程才能单步执行代码
 
-### Using the global config
+第一步是在 Rider 或 Visual Studio 中打开 `SourceGenerators.sln`，并使用 [**Debug 配置**](#how-to-build-the-source-generators)重新编译生成器
 
-By adding the "unity.netcode.sourcegenerator.attach_debugger" option, you can let generator wait for a debugger to be attached, to either all the invocation or for a specific assembly.
+为简化生成器调用时附加调试器的过程，本包提供了一些工具，可以在可控时机附加到运行中的进程
 
-### Modify the generator code
-You can use the `Debug.LaunchDebugger` utility method
+<a id="using-the-global-config"></a>
+### 使用全局配置
+
+添加 `unity.netcode.sourcegenerator.attach_debugger` 选项后，可以让生成器在每次调用时，或只在处理特定程序集时等待调试器附加
+
+<a id="modify-the-generator-code"></a>
+### 修改生成器代码
+
+可以使用 `Debug.LaunchDebugger` 辅助方法：
+
 ```csharp
-// Launch the debugger inconditionally
-Debug.LaunchDebugger()
-// Launch the debugger if the current processed assembly match the name
-Debug.LaunchDebugger(GeneratorExecutionContext context, string assembly)
+// 无条件启动调试器
+Debug.LaunchDebugger();
+// 当前处理的程序集名称匹配时启动调试器
+Debug.LaunchDebugger(GeneratorExecutionContext context, string assembly);
 ```
-These helper methods can be invoked/called from any place. We suggest to start from the NetcodeSourceGenetator.cs, inside the `Execute` method.
+
+这些辅助方法可以从任意位置调用。建议先在 `NetcodeSourceGenerator.cs` 的 `Execute` 方法中调用
 
 ```csharp
 public void Execute(GeneratorExecutionContext executionContext)
@@ -114,9 +126,10 @@ public void Execute(GeneratorExecutionContext executionContext)
     {
        ...
     }
+}
 ```
 
->Note:
-> Because the execute is invoked multiple time (one per assembly) if your are not using the assembly filter, multiple popup will show-up on your screen.
+> [!NOTE]
+> `Execute` 会为每个程序集调用一次。如果未使用程序集过滤器，屏幕上会出现多个弹窗
 
-In all cases, a dialog will open at the right time, stating which is the process id you should attach to.
+无论采用哪种方式，系统都会在适当时机打开对话框，其中会显示需要附加到的进程 ID

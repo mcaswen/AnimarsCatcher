@@ -1,46 +1,45 @@
-# Time synchronization
+# 时间同步
 
-Netcode uses a server authoritative model, which means that the server executes a fixed time step based on how much time has passed since the last update.
-As such, the client needs to match the server time at all times for the model to work.
+Netcode 使用服务器权威模型，即服务器根据距上次更新所经过的时间执行固定时间步
+因此，为使该模型正常工作，客户端需要始终与服务器时间保持一致
 
-## The NetworkTimeSystem
+## NetworkTimeSystem
 
-[NetworkTimeSystem](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTimeSystem.html) calculates which server time to present on the client.
-The network time system calculates an initial estimate of the server time based on the round trip time and latest received snapshot from the server.
-When the client receives an initial estimate, it makes small changes to the time progress rather than doing large changes to the current time.
-To make accurate adjustments, the server tracks how long it keeps commands in a buffer before it uses them.
-This is sent back to the client and the client adjusts its time so it receives commands just before it needs them.
+[NetworkTimeSystem](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTimeSystem.html) 负责计算应在客户端呈现的服务器时间
+网络时间系统会根据往返时间和服务器最近发送的快照，计算服务器时间的初始估计值
+客户端获得初始估计后，会对时间推进进行小幅调整，而不是大幅改变当前时间
+为了准确调整，服务器会跟踪命令被使用前在缓冲区中保留了多长时间
+该信息会发回客户端，客户端据此调整自身时间，使命令在服务器需要使用前刚好抵达
 
-The client sends commands to the server. The commands will arrive at some point in the future. When the server receives these commands, it uses them to run the game simulation.
-The client needs to estimate which tick this is going to happen on the server and present that, otherwise the client and server apply the inputs at different simulation step.
+客户端向服务器发送命令，这些命令会在未来某个时刻抵达。服务器收到命令后，使用它们运行游戏模拟
+客户端需要估算服务器会在哪个 Tick 上应用这些命令并呈现该 Tick，否则客户端与服务器会在不同模拟步骤应用输入
 
-The tick the client estimates the server will apply the commands on is called the **prediction tick**. You should only use prediction time for a predicted object like the local player.
+客户端估算服务器将应用命令的 Tick 称为**预测 Tick**。预测时间只应当用于本地玩家等预测对象
 
-For interpolated objects, the client should present them in a state it has received data for. This time is called **interpolation tick**. The `interpolation tick` is calculated as an offset in respect the `predicted tick`.
-That time offset is called **prediction delay**. <br/>
-The `interpolation delay` is calculated by taking into account round trip time, jitter and packet arrival rate, all data that is generally available on the client.
-We also add some additional time, based on the network tick rate, to make sure we can handle some packets being lost. You can visualize the time offsets and scales in the snapshot visualization tool, [Network Debugger](ghost-snapshots#Snapshot-visualization-tool).
+对于插值对象，客户端应呈现已有接收数据所对应的状态。该时间称为**插值 Tick**。`插值 Tick` 以相对于`预测 Tick` 的偏移量计算
+该时间偏移称为**预测延迟** <br/>
+`插值延迟` 会综合考虑往返时间、抖动和数据包到达率，这些数据通常都能在客户端获得
+系统还会根据网络 Tick 率增加一段额外时间，以确保能够承受一定程度的数据包丢失。可以在快照可视化工具 [Network Debugger](ghost-snapshots#Snapshot-visualization-tool) 中查看时间偏移与缩放
 
-The `NetworkTimeSystem` slowly adjusts both `prediction tick` and `interpolation delay` in small increments to keep them advancing at a smooth rate and ensure that neither the
-interpolation tick nor the prediction tick goes back in time.
+`NetworkTimeSystem` 会以较小增量缓慢调整`预测 Tick`和`插值延迟`，使其平滑推进，并确保插值 Tick 与预测 Tick 都不会倒退
 
-### Configuring clients interpolation
-A [ClientTickRate](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTickRate.html) singleton entity in the client World can be used to
-configure how the system estimate both prediction tick and interpolation delay.
+### 配置客户端插值
 
+客户端 World 中的 [ClientTickRate](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTickRate.html) 单例实体可用于配置系统估算预测 Tick 和插值延迟的方式
 
-| Parameter                    |                                                                                                                                                                                                                                                                                                                                           |
-|------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| InterpolationTimeNetTicks    | The number of simulation ticks to use as an interpolation buffer for interpolated ghosts.                                                                                                                                                                                                                                                  |
-| MaxExtrapolationTimeSimTicks | The maximum time in simulation ticks which the client can extrapolate ahead when data is missing.                                                                                                                                                                                                                                          |
-| MaxPredictAheadTimeMS        | The maximum accepted ping. RTT will be clamped to this value when calculating server tick on the client, which means if ping is higher than this the server will get old commands. <br/>Increasing this allows the client to deal with higher ping, but the client will run more prediction steps which takes more CPU time.    |
-| TargetCommandSlack           | Specifies the number of simulation ticks the client tries to make sure the commands are received by the server before they are used on the server.                                                                                                                                                                                        |
+| 参数                         | 说明                                                                                                                                                                                                                                                     |
+|------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| InterpolationTimeNetTicks    | 用作插值 Ghost 缓冲区的模拟 Tick 数量                                                                                                                                                                                                                    |
+| MaxExtrapolationTimeSimTicks | 数据缺失时，客户端最多可向前外推的模拟 Tick 数                                                                                                                                                                                                           |
+| MaxPredictAheadTimeMS        | 可接受的最大 Ping。客户端计算服务器 Tick 时会将 RTT 限制在该值以内，因此当 Ping 更高时，服务器会收到过时命令 <br/>增大该值可使客户端处理更高 Ping，但客户端会运行更多预测步骤并消耗更多 CPU 时间                                                       |
+| TargetCommandSlack           | 客户端尝试确保命令在服务器使用前已经抵达的模拟 Tick 数量                                                                                                                                                                                                 |
 
-It is possible to further customize the client times calculation. Please read the [ClientTickRate](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTickRate.html) documentation for more in depth information.
+还可以进一步自定义客户端时间计算。详细信息请参阅 [ClientTickRate](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTickRate.html) 文档
 
-## Retrieving timing information in your application
-Netcode for Entities provide a [NetworkTime](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) singleton
-that should be used to retrieve the current simulated/predicted server tick, interpolated tick and other time related properties.
+## 在应用中获取时间信息
+
+Netcode for Entities 提供 [NetworkTime](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) 单例，
+应用应使用它获取当前模拟/预测服务器 Tick、插值 Tick 以及其他时间相关属性
 
 ```csharp
 var networkTime = SystemAPI.GetSingleton<NetworkTime>();
@@ -48,27 +47,26 @@ var currentTick = networkTime.ServerTick;
 ...
 ```
 
-The `NetworkTime` can be used indistinctly on both client and server both inside and outside the prediction loop. <br/>
-For the prediction loop in particular, the `NetworkTime` add some flags to the current simulated tick that can be used to implement certain logic:
-For example:
-- IsFirstPredictionTick : the current server tick is the first one we are predict from the last received snapshot for that entity.
-- IsFinalPredictionTick : the current server tick which will be the last tick to predict.
-- IsFirstTimeFullyPredictingTick: the current server tick is a full tick and this is the first time it is being predicting as a non-partial tick. Useful to implement actions that should be executed only once.
+无论在客户端还是服务器、预测循环内还是预测循环外，都可以使用 `NetworkTime` <br/>
+对于预测循环，`NetworkTime` 会为当前模拟 Tick 添加一些标志，可用于实现特定逻辑，例如：
 
-And many others. Please check [NetworkTime docs](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) for further information.
+- IsFirstPredictionTick：当前服务器 Tick 是从该实体最近收到的快照开始预测的第一个 Tick
+- IsFinalPredictionTick：当前服务器 Tick 是本次预测的最后一个 Tick
+- IsFirstTimeFullyPredictingTick：当前服务器 Tick 是完整 Tick，并且这是它第一次作为非部分 Tick 被预测，适合实现只能执行一次的操作
 
-## Client `DeltaTime`, `ElapsedTime`, and `Unscaled` time
+此外还有许多其他标志。详细信息请参阅 [NetworkTime 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html)
 
-When the client connects to the server, the elapsed `DeltaTime` and total `ElapsedTime` are handled differently. The client needs to keep its predicted tick in sync with the server, so the application's perceived `DeltaTime` is scaled up or down to accelerate or slow down the simulation.
+## 客户端 `DeltaTime`、`ElapsedTime` 与 `Unscaled` 时间
 
-This time scaling has some additional implications:
+客户端连接服务器后，经过的 `DeltaTime` 和总 `ElapsedTime` 会以不同方式处理。客户端需要使预测 Tick 与服务器保持同步，因此应用感知到的 `DeltaTime` 会被放大或缩小，从而加快或减慢模拟
 
-- For all systems updating inside the `SimulationSystemGroup` (and sub-groups) the `Time.DeltaTime` and the `Time.ElapsedTime` reflect this scaled elapsed time.
-- For systems updating in the `PresentationSystemGroup` or `InitializationSystemGroup`, or in general outside the `SimulationSystemGroup`, the reported timings are the ones normally reported by the application loop.
+这种时间缩放还会产生以下影响：
 
-As a result, the `Time.ElapsedTime` seen inside and outside the simulation group is usually different.
+- 对于在 `SimulationSystemGroup` 及其子组中更新的所有系统，`Time.DeltaTime` 和 `Time.ElapsedTime` 反映缩放后的经过时间
+- 对于在 `PresentationSystemGroup`、`InitializationSystemGroup` 或通常在 `SimulationSystemGroup` 外更新的系统，报告的是应用循环正常提供的时间
 
-For cases where you need to have access to real, unscaled delta and elapsed time inside the `SimulationSystemGroup`, you can use the
-[`UnscaledClientTime`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) singleton.
+因此，在模拟组内部与外部看到的 `Time.ElapsedTime` 通常不同
 
-The values in the `UnscaledClientTime.DeltaTime` and `UnscaledClientTime.ElapsedTime` are the ones normally reported by application loop.
+如果需要在 `SimulationSystemGroup` 内访问真实、未经缩放的增量时间和经过时间，可以使用 [`UnscaledClientTime`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) 单例
+
+`UnscaledClientTime.DeltaTime` 和 `UnscaledClientTime.ElapsedTime` 中的值就是应用循环正常报告的值

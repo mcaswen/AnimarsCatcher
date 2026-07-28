@@ -1,10 +1,10 @@
-# Test and debug your game
+# 测试与调试游戏
 
-Test and debug your game using tools available for Netcode for Entities.
+使用 Netcode for Entities 提供的工具测试和调试游戏
 
-| **Topic**                                   | **Description**                       |
+| **主题**                                    | **说明**                              |
 |:--------------------------------------------|:--------------------------------------|
-| **[Logging](logging.md)** | Netcode for Entities has a built-in logging component that enables you to modify how much log information is printed. |
-| **[Using the PlayMode Tool](playmode-tool.md)** | Use the PlayMode tool to simulate network environments for testing. |
-| **[Gathering metrics with MetricsMonitorComponent](metrics.md)** | Create a singleton of type [MetricsMonitorComponent](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.MetricsMonitor.html) and populate it with the data points you want to monitor. |
-| **[Using source generators](source-generators.md)** | Use a source generator for debugging and logging. |
+| **[日志](logging.md)** | Netcode for Entities 内置了日志组件，可用于调整输出的日志信息量 |
+| **[使用 PlayMode Tool](playmode-tool.md)** | 使用 PlayMode Tool 模拟网络环境以进行测试 |
+| **[使用 MetricsMonitorComponent 收集指标](metrics.md)** | 创建一个 [MetricsMonitorComponent](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.MetricsMonitor.html) 类型的单例，并填入需要监控的数据点 |
+| **[使用源码生成器](source-generators.md)** | 使用源码生成器进行调试和日志记录 |

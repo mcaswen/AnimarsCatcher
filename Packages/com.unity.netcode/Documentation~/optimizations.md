@@ -1,12 +1,12 @@
-# Optimize performance
+# 性能优化
 
-Optimize the performance of your game in Netcode for Entities.
+优化使用 Netcode for Entities 构建的游戏性能
 
-| **Topic**                       | **Description**                  |
+| **主题**                        | **说明**                         |
 | :------------------------------ | :------------------------------- |
-| **[Optimize ghosts](optimization/optimize-ghosts.md)** | Optimize your ghosts to improve the performance of your game. |
-| **[Reduce prediction overhead](optimization/reduce-prediction-overhead.md)** | Reduce prediction CPU overhead to improve the performance of your game. |
-| **[Manage serialization costs](optimization/manage-serialization-costs.md)** | Manage serialization costs to optimize the performance of your game. |
-| **[Limit snapshot size](optimization/limit-snapshot-size.md)** | Limit the size of your snapshots to reduce bandwidth consumption and improve performance. |
-| **[Execute expensive operations during off frames](optimization/off-frame.md)** | Execute expensive operations during off frames to spread their impact and improve performance. |
-| **[Data compression](optimization/compression.md)** | Use data compression to reduce bandwidth consumption, minimizing the likelihood that a player will experience gameplay issues as a result of bandwidth limitations. |
+| **[优化 Ghost](optimization/optimize-ghosts.md)** | 优化 Ghost 以提升游戏性能 |
+| **[降低预测开销](optimization/reduce-prediction-overhead.md)** | 降低预测的 CPU 开销以提升游戏性能 |
+| **[管理序列化成本](optimization/manage-serialization-costs.md)** | 管理序列化成本以优化游戏性能 |
+| **[限制快照大小](optimization/limit-snapshot-size.md)** | 限制快照大小，以减少带宽消耗并提升性能 |
+| **[在间隔帧执行高开销操作](optimization/off-frame.md)** | 在间隔帧执行高开销操作，分散其影响并提升性能 |
+| **[数据压缩](optimization/compression.md)** | 使用数据压缩减少带宽消耗，降低玩家因带宽受限而遇到玩法问题的可能性 |

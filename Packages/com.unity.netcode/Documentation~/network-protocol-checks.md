@@ -1,37 +1,23 @@
-# Network protocol checks
+# 网络协议检查
 
-When a client connects to a server, they exchange a
-protocol ([NetworkProtocolVersion](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkProtocolVersion.html))
-that contains the netcode version, game version, RPC collection, and serialized component collections. This is a
-preventative measure to stop incompatible versions of games from connecting to each other, which can lead to undefined behavior.
+客户端连接服务器时，双方会交换一份协议，即 [NetworkProtocolVersion](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkProtocolVersion.html)，
+其中包含 Netcode 版本、游戏版本、RPC 集合和已序列化组件集合。这是一项预防措施，用于阻止不兼容的游戏版本互相连接，避免产生未定义行为
 
-The RPC collection is hash calculated from all RPCs that are compiled in all loaded assemblies, based on their type and
-their members. Similarly, serialized components are based on all the ghost components that are compiled in all loaded
-assemblies and picked up by Netcode for Entities. Using the types and the type members of RPCs and serialized
-components, a hash is calculated which ends up as part of the protocol.
+RPC 集合的哈希根据所有已加载程序集内编译的 RPC 计算，计算依据为其类型及成员。类似地，已序列化组件集合由所有已加载程序集中编译并被 Netcode for Entities 识别的 Ghost 组件构成。系统根据 RPC 和已序列化组件的类型及类型成员计算哈希，并将其作为协议的一部分
 
-By default, Netcode for Entities requires these exchanged protocol hashes to be deterministic (fully identical) to
-prevent mid-match exceptions and enable bandwidth optimizations.
+默认情况下，Netcode for Entities 要求双方交换的协议哈希是确定性的，也就是完全相同，以防止对局中途出现异常，并启用带宽优化
 
-However, this process can frequently flag potentially compatible builds as incompatible during
-development due to the strictness of this requirement (by producing false positive hits when testing). For example, when
-testing a standalone player against an in-Editor world, the Editor may have some test assemblies loaded (which may
-contain RPC types, ghost component types, or runtime ghost types) that aren't included in the build, which causes a hash mismatch, and therefore a disconnection.
-This strict protocol version check can therefore [be disabled](#disabling-the-check).
+但是，由于该要求非常严格，开发期间经常会将可能兼容的构建错误地判定为不兼容，也就是测试时出现误报。例如，使用独立 Player 测试编辑器内 World 时，编辑器可能加载了一些未包含在构建中的测试程序集，其中可能含有 RPC 类型、Ghost 组件类型或运行时 Ghost 类型，从而造成哈希不匹配并断开连接。因此，可以[禁用](#禁用检查)这项严格的协议版本检查
 
-When this protocol version error occurs, each peer will disconnect itself from the remote
-via `NetworkStreamDisconnectReason.BadProtocolVersion`, which user code can read, and use to signal to the player that
-their build is incompatible with the target remote peer. In development builds, the package will also output error logs
-denoting the full and sorted lists of RPC and ghost types loaded on the local peer. Cross reference these logs against
-the ones raised on the remote peer to troubleshoot type mismatches.
+发生协议版本错误时，每个对等端都会通过 `NetworkStreamDisconnectReason.BadProtocolVersion` 主动断开与远端的连接。用户代码可以读取该原因，并向玩家提示当前构建与目标远端不兼容。在开发构建中，本包还会输出错误日志，列出本地对等端加载的完整且已排序 RPC 与 Ghost 类型。将这些日志与远端产生的日志交叉比对，即可排查类型不匹配问题
 
-## Disabling the check
+## 禁用检查
 
-To disable the check, set [`RpcCollection.DynamicAssemblyList`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.RpcCollection.html#Unity_NetCode_RpcCollection_DynamicAssemblyList)
-to true like this:
+若要禁用检查，请按如下方式将 [`RpcCollection.DynamicAssemblyList`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.RpcCollection.html#Unity_NetCode_RpcCollection_DynamicAssemblyList)
+设为 true：
 
 ```csharp
-[BurstCompile] // BurstCompile is optional
+[BurstCompile] // BurstCompile 可选
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 [CreateAfter(typeof(RpcSystem))]
@@ -45,11 +31,11 @@ public partial struct SetRpcSystemDynamicAssemblyListSystem : ISystem
 }
 ```
 
-Because this modifies the `RpcCollection` (which is itself instantiated by the `RpcSystem`), this flag needs to be set before `RpcSystem.OnUpdate` has run, but after `RpcSystem.OnCreate` has run. This flag must also match on both the client and the server before beginning communication, because the netcode package changes its RPC encoding based off the flag's value (including for the `NetworkProtocolVersion` RPC itself). Attempting to connect to a world with a different flag value than your own will lead to a similar (but less explicit) forceful disconnect error.
+由于该操作会修改 `RpcCollection`，而它本身由 `RpcSystem` 创建，因此必须在 `RpcSystem.OnCreate` 执行后、`RpcSystem.OnUpdate` 执行前设置此标志。客户端和服务器还必须在开始通信前使用相同的标志值，因为 Netcode 包会根据该值改变 RPC 编码方式，包括 `NetworkProtocolVersion` RPC 本身。尝试连接到标志值不同的 World 会导致类似但不够明确的强制断开错误
 
 > [!NOTE]
-> Enabling this flag adds six bytes to each RPC sent because it sends the full RPC hash instead of a ushort index into a guaranteed deterministic lookup. This means that netcode will throw a mid-game runtime error if it receives a ghost or RPC with an unknown type hash, and only then forcibly disconnect. This can result in a client being kicked hours into a game session, if they suddenly receive a ghost or RPC that they do not know about (rather than having this data validated during the connection attempt handshake).
+> 启用此标志会使每个发送的 RPC 增加六个字节，因为系统将发送完整 RPC 哈希，而不是发送指向确定性查找表的 ushort 索引。这意味着，如果 Netcode 在对局中途收到类型哈希未知的 Ghost 或 RPC，会在运行时抛出错误，之后才强制断开连接。如果客户端在游戏会话开始数小时后突然收到其无法识别的 Ghost 或 RPC，便可能在此时被踢出，而不是在连接握手期间就验证出问题
 
-## Additional resources
+## 其他资源
 
-- [`NetworkProtocolVersion` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkProtocolVersion.html)
+- [`NetworkProtocolVersion` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkProtocolVersion.html)

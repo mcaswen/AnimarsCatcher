@@ -1,74 +1,78 @@
-# Creating replication schemas with `GhostComponentVariationAttribute`
+# 使用 `GhostComponentVariationAttribute` 创建复制模式
 
-Use [`GhostComponentVariationAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html) to declare a replication schema for a type (at compile time) without needing to mark up fields in the original type, or the original type itself. These replication schemas are referred to as variants. The newly declared schema acts as a proxy in terms of code generation: instead of using the original type, the code generation system uses the declared variant to generate a specific version of the serialization code.
+使用 [`GhostComponentVariationAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html)，可以在编译时为某个类型声明复制模式，而无需标记原始类型或原始类型中的字段。这些复制模式称为变体。对于代码生成，新声明的模式相当于代理：代码生成系统不再直接使用原始类型，而是使用声明的变体生成特定版本的序列化代码
 
-Variants rely on [`GhostFieldAttribute`](ghostfield-synchronize.md) and [`GhostComponentAttribute`](ghostcomponentattribute.md), so it's recommended to review those topics before creating a variant. You can also use [ghost types templates](ghost-types-templates.md) to manage custom serialization, but it's more complex to implement and is only recommended for advanced users.
+变体依赖 [`GhostFieldAttribute`](ghostfield-synchronize.md) 和 [`GhostComponentAttribute`](ghostcomponentattribute.md)，建议创建变体前先了解这两个主题。也可以使用 [Ghost 类型模板](ghost-types-templates.md)管理自定义序列化，但其实现更加复杂，只建议高级用户使用
 
 > [!NOTE]
-> Ghost component variants for `IBufferElementData` aren't fully supported.
+> 目前尚未完整支持 `IBufferElementData` 的 Ghost 组件变体
 
-## Variant use cases
+<a id="variant-use-cases"></a>
+## 变体用例
 
-`GhostComponentVariationAttribute` is designed for some specific use cases:
+`GhostComponentVariationAttribute` 主要用于以下场景：
 
-* You can use variants to declare serialization rules for a component that you don't have direct write access to, such as components in a package or external assembly. For example, you can use a variant to replicate [`Unity.Entities.LocalTransform`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Transforms.LocalTransform.html).
-* You can use variants to generate multiple serialization strategies for a single type, allowing individual ghosts to select their version. For example, replicating only the yaw value of [`Unity.Entities.LocalRotation`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.TransformAuthoring.LocalRotation.html), or the full `quaternion`.
-* You can use variants to strip components from certain prefab types by overriding or adding a [`GhostComponentAttribute`](ghostcomponentattribute.md) to the type without changing the original declaration.
+* 为无法直接修改的组件声明序列化规则，例如包或外部程序集中的组件。比如，可以通过变体复制 [`Unity.Entities.LocalTransform`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Transforms.LocalTransform.html)
+* 为同一类型生成多种序列化策略，使每个 Ghost 可以选择自己的版本。例如，只复制 [`Unity.Entities.LocalRotation`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.TransformAuthoring.LocalRotation.html) 的偏航值，或复制完整 `quaternion`
+* 通过覆盖或向类型添加 [`GhostComponentAttribute`](ghostcomponentattribute.md)，从特定预制体类型中移除组件，而无需修改原始声明
 
-### Example
+<a id="example"></a>
+### 示例
 
 ```c#
-    [GhostComponentVariation(typeof(LocalTransform), "Transform - 2D")]
-    [GhostComponent(PrefabType=GhostPrefabType.All, SendTypeOptimization=GhostSendType.AllClients)]
-    public struct PositionRotation2d
-    {
-        [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate, SubType=GhostFieldSubType.Translation2D)]
-        public float3 Position;
-        [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate, SubType=GhostFieldSubType.Rotation2D)]
-        public quaternion Rotation;
-    }
+[GhostComponentVariation(typeof(LocalTransform), "Transform - 2D")]
+[GhostComponent(PrefabType=GhostPrefabType.All, SendTypeOptimization=GhostSendType.AllClients)]
+public struct PositionRotation2d
+{
+    [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate, SubType=GhostFieldSubType.Translation2D)]
+    public float3 Position;
+    [GhostField(Quantization=1000, Smoothing=SmoothingAction.InterpolateAndExtrapolate, SubType=GhostFieldSubType.Rotation2D)]
+    public quaternion Rotation;
+}
 ```
 
-In the previous example, the `PositionRotation2d` variant generates serialization code for `LocalTransform`, using the properties and the attribute present in the variant declaration.
+上例中，`PositionRotation2d` 变体使用变体声明中的属性和特性，为 `LocalTransform` 生成序列化代码
 
-The attribute constructor takes a few arguments:
+特性构造函数接收以下参数：
 
-* The `Type type` of the `ComponentType` you want to specify the variant for (in this case `LocalTransform`).
-* The `string variantName`, which allows you to specify a human-readable string for viewing in the [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html) UI.
+* 要为其指定变体的 `ComponentType` 对应的 `Type type`，本例为 `LocalTransform`
+* `string variantName`，用于指定便于阅读的名称，并显示在 [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html) UI 中
 
-Then, for each field in the original struct (in this case `LocalTransform`) that you want to replicate, add a [`GhostFieldAttribute`](ghostfield-synchronize.md) and define the field identically to that of the base struct. You can add an optional [`GhostComponentAttribute`](ghostcomponentattribute.md) to the variant to further specify the component serialization properties.
-
-> [!NOTE]
-> Only members that are present in the component type are allowed. Validation occurs at compile time and exceptions are thrown if this rule isn't respected.
-
-You can declare multiple serialization variants for a component. For example, having both 2D and 3D variants for `LocalRotation`. If you only define one variant for a given `ComponentType`, it becomes the default serialization strategy for that type automatically.
-
-## Specifying which variant to use on a prefab
-
-You can use [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html) to specify which variant to use on a per-prefab basis. You can choose a variant for each individual component (including the special case variant: `DontSerializeVariant`).
-
-Add `GhostAuthoringInspectionComponent` to a GameObject and the Unity Editor will display which components in the runtime entity are replicated, and allow you to change the following properties:
-
-* The `GhostPrefabType` that the component should be added to (and thus replicated), as toggle buttons; 'S' for Server, 'IC' for Interpolated Client, and 'PC' for Predicted Client. Refer to [`PrefabType` details](ghostcomponentattribute.md#prefabtype-details) for more information.
-* The `GhostSendType` 'Send Optimization' and `SendToOwnerType` 'Send to Owner' dropdowns for this component (if applicable).
-* The serialization 'Variant' dropdown to use for that component, which includes the [built-in variant types](#special-variant-types).
-
-![Ghost Authoring Variants](images/ghost-inspection.png)
-
-All available variants for that specific component type are shown in a dropdown menu. Components on child entities aren't serialized by default. To modify how children of ghost prefabs are replicated, add a `GhostAuthoringInspectionComponent` to each individual child.
+随后，对原始结构体中需要复制的每个字段，本例为 `LocalTransform`，添加 [`GhostFieldAttribute`](ghostfield-synchronize.md)，并以与基础结构体完全相同的方式定义字段。还可以选择向变体添加 [`GhostComponentAttribute`](ghostcomponentattribute.md)，进一步指定组件序列化属性
 
 > [!NOTE]
-> `GhostAuthoringInspectionComponent` is also a valuable debugging tool. Add it to a ghost prefab (or one of its children) to view all replicated types on that ghost, and to diagnose why a specific type is not replicating in the way that you expect.
+> 只允许声明组件类型中实际存在的成员。系统会在编译时验证，违反该规则会抛出异常
 
-### Special variant types
+可以为一个组件声明多个序列化变体，例如为 `LocalRotation` 同时提供 2D 和 3D 变体。如果某个 `ComponentType` 只定义了一个变体，该变体会自动成为该类型的默认序列化策略
 
-There are some built-in variant types that have specific behaviors.
+<a id="specifying-which-variant-to-use-on-a-prefab"></a>
+## 指定预制体使用的变体
 
-| Built-in variant | Description                                                                                                                                    |
-|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `ClientOnlyVariant`      | Use this to specify that a given `ComponentType` should only appear on client worlds. |
-| `ServerOnlyVariant`      | Use this to specify that a given `ComponentType` should only appear on server worlds. |
-| `DontSerializeVariant`   | Use this to disable serialization of a type entirely. Replication attributes (`[GhostField]` and `[GhostEnabledBit]`) are ignored. |
+可以使用 [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html) 按预制体指定使用哪个变体。可以为每个组件分别选择变体，其中包括特殊变体 `DontSerializeVariant`
+
+向 GameObject 添加 `GhostAuthoringInspectionComponent` 后，Unity 编辑器会显示运行时实体上哪些组件会被复制，并允许修改以下属性：
+
+* 应添加并复制该组件的 `GhostPrefabType`，通过切换按钮设置：`S` 表示服务器、`IC` 表示插值客户端、`PC` 表示预测客户端。详细信息请参阅 [`PrefabType` 详解](ghostcomponentattribute.md#prefabtype-details)
+* 该组件的 `GhostSendType`，即 `Send Optimization` 下拉菜单，以及适用时的 `SendToOwnerType`，即 `Send to Owner` 下拉菜单
+* 该组件使用的序列化 `Variant` 下拉菜单，其中包括[内置变体类型](#special-variant-types)
+
+![Ghost Authoring 变体](images/ghost-inspection.png)
+
+下拉菜单会显示该组件类型的全部可用变体。默认不序列化子实体上的组件。若要修改 Ghost 预制体子项的复制方式，请为每个子项分别添加 `GhostAuthoringInspectionComponent`
+
+> [!NOTE]
+> `GhostAuthoringInspectionComponent` 也是很有价值的调试工具。将其添加到 Ghost 预制体或某个子项，可以查看该 Ghost 上的全部复制类型，并诊断特定类型未按预期复制的原因
+
+<a id="special-variant-types"></a>
+### 特殊变体类型
+
+以下内置变体类型具有特定行为：
+
+| 内置变体 | 说明 |
+|----------|------|
+| `ClientOnlyVariant` | 指定某个 `ComponentType` 只应出现在客户端 World 中 |
+| `ServerOnlyVariant` | 指定某个 `ComponentType` 只应出现在服务器 World 中 |
+| `DontSerializeVariant` | 完全禁用某个类型的序列化，并忽略复制特性 `[GhostField]` 和 `[GhostEnabledBit]` |
 
 ```C#
 using System.Collections.Generic;
@@ -89,20 +93,21 @@ namespace Unity.NetCode.Samples
 }
 ```
 
-You can also manually select the `DontSerializeVariant` in the ghost component on ghost prefabs (via the `GhostAuthoringInspectionComponent`).
+也可以通过 `GhostAuthoringInspectionComponent`，在 Ghost 预制体的 Ghost 组件上手动选择 `DontSerializeVariant`
 
-### Preventing a component from supporting variations
+<a id="preventing-a-component-from-supporting-variations"></a>
+### 禁止组件支持变体
 
-There are some situations where you want to prevent a component from having its serialization modified via variants. For example, to ensure that [`GhostInstance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInstance.html) is always properly serialized, Netcode for Entities prevents user code from modifying its serialization rules.
+某些情况下，需要禁止通过变体修改组件序列化。例如，为确保 [`GhostInstance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInstance.html) 始终正确序列化，Netcode for Entities 禁止用户代码修改其序列化规则
 
-To prevent a component from supporting variation, use [`DontSupportPrefabOverridesAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DontSupportPrefabOverridesAttribute.html) and an error will be reported at compile time if a `GhostComponentVariation` is defined for that type.
+若要禁止组件支持变体，请使用 [`DontSupportPrefabOverridesAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DontSupportPrefabOverridesAttribute.html)。如果为该类型定义 `GhostComponentVariation`，编译时会报告错误
 
-### Assigning a default variant to use for a type
+<a id="assigning-a-default-variant-to-use-for-a-type"></a>
+### 为类型指定默认变体
 
-If multiple variants are available for a type, Netcode for Entities may be unable to infer which variant should be used for serialization. If the default serializer for the type is replicated, that becomes the default. If not, it's considered a conflict and produces runtime exceptions when creating any world (including baking worlds). Netcode for Entities uses a deterministic fallback method to guess which variant to use, but in general it's your responsibility to indicate which variant should be used as the default.
+如果某个类型存在多个变体，Netcode for Entities 可能无法推断应使用哪个变体进行序列化。如果该类型的默认序列化器会被复制，它就会成为默认变体；否则会视为冲突，并在创建任何 World 时产生运行时异常，其中包括烘焙 World。Netcode for Entities 会使用确定性的回退方法猜测变体，但通常仍由用户负责明确指定默认变体
 
-To specify which variant to use as the default for a given type, you need to create a system that inherits from the
-[`DefaultVariantSystemBase`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DefaultVariantSystemBase.html) class and implements the `RegisterDefaultVariants` method. For example:
+若要指定某个类型的默认变体，需要创建继承自 [`DefaultVariantSystemBase`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DefaultVariantSystemBase.html) 的系统，并实现 `RegisterDefaultVariants` 方法。例如：
 
 ```c#
 using System.Collections.Generic;
@@ -121,15 +126,15 @@ namespace Unity.NetCode.Samples
 }
 ```
 
-The previous example code ensures that the default `LocalTransform` variant to use is the `TransformDefaultVariant`. For more details, refer to the [`DefaultVariantSystemBase`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DefaultVariantSystemBase.html) documentation.
+上例确保 `LocalTransform` 默认使用 `TransformDefaultVariant`。详细信息请参阅 [`DefaultVariantSystemBase` 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.DefaultVariantSystemBase.html)
 
 > [!NOTE]
-> This is the recommended approach for specifying the default variant for a ghost across an entire project. Prefer `DefaultVariantSystemBase` over direct variant manipulation (via `GhostAuthoringInspectionComponent` overrides).
+> 这是在整个项目范围内指定 Ghost 默认变体的推荐方法。应优先使用 `DefaultVariantSystemBase`，而不是通过 `GhostAuthoringInspectionComponent` 覆盖直接修改变体
 
-## Additional resources
+## 其他资源
 
-* [`GhostComponentVariationAttribute` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html)
-* [`GhostAuthoringInspectionComponent` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html)
-* [Customizing replication with `GhostComponentAttribute`](ghostcomponentattribute.md)
-* [Serializing and synchronizing with `GhostFieldAttribute`](ghostfield-synchronize.md)
-* [Ghost types templates](ghost-types-templates.md)
+* [`GhostComponentVariationAttribute` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html)
+* [`GhostAuthoringInspectionComponent` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html)
+* [使用 `GhostComponentAttribute` 自定义复制行为](ghostcomponentattribute.md)
+* [使用 `GhostFieldAttribute` 进行序列化与同步](ghostfield-synchronize.md)
+* [Ghost 类型模板](ghost-types-templates.md)

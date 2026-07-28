@@ -1,47 +1,52 @@
-# Host migration requirements
+# 主机迁移要求
 
-Understand the requirements for using host migration in a project and which platforms are supported.
+了解在项目中使用主机迁移的要求及受支持的平台
 
-After ensuring your project meets these requirements, you can move on to [setting up host migration systems in your project](host-migration-systems.md).
+确认项目满足这些要求后，即可继续[在项目中设置主机迁移系统](host-migration-systems.md)
 
-## Requirements
+<a id="requirements"></a>
+## 要求
 
-Before you can use host migration in a project, you need the following:
+在项目中使用主机迁移之前，需要具备以下条件：
 
-- An active Unity account with a valid license.
-- The Unity Hub.
-- A supported version of the Unity 6 Editor.
-- Access to the Unity Cloud Dashboard.
+- 拥有有效许可证的活跃 Unity 账户
+- Unity Hub
+- 受支持版本的 Unity 6 编辑器
+- Unity Cloud Dashboard 访问权限
 
-## Unity project setup
+<a id="unity-project-setup"></a>
+## Unity 项目设置
 
-You can start a new Unity project, or use the [Asteroids sample](host-migration-sample.md) to quickly get started testing host migration in Netcode for Entities. When you create a new project, connect the project to Unity Cloud by selecting the **Connect to Unity Cloud** checkbox.
+可以新建 Unity 项目，也可以使用 [Asteroids 示例](host-migration-sample.md)快速开始测试 Netcode for Entities 的主机迁移。创建新项目时，勾选 **Connect to Unity Cloud**，将项目连接到 Unity Cloud
 
-## Packages
+<a id="packages"></a>
+## 包
 
-- Netcode for Entities (com.unity.netcode): 1.5.0-exp.100
-- Multiplayer Services SDK (com.unity.services.multiplayer): 1.2.0-exp.2
+- Netcode for Entities (com.unity.netcode)：1.5.0-exp.100
+- Multiplayer Services SDK (com.unity.services.multiplayer)：1.2.0-exp.2
 
-## Services and costs
+<a id="services-and-costs"></a>
+## 服务与费用
 
-Host migration coordination and state transfer is a feature provided by the [Unity Lobby](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service) service. The feature is included at no additional charge. Upload and download bandwidth for host migration data is not billable and does not count towards the free tier allowance or paid tier.
+主机迁移协调与状态传输由 [Unity Lobby](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service) 服务提供，不收取额外费用。上传和下载主机迁移数据所使用的带宽不计费，也不计入免费层额度或付费层用量
 
-The [Unity Relay](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction) service works in conjunction with the Lobby service and guarantees reliable connectivity by relaying the messages between all parties in a game session. Relay pricing is based on connection time and egress bandwidth. The Free tier allows up to 50 average monthly CCUs and 3GiB of bandwidth per concurrent user.
+[Unity Relay](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction) 服务与 Lobby 服务配合使用，通过转发游戏会话中各方之间的消息保证可靠连接。Relay 按连接时间和出站带宽计费。免费层允许每月平均最多 50 个并发用户，并为每个并发用户提供 3GiB 带宽
 
-Visit the [Unity Gaming Services Pricing page](https://unity.com/products/gaming-services/pricing) for details.
+详细信息请访问 [Unity Gaming Services 定价页面](https://unity.com/products/gaming-services/pricing)
 
-## Supported platforms
+<a id="supported-platforms"></a>
+## 支持的平台
 
-* Desktop: Windows, macOS, Linux
-* Mobile: Android, iOS
-* Console: Nintendo Switch, Xbox, Playstation 4, Playstation 5
-* Dedicated Server: Linux, Window, MacOS
-* Web: WebGL
+* 桌面：Windows、macOS、Linux
+* 移动端：Android、iOS
+* 主机：Nintendo Switch、Xbox、PlayStation 4、PlayStation 5
+* 专用服务器：Linux、Windows、macOS
+* Web：WebGL
 
-## Additional resources
+## 其他资源
 
-* [Introduction to host migration](host-migration-intro.md)
-* [Limitations and known issues](host-migration-limitations.md)
-* [Host migration in Asteroids sample](host-migration-sample.md)
-* [Unity Lobby documentation](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service)
-* [Unity Relay documentation](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction)
+* [主机迁移简介](host-migration-intro.md)
+* [限制与已知问题](host-migration-limitations.md)
+* [Asteroids 主机迁移示例](host-migration-sample.md)
+* [Unity Lobby 文档](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service)
+* [Unity Relay 文档](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction)

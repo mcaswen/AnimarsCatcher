@@ -1,280 +1,383 @@
-# Entities list
+# 实体清单
 
-This page contains a list of all entities used by the Netcode package.
+本文列出 Netcode 包使用的所有主要实体及其组件
 
-## Connection
+<a id="connection"></a>
 
-A connection entity is created for each network connection. You can think of these entities as your network socket, but they do contain a bit more data and configuration for other Netcode systems.
+## 连接实体
 
-| Component                                                                                  | Description                                                                                                                                                                                                                                                                                                                                 | Condition                                                                   |
-|--------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|
-| [__NetworkStreamConnection__](xref:Unity.NetCode.NetworkStreamConnection)                  | The Unity Transport `NetworkConnection` used to send and receive data.                                                                                                                                                                                                                                                                      | Not on single world host local connections
-| [__NetworkSnapshotAck__](xref:Unity.NetCode.NetworkSnapshotAck)                            | Data used to keep track of what data has been received.                                                                                                                                                                                                                                                                                     |
-| [__CommandTarget__](xref:Unity.NetCode.CommandTarget)                                      | A pointer to the entity where commands should be read from or written too. The target entity must have a `ICommandData` component on it.                                                                                                                                                                                                    |
-| [__LocalConnection__](xref:Unity.NetCode.LocalConnection)                                    | A tag to identify whether this connection belongs to the local client or host.  |  A client-hosted server (host) world can have multiple connection entities, but only one will have the `LocalConnection` component. This component is not present on a server-only world (including when using a binary world setup for client-hosted servers).
-| [__IncomingRpcDataStreamBuffer__](xref:Unity.NetCode.IncomingRpcDataStreamBuffer)         | A buffer of received RPC commands which will be processed by the `RpcSystem`. Intended for internal use only.                                                                                                                                                                                                                               |
-| [__IncomingCommandDataStreamBuffer__](xref:Unity.NetCode.IncomingCommandDataStreamBuffer)  | A buffer of received commands which will be processed by a generated `CommandReceiveSystem`. Intended for internal use only.                                                                                                                                                                                                                | Server only                                                                 |
-| [__OutgoingCommandDataStreamBuffer__](xref:Unity.NetCode.OutgoingCommandDataStreamBuffer)  | A buffer of commands generated be a `CommandSendSystem` which will be sent to the server. Intended for internal use only.                                                                                                                                                                                                                   | Client only                                                                 |
-| [__IncomingSnapshotDataStreamBuffer__](xref:Unity.NetCode.IncomingSnapshotDataStreamBuffer) | A buffer of received snapshots which will be processed by the `GhostReceiveSystem`. Intended for internal use only.                                                                                                                                                                                                                         | Client only                                                                 |
-| [__OutgoingRpcDataStreamBuffer__](xref:Unity.NetCode.OutgoingRpcDataStreamBuffer)          | A buffer of RPC commands which should be sent by the `RpcSystem`. Intended for internal use only, use an `RpcQueue` or `IRpcCommand` component to write RPC data.                                                                                                                                                                           |
-| [__NetworkId__](xref:Unity.NetCode.NetworkId)                                              | The network id is used to uniquely identify a connection. If this component does not exist, the connection process has not yet completed.                                                                                                                                                                                                   | Added automatically when connection is complete                             |
-| [__NetworkStreamInGame__](xref:Unity.NetCode.NetworkStreamInGame)                          | A component used to signal that a connection should send and receive snapshots and commands. Before adding this component, the connection only processes RPCs.                                                                                                                                                                              | Added by game logic to start sending snapshots and commands.                |
-| [__NetworkStreamRequestDisconnect__](xref:Unity.NetCode.NetworkStreamRequestDisconnect)    | A component used to signal that the game logic wants to close the connection.                                                                                                                                                                                                                                                               | Added by game logic to disconnect.                                          |
-| [__NetworkStreamSnapshotTargetSize__](xref:Unity.NetCode.NetworkStreamSnapshotTargetSize)  | Used to tell the `GhostSendSystem` on the server to use a non-default packet size for snapshots.                                                                                                                                                                                                                                            | Added by game logic to change snapshot packet size.                         |
-| [__GhostConnectionPosition__](xref:Unity.NetCode.GhostConnectionPosition)                  | Used by the distance based importance system to scale importance of ghosts based on distance from the player.                                                                                                                                                                                                                               | Added by game logic to specify the position of the player for a connection. |
-| [__PrespawnSectionAck__](xref:Unity.NetCode.PrespawnSectionAck)                            | Used by the server to track which subscenes the client has loaded.                                                                                                                                                                                                                                                                          | Server only                                                                 |
-| [__EnablePacketLogging__](xref:Unity.NetCode.EnablePacketLogging)                          | Added by game logic to enable packet dumps for a single connection.                                                                                                                                                                                                                                                                         | Only when enabling packet dumps                                             |
+每条网络连接都会创建一个连接实体。可以把它理解为网络 Socket，但它还包含其他 Netcode 系统所需的数据和配置
 
-## Ghost
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**NetworkStreamConnection**](xref:Unity.NetCode.NetworkStreamConnection) | 用于收发数据的 Unity Transport `NetworkConnection` | 单 World Host 的本地连接除外 |
+| [**NetworkSnapshotAck**](xref:Unity.NetCode.NetworkSnapshotAck) | 用于追踪已经收到的数据 | |
+| [**CommandTarget**](xref:Unity.NetCode.CommandTarget) | 指向读取或写入命令的实体，目标实体必须包含 `ICommandData` 组件 | |
+| [**LocalConnection**](xref:Unity.NetCode.LocalConnection) | 标识连接是否属于本地客户端或 Host | 客户端托管服务器的 Host World 可以包含多个连接实体，但只有一个带 `LocalConnection`；仅服务器 World 不包含它，包括采用双 World 模式的客户端托管服务器 |
+| [**IncomingRpcDataStreamBuffer**](xref:Unity.NetCode.IncomingRpcDataStreamBuffer) | 已接收 RPC 命令的缓冲区，由 `RpcSystem` 处理，仅供内部使用 | |
+| [**IncomingCommandDataStreamBuffer**](xref:Unity.NetCode.IncomingCommandDataStreamBuffer) | 已接收命令的缓冲区，由生成的 `CommandReceiveSystem` 处理，仅供内部使用 | 仅服务器 |
+| [**OutgoingCommandDataStreamBuffer**](xref:Unity.NetCode.OutgoingCommandDataStreamBuffer) | `CommandSendSystem` 生成并将发送给服务器的命令缓冲区，仅供内部使用 | 仅客户端 |
+| [**IncomingSnapshotDataStreamBuffer**](xref:Unity.NetCode.IncomingSnapshotDataStreamBuffer) | 已接收快照的缓冲区，由 `GhostReceiveSystem` 处理，仅供内部使用 | 仅客户端 |
+| [**OutgoingRpcDataStreamBuffer**](xref:Unity.NetCode.OutgoingRpcDataStreamBuffer) | 等待 `RpcSystem` 发送的 RPC 缓冲区，仅供内部使用；业务代码应通过 `RpcQueue` 或 `IRpcCommand` 写入 RPC | |
+| [**NetworkId**](xref:Unity.NetCode.NetworkId) | 唯一标识连接；不存在该组件表示连接流程尚未完成 | 连接完成时自动添加 |
+| [**NetworkStreamInGame**](xref:Unity.NetCode.NetworkStreamInGame) | 表示连接应开始收发快照与命令；添加前只处理 RPC | 由游戏逻辑添加，以开始发送快照和命令 |
+| [**NetworkStreamRequestDisconnect**](xref:Unity.NetCode.NetworkStreamRequestDisconnect) | 表示游戏逻辑请求关闭连接 | 由游戏逻辑在断开时添加 |
+| [**NetworkStreamSnapshotTargetSize**](xref:Unity.NetCode.NetworkStreamSnapshotTargetSize) | 通知服务器 `GhostSendSystem` 使用非默认快照包大小 | 由游戏逻辑在修改快照包大小时添加 |
+| [**GhostConnectionPosition**](xref:Unity.NetCode.GhostConnectionPosition) | 基于距离的重要度系统用它根据玩家距离缩放 Ghost 重要度 | 由游戏逻辑添加，用于指定该连接的玩家位置 |
+| [**PrespawnSectionAck**](xref:Unity.NetCode.PrespawnSectionAck) | 服务器用它追踪客户端已经加载哪些 SubScene | 仅服务器 |
+| [**EnablePacketLogging**](xref:Unity.NetCode.EnablePacketLogging) | 为单条连接启用数据包 Dump | 仅在启用数据包 Dump 时 |
 
-A ghost is an entity on the server which is ghosted (replicated) to the clients. It is always instantiated from a ghost prefab and has user defined data in addition to the components listed here which control its behavior.
+<a id="ghost"></a>
 
-| Component                                                                           | Description                                                                                                                                                                                                                                                                                                                      | Condition                                                               |
-|-------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| [__Ghost__](xref:Unity.NetCode.Ghost)                                               | Identifying an entity as a ghost.                                                                                                                                                                                                                                                                                                |                                                                         |
-| [__GhostType__](xref:Unity.NetCode.GhostType)                                       | The type this ghost belongs to.                                                                                                                                                                                                                                                                                                  |                                                                         |
-| __GhostCleanup__                                                                    | This component exists for only for internal use in the Netcode for Entities package. Used to track despawn of ghosts on the server.                                                                                                                                                                                              | Server only                                                             |
-| [__SharedGhostType__](xref:Unity.NetCode.SharedGhostType)                           | A shared component version of the `GhostType` to make sure different ghost types never share the same chunk.                                                                                                                                                                                                                     |
-| [__SnapshotData__](xref:Unity.NetCode.SnapshotData)                                 | A buffer with meta data about the snapshots received from the server.                                                                                                                                                                                                                                                            | Client only                                                             |
-| [__SnapshotDataBuffer__](xref:Unity.NetCode.SnapshotDataBuffer)                     | A buffer with the raw snapshot data received from the server.                                                                                                                                                                                                                                                                    | Client only                                                             |
-| [__SnapshotDynamicDataBuffer__](xref:Unity.NetCode.SnapshotDynamicDataBuffer)       | A buffer with the raw snapshot data for buffers received from the server.                                                                                                                                                                                                                                                        | Client only, ghosts with buffers only                                   |
-| [__PredictedGhost__](xref:Unity.NetCode.PredictedGhost)                             | Identify predicted ghosts. On the server all ghosts are considered predicted and have this component.                                                                                                                                                                                                                            | Predicted only                                                          |
-| [__GhostDistancePartition__](xref:Unity.NetCode.GhostDistancePartition)             | Added to all ghosts with a `LocalTransform`, when distance based importance is used.                                                                                                                                                                                                                                             | Only for distance based importance                                      |
-| [__GhostDistancePartitionShared__](xref:Unity.NetCode.GhostDistancePartitionShared) | Added to all ghosts with a `LocalTransform`, when distance based importance is used.                                                                                                                                                                                                                                             | Only for distance based importance                                      |
-| [__GhostPrefabMetaData__](xref:Unity.NetCode.GhostPrefabMetaData)                   | The meta data for a ghost, adding during conversion, and used to setup serialization. This is not required on ghost instances, only on prefabs, but it is only removed from pre-spawned right now.                                                                                                                               | Not in pre-spawned                                                      |
-| [__GhostChildEntity__](xref:Unity.NetCode.GhostChildEntity)                         | Disable the serialization of this entity because it is part of a ghost group (and therefore will be serialized as part of that group).                                                                                                                                                                                           | Only children in ghost groups                                           |
-| [__GhostGroup__](xref:Unity.NetCode.GhostGroup)                                     | Added to all ghosts which can be the owner of a ghost group. Must be added to the prefab at conversion time.                                                                                                                                                                                                                     | Only ghost group root                                                   |
-| [__PredictedGhostSpawnRequest__](xref:Unity.NetCode.PredictedGhostSpawnRequest)     | This instance is not a ghost received from the server, but a request to predictively spawn a ghost (which the client expects the server to spawn authoritatively, soon). Prefab entity references on clients will have this component added automatically, so anything they spawn themselves will be by default predict spawned. |
-| [__GhostOwner__](xref:Unity.NetCode.GhostOwner)                                     | Identifies the owner of a ghost, specified as a "Network Id".                                                                                                                                                                                                                                                                    | Optional                                                                |
-| [__GhostOwnerIsLocal__](xref:Unity.NetCode.GhostOwnerIsLocal)                       | An enableable tag component used to track if a ghost (with an owner) is owned by the local host or not. Undefined when accessing from a server world.                                                                                                                                                                       | Optional                                                                |
-| [__AutoCommandTarget__](xref:Unity.NetCode.AutoCommandTarget)                       | Automatically send all `ICommandData` if the ghost is owned by the current connection, `AutoCommandTarget.Enabled` is true, and the ghost is predicted.                                                                                                                                                                          | Optional                                                                |
-| [__SubSceneGhostComponentHash__](xref:Unity.NetCode.SubSceneGhostComponentHash)     | The hash of all pre-spawned ghosts in a subscene, used for sorting and grouping. This is a shared component.                                                                                                                                                                                                                     | Only pre-spawned                                                        |
-| [__PreSpawnedGhostIndex__](xref:Unity.NetCode.PreSpawnedGhostIndex)                 | Unique index of a pre-spawned ghost within a subscene.                                                                                                                                                                                                                                                                           | Only pre-spawned                                                        |
-| [__PrespawnGhostBaseline__](xref:Unity.NetCode.PrespawnGhostBaseline)               | The snapshot data a pre-spawned ghost had in the scene data. Used as a fallback baseline.                                                                                                                                                                                                                                        | Only pre-spawned                                                        |
-| [__GhostPrefabRuntimeStrip__](xref:Unity.NetCode.GhostPrefabRuntimeStrip)           | Added to prefabs and pre-spawned during conversion to client and server data to trigger runtime stripping of component.                                                                                                                                                                                                          | Only on prefabs in client and server scenes before they are initialized |
-| __PrespawnSceneExtracted__                                                          | Component present in editor on the scene section entity, when the sub-scene is open for edit. Intended for internal use only.                                                                                                                                                                                                    | Only in Editor                                                          |
-| [__PreSerializedGhost__](xref:Unity.NetCode.PreSerializedGhost)                     | Enable pre-serialization for a ghost. Added at conversion time based on ghost settings.                                                                                                                                                                                                                                          | Only ghost using pre-serialization                                      |
-| [__SwitchPredictionSmoothing__](xref:Unity.NetCode.SwitchPredictionSmoothing)       | Added temporarily when using "Prediction Switching" (i.e. when switching a ghost from predicted to interpolated (or vice-versa), with a transition time to handle transform smoothing.                                                                                                                                           | Only ghost in the process of switching prediction mode                  |
-| [__PrefabDebugName__](xref:Unity.NetCode.PrefabDebugName)                           | Name of the prefab, used for debugging.                                                                                                                                                                                                                                                                                          | Only on prefabs when `NETCODE_DEBUG` is enabled                         |
+## Ghost 实体
 
-### Placeholder ghost
-When a ghost is received but is not yet supposed to be spawned the client will create a placeholder to store the data until it is time to spawn it. The placeholder ghosts only exist on clients and have these components
+Ghost 是服务器上复制到客户端的实体。它始终由 Ghost Prefab 实例化，除了下列控制其行为的组件，还包含用户定义数据
 
-| Component                                                                     | Description                                                               | Condition                |
-|-------------------------------------------------------------------------------|---------------------------------------------------------------------------|--------------------------|
-| [__GhostInstance__](xref:Unity.NetCode.GhostInstance)                         | Identifying an entity as a ghost.                                         |
-| [__PendingSpawnPlaceholder__](xref:Unity.NetCode.PendingSpawnPlaceholder)     | Identify the ghost as a placeholder and not a proper ghost.               |
-| [__SnapshotData__](xref:Unity.NetCode.SnapshotData)                           | A buffer with meta data about the snapshots received from the server.     | Client only              |
-| [__SnapshotDataBuffer__](xref:Unity.NetCode.SnapshotDataBuffer)               | A buffer with the raw snapshot data received from the server.             |
-| [__SnapshotDynamicDataBuffer__](xref:Unity.NetCode.SnapshotDynamicDataBuffer) | A buffer with the raw snapshot data for buffers received from the server. | Ghosts with buffers only |
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**Ghost**](xref:Unity.NetCode.Ghost) | 将实体标识为 Ghost | |
+| [**GhostType**](xref:Unity.NetCode.GhostType) | Ghost 所属类型 | |
+| **GhostCleanup** | 仅供 Netcode for Entities 内部使用，用于追踪服务器上的 Ghost Despawn | 仅服务器 |
+| [**SharedGhostType**](xref:Unity.NetCode.SharedGhostType) | `GhostType` 的共享组件版本，确保不同 Ghost 类型不会共用同一 Chunk | |
+| [**SnapshotData**](xref:Unity.NetCode.SnapshotData) | 保存服务器快照元数据的缓冲区 | 仅客户端 |
+| [**SnapshotDataBuffer**](xref:Unity.NetCode.SnapshotDataBuffer) | 保存服务器原始快照数据的缓冲区 | 仅客户端 |
+| [**SnapshotDynamicDataBuffer**](xref:Unity.NetCode.SnapshotDynamicDataBuffer) | 保存服务器发来 Buffer 原始快照数据的缓冲区 | 仅客户端且 Ghost 包含 Buffer |
+| [**PredictedGhost**](xref:Unity.NetCode.PredictedGhost) | 标识预测 Ghost；服务器上的所有 Ghost 都视为预测 Ghost 并包含该组件 | 仅预测 Ghost |
+| [**GhostDistancePartition**](xref:Unity.NetCode.GhostDistancePartition) | 使用基于距离的重要度时添加到所有包含 `LocalTransform` 的 Ghost | 仅基于距离的重要度 |
+| [**GhostDistancePartitionShared**](xref:Unity.NetCode.GhostDistancePartitionShared) | 与上述分区对应的共享组件 | 仅基于距离的重要度 |
+| [**GhostPrefabMetaData**](xref:Unity.NetCode.GhostPrefabMetaData) | 转换期间添加的 Ghost 元数据，用于配置序列化；Ghost 实例不需要，Prefab 需要，当前只会从预生成对象移除 | 非预生成对象 |
+| [**GhostChildEntity**](xref:Unity.NetCode.GhostChildEntity) | 禁用该实体的独立序列化，因为它属于 Ghost Group，将作为 Group 的一部分序列化 | 仅 Ghost Group 子实体 |
+| [**GhostGroup**](xref:Unity.NetCode.GhostGroup) | 添加到可作为 Ghost Group 根的 Ghost，必须在转换阶段添加到 Prefab | 仅 Ghost Group 根实体 |
+| [**PredictedGhostSpawnRequest**](xref:Unity.NetCode.PredictedGhostSpawnRequest) | 表示该实例不是服务器下发的 Ghost，而是预测生成请求，客户端预计服务器随后会权威生成它；客户端 Prefab 实体引用会自动添加该组件，因此客户端自行生成的对象默认按预测生成处理 | |
+| [**GhostOwner**](xref:Unity.NetCode.GhostOwner) | 通过 Network ID 标识 Ghost 拥有者 | 可选 |
+| [**GhostOwnerIsLocal**](xref:Unity.NetCode.GhostOwnerIsLocal) | 可启用标签，用于追踪带 Owner 的 Ghost 是否由本地客户端或 Host 拥有；服务器 World 中行为未定义 | 可选 |
+| [**AutoCommandTarget**](xref:Unity.NetCode.AutoCommandTarget) | 当 Ghost 属于当前连接、`AutoCommandTarget.Enabled` 为 `true` 且 Ghost 处于预测模式时，自动发送其全部 `ICommandData` | 可选 |
+| [**SubSceneGhostComponentHash**](xref:Unity.NetCode.SubSceneGhostComponentHash) | SubScene 中所有预生成 Ghost 的组合哈希，用于排序与分组，是共享组件 | 仅预生成对象 |
+| [**PreSpawnedGhostIndex**](xref:Unity.NetCode.PreSpawnedGhostIndex) | 预生成 Ghost 在 SubScene 内的唯一索引 | 仅预生成对象 |
+| [**PrespawnGhostBaseline**](xref:Unity.NetCode.PrespawnGhostBaseline) | 预生成 Ghost 在 Scene 数据中的快照，用作后备 Baseline | 仅预生成对象 |
+| [**GhostPrefabRuntimeStrip**](xref:Unity.NetCode.GhostPrefabRuntimeStrip) | 转换为客户端和服务器数据时添加到 Prefab 与预生成对象，触发运行时组件剥离 | 客户端和服务器 Scene 中尚未初始化的 Prefab |
+| **PrespawnSceneExtracted** | 在 Editor 中打开 SubScene 编辑时，存在于 Scene Section 实体上的内部组件 | 仅 Editor |
+| [**PreSerializedGhost**](xref:Unity.NetCode.PreSerializedGhost) | 为 Ghost 启用预序列化，根据 Ghost 设置在转换期间添加 | 仅使用预序列化的 Ghost |
+| [**SwitchPredictionSmoothing**](xref:Unity.NetCode.SwitchPredictionSmoothing) | 预测模式切换期间临时添加，用于在预测与插值之间切换时按过渡时长平滑 Transform | 仅正在切换预测模式的 Ghost |
+| [**PrefabDebugName**](xref:Unity.NetCode.PrefabDebugName) | 用于调试的 Prefab 名称 | 仅启用 `NETCODE_DEBUG` 时的 Prefab |
 
+<a id="placeholder-ghost"></a>
 
-### Client-Only physics proxy
-it is possible to make "physically simulated" ghosts interact with physics objects present only on the client-only physics world (e.g. particles, debris, cosmetic environmental destruction), by spawning kinematic copies of the colliders present on the predicted, simulated ghosts, synced to them.
-Note, however, that this synchronisation can only go one way. I.e. Client-only physics worlds cannot influence the server authoritative ghost (by definition).
+### 占位 Ghost
 
-| Component                                                                   | Description                                                                                                          |
-|-----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| [__CustomPhysicsProxyDriver__](xref:Unity.NetCode.CustomPhysicsProxyDriver) | A component that reference the ghost which drive the proxy and let configure how the ghost and the proxy are synced. |
+收到 Ghost 但尚未到生成时机时，客户端会创建占位实体保存数据。占位 Ghost 仅存在于客户端
 
-## RPC
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**GhostInstance**](xref:Unity.NetCode.GhostInstance) | 将实体标识为 Ghost | |
+| [**PendingSpawnPlaceholder**](xref:Unity.NetCode.PendingSpawnPlaceholder) | 将 Ghost 标识为占位对象，而不是已正式生成的 Ghost | |
+| [**SnapshotData**](xref:Unity.NetCode.SnapshotData) | 保存服务器快照元数据的缓冲区 | 仅客户端 |
+| [**SnapshotDataBuffer**](xref:Unity.NetCode.SnapshotDataBuffer) | 保存服务器原始快照数据的缓冲区 | |
+| [**SnapshotDynamicDataBuffer**](xref:Unity.NetCode.SnapshotDynamicDataBuffer) | 保存服务器发来 Buffer 原始快照数据的缓冲区 | 仅包含 Buffer 的 Ghost |
 
-RPC entities are created with a send request in order to send RPCs. When they are received, the system will create entities with the RPC component, and a "receive request" (i.e. an `ReceiveRpcCommandRequest` component).
+<a id="client-only-physics-proxy"></a>
 
-| Component                                                                                    | Description                                                                                     | Condition                                                                                                                                                        |
-|----------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__IRpcCommand__](xref:Unity.NetCode.IRpcCommand)                                            | A specific implementation of the IRpcCommand interface.                                         |                                                                                                                                                                  |
-| [__SendRpcCommandRequest__](xref:Unity.NetCode.SendRpcCommandRequest)       | Specify that this RPC is to be sent (and thus the RPC entity destroyed).                        | Added by game logic, only for sending. Deleted automatically.                                                                                                    |
-| [__ReceiveRpcCommandRequest__](xref:Unity.NetCode.ReceiveRpcCommandRequest) | Specify that this RPC entity has been received (and thus this RPC entity was recently created). | Added automatically, only for receiving. Must be processed and then deleted by game-code, or you'll leak entities into the world. See `WarnAboutStaleRpcSystem`. |
+### 仅客户端物理代理
 
-### Netcode RPCs
+可以为预测和模拟 Ghost 上的 Collider 生成运动学副本并保持同步，使“参与物理模拟”的 Ghost 与仅客户端物理 World 中的对象交互，例如粒子、碎片和装饰性环境破坏
 
-| Component                               | Description                                                                                                                                         |
-|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| __ServerApprovedConnection__            | Special RPC only sent on connect.                                                                                                                   |
-| __RequestProtocolVersionHandshake__     | Special RPC only sent on connect.                                                                                                                   |
-| __ServerRequestApprovalAfterHandshake__ | Special RPC only sent on connect.                                                                                                                   |
-| __ClientServerTickRateRefreshRequest__  | Special RPC only sent on connect.                                                                                                                   |
-| __StartStreamingSceneGhosts__           | Sent from client to server when a subscene has been loaded. Used to instruct the server to start sending prespawned ghosts for that scene.          |
-| __StopStreamingSceneGhosts__            | Sent from client to server when a subscene will be unloaded. Used to instruct the server to stop sending prespawned ghosts that live in that scene. |
+这种同步只能单向进行。根据定义，仅客户端物理 World 不能反过来影响服务器权威 Ghost
 
-### CommandData
+| 组件 | 说明 |
+|---|---|
+| [**CustomPhysicsProxyDriver**](xref:Unity.NetCode.CustomPhysicsProxyDriver) | 引用驱动代理的 Ghost，并配置 Ghost 与代理的同步方式 |
 
-Every connection which is receiving commands from a client needs to have an entity to hold the command data. This can be a ghost, the connection entity itself or some other entity.
+<a id="rpc"></a>
 
-| Component                                                                             | Description                                                                                                                                                                                          | Condition                           |
-|---------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| [__ICommandData__](xref:Unity.NetCode.ICommandData)                                   | A specific implementation of the ICommandData interface. This can be added to any entity, the connections `CommandTarget` must point to an entity containing this.                          |                                     |
-| [__CommandDataInterpolationDelay__](xref:Unity.NetCode.CommandDataInterpolationDelay) | Optional component used to access the interpolation delay, in order to implement lag compensation on the server. Also exists on predicted clients, but always has an interpolation delay of 0 there. | Added by game logic, predicted only |
+## RPC 实体
 
-## SceneSection
-When using pre-spawned ghosts Netcode will add some components to the SceneSection entity containing the ghosts.
+发送 RPC 时，业务代码会创建带发送请求的 RPC 实体。收到 RPC 后，系统会创建包含 RPC 组件和接收请求 `ReceiveRpcCommandRequest` 的实体
 
-| Component                                                                                   | Description                                                                                  | Condition                     |
-|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|-------------------------------|
-| [__SubSceneWithPrespawnGhosts__](xref:Unity.NetCode.SubSceneWithPrespawnGhosts)             | Added during conversion to track which section contains pre-spawned ghosts.                  |                               |
-| [__SubSceneWithGhostCleanup__](xref:Unity.NetCode.SubSceneWithGhostCleanup)          | Used to track unloading of scenes.                                                           | Processed sections.           |
-| [__PrespawnsSceneInitialized__](xref:Unity.NetCode.PrespawnsSceneInitialized)               | Tag to specify that a section has been processed.                                            | Processed sections.           |
-| [__SubScenePrespawnBaselineResolved__](xref:Unity.NetCode.SubScenePrespawnBaselineResolved) | Tag to specify that a section has resolved baselines. This is a partially initialized state. | Partially processed sections. |
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**IRpcCommand**](xref:Unity.NetCode.IRpcCommand) | `IRpcCommand` 接口的具体实现 | |
+| [**SendRpcCommandRequest**](xref:Unity.NetCode.SendRpcCommandRequest) | 表示需要发送该 RPC，发送后销毁 RPC 实体 | 由游戏逻辑添加，仅用于发送，自动删除 |
+| [**ReceiveRpcCommandRequest**](xref:Unity.NetCode.ReceiveRpcCommandRequest) | 表示该 RPC 实体刚刚被接收并创建 | 自动添加，仅用于接收；游戏代码必须处理后删除，否则会持续向 World 泄漏实体，参阅 `WarnAboutStaleRpcSystem` |
 
-## Netcode created singletons
+<a id="netcode-rpcs"></a>
+
+### Netcode 内部 RPC
+
+| 组件 | 说明 |
+|---|---|
+| **ServerApprovedConnection** | 仅在连接期间发送的特殊 RPC |
+| **RequestProtocolVersionHandshake** | 仅在连接期间发送的特殊 RPC |
+| **ServerRequestApprovalAfterHandshake** | 仅在连接期间发送的特殊 RPC |
+| **ClientServerTickRateRefreshRequest** | 仅在连接期间发送的特殊 RPC |
+| **StartStreamingSceneGhosts** | 客户端加载 SubScene 后发送给服务器，要求服务器开始发送该 Scene 的预生成 Ghost |
+| **StopStreamingSceneGhosts** | 客户端即将卸载 SubScene 时发送给服务器，要求服务器停止发送该 Scene 中的预生成 Ghost |
+
+<a id="commanddata"></a>
+
+### CommandData 实体
+
+每条接收客户端命令的连接都需要一个实体保存命令数据。该实体可以是 Ghost、连接实体本身或其他实体
+
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**ICommandData**](xref:Unity.NetCode.ICommandData) | `ICommandData` 接口的具体实现，可以添加到任意实体；连接的 `CommandTarget` 必须指向包含它的实体 | |
+| [**CommandDataInterpolationDelay**](xref:Unity.NetCode.CommandDataInterpolationDelay) | 可选组件，用于读取插值延迟并在服务器上实现延迟补偿；预测客户端也存在，但其插值延迟始终为 0 | 由游戏逻辑添加，仅预测模式 |
+
+<a id="scenesection"></a>
+
+## SceneSection 实体
+
+使用预生成 Ghost 时，Netcode 会向包含这些 Ghost 的 `SceneSection` 实体添加组件
+
+| 组件 | 说明 | 存在条件 |
+|---|---|---|
+| [**SubSceneWithPrespawnGhosts**](xref:Unity.NetCode.SubSceneWithPrespawnGhosts) | 转换期间添加，用于追踪哪些 Section 包含预生成 Ghost | |
+| [**SubSceneWithGhostCleanup**](xref:Unity.NetCode.SubSceneWithGhostCleanup) | 用于追踪 Scene 卸载 | 已处理的 Section |
+| [**PrespawnsSceneInitialized**](xref:Unity.NetCode.PrespawnsSceneInitialized) | 表示 Section 已处理的标签 | 已处理的 Section |
+| [**SubScenePrespawnBaselineResolved**](xref:Unity.NetCode.SubScenePrespawnBaselineResolved) | 表示 Section 已解析 Baseline 的标签，此时处于部分初始化状态 | 部分处理的 Section |
+
+<a id="netcode-created-singletons"></a>
+
+## Netcode 创建的单例
+
+<a id="predictedghostspawnlist"></a>
 
 ### PredictedGhostSpawnList
-A singleton with a list of all predicted spawned ghosts which are waiting for a ghost from the server. This is needed when writing logic matching an incoming ghost with a pre-spawned one.
 
-| Component                                                                 | Description                                 |
-|---------------------------------------------------------------------------|---------------------------------------------|
-| [__PredictedGhostSpawnList__](xref:Unity.NetCode.PredictedGhostSpawnList) | A tag for finding the predicted spawn list. |
-| [__PredictedGhostSpawn__](xref:Unity.NetCode.PredictedGhostSpawn)         | A lis of all predictively spawned ghosts.   |
+保存所有正在等待服务器 Ghost 的预测生成对象。编写将传入 Ghost 与预测生成对象匹配的逻辑时需要该单例
+
+| 组件 | 说明 |
+|---|---|
+| [**PredictedGhostSpawnList**](xref:Unity.NetCode.PredictedGhostSpawnList) | 用于查找预测生成列表的标签 |
+| [**PredictedGhostSpawn**](xref:Unity.NetCode.PredictedGhostSpawn) | 所有预测生成 Ghost 的列表 |
+
+<a id="ghost-collection"></a>
 
 ### Ghost Collection
-| Component                                                                                 | Description                                                                                                                                                                                                                                           |
-|-------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__GhostCollection__](xref:Unity.NetCode.GhostCollection)                                 | Identify the singleton containing ghost prefabs.                                                                                                                                                                                                      |
-| [__GhostCollectionPrefab__](xref:Unity.NetCode.GhostCollectionPrefab)                     | A list of all ghost prefabs which can be instantiated.                                                                                                                                                                                                |
-| [__GhostCollectionPrefabSerializer__](xref:Unity.NetCode.GhostCollectionPrefabSerializer) | A list of serializers for all ghost prefabs. The index in this list is identical to `GhostCollectionPrefab`, but it can temporarily have fewer entries when a prefab is loading. This references a range in the `GhostCollectionComponentIndex` list. |
-| [__GhostCollectionComponentType__](xref:Unity.NetCode.GhostCollectionComponentType)       | The set of serializers in the `GhostComponentSerializer.State` which can be used for a given type. This is used internally to setup the `GhostCollectionPrefabSerializer`.                                                                            |
-| [__GhostCollectionComponentIndex__](xref:Unity.NetCode.GhostCollectionComponentIndex)     | A list of mappings from prefab serializer index to a child entity index and a `GhostComponentSerializer.State` index. This mapping is there to avoid having to duplicate the full serialization state for each prefab using the same component.       |
-| [__GhostComponentSerializer.State__](xref:Unity.NetCode.GhostComponentSerializer.State)   | Serialization state - including function pointers for serialization - for a component type and variant. There can be more than one entry for a given component type if there are serialization variants.                                              |
 
-### Spawn queue
-| Component                                                                   | Description                                                                                                                                                                                                                                                           |
-|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__GhostSpawnQueueComponent__](xref:Unity.NetCode.GhostSpawnQueueComponent) | Identifier for the ghost spawn queue.                                                                                                                                                                                                                                 |
-| [__GhostSpawnBuffer__](xref:Unity.NetCode.GhostSpawnBuffer)                 | A list of ghosts in the spawn queue. This queue is written by the `GhostReceiveSystem` and read by the `GhostSpawnSystem`. A classification system running between those two can change the type of ghost to spawn and match incoming ghosts with pre-spawned ghosts. |
-| [__SnapshotDataBuffer__](xref:Unity.NetCode.SnapshotDataBuffer)             | Raw snapshot data for the new ghosts in the `GhostSpawnBuffer`.                                                                                                                                                                                                       |
+| 组件 | 说明 |
+|---|---|
+| [**GhostCollection**](xref:Unity.NetCode.GhostCollection) | 标识包含 Ghost Prefab 的单例 |
+| [**GhostCollectionPrefab**](xref:Unity.NetCode.GhostCollectionPrefab) | 所有可实例化 Ghost Prefab 的列表 |
+| [**GhostCollectionPrefabSerializer**](xref:Unity.NetCode.GhostCollectionPrefabSerializer) | 所有 Ghost Prefab 的序列化器列表；索引与 `GhostCollectionPrefab` 一致，但 Prefab 加载期间可能暂时较短；每项引用 `GhostCollectionComponentIndex` 列表中的一个范围 |
+| [**GhostCollectionComponentType**](xref:Unity.NetCode.GhostCollectionComponentType) | 给定类型可使用的 `GhostComponentSerializer.State` 序列化器集合，内部用于配置 `GhostCollectionPrefabSerializer` |
+| [**GhostCollectionComponentIndex**](xref:Unity.NetCode.GhostCollectionComponentIndex) | Prefab 序列化器索引、子实体索引与 `GhostComponentSerializer.State` 索引之间的映射，避免为使用同一组件的每个 Prefab 复制完整序列化状态 |
+| [**GhostComponentSerializer.State**](xref:Unity.NetCode.GhostComponentSerializer.State) | 某组件类型与 Variant 的序列化状态，包含序列化函数指针；存在 Variant 时，同一组件类型可以有多个条目 |
+
+<a id="spawn-queue"></a>
+
+### Spawn Queue
+
+| 组件 | 说明 |
+|---|---|
+| [**GhostSpawnQueueComponent**](xref:Unity.NetCode.GhostSpawnQueueComponent) | Ghost 生成队列标识 |
+| [**GhostSpawnBuffer**](xref:Unity.NetCode.GhostSpawnBuffer) | 生成队列中的 Ghost 列表；由 `GhostReceiveSystem` 写入，`GhostSpawnSystem` 读取；运行在两者之间的分类系统可以修改生成类型，并将传入 Ghost 与预测生成 Ghost 匹配 |
+| [**SnapshotDataBuffer**](xref:Unity.NetCode.SnapshotDataBuffer) | `GhostSpawnBuffer` 中新 Ghost 的原始快照数据 |
+
+<a id="networkprotocolversion"></a>
 
 ### NetworkProtocolVersion
-| Component                                                               | Description                                                                                                                                                                                     |
-|-------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__NetworkProtocolVersion__](xref:Unity.NetCode.NetworkProtocolVersion) | The network protocol version for RPCs, ghost component serializers, netcode version and game version. At connection time netcode will validate that the client and server has the same version. |
+
+| 组件 | 说明 |
+|---|---|
+| [**NetworkProtocolVersion**](xref:Unity.NetCode.NetworkProtocolVersion) | RPC、Ghost 组件序列化器、Netcode 版本和游戏版本组成的网络协议版本；连接时验证客户端与服务器版本是否一致 |
+
+<a id="prespawnghostidallocator"></a>
 
 ### PrespawnGhostIdAllocator
-| Component                                                           | Description                                                                                                                      |
-|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| [__PrespawnGhostIdRange__](xref:Unity.NetCode.PrespawnGhostIdRange) | The set of ghost ids associated with a subscene. Used by the server to map prespawned ghosts for a subscene to proper ghost ids. |
+
+| 组件 | 说明 |
+|---|---|
+| [**PrespawnGhostIdRange**](xref:Unity.NetCode.PrespawnGhostIdRange) | 与某个 SubScene 关联的 Ghost ID 范围，服务器用它把该 SubScene 的预生成 Ghost 映射到正确 Ghost ID |
+
+<a id="prespawnsceneloaded"></a>
 
 ### PrespawnSceneLoaded
-This singleton is a special kind of ghost without a prefab asset.
 
-| Component                                                         | Description                                                                                 |
-|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
-| [__PrespawnSceneLoaded__](xref:Unity.NetCode.PrespawnSceneLoaded) | The set of scenes with pre-spawned ghosts loaded by the server. This is ghosted to clients. |
+该单例是一种没有 Prefab 资产的特殊 Ghost
+
+| 组件 | 说明 |
+|---|---|
+| [**PrespawnSceneLoaded**](xref:Unity.NetCode.PrespawnSceneLoaded) | 服务器已加载且包含预生成 Ghost 的 Scene 集合，会作为 Ghost 复制到客户端 |
+
+<a id="migrationticket"></a>
 
 ### MigrationTicket
-| Component                                                 | Description                                                                                  |
-|-----------------------------------------------------------|----------------------------------------------------------------------------------------------|
-| [__MigrationTicket__](xref:Unity.NetCode.MigrationTicket) | Created in the new world when using world migration, triggers the restore part of migration. |
+
+| 组件 | 说明 |
+|---|---|
+| [**MigrationTicket**](xref:Unity.NetCode.MigrationTicket) | 使用 World 迁移时在新 World 中创建，用于触发迁移恢复阶段 |
+
+<a id="smoothingaction"></a>
 
 ### SmoothingAction
-| Component                                                 | Description                                                                                     |
-|-----------------------------------------------------------|-------------------------------------------------------------------------------------------------|
-| [__SmoothingAction__](xref:Unity.NetCode.SmoothingAction) | Singleton created when a smothing action is registered in order to enable the smoothing system. |
+
+| 组件 | 说明 |
+|---|---|
+| [**SmoothingAction**](xref:Unity.NetCode.SmoothingAction) | 注册平滑操作时创建的单例，用于启用平滑系统 |
+
+<a id="networktimesystemdata"></a>
 
 ### NetworkTimeSystemData
-| Component                  | Description                                                                                                                                |
-|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| __NetworkTimeSystemData__  | Internal singleton, used to store the state of the network time system.                                                                    |
-| __NetworkTimeSystemStats__ | Internal singleton, that track the time scaling applied to the predicted and interpolated tick. <br/>Used to report stats to net debugger. |
+
+| 组件 | 说明 |
+|---|---|
+| **NetworkTimeSystemData** | 保存网络时间系统状态的内部单例 |
+| **NetworkTimeSystemStats** | 追踪应用到预测和插值 Tick 的时间缩放，并向 Network Debugger 报告统计数据的内部单例 |
+
+<a id="networktime"></a>
 
 ### NetworkTime
-| Component                                         | Description                                                                                         |
-|---------------------------------------------------|-----------------------------------------------------------------------------------------------------|
- | [__NetworkTime__](xref:Unity.NetCode.NetworkTime) | Singleton component that contains all the timing characterist of the client/server simulation loop. |
+
+| 组件 | 说明 |
+|---|---|
+| [**NetworkTime**](xref:Unity.NetCode.NetworkTime) | 包含客户端与服务器模拟循环所有时间特征的单例组件 |
+
+<a id="netdebug"></a>
 
 ### NetDebug
-| Component                                   | Description                                                                                                                                           |
-|---------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__NetDebug__](xref:Unity.NetCode.NetDebug) | Singleton that can be used for debug log and managing the logging level. Like the built-in UnityEngine logging, this works even in production builds. |
+
+| 组件 | 说明 |
+|---|---|
+| [**NetDebug**](xref:Unity.NetCode.NetDebug) | 用于调试日志和管理日志级别的单例；与 UnityEngine 内置日志一样，可在正式构建中工作 |
+
+<a id="networkstreamdriver"></a>
 
 ### NetworkStreamDriver
-| Component                                                         | Description                                                                                                                                           |
-|-------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__NetworkStreamDriver__](xref:Unity.NetCode.NetworkStreamDriver) | Singleton that can hold a reference to the NetworkDriverStore and that should be used to easily listening for new connection or connecting to server. |
+
+| 组件 | 说明 |
+|---|---|
+| [**NetworkStreamDriver**](xref:Unity.NetCode.NetworkStreamDriver) | 保存 `NetworkDriverStore` 引用的单例，用于便捷地监听新连接或连接服务器 |
+
+<a id="rpccollection"></a>
 
 ### RpcCollection
 
+<a id="ghostpredictionsmoothing"></a>
+
 ### GhostPredictionSmoothing
-| Component                    | Description                                                                            |
-|------------------------------|----------------------------------------------------------------------------------------|
-| __GhostPredictionSmoothing__ | Singleton used to register the smoothing action used to correct the prediction errors. |
+
+| 组件 | 说明 |
+|---|---|
+| **GhostPredictionSmoothing** | 注册用于修正预测误差的平滑操作的单例 |
+
+<a id="ghostpredictionhistorystate"></a>
 
 ### GhostPredictionHistoryState
-| Component                       | Description                                                                                |
-|---------------------------------|--------------------------------------------------------------------------------------------|
-| __GhostPredictionHistoryState__ | Internal singleton that contains the last predicted full tick state of all predicted ghost |
+
+| 组件 | 说明 |
+|---|---|
+| **GhostPredictionHistoryState** | 保存所有预测 Ghost 最近一次预测完整 Tick 状态的内部单例 |
+
+<a id="ghostsnapshotlastbackuptick"></a>
 
 ### GhostSnapshotLastBackupTick
-| Component                       | Description                                                                                                                    |
-|---------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| __GhostSnapshotLastBackupTick__ | Internal singleton that contains the last full tick for which a snapshot backup is avaiable. Only present on the client world. |
+
+| 组件 | 说明 |
+|---|---|
+| **GhostSnapshotLastBackupTick** | 保存最近一次存在快照备份的完整 Tick，仅存在于客户端 World |
+
+<a id="ghoststats"></a>
 
 ### GhostStats
-| Component                               | Description                                                         |
-|-----------------------------------------|---------------------------------------------------------------------|
-| __GhostStats__                          | State if the Network Debugger tools is connected or not.            |
-| __GhostStatsCollectionCommand__         | Internal stats data for commands.                                   |
-| __GhostStatsCollectionSnapshot__        | Internal stats data used to track sent/received snapshot data.      |
-| __GhostStatsCollectionPredictionError__ | Record the prediction stats for various ghost/component types pair. |
-| __GhostStatsCollectionMinMaxTick__      |                                                                     |
-| __GhostStatsCollectionData__>           | Contains internal data pools and other stats system related states. |
+
+| 组件 | 说明 |
+|---|---|
+| **GhostStats** | 表示 Network Debugger 工具是否已连接 |
+| **GhostStatsCollectionCommand** | 命令的内部统计数据 |
+| **GhostStatsCollectionSnapshot** | 追踪快照收发数据的内部统计数据 |
+| **GhostStatsCollectionPredictionError** | 记录各 Ghost 与组件类型组合的预测统计数据 |
+| **GhostStatsCollectionMinMaxTick** | 内部 Tick 范围统计数据 |
+| **GhostStatsCollectionData** | 保存内部数据池及统计系统其他状态 |
+
+<a id="ghostsendsystemdata"></a>
 
 ### GhostSendSystemData
-| Component                                                         | Description                                                                       |
-|-------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| [__GhostSendSystemData__](xref:Unity.NetCode.GhostSendSystemData) | Singleton entity that contains all the tweakable settings for the GhostSendSystem |
+
+| 组件 | 说明 |
+|---|---|
+| [**GhostSendSystemData**](xref:Unity.NetCode.GhostSendSystemData) | 包含 `GhostSendSystem` 全部可调设置的单例实体 |
+
+<a id="spawnedghostentitymap"></a>
 
 ### SpawnedGhostEntityMap
-| Component                                                             | Description                                                                       |
-|-----------------------------------------------------------------------|-----------------------------------------------------------------------------------|
-| [__SpawnedGhostEntityMap__](xref:Unity.NetCode.SpawnedGhostEntityMap) | Singleton that contains the last predicted full tick state of all predicted ghost |
 
+| 组件 | 说明 |
+|---|---|
+| [**SpawnedGhostEntityMap**](xref:Unity.NetCode.SpawnedGhostEntityMap) | 保存所有已生成 Ghost 的 `SpawnedGhost` 标识到 `Entity` 引用映射的单例 |
 
-## User create singletons (settings)
+<a id="user-create-singletons-settings"></a>
+
+## 用户创建的配置单例
+
+<a id="clientservertickrate"></a>
 
 ### ClientServerTickRate
-| Component                                                           | Description                                                                                                                  |
-|---------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
-| [__ClientServerTickRate__](xref:Unity.NetCode.ClientServerTickRate) | The tick rate settings for the server. Automatically sent and set on the client based on the values specified on the server. |
+
+| 组件 | 说明 |
+|---|---|
+| [**ClientServerTickRate**](xref:Unity.NetCode.ClientServerTickRate) | 服务器 Tick 率设置；服务器配置的值会自动发送并应用到客户端 |
+
+<a id="clienttickrate"></a>
 
 ### ClientTickRate
-| Component                                               | Description                                                                                                                                                                                        |
-|---------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__ClientTickRate__](xref:Unity.NetCode.ClientTickRate) | The tick rate settings for the client which are not controlled by the server (interpolation time etc.). Use the defaults from `NetworkTimeSystem.DefaultClientTickRate` instead of default values. |
+
+| 组件 | 说明 |
+|---|---|
+| [**ClientTickRate**](xref:Unity.NetCode.ClientTickRate) | 不受服务器控制的客户端 Tick 设置，例如插值时间；应使用 `NetworkTimeSystem.DefaultClientTickRate`，不要直接使用字段默认值 |
+
+<a id="lagcompensationconfig"></a>
 
 ### LagCompensationConfig
-| Component                                                             | Description                                                                                                                                                                         |
-|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__LagCompensationConfig__](xref:Unity.NetCode.LagCompensationConfig) | Configuration for the `PhysicsWorldHistory` system which is used to implement lag compensation on the server. If the singleton does not exist `PhysicsWorldHistory` will no be run. |
+
+| 组件 | 说明 |
+|---|---|
+| [**LagCompensationConfig**](xref:Unity.NetCode.LagCompensationConfig) | 配置服务器延迟补偿所用的 `PhysicsWorldHistory`；没有该单例时不会运行 `PhysicsWorldHistory` |
+
+<a id="gameprotocolversion"></a>
 
 ### GameProtocolVersion
-| Component                                                         | Description                                                                                                                                                                                   |
-|-------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__GameProtocolVersion__](xref:Unity.NetCode.GameProtocolVersion) | The game specific version to use for protcol validation on connection. If this does not exist 0 will be used, but the protocol will still validate netcode version, ghost components and rpcs |
+
+| 组件 | 说明 |
+|---|---|
+| [**GameProtocolVersion**](xref:Unity.NetCode.GameProtocolVersion) | 连接时用于协议验证的游戏专属版本；不存在时使用 0，但仍会验证 Netcode 版本、Ghost 组件和 RPC |
+
+<a id="ghostimportance"></a>
 
 ### GhostImportance
-| Component                                                         | Description                                              |
-|-------------------------------------------------------------------|----------------------------------------------------------|
-| [__GhostImportance__](xref:Unity.NetCode.GhostDistanceImportance) | Singleton component used to control importance settings. |
+
+| 组件 | 说明 |
+|---|---|
+| [**GhostImportance**](xref:Unity.NetCode.GhostImportance) | 控制重要度设置的单例组件 |
+
+<a id="ghostdistancedata"></a>
 
 ### GhostDistanceData
-| Component                                                           | Description                                                                                                    |
-|---------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------|
-| [__GhostDistanceData__](xref:Unity.NetCode.GhostDistanceImportance) | Settings for distance based importance. If the singleton does not exist distance based importance is not used. |
 
-### Predicted Physics
-| Component                                                                             | Description                                                                                                  |
-|---------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
-| [__PredictedPhysicsNonGhostWorld__](xref:Unity.NetCode.PredictedPhysicsNonGhostWorld) | Singleton component that declare which physics world to use for simulating the client-only physics entities. |
+| 组件 | 说明 |
+|---|---|
+| [**GhostDistanceData**](xref:Unity.NetCode.GhostDistanceData) | 基于距离的重要度配置；没有该单例时不使用基于距离的重要度 |
+
+<a id="predicted-physics"></a>
+
+### 预测物理
+
+| 组件 | 说明 |
+|---|---|
+| [**PredictedPhysicsNonGhostWorld**](xref:Unity.NetCode.PredictedPhysicsNonGhostWorld) | 指定用于模拟仅客户端物理实体的物理 World 的单例组件 |
+
+<a id="netcodedebugconfig"></a>
 
 ### NetCodeDebugConfig
 
-| Component                                                       | Description                                                                                                                                                                                      |
-|-----------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__NetCodeDebugConfig__](xref:Unity.NetCode.NetCodeDebugConfig) | Create a singleton with this to configure log level and packet dump for all connections. See `EnabledPacketLogging` on the connection for enabling packet dumps for a subset of the connections. |
+| 组件 | 说明 |
+|---|---|
+| [**NetCodeDebugConfig**](xref:Unity.NetCode.NetCodeDebugConfig) | 创建该单例可为所有连接配置日志级别和数据包 Dump；若只为部分连接启用 Dump，使用连接上的 `EnablePacketLogging` |
+
+<a id="disableautomaticprespawnsectionreporting"></a>
 
 ### DisableAutomaticPrespawnSectionReporting
 
-| Component                                                                                                   | Description                                                                                                                                                                                                                      |
-|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [__DisableAutomaticPrespawnSectionReporting__](xref:Unity.NetCode.DisableAutomaticPrespawnSectionReporting) | Disable the automatic tracking of which sub-scenes the client has loaded. When creating this singleton you must implement custom logic to make sure the server does not send pre-spawned ghosts which the client has not loaded. |
+| 组件 | 说明 |
+|---|---|
+| [**DisableAutomaticPrespawnSectionReporting**](xref:Unity.NetCode.DisableAutomaticPrespawnSectionReporting) | 禁用客户端已加载 SubScene 的自动追踪；创建该单例后，必须自行实现逻辑，确保服务器不会发送客户端尚未加载的预生成 Ghost |

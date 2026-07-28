@@ -1,43 +1,51 @@
-# Limitations and known issues
+# 限制与已知问题
 
-Understand the limitations and known issues with host migration to implement it most effectively in your project.
+了解主机迁移的限制与已知问题，以便在项目中有效实现该功能
 
-## Limitations
+<a id="limitations"></a>
+## 限制
 
-* Host migration data is limited to 10 MiB per snapshot. This is not configurable.
-* Host migration data is always uploaded and downloaded to and from US Central region.
-* Host election is randomized. There's no ranking of candidate players.
-* Migrating ghosts with child entities is not supported.
-* WebGL platform is not supported at the moment
+* 每份主机迁移快照的数据上限为 10 MiB，无法配置
+* 主机迁移数据始终上传到美国中部区域，也始终从该区域下载
+* 主机选举是随机的，不会对候选玩家进行排序
+* 不支持迁移包含子实体的 Ghost
+* 目前不支持 WebGL 平台
 
-## Known issues
+<a id="known-issues"></a>
+## 已知问题
 
-### Considerations for owned ghosts
+<a id="considerations-for-owned-ghosts"></a>
+### 所有权 Ghost 注意事项
 
-Ghost IDs and connection Network IDs will not be identical on the new host compared to the old host. When the new host respawns ghosts they're being allocated fresh IDs from the new host ghost ID pool. The same goes for the Network IDs on connection: they will be assigned from 1 and onwards on the new host, and the ordering will likely be different than on the old host.
+新主机上的 Ghost ID 和连接 Network ID 与旧主机不同。新主机重新生成 Ghost 时，会从自身 Ghost ID 池中分配全新 ID。连接上的 Network ID 也是如此：新主机会从 1 开始分配，顺序很可能与旧主机不同
 
-Because of this network ID mismatch the ghost owner needs to be updated every time a new connection arrives. Right after the migration all ghost owners are set to -1, then when a connection arrives which is a returning client the ghost owner value will be updated to reflect their current network ID value.
+由于 Network ID 不匹配，每当新连接抵达时都需要更新 Ghost 所有者。迁移刚完成时，全部 Ghost 所有者都会设为 -1；当重新加入的客户端连接抵达后，Ghost 所有者值会更新为该客户端当前的 Network ID
 
-### Allocation ID not found errors
+<a id="allocation-id-not-found-errors"></a>
+### 找不到 Allocation ID 错误
 
-Sometimes during a host migration the new host will fail to establish a connection to the relay server. This will fail the host migration and the clients will be kept waiting for the new host to report the new relay join code to the lobby for them to connect to. If the host join code is reported before the relay connection is fully established, the clients may fail with "allocation ID not found" errors. If this happens often it may help to switch to the UDP connection type when setting up the relay data before connecting/listening.
+主机迁移期间，新主机有时无法与 Relay 服务器建立连接。这会导致主机迁移失败，而客户端会一直等待新主机将新的 Relay 加入代码报告给 Lobby。如果主机加入代码在 Relay 连接完全建立前就已上报，客户端可能遇到 `allocation ID not found` 错误。如果该问题频繁发生，在连接或开始监听前设置 Relay 数据时，改用 UDP 连接类型可能有所帮助
 
-### Entity scene loading behaviour
+<a id="entity-scene-loading-behaviour"></a>
+### 实体场景加载行为
 
-Entity scenes loaded on the host will be stored and then reloaded on the new host. This is a simple mechanism at the moment, if anything is destroyed in those entity scenes it will appear again on the new host as this isn’t tracked (also prespawned ghosts in those scenes).
+主机加载的实体场景会被保存并在新主机上重新加载。目前该机制较为简单：如果这些实体场景中的内容被销毁，它们会再次出现在新主机上，因为销毁状态不会被跟踪；场景中的预生成 Ghost 也是如此
 
-### Crash in ServerHostMigrationSystem after migration
+<a id="crash-in-serverhostmigrationsystem-after-migration"></a>
+### 迁移后 ServerHostMigrationSystem 崩溃
 
-There could be random crashes in this system on newly elected hosts as they try to deploy the host migration data. Another host will be selected and should resume normally. Potentially burst related.
+新选出的主机尝试部署主机迁移数据时，该系统可能随机崩溃。系统会选择另一台主机，之后通常可以正常恢复。该问题可能与 Burst 有关
 
-### Invalid ghosts on clients after migration
+<a id="invalid-ghosts-on-clients-after-migration"></a>
+### 迁移后客户端出现无效 Ghost
 
-Sometimes after a migration there could be log entries like `Entity Unity.Entities.Entity is not a valid ghost (i.e. it is not a real 'replicated ghost', nor is it a 'predicted spawn' ghost). This can happen if you instantiate a ghost entity on the client manually (without marking it as a predicted spawn).` likely related to pre-spawned ghosts. Likely ghosts left over after a host migration on the client in an invalid state.
+迁移后有时会出现类似 `Entity Unity.Entities.Entity is not a valid ghost (i.e. it is not a real 'replicated ghost', nor is it a 'predicted spawn' ghost). This can happen if you instantiate a ghost entity on the client manually (without marking it as a predicted spawn).` 的日志，可能与预生成 Ghost 有关。其原因可能是主机迁移后客户端残留的 Ghost 处于无效状态
 
-### Prespawned ghost instability
+<a id="prespawned-ghost-instability"></a>
+### 预生成 Ghost 不稳定
 
-Sometimes after a migration there can be ghost synchronization errors affecting prespawned ghosts only, something like `Received a ghost (ID -2147483647 Entity(40:25)) with an invalid ghost type 5 (expected 6)`. Usually the prespawned ghost will then stop synchronization on the client where this error appeared, but other ghosts are unaffected.
+迁移后有时会发生只影响预生成 Ghost 的同步错误，例如 `Received a ghost (ID -2147483647 Entity(40:25)) with an invalid ghost type 5 (expected 6)`。通常出现该错误后，对应客户端上的预生成 Ghost 会停止同步，但其他 Ghost 不受影响
 
-## Additional resources
+## 其他资源
 
-* [Host migration requirements](host-migration-requirements.md)
+* [主机迁移要求](host-migration-requirements.md)

@@ -1,37 +1,40 @@
-
 # Unity Netcode for Entities
 
-The Netcode for Entities, part of the Unity's Data Oriented Technology Stack (DOTS), provides
-a server authoritive with client prediction framework that you can use to create multiplayer games.
+Netcode for Entities 是 Unity 面向数据技术栈（DOTS）的一部分，提供了一套采用客户端预测的
+服务器权威框架，可用于创建多人游戏
 
-See our publicly available [Unity Netcode Samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples) for introductory step by step sample, material, and some more advanced demos.
+有关入门级分步示例、学习资料和更高级的演示，请参阅公开的 [Unity Netcode Samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples)
 
 ![](images/entities-splash-image.png)
 
-## Installation
+## 安装
 
-To install this package, follow the [installation](installation.md) instructions.
+请按照[安装](installation.md)说明安装本包
 
-## Supported Unity Versions
+## 支持的 Unity 版本
 
 * 2022.3 (LTS)
 * Unity 6 (LTS)
 
-## Requirements
+## 要求
 
-To use the Netcode for Entities package, you must have a supported version of Unity installed.
+使用 Netcode for Entities 包之前，必须安装受支持的 Unity 版本
 
-This package uses Unity’s [Entity Component System (ECS)](https://docs.unity3d.com/Packages/com.unity.entities@latest) as a foundation. As such, you must know how to use ECS to use this package.
+本包以 Unity 的[实体组件系统（ECS）](https://docs.unity3d.com/Packages/com.unity.entities@latest)为基础，因此使用本包前需要了解 ECS 的用法
 
-## Always looking for your feedback and providing support
-The Netcode for Entities team is always looking for feedback, suggestion and improvement.
-To give feedback on this package or get support, please post to
-- [Netcode for Entities Discussions](https://discussions.unity.com/tags/c/unity-engine/52/netcode-for-entities) using the `netcode-for-entities` tag.
-- For general DOTS and Unity support, see our `dots` channel inside the [Unity Discord Channel](https://discord.com/invite/unity) using the `Netcode for Entities` tag.
+## 反馈与支持
+
+Netcode for Entities 团队一直欢迎反馈、建议和改进意见
+
+如需反馈本包的问题或获取支持，请前往以下渠道发帖：
+
+- 在 [Netcode for Entities Discussions](https://discussions.unity.com/tags/c/unity-engine/52/netcode-for-entities) 中使用 `netcode-for-entities` 标签
+- 如需一般性的 DOTS 和 Unity 支持，请前往 [Unity Discord 频道](https://discord.com/invite/unity)内的 `dots` 频道，并使用 `Netcode for Entities` 标签
 
 > [!NOTE]
-> Netcode for Entities specific bugs should always be reported via the Editor (**Help > Report a Bug...**), and please link to related threads (and the bug incident number, if available), especially if cross-posting the same issue to both.
+> Netcode for Entities 特有的缺陷应始终通过编辑器中的 **Help > Report a Bug...** 上报。请附上相关讨论帖链接；如果同一问题同时发布在多个渠道，还应尽可能提供缺陷事件编号
 
-## Additional resources
-* [Upgrade guide](upgrade-guide.md)
-* [What's new](whats-new.md)
+## 其他资源
+
+* [升级指南](upgrade-guide.md)
+* [新增功能](whats-new.md)

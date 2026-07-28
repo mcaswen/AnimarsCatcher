@@ -1,137 +1,144 @@
-# Managing latency with prediction
+# 使用预测管理延迟
 
-You can use client-side prediction to mitigate the effects of latency on gameplay for your users. For an overview, refer to the [client prediction page](intro-to-prediction.md).
+可以使用客户端预测减轻延迟对玩家体验的影响。概述请参阅[客户端预测页面](intro-to-prediction.md)
 
-This current page covers how to implement client prediction in your game.
+本页介绍如何在游戏中实现客户端预测
 
-There are also some [client prediction edge cases](prediction-details.md) you should be aware of.
+还需要注意一些[客户端预测边界情况](prediction-details.md)
 
-## Prediction in Netcode for Entities
+<a id="prediction-in-netcode-for-entities"></a>
+## Netcode for Entities 中的预测
 
-Prediction only runs for entities that have the [`PredictedGhost`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedGhost.html) and [`Simulate`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.Simulate.html) components. Unity adds the `PredictedGhost` component to all predicted ghosts on the client, and to all ghosts on the server. On the client, the component also contains some data it needs for the prediction, such as which snapshot has been applied to the ghost.
+预测只会对同时具有 [`PredictedGhost`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedGhost.html) 和 [`Simulate`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.Simulate.html) 组件的实体运行。Unity 会为客户端上的所有预测 Ghost 以及服务器上的所有 Ghost 添加 `PredictedGhost` 组件。在客户端上，该组件还包含预测所需的数据，例如已经应用到 Ghost 的快照
 
-The prediction is based on a fixed time-step loop, controlled by the [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@0latest/index.html?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html),
-which runs on both client and server, and that usually contains the core part of the deterministic ghosts simulation.
+预测基于固定时间步循环，由 [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html) 控制。该系统组同时在客户端和服务器上运行，通常包含确定性 Ghost 模拟的核心部分
 
-The primary API elements involved in prediction are:
+预测涉及的主要 API 元素如下：
 
-- The `Simulate` tag, which filters ghosts to simulate.
-- The `PredictedSimulationSystemGroup` system group where your predicted simulation should run. Like `FixedUpdate`, this can run multiple times per frame.
-- The `IInputComponentData` interface, which sends inputs associated with ticks.
-- `HasOwner`, `AutoCommandTarget`, `SupportedGhostMode`, and `DefaultGhostMode` on the `GhostAuthoringComponent`. to set whether a ghost is predicted or not.
-- The `NetworkTime` singleton:
-  - `NetworkTime.ServerTick` for the latest simulation tick (both client-predicted tick and server-side tick). In front of the last received snapshot tick by an amount depending on lag.
-  - `NetworkTime.InterpolationTick` for the current client-side interpolation tick. Generally behind the last received snapshot tick.
-  - Both of the above have a `XXFraction` field available.
-  - `NetworkTime.IsPartialTick` denoting whether or not the current tick being predicted is only a fraction of a full tick, which is useful when rendering timings misalign with fixed step simulation timings.
-  - `NetworkTime.IsFirstTimeFullyPredictingTick` is a common flag used in predicted systems, which guards one off operations (like the instantiation of predicted ghost spawns, and V/SFX on the client) so that they only happen once.```
-  - So `IT | | Snapshot | | | | | | | | | | ST`
+- `Simulate` 标签，用于筛选需要模拟的 Ghost
+- `PredictedSimulationSystemGroup` 系统组，预测模拟应在其中运行。与 `FixedUpdate` 类似，它可以在一帧内运行多次
+- `IInputComponentData` 接口，用于发送与 Tick 关联的输入
+- `GhostAuthoringComponent` 上的 `HasOwner`、`AutoCommandTarget`、`SupportedGhostMode` 和 `DefaultGhostMode`，用于设置 Ghost 是否采用预测模式
+- `NetworkTime` 单例
+  - `NetworkTime.ServerTick` 表示最近的模拟 Tick，包括客户端预测 Tick 和服务器端 Tick。它会根据延迟领先最近收到的快照 Tick 一定距离
+  - `NetworkTime.InterpolationTick` 表示当前客户端插值 Tick，通常落后于最近收到的快照 Tick
+  - 上述两个 Tick 都有对应的 `XXFraction` 字段
+  - `NetworkTime.IsPartialTick` 表示当前预测的 Tick 是否只是完整 Tick 的一部分。当渲染时序与固定步长模拟时序不一致时，该标志很有用
+  - `NetworkTime.IsFirstTimeFullyPredictingTick` 是预测系统中常用的标志，用于保护只应执行一次的操作，例如实例化预测生成 Ghost，以及在客户端播放视觉和音效，使这些操作不会因重新模拟而重复发生
 
-## Client-side `PredictedSimulationSystemGroup`
+可将时间线大致理解为：`IT | | Snapshot | | | | | | | | | | ST`
 
-When the prediction runs, the `PredictedSimulationSystemGroup` sets the correct time for the current prediction tick in the ECS `TimeData` struct. It also sets the `ServerTick` in the [`NetworkTime`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) singleton to the tick being predicted (among other fields/conveniences).
+<a id="client-side-predictedsimulationsystemgroup"></a>
+## 客户端 `PredictedSimulationSystemGroup`
+
+预测运行时，`PredictedSimulationSystemGroup` 会在 ECS `TimeData` 结构中设置当前预测 Tick 对应的正确时间。它还会把 [`NetworkTime`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) 单例中的 `ServerTick` 设为正在预测的 Tick，并设置其他相关字段与辅助状态
 
 > [!NOTE]
-> The rollback and prediction resimulation can add a substantial overhead to each frame.
-> Example: For a 300ms connection, expect ~22 frames of re-simulation. In other words, physics and all other systems in the `PredictedSimulationSystemGroup` will tick ~22 times in a single frame.
-> You can test this by setting a high simulated ping in the `PlayMode Tools Window`.
-> See the [Optimizations](optimizations.md) page for further details.
+> 回滚和预测重新模拟可能给每帧带来显著开销
+> 例如，在 300ms 延迟的连接上，预计每帧需要重新模拟约 22 帧。换言之，物理以及 `PredictedSimulationSystemGroup` 中的所有其他系统会在一个渲染帧内更新约 22 次
+> 可以在 `PlayMode Tools Window` 中设置较高的模拟 Ping 来测试这一点
+> 详细信息请参阅[优化](optimizations.md)页面
 
-## Simulate tag (partial snapshots)
+<a id="simulate-tag-partial-snapshots"></a>
+## `Simulate` 标签与部分快照
 
-Netcode for Entities supports partial snapshots. If your world state update can't be contained in a single packet, Netcode streams the state over multiple ticks, with each snapshot only containing a subset of your entities. Because the prediction loop runs from the oldest tick applied to any entity, and some entities might already have newer data, **you must check whether each entity needs to be simulated or not**. Since the simulation tags are enabled both client and server side, you can reuse the same code in both cases.
+Netcode for Entities 支持部分快照。如果 World 状态更新无法放入一个数据包，Netcode 会跨多个 Tick 传输状态，每份快照只包含部分实体。预测循环会从任意实体所应用的最旧 Tick 开始运行，而有些实体可能已经具有更新的数据，因此**必须检查每个实体是否需要模拟**。模拟标签在客户端和服务器上都会启用，因此两端可以复用同一份代码
 
-There are two ways to perform this check, the second one being included for legacy reasons.
+有两种方法可以执行该检查，第二种仅为兼容旧代码而保留
 
-### Check which entities to predict using the `Simulate` tag component (PREFERRED)
+<a id="check-which-entities-to-predict-using-the-simulate-tag-component-preferred"></a>
+### 使用 `Simulate` 标签组件检查需要预测的实体，推荐方式
 
-The client uses the `Simulate` tag, present on all entities in world, to specify whether a ghost entity should be predicted or not.
+客户端使用所有 World 实体上都存在的 `Simulate` 标签，指定是否应预测某个 Ghost 实体
 
-- At the beginning of the prediction loop, the `Simulate` tag is disabled for all `Predicted` ghosts.
-- For each prediction tick, the `Simulate` tag is enabled for all the entities that should be simulated for that tick.
-- At the end of the prediction loop, all predicted ghost entities' `Simulate` components are guaranteed to be enabled.
+- 预测循环开始时，所有 `Predicted` Ghost 的 `Simulate` 标签都会被禁用
+- 对于每个预测 Tick，需要在该 Tick 模拟的所有实体都会启用 `Simulate` 标签
+- 预测循环结束时，系统保证所有预测 Ghost 实体的 `Simulate` 组件处于启用状态
 
-In game systems that run in the `PredictedSimulationSystemGroup` (or any of its sub-groups) you should add the following to your queries: EntitiesForEach (deprecated) and an idiomatic foreach `.WithAll&lt;Simulate&gt;>` condition. This automatically gives the job (or function) the correct set of entities you need to work on.
+在 `PredictedSimulationSystemGroup` 或其任意子组中运行的游戏系统，应向查询添加 `Simulate` 条件。对于已经弃用的 `Entities.ForEach` 使用 `.WithAll<Simulate>()`，对于惯用 `foreach` 查询同样使用 `.WithAll<Simulate>()`。这样 Job 或函数会自动获得当前需要处理的正确实体集合
 
-For example:
+例如：
 
 ```c#
-
 Entities
     .WithAll<PredictedGhost, Simulate>()
-    .ForEach(ref Translation trannslation)
+    .ForEach((ref Translation translation) =>
 {
-      ///Your update logic here
-}
+    // 在此编写更新逻辑
+});
 ```
 
-### Check which entities to predict using the `PredictedGhost.ShouldPredict` helper method (LEGACY)
+<a id="check-which-entities-to-predict-using-the-predictedghostshouldpredict-helper-method-legacy"></a>
+### 使用 `PredictedGhost.ShouldPredict` 检查需要预测的实体，旧方式
 
-This is a legacy method of performing these checks and is not recommended, although it is still supported. You can call the static method  [`PredictedGhost.ShouldPredict`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedGhost.html#Unity_NetCode_PredictedGhost_ShouldPredict_System_UInt32_) before updating an entity. In this case the method or job that updates the entity should look something like this:
+这是一种仍受支持但不推荐使用的旧检查方式。更新实体前，可以调用静态方法 [`PredictedGhost.ShouldPredict`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedGhost.html#Unity_NetCode_PredictedGhost_ShouldPredict_System_UInt32_)。更新实体的方法或 Job 大致如下：
 
 ```c#
-
 var serverTick = GetSingleton<NetworkTime>().ServerTick;
 Entities
     .WithAll<PredictedGhost, Simulate>()
-    .ForEach(ref Translation trannslation)
+    .ForEach((ref Translation translation) =>
 {
-      if!(PredictedGhost.ShouldPredict(serverTick))
-           return;
+    if (!PredictedGhost.ShouldPredict(serverTick))
+        return;
 
-      ///Your update logic here
+    // 在此编写更新逻辑
+});
+```
+
+如果某个实体自上次预测运行以来没有收到新的网络数据，并且上次预测以模拟完整 Tick 结束，那么预测会从上次结束的位置继续，而不会重新应用网络数据。使用动态时间步时，并不总是以完整 Tick 结束
+
+<a id="server-simulation"></a>
+## 服务器模拟
+
+在服务器上，预测循环始终只运行一次，也不会更新 `TimeData` 结构，因为其中的时间已经正确。服务器上的模拟不是预测，而是正式、权威的游戏模拟。`NetworkTime` 单例中的 `ServerTick` 同样具有正确值，因此同一份代码可以同时在客户端和服务器上运行
+
+因此，在服务器上调用 `PredictedGhost.ShouldPredict` 始终返回 true，`Simulate` 组件也始终处于启用状态
+
+> [!NOTE]
+> 对于预测玩法系统，只需编写一次代码，就能同时在客户端和服务器上工作，无需区分当前运行位置
+
+<a id="remote-player-prediction"></a>
+## 远程玩家预测
+
+<a id="remote-player-prediction-with-iinputcomponentdata"></a>
+### 使用 `IInputComponentData` 预测远程玩家
+
+如果输入配置为序列化到其他玩家，参阅 [Ghost 快照](ghost-snapshots.md#icommanddata-and-iinputcomponentdata-serialization)，则可以使用远程玩家的输入对其执行客户端预测，方式与预测本地玩家相同
+
+客户端收到新快照时，`PredictedSimulationSystemGroup` 会从任意实体所应用的最旧 Tick 开始运行，直到预测目标 Tick。每个实体需要预测的范围可能不同，因此始终必须只处理具有 `Simulate` 组件的实体，以检查该实体是否需要在特定 Tick 更新和应用输入
+
+Netcode 会自动更新当前模拟 Tick 对应的输入数据
+
+```c#
+protected override void OnUpdate()
+{
+    Entities
+        .WithAll<PredictedGhost, Simulate>()
+        .ForEach((Entity entity, ref Translation translation, in MyInput input) =>
+    {
+        // 在此编写更新逻辑
+    }).Run();
 }
 ```
 
-If an entity didn't receive any new data from the network since the last prediction ran, and it ended with simulating a full tick (which is not always true when you use a dynamic time-step), the prediction continues from where it finished last time, rather than applying the network data.
+<a id="legacy-commands"></a>
+### 旧命令 API
 
-## Server simulation
-
-On the server, the prediction loop always runs exactly once, and doesn't update the `TimeData` struct (because it's already correct). The simulation on the server is not a predicted one, but the official authoritative version of the game simulation. The `ServerTick` in the `NetworkTime` singleton also has the correct value, so the same code can run on both the client and server.
-
-Thus, the `PredictedGhost.ShouldPredict` always returns true when called on the server, and the `Simulate` component is also always enabled.
-
-> [!NOTE]
-> For predicted gameplay systems, you can write the code*once, and it will work on both client and server (without needing to make a distinction about where it's running).
-
-## Remote player prediction
-
-### Remote player prediction with `IInputComponentData`
-
-If inputs are configured to be serialized to other players (refer to [GhostSnapshots](ghost-snapshots.md#icommanddata-and-iinputcomponentdata-serialization)), then it's possible to use client-side prediction for the remote players using the remote player's inputs, the same way you would predict the local player.
-
-When a new snapshot is received by the client, the `PredictedSimulationSystemGroup` runs from the oldest tick applied to any entity, to the tick the prediction is targeting. What needs to be predicted can vary by entity, and you must always check if the entity needs to update/apply the input for a specific tick by only processing entities with the `Simulate` component.
-
-Your input data for the current simulated tick will be updated automatically by Netcode for you.
+如果使用旧命令 API，需要自行检查或获取输入缓冲区
 
 ```c#
-    protected override void OnUpdate()
-    {
-        Entities
-            .WithAll<PredictedGhost, Simulate>()
-            .ForEach((Entity entity, ref Translation translation, in MyInput input) =>
+protected override void OnUpdate()
+{
+    var tick = GetSingleton<NetworkTime>().ServerTick;
+    Entities
+        .WithAll<Simulate>()
+        .ForEach((Entity entity, ref Translation translation, in DynamicBuffer<MyInput> inputBuffer) =>
         {
-              ///Your update logic here
+            if (!inputBuffer.GetDataAtTick(tick, out var input))
+                return;
+
+            // 在此编写移动逻辑
         }).Run();
-    }
-```
-
-### (Legacy) commands
-
-If using the legacy commands, you need to check or retrieve the input buffer yourself.
-
-```c#
-    protected override void OnUpdate()
-    {
-        var tick = GetSingleton<NetworkTime>().ServerTick;
-        Entities
-            .WithAll<Simulate>()
-            .ForEach((Entity entity, ref Translation translation, in DynamicBuffer<MyInput> inputBuffer) =>
-            {
-                if (!inputBuffer.GetDataAtTick(tick, out var input))
-                    return;
-
-                //your move logic
-            }).Run();
-    }
+}
 ```

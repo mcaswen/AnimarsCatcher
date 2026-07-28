@@ -1,63 +1,68 @@
-# Networked cube
+# 联网立方体
 
-Make sure you have set up the project correctly using the [installation guide](installation.md) before starting your adventure (of creating a simple client-server based simulation).
+开始创建简单的客户端-服务器模拟前，请先按照[安装指南](installation.md)正确配置项目
 
-This tutorial briefly introduces the most common concepts involved in making client-server based games.
+本教程简要介绍创建客户端-服务器游戏时最常用的概念
 
-## Creating an initial scene
+<a id="creating-an-initial-scene"></a>
 
-To begin, set up a way to share data between the client and the server. This separation is achieved in Netcode for Entities by creating [a different World](client-server-worlds.md) for the server and each client (via the [Entities Package](https://docs.unity3d.com/Packages/com.unity.entities@latest)). To share data between the server and the client:
+## 创建初始 Scene
 
-1. Right-click within the __Hierarchy__ window in the Unity Editor.
-2. Select __New Subscene__ > __Empty Scene...__
-3. Name the new scene "SharedData".
+首先配置一套在客户端与服务器之间共享数据的方式。Netcode for Entities 通过 [Entities 包](https://docs.unity3d.com/Packages/com.unity.entities@latest)，为服务器和每个客户端分别创建[不同的 World](client-server-worlds.md)，从而隔离两端逻辑
+
+创建共享数据 Scene：
+
+1. 在 Unity Editor 的 **Hierarchy** 窗口中单击右键
+2. 选择 **New Subscene** > **Empty Scene...**
+3. 将新 Scene 命名为 `SharedData`
 
 ![](images/create_subscene.png)
 
-<p>
+接下来，在客户端和服务器 World 中都生成一个平面。右键单击 `SharedData` SubScene，选择 **3D Object** > **Plane**，系统会在 `SharedData` 下创建一个平面
 
-Once this is set up, spawn a plane in both the client and the server world. To do this, right click the __SharedData__ subscene and select __3D Object__ > __Plane__ which then creates a plane nested under __SharedData__.
+![包含平面的 Scene](images/initial-scene.png)<br/>_包含平面的 Scene_
 
-![Scene with a plane](images/initial-scene.png)<br/>_Scene with a plane_
+单击 **Play**，再选择 **Window** > **Entities** > **Hierarchy**，可以看到两个 World：`ClientWorld` 和 `ServerWorld`。两者都包含刚刚创建的 `SharedData` Scene 及其平面
 
-If you select __Play__, then select __Window__ > __Entities__ > __Hierarchy__, you can see two worlds (ClientWorld and ServerWorld), each with the SharedData scene with the plane that you just created.
+![Hierarchy 视图](images/hierarchy-view.png)<br/>_Hierarchy 视图_
 
-![Hierarcy View](images/hierarchy-view.png)<br/>_Hierarchy View_
+<a id="establish-a-connection"></a>
 
-## Establish a connection
+## 建立连接
 
-To enable communication between the client and server, you need to establish a [connection](network-connection.md). In Netcode for Entities, the simplest way of achieving this is to use the auto-connect feature. You can use the auto-connect feature by inheriting from the `ClientServerBootstrap`, then setting the `AutoConnectPort` to your chosen port.
+客户端和服务器需要先建立[连接](network-connection.md)才能通信。在 Netcode for Entities 中，最简单的方式是使用自动连接：继承 `ClientServerBootstrap`，再把 `AutoConnectPort` 设为所选端口
 
-Create a file called *Game.cs* in your __Assets__ folder and add the following code to the file:
+在 **Assets** 文件夹创建 `Game.cs`，添加以下代码：
 
-```c#
+```csharp
 using System;
 using Unity.Entities;
 using Unity.NetCode;
 
-// Create a custom bootstrap, which enables auto-connect.
-// The bootstrap can also be used to configure other settings as well as to
-// manually decide which worlds (client and server) to create based on user input
+// 创建启用自动连接的自定义 Bootstrap
+// 还可以通过 Bootstrap 配置其他设置，并根据用户输入决定创建客户端或服务器 World
 [UnityEngine.Scripting.Preserve]
 public class GameBootstrap : ClientServerBootstrap
 {
     public override bool Initialize(string defaultWorldName)
     {
-        AutoConnectPort = 7979; // Enabled auto connect
-        return base.Initialize(defaultWorldName); // Use the regular bootstrap
+        AutoConnectPort = 7979; // 启用自动连接
+        return base.Initialize(defaultWorldName); // 使用标准 Bootstrap 流程
     }
 }
 ```
 
-## Communicate with the server
+<a id="communicate-with-the-server"></a>
 
-When you're connected, you can start communicating with the server. A critical concept in Netcode for Entities is the concept of `InGame`. When a connection is marked with `InGame` it tells the simulation it's ready to start [synchronizing](synchronization.md).
+## 与服务器通信
 
-Before entering `InGame` state, the only way to communicate with a Netcode for Entities server is via `RPC`s. So to continue, create an RPC that acts as a "Go In Game" message, (for example, tell the server that you are ready to start receiving [snapshots](ghost-snapshots.md)).
+建立连接后即可与服务器通信。Netcode for Entities 中有一个关键概念 `InGame`：连接被标记为 InGame 后，表示它已经准备好开始[同步](synchronization.md)
 
-Create a file called *GoInGame.cs* in your __Assets__ folder and add the following code to the file.
+进入 `InGame` 状态前，只能通过 RPC 与 Netcode for Entities 服务器通信。因此需要创建一条充当“进入游戏”消息的 RPC，例如通知服务器客户端已准备好接收[快照](ghost-snapshots.md)
 
-```c#
+在 **Assets** 文件夹创建 `GoInGame.cs`，添加以下代码：
+
+```csharp
 using UnityEngine;
 using Unity.Burst;
 using Unity.Collections;
@@ -65,11 +70,13 @@ using Unity.Entities;
 using Unity.NetCode;
 
 /// <summary>
-/// This allows sending RPCs between a stand alone build and the editor for testing purposes in the event when you finish this example
-/// you want to connect a server-client stand alone build to a client configured editor instance.
+/// 允许独立构建与 Editor 在测试期间互发 RPC
+/// 完成本示例后，可用它让服务器客户端独立构建连接配置为客户端的 Editor 实例
 /// </summary>
 [BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
+    WorldSystemFilterFlags.ServerSimulation |
+    WorldSystemFilterFlags.ThinClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 [CreateAfter(typeof(RpcSystem))]
 public partial struct SetRpcSystemDynamicAssemblyListSystem : ISystem
@@ -81,14 +88,15 @@ public partial struct SetRpcSystemDynamicAssemblyListSystem : ISystem
     }
 }
 
-// RPC request from client to server for game to go "in game" and send snapshots / inputs
+// 客户端请求服务器进入 InGame，并开始发送快照与输入
 public struct GoInGameRequest : IRpcCommand
 {
 }
 
-// When client has a connection with network id, go in game and tell server to also go in game
+// 客户端连接获得 NetworkId 后进入 InGame，并通知服务器同步进入 InGame
 [BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
+    WorldSystemFilterFlags.ThinClientSimulation)]
 public partial struct GoInGameClientSystem : ISystem
 {
     [BurstCompile]
@@ -104,18 +112,23 @@ public partial struct GoInGameClientSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
-        foreach (var (id, entity) in SystemAPI.Query<RefRO<NetworkId>>().WithEntityAccess().WithNone<NetworkStreamInGame>())
+        foreach (var (id, entity) in
+            SystemAPI.Query<RefRO<NetworkId>>()
+                .WithEntityAccess()
+                .WithNone<NetworkStreamInGame>())
         {
             commandBuffer.AddComponent<NetworkStreamInGame>(entity);
             var req = commandBuffer.CreateEntity();
             commandBuffer.AddComponent<GoInGameRequest>(req);
-            commandBuffer.AddComponent(req, new SendRpcCommandRequest { TargetConnection = entity });
+            commandBuffer.AddComponent(req,
+                new SendRpcCommandRequest { TargetConnection = entity });
         }
+
         commandBuffer.Playback(state.EntityManager);
     }
 }
 
-// When server receives go in game request, go in game and delete request
+// 服务器收到进入游戏请求后进入 InGame，并删除请求
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct GoInGameServerSystem : ISystem
@@ -136,39 +149,43 @@ public partial struct GoInGameServerSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var worldName = state.WorldUnmanaged.Name;
-
         var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
         networkIdFromEntity.Update(ref state);
 
-        foreach (var (reqSrc, reqEntity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>().WithAll<GoInGameRequest>().WithEntityAccess())
+        foreach (var (reqSrc, reqEntity) in
+            SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>()
+                .WithAll<GoInGameRequest>()
+                .WithEntityAccess())
         {
             commandBuffer.AddComponent<NetworkStreamInGame>(reqSrc.ValueRO.SourceConnection);
             var networkId = networkIdFromEntity[reqSrc.ValueRO.SourceConnection];
 
-            Debug.Log($"'{worldName}' setting connection '{networkId.Value}' to in game");
-
+            Debug.Log($"'{worldName}' 将连接 '{networkId.Value}' 设为 InGame");
             commandBuffer.DestroyEntity(reqEntity);
         }
+
         commandBuffer.Playback(state.EntityManager);
     }
 }
 ```
 
-## Create a ghost prefab
+<a id="create-a-ghost-prefab"></a>
 
-To synchronize something across a client/server setup, you need to create a definition of the networked object, called a **ghost**.
+## 创建 Ghost Prefab
 
-To create a ghost prefab:
+要在客户端与服务器之间同步对象，需要先创建网络对象定义，称为 **Ghost**
 
-1. Create a cube in the scene by right-clicking on the scene, then selecting __3D Object__ > __Cube__.
-2. Select the __Cube GameObject__ under the __Scene__ and drag it into the Project’s __Asset__ folder. This creates a prefab of the cube.
-3. After creating the prefab, you can delete the cube from the scene, but __do not__ delete the prefab.
+创建 Ghost Prefab：
 
-![Create a cube prefab](images/cube-prefab.png)<br/>_Create a cube prefab_
+1. 右键单击 Scene，选择 **3D Object** > **Cube**，在 Scene 中创建立方体
+2. 在 Scene 中选中 **Cube GameObject**，将其拖入 Project 的 **Assets** 文件夹，创建立方体 Prefab
+3. 创建 Prefab 后，可以删除 Scene 中的立方体，但不要删除 Prefab
 
-To identify and synchronize the cube prefab inside Netcode for Entities, you need to create an `IComponent` and author it. To do so, create a new file called *CubeAuthoring.cs* and enter the following:
+![创建立方体 Prefab](images/cube-prefab.png)<br/>_创建立方体 Prefab_
 
-```c#
+为了让 Netcode for Entities 识别并同步立方体 Prefab，需要创建并烘焙一个 `IComponentData`。创建 `CubeAuthoring.cs`，输入以下代码：
+
+```csharp
 using Unity.Entities;
 using Unity.NetCode;
 using UnityEngine;
@@ -191,23 +208,24 @@ public class CubeAuthoring : MonoBehaviour
 }
 ```
 
-Once you create this component, add it to the `Cube.prefab`. Then, in the Inspector, add the __Ghost Authoring Component__ to the prefab.
+把该组件添加到 `Cube.prefab`，然后在 Inspector 中为 Prefab 添加 **Ghost Authoring Component**
 
-When you do this, Unity will automatically serialize the Translation and Rotation components.
+添加后，Unity 会自动序列化 Translation 和 Rotation 组件
 
-Before you can move the cube around, you must change some settings in the newly added __Ghost Authoring Component__:
+移动立方体前，还需要修改新增的 **Ghost Authoring Component**：
 
-1. Check the __Has Owner__ box. This automatically adds and checks a new property called _Support Auto Command Target_ (more on this later).
-2. Change the __Default Ghost Mode to Owner Predicted__. You need to set the __NetworkId__ member of the __Ghost Owner Component__ in your code (more on this later). This makes sure that you predict your own movement.
+1. 勾选 **Has Owner**。系统会自动添加并勾选 **Support Auto Command Target**，后文会进一步说明
+2. 把 **Default Ghost Mode** 改为 **Owner Predicted**。后续需要在代码中设置 **Ghost Owner Component** 的 **NetworkId** 字段。这样可以确保客户端预测自己拥有对象的移动
 
-![The Ghost Authoring component](images/ghost-config.png)<br/>_The Ghost Authoring component_
+![Ghost Authoring 组件](images/ghost-config.png)<br/>_Ghost Authoring 组件_
 
+<a id="create-a-spawner"></a>
 
-## Create a spawner
+## 创建生成器
 
-To tell Netcode for Entities which ghosts to use, you need to reference the prefabs from the subscene. First, create a new component for the spawner: create a file called _CubeSpawnerAuthoring.cs_ and add the following code:
+为了让 Netcode for Entities 知道要使用哪些 Ghost，需要从 SubScene 引用对应 Prefab。先为生成器创建组件：新建 `CubeSpawnerAuthoring.cs` 并添加以下代码：
 
-```c#
+```csharp
 using Unity.Entities;
 using UnityEngine;
 
@@ -234,106 +252,120 @@ public class CubeSpawnerAuthoring : MonoBehaviour
 }
 ```
 
-1. Right-click on SharedData and select __Create Empty__.
-2. Rename it to __Spawner__, then add a __CubeSpawner__.
-3. Because both the client and the server need to know about these ghosts, add it to the __SharedData Subscene__.
-4. In the Inspector, drag the cube prefab to the cube field of the spawner.
+1. 右键单击 `SharedData`，选择 **Create Empty**
+2. 将其重命名为 `Spawner`，再添加 **CubeSpawner**
+3. 客户端与服务器都需要知道这些 Ghost，因此把生成器放入 **SharedData SubScene**
+4. 在 Inspector 中，把立方体 Prefab 拖入生成器的 Cube 字段
 
-![Ghost Spawner settings](images/ghost-spawner.png)<br/>_Ghost Spawner settings_
+![Ghost 生成器设置](images/ghost-spawner.png)<br/>_Ghost 生成器设置_
 
-## Spawning our prefab
+<a id="spawning-our-prefab"></a>
 
-To spawn the prefab, you need to update the _GoInGame.cs_ file. As described earlier, you must send a __GoInGame__ `RPC` when you're ready to tell the server to start synchronizing. You can update that code to actually spawn our cube as well.
+## 生成 Prefab
 
-### Update `GoInGameClientSystem` and `GoInGameServerSystem`
+要生成 Prefab，需要更新 `GoInGame.cs`。如前所述，准备让服务器开始同步时，客户端必须发送 **GoInGame** RPC。现在可以扩展该代码，同时生成立方体
 
-`GoInGameClientSystem` and `GoInGameServerSystem` should only run on the entities that have `CubeSpawner` component data associated with them. To do this, add a call to [`SystemState.RequireForUpdate`](https://docs.unity3d.com/Packages/com.unity.entities@1.0/api/Unity.Entities.SystemState.RequireForUpdate.html) in both systems' `OnCreate` method:
+<a id="update-goingameclientsystem-and-goingameserversystem"></a>
 
-```C#
+### 更新 `GoInGameClientSystem` 和 `GoInGameServerSystem`
+
+`GoInGameClientSystem` 和 `GoInGameServerSystem` 只应在存在 `CubeSpawner` 组件数据时运行。为此，在两个系统的 `OnCreate` 中添加 [`SystemState.RequireForUpdate`](https://docs.unity3d.com/Packages/com.unity.entities@1.0/api/Unity.Entities.SystemState.RequireForUpdate.html)：
+
+```csharp
 state.RequireForUpdate<CubeSpawner>();
 ```
 
-Your `GoInGameClientSystem.OnCreate` method should look like this now:
+更新后的 `GoInGameClientSystem.OnCreate`：
 
-```C#
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-        // Run only on entities with a CubeSpawner component data
-        state.RequireForUpdate<CubeSpawner>();
+```csharp
+[BurstCompile]
+public void OnCreate(ref SystemState state)
+{
+    // 仅在存在 CubeSpawner 组件数据时运行
+    state.RequireForUpdate<CubeSpawner>();
 
-        var builder = new EntityQueryBuilder(Allocator.Temp)
-            .WithAll<NetworkId>()
-            .WithNone<NetworkStreamInGame>();
-        state.RequireForUpdate(state.GetEntityQuery(builder));
-    }
+    var builder = new EntityQueryBuilder(Allocator.Temp)
+        .WithAll<NetworkId>()
+        .WithNone<NetworkStreamInGame>();
+    state.RequireForUpdate(state.GetEntityQuery(builder));
+}
 ```
 
-Your `GoInGameServerSystem.OnCreate` method should look like this now:
+更新后的 `GoInGameServerSystem.OnCreate`：
 
-```C#
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-        state.RequireForUpdate<CubeSpawner>();
+```csharp
+[BurstCompile]
+public void OnCreate(ref SystemState state)
+{
+    state.RequireForUpdate<CubeSpawner>();
 
-        var builder = new EntityQueryBuilder(Allocator.Temp)
+    var builder = new EntityQueryBuilder(Allocator.Temp)
+        .WithAll<GoInGameRequest>()
+        .WithAll<ReceiveRpcCommandRequest>();
+    state.RequireForUpdate(state.GetEntityQuery(builder));
+    networkIdFromEntity = state.GetComponentLookup<NetworkId>(true);
+}
+```
+
+还需要在 `GoInGameServerSystem.OnUpdate` 中完成以下工作：
+
+- 获取待生成 Prefab
+- 额外读取 Prefab 名称，用于日志消息
+- 对每条接收的 `ReceiveRpcCommandRequest` 实例化一个 Prefab
+- 将每个 Prefab 实例的 `GhostOwner.NetworkId` 设为请求客户端的 `NetworkId`
+- 把新实例添加到 `LinkedEntityGroup`，使客户端断开时自动销毁实体
+
+把 `GoInGameServerSystem.OnUpdate` 更新为：
+
+```csharp
+[BurstCompile]
+public void OnUpdate(ref SystemState state)
+{
+    // 获取待实例化 Prefab
+    var prefab = SystemAPI.GetSingleton<CubeSpawner>().Cube;
+
+    // 获取待实例化 Prefab 的名称
+    state.EntityManager.GetName(prefab, out var prefabName);
+    var worldName = new FixedString32Bytes(state.WorldUnmanaged.Name);
+
+    var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
+    networkIdFromEntity.Update(ref state);
+
+    foreach (var (reqSrc, reqEntity) in
+        SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>()
             .WithAll<GoInGameRequest>()
-            .WithAll<ReceiveRpcCommandRequest>();
-        state.RequireForUpdate(state.GetEntityQuery(builder));
-        networkIdFromEntity = state.GetComponentLookup<NetworkId>(true);
-    }
-```
-
-Additionally, for the `GoInGameServerSystem.OnUpdate` method we want to:
-- Get the prefab to spawn.
-  - As an added example, get the name of the prefab being spawned to add to the log message.
-- For each inbound `ReceiveRpcCommandRequest` message, instantiate an instance of the prefab.
-  - For each prefab instance, set the `GhostOwner.NetworkId` value to the `NetworkId` of the requesting client.
-- Finally, add the newly instantiated instance to the `LinkedEntityGroup` so when the client disconnects the entity is destroyed.
-
-Update your `GoInGameServerSystem.OnUpdate` method to this:
-
-```C#
-    [BurstCompile]
-    public void OnUpdate(ref SystemState state)
+            .WithEntityAccess())
     {
-        // Get the prefab to instantiate
-        var prefab = SystemAPI.GetSingleton<CubeSpawner>().Cube;
+        commandBuffer.AddComponent<NetworkStreamInGame>(reqSrc.ValueRO.SourceConnection);
 
-        // Ge the name of the prefab being instantiated
-        state.EntityManager.GetName(prefab, out var prefabName);
-        var worldName = new FixedString32Bytes(state.WorldUnmanaged.Name);
+        // 获取发出请求客户端的 NetworkId
+        var networkId = networkIdFromEntity[reqSrc.ValueRO.SourceConnection];
 
-        var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
-        networkIdFromEntity.Update(ref state);
+        // 记录连接 NetworkId 和生成的 Prefab 名称
+        UnityEngine.Debug.Log(
+            $"'{worldName}' 将连接 '{networkId.Value}' 设为 InGame，" +
+            $"并为其生成 Ghost '{prefabName}'");
 
-        foreach (var (reqSrc, reqEntity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>().WithAll<GoInGameRequest>().WithEntityAccess())
-        {
-            commandBuffer.AddComponent<NetworkStreamInGame>(reqSrc.ValueRO.SourceConnection);
-            // Get the NetworkId for the requesting client
-            var networkId = networkIdFromEntity[reqSrc.ValueRO.SourceConnection];
+        // 实例化 Prefab
+        var player = commandBuffer.Instantiate(prefab);
 
-            // Log information about the connection request that includes the client's assigned NetworkId and the name of the prefab spawned.
-            UnityEngine.Debug.Log($"'{worldName}' setting connection '{networkId.Value}' to in game, spawning a Ghost '{prefabName}' for them!");
+        // 将 Prefab 实例与已连接客户端的 NetworkId 关联
+        commandBuffer.SetComponent(player,
+            new GhostOwner { NetworkId = networkId.Value });
 
-            // Instantiate the prefab
-            var player = commandBuffer.Instantiate(prefab);
-            // Associate the instantiated prefab with the connected client's assigned NetworkId
-            commandBuffer.SetComponent(player, new GhostOwner { NetworkId = networkId.Value});
-
-            // Add the player to the linked entity group so it is destroyed automatically on disconnect
-            commandBuffer.AppendToBuffer(reqSrc.ValueRO.SourceConnection, new LinkedEntityGroup{Value = player});
-            commandBuffer.DestroyEntity(reqEntity);
-        }
-        commandBuffer.Playback(state.EntityManager);
+        // 添加到 LinkedEntityGroup，使其在连接断开时自动销毁
+        commandBuffer.AppendToBuffer(reqSrc.ValueRO.SourceConnection,
+            new LinkedEntityGroup { Value = player });
+        commandBuffer.DestroyEntity(reqEntity);
     }
+
+    commandBuffer.Playback(state.EntityManager);
+}
 ```
 
+此时完整的 `GoInGame.cs` 如下：
 
-Your *GoInGame.cs* file should now look like this:
-
-```C#
+```csharp
 using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
@@ -341,11 +373,13 @@ using Unity.NetCode;
 using Unity.Burst;
 
 /// <summary>
-/// This allows sending RPCs between a stand alone build and the editor for testing purposes in the event when you finish this example
-/// you want to connect a server-client stand alone build to a client configured editor instance.
+/// 允许独立构建与 Editor 在测试期间互发 RPC
+/// 完成本示例后，可用它让服务器客户端独立构建连接配置为客户端的 Editor 实例
 /// </summary>
 [BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
+    WorldSystemFilterFlags.ServerSimulation |
+    WorldSystemFilterFlags.ThinClientSimulation)]
 [UpdateInGroup(typeof(InitializationSystemGroup))]
 [CreateAfter(typeof(RpcSystem))]
 public partial struct SetRpcSystemDynamicAssemblyListSystem : ISystem
@@ -357,20 +391,21 @@ public partial struct SetRpcSystemDynamicAssemblyListSystem : ISystem
     }
 }
 
-// RPC request from client to server for game to go "in game" and send snapshots / inputs
+// 客户端请求服务器进入 InGame，并开始发送快照与输入
 public struct GoInGameRequest : IRpcCommand
 {
 }
 
-// When client has a connection with network id, go in game and tell server to also go in game
+// 客户端连接获得 NetworkId 后进入 InGame，并通知服务器同步进入 InGame
 [BurstCompile]
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
+    WorldSystemFilterFlags.ThinClientSimulation)]
 public partial struct GoInGameClientSystem : ISystem
 {
     [BurstCompile]
     public void OnCreate(ref SystemState state)
     {
-        // Run only on entities with a CubeSpawner component data
+        // 仅在存在 CubeSpawner 组件数据时运行
         state.RequireForUpdate<CubeSpawner>();
 
         var builder = new EntityQueryBuilder(Allocator.Temp)
@@ -383,18 +418,23 @@ public partial struct GoInGameClientSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
-        foreach (var (id, entity) in SystemAPI.Query<RefRO<NetworkId>>().WithEntityAccess().WithNone<NetworkStreamInGame>())
+        foreach (var (id, entity) in
+            SystemAPI.Query<RefRO<NetworkId>>()
+                .WithEntityAccess()
+                .WithNone<NetworkStreamInGame>())
         {
             commandBuffer.AddComponent<NetworkStreamInGame>(entity);
             var req = commandBuffer.CreateEntity();
             commandBuffer.AddComponent<GoInGameRequest>(req);
-            commandBuffer.AddComponent(req, new SendRpcCommandRequest { TargetConnection = entity });
+            commandBuffer.AddComponent(req,
+                new SendRpcCommandRequest { TargetConnection = entity });
         }
+
         commandBuffer.Playback(state.EntityManager);
     }
 }
 
-// When server receives go in game request, go in game and delete request
+// 服务器收到进入游戏请求后进入 InGame，并删除请求
 [BurstCompile]
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
 public partial struct GoInGameServerSystem : ISystem
@@ -416,50 +456,62 @@ public partial struct GoInGameServerSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        // Get the prefab to instantiate
+        // 获取待实例化 Prefab
         var prefab = SystemAPI.GetSingleton<CubeSpawner>().Cube;
 
-        // Ge the name of the prefab being instantiated
+        // 获取待实例化 Prefab 的名称
         state.EntityManager.GetName(prefab, out var prefabName);
         var worldName = new FixedString32Bytes(state.WorldUnmanaged.Name);
 
         var commandBuffer = new EntityCommandBuffer(Allocator.Temp);
         networkIdFromEntity.Update(ref state);
 
-        foreach (var (reqSrc, reqEntity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>().WithAll<GoInGameRequest>().WithEntityAccess())
+        foreach (var (reqSrc, reqEntity) in
+            SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>>()
+                .WithAll<GoInGameRequest>()
+                .WithEntityAccess())
         {
             commandBuffer.AddComponent<NetworkStreamInGame>(reqSrc.ValueRO.SourceConnection);
-            // Get the NetworkId for the requesting client
+
+            // 获取发出请求客户端的 NetworkId
             var networkId = networkIdFromEntity[reqSrc.ValueRO.SourceConnection];
 
-            // Log information about the connection request that includes the client's assigned NetworkId and the name of the prefab spawned.
-            UnityEngine.Debug.Log($"'{worldName}' setting connection '{networkId.Value}' to in game, spawning a Ghost '{prefabName}' for them!");
+            // 记录连接 NetworkId 和生成的 Prefab 名称
+            UnityEngine.Debug.Log(
+                $"'{worldName}' 将连接 '{networkId.Value}' 设为 InGame，" +
+                $"并为其生成 Ghost '{prefabName}'");
 
-            // Instantiate the prefab
+            // 实例化 Prefab
             var player = commandBuffer.Instantiate(prefab);
-            // Associate the instantiated prefab with the connected client's assigned NetworkId
-            commandBuffer.SetComponent(player, new GhostOwner { NetworkId = networkId.Value});
 
-            // Add the player to the linked entity group so it is destroyed automatically on disconnect
-            commandBuffer.AppendToBuffer(reqSrc.ValueRO.SourceConnection, new LinkedEntityGroup{Value = player});
+            // 将 Prefab 实例与已连接客户端的 NetworkId 关联
+            commandBuffer.SetComponent(player,
+                new GhostOwner { NetworkId = networkId.Value });
+
+            // 添加到 LinkedEntityGroup，使其在连接断开时自动销毁
+            commandBuffer.AppendToBuffer(reqSrc.ValueRO.SourceConnection,
+                new LinkedEntityGroup { Value = player });
             commandBuffer.DestroyEntity(reqEntity);
         }
+
         commandBuffer.Playback(state.EntityManager);
     }
 }
 ```
 
-If you press __Play__ now, you should see the replicated cube in the Game view and the Entity Hierarchy view.
+现在单击 **Play**，Game 视图和 Entity Hierarchy 视图中应当出现已复制的立方体
 
-![Replicated cube](images/replicated-cube.png)<br/>_Replicated cube_
+![已复制的立方体](images/replicated-cube.png)<br/>_已复制的立方体_
 
-## Moving the cube
+<a id="moving-the-cube"></a>
 
-Because you used the _Support Auto Command Target_ feature when you set up the ghost component, you can take advantage of the `IInputComponentData` struct for storing input data. This struct dictates what you will be serializing and deserializing as the input data. You also need to create a system that fills in input data.
+## 移动立方体
 
-Create a script called *CubeInputAuthoring.cs* and add the following code:
+配置 Ghost 组件时启用了 **Support Auto Command Target**，因此可以使用 `IInputComponentData` 结构体保存输入数据。该结构体定义需要序列化和反序列化的输入数据，还需要一个负责填充输入数据的系统
 
-```c#
+创建 `CubeInputAuthoring.cs`，添加以下代码：
+
+```csharp
 using Unity.Burst;
 using Unity.Entities;
 using Unity.NetCode;
@@ -495,7 +547,8 @@ public partial struct SampleCubeInput : ISystem
 
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var playerInput in SystemAPI.Query<RefRW<CubeInput>>().WithAll<GhostOwnerIsLocal>())
+        foreach (var playerInput in
+            SystemAPI.Query<RefRW<CubeInput>>().WithAll<GhostOwnerIsLocal>())
         {
             playerInput.ValueRW = default;
             if (Input.GetKey("left"))
@@ -511,11 +564,11 @@ public partial struct SampleCubeInput : ISystem
 }
 ```
 
-Add the `CubeInputAuthoring` component to your cube prefab, and then finally, create a system that can read the `CubeInput` and move the player.
+把 `CubeInputAuthoring` 组件添加到立方体 Prefab，再创建一个读取 `CubeInput` 并移动玩家的系统
 
-Create a new file script called `CubeMovementSystem.cs` and add the following code:
+新建 `CubeMovementSystem.cs`，添加以下代码：
 
-```c#
+```csharp
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.NetCode;
@@ -530,7 +583,9 @@ public partial struct CubeMovementSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var speed = SystemAPI.Time.DeltaTime * 4;
-        foreach (var (input, trans) in SystemAPI.Query<RefRO<CubeInput>, RefRW<LocalTransform>>().WithAll<Simulate>())
+        foreach (var (input, trans) in
+            SystemAPI.Query<RefRO<CubeInput>, RefRW<LocalTransform>>()
+                .WithAll<Simulate>())
         {
             var moveInput = new float2(input.ValueRO.Horizontal, input.ValueRO.Vertical);
             moveInput = math.normalizesafe(moveInput) * speed;
@@ -540,20 +595,24 @@ public partial struct CubeMovementSystem : ISystem
 }
 ```
 
-## Test the code
+<a id="test-the-code"></a>
 
-Now you have set up your code, open __Multiplayer__ > __PlayMode Tools__ and set the __PlayMode Type__ to __Client & Server__. Enter Play Mode, and the cube spawns. Press the __Arrow__ keys to move the cube around.
+## 测试代码
 
-## Build standalone build and connect an Editor-based client
+代码配置完成后，打开 **Multiplayer** > **PlayMode Tools**，把 **PlayMode Type** 设为 **Client & Server**。进入 Play Mode 后立方体会生成，按方向键即可移动它
 
-Now that you have the server-client instance running in the Editor, you might want to see what it would be like to test connecting another client. To do this follow these steps:
+<a id="build-standalone-build-and-connect-an-editor-based-client"></a>
 
-- Verify that your __Project Settings__ > __Entities__ > __Build__ > __NetCode Client Target__ is set to *ClientAndServer*.
-- Make a development build and run that standalone build.
-- Select the __Multiplayer__ menu bar option and select the Editor __PlayMode Tools__ window.
-  - Set the **PlayMode Type** to: Client
-  - Set the **Auto Connect Port** to: 7979
-  - Optionally, you can dock or close this window at this point.
-- Enter Play Mode
+## 构建独立版本并连接 Editor 客户端
 
-You should now see on your server-client standalone build the Editor-based client's cube and be able to see both cubes move around!
+客户端与服务器已经可以在 Editor 中运行。要继续测试另一个客户端连接，可以执行以下步骤：
+
+- 确认 **Project Settings** > **Entities** > **Build** > **NetCode Client Target** 已设为 **ClientAndServer**
+- 创建 Development Build，并运行该独立构建
+- 从 **Multiplayer** 菜单打开 Editor 的 **PlayMode Tools** 窗口
+  - 把 **PlayMode Type** 设为 **Client**
+  - 把 **Auto Connect Port** 设为 `7979`
+  - 此时可以按需停靠或关闭窗口
+- 进入 Play Mode
+
+现在，服务器客户端独立构建中应当能看到来自 Editor 客户端的立方体，并且可以看到两个立方体分别移动

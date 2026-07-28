@@ -1,12 +1,12 @@
-# Metrics
+# 指标
 
-There are 2 ways of gathering metrics about the netcode simulation. The simplest and most straight forward way is to use the Network Debugger from the Multiplayer Menu in the Editor. This will provide you with a simple web interface to view the metrics.
+有两种方法可以收集 Netcode 模拟指标。最简单直接的方法是在编辑器的 Multiplayer 菜单中使用 Network Debugger，它会提供一个用于查看指标的简单 Web 界面
 
-The second way is to create a singleton of type [GhostMetricsMonitor](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostMetricsMonitor.html)
-and populate it with the data points you want to monitor.
+第二种方法是创建一个 [GhostMetricsMonitor](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostMetricsMonitor.html) 类型的单例，
+并填入需要监控的数据点
 
-In the following example we create a singleton containing all data metrics available.
-Adding the respective `IComponentData` to the singleton enables the collection of that metrics type.
+以下示例创建一个包含全部可用数据指标的单例
+将对应的 `IComponentData` 添加到单例，即可启用该指标类型的收集
 
 ```csharp
     var typeList = new NativeArray<ComponentType>(8, Allocator.Temp);
@@ -24,20 +24,20 @@ Adding the respective `IComponentData` to the singleton enables the collection o
     state.EntityManager.SetName(metricSingleton, singletonName);
 ```
 
-Use `SystemAPI.GetSingleton` to access data metrics for a specific metrics type. For example, to access the `NetworkMetrics`:
+使用 `SystemAPI.GetSingleton` 访问特定指标类型的数据。例如，访问 `NetworkMetrics`：
 
 ```csharp
     var networkMetrics = SystemAPI.GetSingleton<NetworkMetrics>();
 ```
 
-## Data Points
+## 数据点
 
-| component type              | description                                                   |
+| 组件类型                    | 说明                                                          |
 |-----------------------------|---------------------------------------------------------------|
-| `NetworkMetrics`            | time related network metrics                                  |
-| `SnapshotMetrics`           | snapshot related network metrics                              |
-| `GhostMetrics`              | ghost related metrics - indexed using `GhostNames`            |
-| `GhostSerializationMetrics` | ghost serialization metrics - indexed using `GhostNames`      |
-| `PredictionErrorMetrics`    | prediction errors - indexed using `PredictionErrorNames`      |
-| `GhostNames`                | a list of all available ghosts for this simulation            |
-| `PredictionErrorNames`      | a list of all available prediction errors for this simulation |
+| `NetworkMetrics`            | 与时间相关的网络指标                                          |
+| `SnapshotMetrics`           | 与快照相关的网络指标                                          |
+| `GhostMetrics`              | Ghost 相关指标，使用 `GhostNames` 作为索引                    |
+| `GhostSerializationMetrics` | Ghost 序列化指标，使用 `GhostNames` 作为索引                  |
+| `PredictionErrorMetrics`    | 预测误差，使用 `PredictionErrorNames` 作为索引                |
+| `GhostNames`                | 此模拟中全部可用 Ghost 的列表                                 |
+| `PredictionErrorNames`      | 此模拟中全部可用预测误差的列表                                |

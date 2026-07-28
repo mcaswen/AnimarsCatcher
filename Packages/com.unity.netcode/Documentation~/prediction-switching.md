@@ -1,70 +1,77 @@
-# Prediction switching
+# 预测模式切换
 
-In a typical multiplayer game, you often want to only predict ghosts (via `GhostMode.Predicted`) that the client is directly interacting with (because prediction CPU intensive). Examples include:
+在典型多人游戏中，通常只希望预测客户端直接交互的 Ghost，也就是使用 `GhostMode.Predicted`，因为预测会消耗大量 CPU。示例包括：
 
-- Your own character controller (typically `GhostMode.OwnerPredicted`).
-- Dynamic objects your character controller is colliding with (like crates, balls, platforms, and vehicles).
-- Interactive items that your client is triggering (like weapons), and any related entities (like projectiles).
+- 玩家自己的角色控制器，通常使用 `GhostMode.OwnerPredicted`
+- 角色控制器正在碰撞的动态对象，例如箱子、球、平台和载具
+- 客户端触发的交互物品，例如武器，以及投射物等相关实体
 
-For the majority of the ghosts in your world, you want them to be interpolated (via `GhostMode.Interpolated`). Netcode supports opting into prediction on a per-client, per-ghost basis, based on some criteria (for example, predict all ghosts inside this radius of my clients' character controller).
-This feature is called prediction switching.
+对于 World 中的大多数 Ghost，应使用 `GhostMode.Interpolated` 进行插值。Netcode 支持根据某些条件，以每个客户端、每个 Ghost 为单位选择启用预测，例如预测客户端角色控制器一定半径内的所有 Ghost
+此功能称为预测模式切换
 
-## The client singleton
+<a id="the-client-singleton"></a>
+## 客户端单例
 
-The `GhostPredictionSwitchingQueues` client singleton provides two queues that you can subscribe ghosts to:
+客户端单例 `GhostPredictionSwitchingQueues` 提供两个队列，可将 Ghost 加入其中：
 
-- `ConvertToPredictedQueue`: Take an interpolated ghost and make it predicted (via `GhostPredictionSwitchingSystem.ConvertGhostToPredicted`).
-- `ConvertToInterpolatedQueue`: Take a predicted ghost and make it interpolated (via `GhostPredictionSwitchingSystem.ConvertGhostToInterpolated`).
+- `ConvertToPredictedQueue`：将插值 Ghost 转换为预测 Ghost，通过 `GhostPredictionSwitchingSystem.ConvertGhostToPredicted` 实现
+- `ConvertToInterpolatedQueue`：将预测 Ghost 转换为插值 Ghost，通过 `GhostPredictionSwitchingSystem.ConvertGhostToInterpolated` 实现
 
-The `GhostPredictionSwitchingSystem` converts these ghosts for you automatically (changing a ghost's `GhostMode` live).
-In practice, this is represented as either adding (or removing) the `PredictedGhost`.
+`GhostPredictionSwitchingSystem` 会自动转换这些 Ghost，也就是在运行时修改 Ghost 的 `GhostMode`
+实际表现为添加或移除 `PredictedGhost`
 
-## Prediction switching queue rules
+<a id="prediction-switching-queue-rules"></a>
+## 预测模式切换队列规则
 
-- The entity must be a ghost.
-- The ghost type (prefab) must have its `Supported Ghost Modes` set to `All` (via the [`GhostAuthoringComponent`](ghost-snapshots.md#authoring-ghosts)).
-- Its `CurrentGhostMode` must not be set to `OwnerPredicted`. `OwnerPredicted` ghosts already switch prediction based on ownership.
-- If switching to `Predicted`, the ghost must currently be `Interpolated` (and vice versa).
-- The ghost must not currently be switching prediction (see the transitions section below, and the `SwitchPredictionSmoothing` component).
-
-> [!NOTE]
-> These rules are guarded in the switching system, and thus an invalid queue entry will be harmlessly ignored (with an error/warning log).
-
-## Timeline issues with prediction switching
-
-Prediction switching moves ghosts from one relative [timeline](interpolation.md#timelines) to another, which can cause visual issues during the transition and cause ghosts to teleport forward or back by more than 2 x Ping ms.
-
-- Predicted ghosts run on the same timeline as the client (roughly your ping _ahead_ of the server).
-- Interpolated ghosts run on a timeline behind the server (roughly your ping _behind_ the server).
-
-### The `SwitchPredictionSmoothing` component and prediction switching transitions
-
-This timeline jump can be mitigated using prediction switching smoothing with the transient component `SwitchPredictionSmoothing` and the system that acts upon it, `SwitchPredictionSmoothingSystem`. This smoothing uses linear interpolation to automatically transition between the `Position` and `Rotation` values of your entity `Transform`, over a user-specified period of time defined when adding the entity to a queue (using `ConvertPredictionEntry.TransitionDurationSeconds`).
-
-The smoothing process isn't perfect, and fast-moving objects that change direction frequently may still experience visual artifacts. Best practice is to set the `TransitionDurationSeconds` value high enough to avoid teleporting, but low enough to minimize the frequency of sudden changes in direction
-
-## Component modification with prediction switching
-
-An additional complication involved in prediction switching is that you may have removed specific components from the predicted or interpolated versions of a ghost (via the `GhostAuthoringInspectionComponent` and/or variants). As a result, whenever a ghost switches prediction at runtime, you need to add or remove these components to stay in sync with your rules (using the `AddRemoveComponents` method).
+- 实体必须是 Ghost
+- Ghost 类型，也就是预制体，必须通过 [`GhostAuthoringComponent`](ghost-snapshots.md#authoring-ghosts) 将 `Supported Ghost Modes` 设为 `All`
+- 其 `CurrentGhostMode` 不能设为 `OwnerPredicted`，因为 `OwnerPredicted` Ghost 已经会根据所有权切换预测模式
+- 切换为 `Predicted` 时，Ghost 当前必须处于 `Interpolated` 模式，反之亦然
+- Ghost 当前不能正在切换预测模式，参阅下方转换章节和 `SwitchPredictionSmoothing` 组件
 
 > [!NOTE]
-> This happens automatically, but you should be aware that when re-adding components, the component value is reset to the value baked at authoring time.
+> 切换系统会检查这些规则，因此无效的队列条目会被安全忽略，同时记录错误或警告日志
 
-## Example code
+<a id="timeline-issues-with-prediction-switching"></a>
+## 预测模式切换的时间线问题
+
+预测模式切换会将 Ghost 从一条相对[时间线](interpolation.md#timelines)移动到另一条时间线，可能在转换期间引发视觉问题，并导致 Ghost 向前或向后瞬移超过 `2 x Ping` 毫秒的距离
+
+- 预测 Ghost 与客户端运行在同一条时间线上，大约领先服务器一个 Ping
+- 插值 Ghost 运行在服务器之后的时间线上，大约落后服务器一个 Ping
+
+<a id="the-switchpredictionsmoothing-component-and-prediction-switching-transitions"></a>
+### `SwitchPredictionSmoothing` 组件与预测模式切换转换
+
+可以使用临时组件 `SwitchPredictionSmoothing` 及处理该组件的 `SwitchPredictionSmoothingSystem`，通过预测模式切换平滑来缓解时间线跳变。该平滑过程使用线性插值，在用户将实体加入队列时通过 `ConvertPredictionEntry.TransitionDurationSeconds` 指定的时间内，自动在实体 `Transform` 的 `Position` 和 `Rotation` 值之间转换
+
+平滑过程并不完美，频繁改变方向的高速对象仍可能出现视觉瑕疵。最佳实践是将 `TransitionDurationSeconds` 设得足够高以避免瞬移，同时又足够低以减少突然改变方向的频率
+
+<a id="component-modification-with-prediction-switching"></a>
+## 预测模式切换时的组件修改
+
+预测模式切换还存在一个额外问题：可能已经通过 `GhostAuthoringInspectionComponent` 和/或变体，从 Ghost 的预测版本或插值版本中移除了特定组件。因此，每当 Ghost 在运行时切换预测模式时，都需要使用 `AddRemoveComponents` 方法添加或移除这些组件，以保持与规则一致
+
+> [!NOTE]
+> 此过程会自动执行，但需要注意，重新添加组件时，组件值会重置为创作阶段烘焙的值
+
+<a id="example-code"></a>
+## 示例代码
 
 ```c#
-// Fetch the singleton as RW as we're modifying singleton collection data.
+// 以读写方式获取单例，因为需要修改单例中的集合数据
 ref var ghostPredictionSwitchingQueues = ref testWorld.GetSingletonRW<GhostPredictionSwitchingQueues>(firstClientWorld).ValueRW;
 
-// Converts ghost entityA to Predicted, instantly (i.e. as soon as the `GhostPredictionSwitchingSystem` runs). If this entity is moving, it will teleport.
+// 立即将 Ghost 实体 entityA 转换为 Predicted，即在 GhostPredictionSwitchingSystem 下一次运行时转换
+// 如果该实体正在移动，它会发生瞬移
 ghostPredictionSwitchingQueues.ConvertToPredictedQueue.Enqueue(new ConvertPredictionEntry
 {
     TargetEntity = entityA,
     TransitionDurationSeconds = 0f,
 });
 
-// Converts ghost entityB to Interpolated, over 1 second.
-// A lerp is applied to the Transform (both Position and Rotation) automatically, smoothing (and somewhat hiding) the change in timelines.
+// 在 1 秒内将 Ghost 实体 entityB 转换为 Interpolated
+// 系统会自动对 Transform 的 Position 和 Rotation 应用线性插值，以平滑并在一定程度上掩盖时间线变化
 ghostPredictionSwitchingQueues.ConvertToInterpolatedQueue.Enqueue(new ConvertPredictionEntry
 {
     TargetEntity = entityA,

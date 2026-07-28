@@ -1,239 +1,265 @@
-# Client and server worlds networking model
+# 客户端与服务器 World 网络模型
 
-Understand the client and server networking model that the Netcode for Entities package uses.
+本文介绍 Netcode for Entities 包采用的客户端与服务器网络模型
 
-Netcode for Entities uses a client-server model and has a separation between client and server logic that is split into multiple worlds (the client world and server world <!-- or host world (Experimental) TODO -->). The concept of [worlds](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-worlds.html) is inherited from Unity's Entity Component System (ECS), and refers to a collection of [entities](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-entities.html) and [systems](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-systems.html) arranged into [system groups](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/systems-update-order.html).
+Netcode for Entities 使用客户端-服务器模型，并把客户端与服务器逻辑拆分到多个 World 中，包括客户端 World 和服务器 World。<!-- 或 Host World（实验功能），TODO --> [World](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-worlds.html) 概念继承自 Unity Entity Component System（ECS），表示由[实体](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-entities.html)和[系统](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/concepts-systems.html)组成，并按照[系统组](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/systems-update-order.html)组织的集合
 
-In addition to the standard client and server worlds, Netcode for Entities also supports [thin clients](thin-clients.md) which you can use to test your game during development.
+除了标准客户端和服务器 World，Netcode for Entities 还支持[瘦客户端](thin-clients.md)，可用于开发阶段的游戏测试
 
-## Terminology
+<a id="terminology"></a>
 
-The words client and server can mean different things depending on the context. They can refer to the role a world is taking, or they can refer to the device a game is executing on.
+## 术语
 
-- From a hosting perspective, server refers to the hardware or virtual machine that is running the server world for client devices to connect to.
-- From a role perspective, server refers to the world that's running the authoritative simulation, and client refers to the world that's running the local simulation for a player.
+“客户端”和“服务器”会随语境表示不同含义：既可以表示 World 承担的角色，也可以表示运行游戏的设备
 
-A client device can have a server role, for example, which is referred to as a client-hosted server (or simply host).
+- 从托管角度看，服务器指运行服务器 World、供客户端设备连接的硬件或虚拟机
+- 从角色角度看，服务器指运行权威模拟的 World，客户端指为某名玩家运行本地模拟的 World
+
+客户端设备也可以承担服务器角色，这称为客户端托管服务器，简称 Host
 
 <!--
 
-TODO remove this comment once ready to be used by users
+TODO：本节准备开放给使用者后删除该注释
 
-## Client, server, and host worlds
+## 客户端、服务器与 Host World
 
-Netcode for Entities supports different configurations of worlds within the client-server model. A host world is a special type of server world that also runs client systems, allowing one of the players to act as a server. This is referred to as a client-hosted server.
+Netcode for Entities 在客户端-服务器模型中支持多种 World 配置。Host World 是一种特殊的服务器 World，它也运行客户端系统，因此允许某名玩家同时充当服务器，这称为客户端托管服务器
 
-[See Hosting vs Roles](hosting-vs-role.md) for the difference between the two.
+两种概念的区别请参阅 Hosting 与 Roles 文档
 
-| Configuration                                                          | Description                                                                                                                                                                                                                                                                                                                                                                                     |
-|-----------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Client-only world connecting to a server-only world.                  | You distribute client builds to your players and host a server build yourself in dedicated servers.                                                                                                                                                                                                                                                                                 |
-| Client-only world connecting to a client-hosted server world          | You distribute client-server builds to your players and one of the players acts as a server.<br/>The host player has a client world connecting through IPC to a server world.                                                                                                                                                                                                       |
-| Client-only world connecting to a client-hosted single-world server   | You distribute client-server builds to your players, but instead of the host player creating two worlds, they create a single world acting as both a client and server world. This single-world host behaves as a server with client systems running on it as well. Visible ghosts are no longer predicted or interpolated, they are simply the authoritative ghosts being rendered. |
+| 配置 | 说明 |
+|---|---|
+| 仅客户端 World 连接仅服务器 World | 向玩家分发客户端构建，由项目方自行使用专用服务器托管服务器构建 |
+| 仅客户端 World 连接客户端托管的服务器 World | 向玩家分发客户端-服务器构建，其中一名玩家充当服务器。Host 玩家拥有一个客户端 World，并通过 IPC 连接服务器 World |
+| 仅客户端 World 连接客户端托管的单 World 服务器 | 向玩家分发客户端-服务器构建，但 Host 玩家只创建一个同时承担客户端和服务器角色的 World，而不是创建两个 World。该单 World Host 相当于运行了客户端系统的服务器。可见 Ghost 不再进行预测或插值，而是直接渲染权威 Ghost |
 
-### Binary and single-world host modes
+### 双 World 与单 World Host 模式
 
-You can choose between the default binary host mode and single-world host mode using the NetcodeConfig's **Host World Mode Selection** dropdown.
+可以通过 `NetcodeConfig` 的 **Host World Mode Selection** 下拉框，在默认的双 World Host 模式与单 World Host 模式之间选择
 
 > [!NOTE]
-> Because this is an experimental feature, you also need to add the NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST define in your project to enable single-world host mode.
+> 单 World Host 仍是实验功能，还需要在项目中添加 `NETCODE_EXPERIMENTAL_SINGLE_WORLD_HOST` 宏才能启用
 
-Each mode has its own advantages and disadvantages, as described below.
+两种模式各有优缺点
 
-TODO-next format the following in a table
+TODO：把以下内容整理成表格
 
-Single-world host mode advantages:
+单 World Host 模式的优点：
 
-- Performance: a binary world host has multiple extra steps to spend CPU time on. A server world's `SimulationGroup`, `GhostSendSystem`'s serialization, a client world's deserialization, rolling back to the last snapshot, replaying 1+ ticks, 1 partial tick, serializing and sending inputs to the local server world. Whereas a single-world host only has one world to execute locally, with one simulation tick and spends no time sending/receiving data for its own player.
-- Because there's no longer two worlds in the same process, static state is for only one world (a client world or a host world).
+- 性能：双 World Host 需要在多个额外步骤上消耗 CPU，包括服务器 World 的 `SimulationGroup`、`GhostSendSystem` 序列化、客户端 World 反序列化、回滚到最近快照、重演一个或多个 Tick、执行一个部分 Tick，以及序列化输入并发送给本地服务器 World。单 World Host 只需在本地执行一个 World 和一个模拟 Tick，不需要为本机玩家发送或接收数据
+- 同一进程中不再存在两个 World，因此静态状态只对应一个客户端 World 或 Host World
 
-Binary host mode advantages:
+双 World Host 模式的优点：
 
-- Client and server separation: `IsClient` and `IsServer` are always exclusive, making writing client and server code easier to think about. Client-only logic will behave the same whether executing on a client or on a client-hosted server.
-- Easier testing: when you test locally with a split client world connecting through IPC to a local server world, you are already testing a client connecting to a server. The chances of client-only issues when testing a second client connecting to your host are lessened (although not zero, you should still test with builds or [Multiplayer Play Mode](https://docs.unity3d.com/Packages/com.unity.multiplayer.playmode@latest) clones). For example, it can be easy to forget adding a `[GhostField]` attribute on your `Entity somePlayer` or `int myHealth` fields. With single-world host, you need to always test the behavior of client-only separately.
-- When using binary host mode, your game is closer to a dedicated server. It's easier to port to a dedicated server hosting model since your gameplay logic is already split between client and server worlds.
+- 客户端与服务器隔离：`IsClient` 和 `IsServer` 始终互斥，更容易理解和编写客户端、服务器代码。客户端专属逻辑无论运行在普通客户端还是客户端托管服务器上，行为都相同
+- 更容易测试：在本地使用独立客户端 World 通过 IPC 连接本地服务器 World 时，已经是在测试客户端连接服务器。第二个客户端连接 Host 时出现客户端专属问题的概率更低，但并非为零，仍需使用构建版本或 [Multiplayer Play Mode](https://docs.unity3d.com/Packages/com.unity.multiplayer.playmode@latest) Clone 测试。例如，很容易忘记为 `Entity somePlayer` 或 `int myHealth` 字段添加 `[GhostField]`。使用单 World Host 时，始终需要另外测试仅客户端行为
+- 双 World Host 更接近专用服务器。由于玩法逻辑已经拆分到客户端和服务器 World，更容易迁移到专用服务器托管模型
 
-### Behavior differences and migration considerations
+### 行为差异与迁移注意事项
 
-If you want to switch between binary host mode and single-world host mode mid-project, you need to be aware of the following differences in behavior between the two modes.
+如果要在项目中途切换双 World 与单 World Host 模式，需要了解以下行为差异：
 
-- Connection entity: a world where client systems execute (your host) can have multiple connections containing `NetworkId` and `NetworkStreamInGame`.
-  - Single-world host has a fake connection entity, containing a singleton `LocalConnection` component, a `NetworkId` component, and no `NetworkStreamConnection` component.
-- Inputs: client systems have access to other player's inputs on a host. You need to filter appropriately using `GhostOwnerIsLocal`.
-- `GhostOwnerIsLocal` behaves differently between the two modes.
-    - In a binary host mode setup, client worlds see `GhostOwnerIsLocal` active on locally owned ghosts (ghosts whose owner ID corresponds to the `LocalConnection`'s network ID). On a server world, the behaviour is undefined.
-    - In a single-world setup, the host world sees `GhostOwnerIsLocal` active on its locally owned ghosts, just like for client worlds.
-    - Make sure to strip your input components so they only appear on predicted ghosts if you want to run prediction code reading inputs server-side without having to rely on `GhostOwnerIsLocal`. Refer to `GhostComponent` for stripping configurations.
-- Client-only logic executes in the same world as server systems when using single-world host mode.
-- Relevancy and culling: as the single hosting world is the server role, it must have all server ghost entities loaded in memory to be able to properly perform server duties (for other connections). Therefore, host worlds cannot enable relevancy for the host connection (though relevancy can still be applied to other connections). Therefore, you need to manually disable rendering for far away ghosts in single-world host mode, you can't rely on relevancy.
-- Prediction switching isn't supported on hosts, so can't be used in single-world host mode.
-- When using single-world host mode, all ghosts are authoritative ghosts which means interpolation must be handled differently.
-    - Instead of changing the authoritative value, it's recommended to just smooth the visual instead when interpolating. For example, use `LocalToWorld` for transforms.
-    - Refer to the [Health sample](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/3_Advanced/01_HealthBars) for an example of an interpolated and replicated values (the player's health).
-- You can use a fast path for RPCs in single-world host mode. Custom serialization should take advantage of that fast path with `IsPassthroughRPC` and `GetPassthroughActionData`.
-- Partial Ticks: single-host world doesn't support partial ticks. You can instead interpolate your ghosts between full ticks on the host.
-- Testing with lag: to test with lag, you need to test with an external client connecting to your host. Because the host doesn't serialize/deserialize its own state in single-host world mode, there's no way to add artificial latency on your local objects.
-- Sending snapshots on catchup ticks: in a server-only world, the server can send snapshot packets for each individual catchup ticks if they all happen in the same frame. This isn't the case for single-world host, where the host only sends one snapshot per frame.
+- 连接实体：执行客户端系统的 World，也就是 Host，可能包含多个带 `NetworkId` 和 `NetworkStreamInGame` 的连接
+  - 单 World Host 有一个伪连接实体，它包含单例 `LocalConnection` 组件和 `NetworkId`，但没有 `NetworkStreamConnection`
+- 输入：Host 上的客户端系统可以访问其他玩家的输入，需要使用 `GhostOwnerIsLocal` 正确过滤
+- `GhostOwnerIsLocal` 在两种模式中的行为不同
+  - 双 World Host 中，客户端 World 会在本地拥有的 Ghost 上启用 `GhostOwnerIsLocal`，也就是 Ghost Owner ID 与 `LocalConnection` Network ID 对应的 Ghost；该组件在服务器 World 中的行为未定义
+  - 单 World Host 中，Host World 与客户端 World 一样，会在本地拥有的 Ghost 上启用 `GhostOwnerIsLocal`
+  - 如果希望在服务器侧运行读取输入的预测代码，而不依赖 `GhostOwnerIsLocal`，应剥离输入组件，使其只出现在预测 Ghost 上。剥离配置请参阅 `GhostComponent`
+- 使用单 World Host 时，仅客户端逻辑与服务器系统在同一个 World 中执行
+- 相关性与剔除：单 World Host 承担服务器角色，必须把所有服务器 Ghost 实体保留在内存中，才能为其他连接正确执行服务器职责。因此 Host World 无法为 Host 连接启用相关性，尽管其他连接仍可使用。单 World Host 需要手动禁用远处 Ghost 的渲染，不能依赖相关性
+- Host 不支持预测模式切换，因此单 World Host 也不能使用该功能
+- 使用单 World Host 时，所有 Ghost 都是权威 Ghost，因此需要以不同方式处理插值
+  - 建议只平滑视觉表现而不修改权威值，例如对变换使用 `LocalToWorld`
+  - 插值并复制数值的示例请参阅 [Health 示例](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/3_Advanced/01_HealthBars)
+- 单 World Host 可以使用 RPC 快速路径。自定义序列化应通过 `IsPassthroughRPC` 和 `GetPassthroughActionData` 利用该路径
+- 部分 Tick：单 World Host 不支持部分 Tick，可以在 Host 上改为在完整 Tick 之间对 Ghost 插值
+- 延迟测试：必须用外部客户端连接 Host。单 World Host 不会序列化或反序列化自身状态，因此无法为本地对象添加人工延迟
+- 追赶 Tick 发送快照：仅服务器 World 可以在同一帧发生多个追赶 Tick 时，为每个 Tick 分别发送快照包；单 World Host 每帧只发送一份快照
 
-TODO-next see comment here https://github.cds.internal.unity3d.com/unity/dots/pull/14369/files/ee874d6192b2d76cf38a3aa733b54469b65b24fa#r831105 the above should be a table.
+TODO：根据内部评审意见把以上内容整理成表格
 
 -->
 
-## Configuring system creation and updates
+<a id="configuring-system-creation-and-updates"></a>
 
-By default, systems are created and updated in the [`SimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SimulationSystemGroup.html) for both client and server worlds. If you want to override this behavior (for example, to have your system created and run only on the client world), there are two different methods available.
+## 配置系统创建与更新
 
-### Target specific system groups
+默认情况下，客户端和服务器 World 中的系统都会创建在 [`SimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SimulationSystemGroup.html) 中并随其更新。如果需要覆盖该行为，例如让某个系统只在客户端 World 创建和运行，可以使用以下两种方式
 
-When you specify a system group that your system belongs in, Unity automatically filters out your system in worlds where this system group isn't present. This means that systems in a system group inherit the world filter of said system group. For example:
+<a id="target-specific-system-groups"></a>
+
+### 指定系统组
+
+指定系统所属的系统组后，Unity 会在不存在该系统组的 World 中自动过滤该系统。也就是说，系统会继承所属系统组的 World 过滤条件。例如：
 
 ```csharp
 [UpdateInGroup(typeof(GhostInputSystemGroup))]
 public class MyInputSystem : SystemBase
 {
-  ...
+    ...
 }
 ```
 
-If you examine the `WorldSystemFilter` attribute on [`GhostInputSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInputSystemGroup.html), you will find that this system group only exists for client, thin client, and local simulation (offline) worlds. It also has a `childDefaultFlags` argument which specifies the flags that child systems, such as the example `MyInputSystem`, inherit (and this argument doesn't contain thin client worlds). Therefore, `MyInputSystem` will be present on full client and local simulation worlds exclusively (unless a `WorldSystemFilter` is added to `MyInputSystem` overriding this default).
+查看 [`GhostInputSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInputSystemGroup.html) 上的 `WorldSystemFilter` 特性可以发现，该系统组只存在于客户端、瘦客户端和本地离线模拟 World。它还通过 `childDefaultFlags` 参数指定子系统继承的标志，而该参数不包含瘦客户端 World
+
+因此，示例中的 `MyInputSystem` 只会存在于完整客户端和本地模拟 World，除非为它添加 `WorldSystemFilter` 来覆盖默认值
 
 > [!NOTE]
-> Systems that update in the [`PresentationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.PresentationSystemGroup.html) are only added to the client world because the `PresentationSystemGroup` isn't created for server and thin client worlds.
+> 在 [`PresentationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.PresentationSystemGroup.html) 中更新的系统只会添加到客户端 World，因为服务器和瘦客户端 World 不会创建 `PresentationSystemGroup`
 
-### Use WorldSystemFilter
+<a id="use-worldsystemfilter"></a>
 
-Use the [`WorldSystemFilter`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.WorldSystemFilter.html) attribute to specify the world type(s) that the system belongs to in more detail.
+### 使用 `WorldSystemFilter`
 
-When a world is created, you can tag it with specific [`WorldFlags`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.WorldFlags.html) that Netcode for Entities uses to distinguish between worlds (for example, to apply filtering and update logic).
+使用 [`WorldSystemFilter`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.WorldSystemFilter.html) 特性，可以更精确地指定系统所属的一种或多种 World 类型
 
-Use `WorldSystemFilter` to declare (at compile time) which of the following world types your system belongs to:
+创建 World 时，可以为其标记特定 [`WorldFlags`](https://docs.unity3d.com/Packages/com.unity.entities@latest/index.html?subfolder=/api/Unity.Entities.WorldFlags.html)，Netcode for Entities 使用这些标志区分 World，并据此应用过滤和更新逻辑
 
-- `LocalSimulation`: a world that doesn't run any Netcode systems, and that's not used to run the multiplayer simulation.
-- `ServerSimulation`: a world used to run the server simulation.
-- `ClientSimulation`: a world used to run the client simulation.
-- `ThinClientSimulation`: a world used to run the thin client simulation.
+通过 `WorldSystemFilter` 可以在编译期声明系统属于以下 World 类型：
 
-In the following example, `MySystem` is defined such that it's only present for worlds that can be used to run the client simulation (any world that has the `WorldFlags.GameClient` set). `WorldSystemFilterFlags.Default` is used when this attribute isn't present and automatically inherits its filtering rules from its parent system group (in this case, that's the `SimulationSystemGroup`, because no `UpdateInGroup` attribute is specified).
+- `LocalSimulation`：不运行任何 Netcode 系统，也不用于运行多人模拟的 World
+- `ServerSimulation`：用于运行服务器模拟的 World
+- `ClientSimulation`：用于运行客户端模拟的 World
+- `ThinClientSimulation`：用于运行瘦客户端模拟的 World
+
+下面的 `MySystem` 只存在于可运行客户端模拟的 World，也就是设置了 `WorldFlags.GameClient` 的 World。如果没有该特性，系统使用 `WorldSystemFilterFlags.Default`，并自动继承父系统组的过滤规则。此例没有指定 `UpdateInGroup`，因此父组是 `SimulationSystemGroup`
 
 ```csharp
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
 public class MySystem : SystemBase
 {
-  ...
+    ...
 }
 ```
 
-## Creating client and server worlds with bootstrapping
+<a id="bootstrap"></a>
+<a id="creating-client-and-server-worlds-with-bootstrapping"></a>
 
-When you add Netcode for Entities to your project, the default [`ClientServerBootstrap` class](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html) is added to the project. This bootstrapping class configures and creates the server and client worlds at runtime when your game starts (or when entering Play mode in the Unity Editor).
+## 使用 Bootstrap 创建客户端和服务器 World
 
-The default bootstrap creates the client and server worlds automatically at startup:
+项目添加 Netcode for Entities 后，会获得默认 [`ClientServerBootstrap`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html) 类。游戏启动或在 Unity Editor 中进入 Play Mode 时，该 Bootstrap 类会配置并创建服务器和客户端 World
 
-```c#
-        public virtual bool Initialize(string defaultWorldName)
-        {
-            CreateDefaultClientServerWorlds();
-            return true;
-        }
+默认 Bootstrap 会在启动时自动创建客户端和服务器 World：
+
+```csharp
+public virtual bool Initialize(string defaultWorldName)
+{
+    CreateDefaultClientServerWorlds();
+    return true;
+}
 ```
 
-`ClientServerBootstrap` uses the same bootstrapping flows as defined by [Entities](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/index.html), which means that new worlds are populated using all the systems defined by the relevant world filtering set (such as `[WorldSystemFilter(...)]` attributes you have defined, `WorldSystemFilterFlags` rules your systems inherit, and other attributes like `DisableAutoCreation`). Netcode for Entities also injects many systems (and groups) automatically.
+`ClientServerBootstrap` 使用 [Entities](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/index.html) 定义的 Bootstrap 流程。新 World 会根据适用的过滤规则填充所有系统，包括自行定义的 `[WorldSystemFilter(...)]`、系统继承的 `WorldSystemFilterFlags` 规则以及 `DisableAutoCreation` 等特性。Netcode for Entities 还会自动注入大量系统和系统组
 
-This automatic world creation is most useful when you're working in the Editor and enter Play mode with your game scene opened, because it allows immediate Editor iteration testing of your multiplayer game. However, in a standalone game where you typically want to use some sort of front-end menu, you might want to delay world creation, or choose which Netcode worlds to spawn.
+在 Editor 中打开游戏场景并进入 Play Mode 时，自动创建 World 最为方便，因为它可以立即迭代测试多人游戏。但独立游戏通常会先显示前端菜单，此时可能需要延迟 World 创建，或者选择要生成哪些 Netcode World
 
-For example, consider a "Hosting a client-hosted server" flow versus a "Connect as a client to a dedicated server via matchmaking" flow. In the first scenario, you may want to add (and connect via IPC to) an in-process server world. In the second scenario, you only want to create a client world. In these cases, you can choose to customize the bootstrapping flow.
+例如，可以比较“托管客户端服务器”与“通过匹配服务，以客户端身份连接专用服务器”两种流程。前者可能需要添加一个进程内服务器 World，并通过 IPC 连接它；后者只需创建客户端 World。这些场景可以通过自定义 Bootstrap 流程实现
 
-### Customize the bootstrapping flow
+<a id="customize-the-bootstrapping-flow"></a>
 
-You can create your own bootstrap class and customize your game flow by creating a class that extends `ClientServerBootstrap` (such as `MyGameSpecificBootstrap`), and overriding the default `Initialize` method implementation. In your derived class, you can reuse the provided helper methods, which let you create `client`, `server`, `thin-client` and `local simulation` worlds. For more details, refer to [`ClientServerBootstrap` methods](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html).
+### 自定义 Bootstrap 流程
 
-The following code example shows how to override the default bootstrap to prevent automatic creation of the client and server worlds:
+创建继承 `ClientServerBootstrap` 的类，例如 `MyGameSpecificBootstrap`，并覆写默认 `Initialize` 方法，即可自定义游戏流程。派生类可以复用现有辅助方法来创建客户端、服务器、瘦客户端和本地模拟 World。详情请参阅 [`ClientServerBootstrap` 方法](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html)
 
-```c#
+以下示例覆写默认 Bootstrap，阻止自动创建客户端和服务器 World：
+
+```csharp
 public class MyGameSpecificBootstrap : ClientServerBootstrap
 {
     public override bool Initialize(string defaultWorldName)
     {
-        //Create only a local simulation world without any multiplayer and netcode system in it.
+        // 只创建不包含多人和 Netcode 系统的本地模拟 World
         CreateLocalWorld(defaultWorldName);
         return true;
     }
-
 }
 ```
 
-Then, when you're ready to create the various Netcode worlds, call:
+准备创建各类 Netcode World 时，再调用：
 
-```c#
+```csharp
 void OnPlayButtonClicked()
 {
-    // Typically this:
+    // 通常创建客户端 World
     var clientWorld = ClientServerBootstrap.CreateClientWorld();
-    // And/Or this:
+
+    // 按需创建服务器 World
     var serverWorld = ClientServerBootstrap.CreateServerWorld();
 
-    // And/Or something like this, for soak testing:
+    // 也可以为浸泡测试创建瘦客户端
     AutomaticThinClientWorldsUtility.NumThinClientsRequested = 10;
     AutomaticThinClientWorldsUtility.BootstrapThinClientWorlds();
 
-    // Or the following, which creates worlds smartly based on:
-    // - The Playmode Tool setting specified in the editor.
-    // - The current build type, if used in a player.
+    // 或根据以下信息自动选择要创建的 World
+    // - Editor 中 PlayMode Tool 的设置
+    // - Player 中当前构建类型
     ClientServerBootstrap.CreateDefaultClientServerWorlds();
 }
 ```
 
-There are [Netcode samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/NetcodeSamples/README.md) showcasing how to manage scene and subscene loading with this world creation setup, as well as proper Netcode world disposal (when leaving the gameplay loop).
+[Netcode 示例](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/NetcodeSamples/README.md)展示了如何配合这种 World 创建方式管理 Scene 和 SubScene 加载，以及离开玩法循环时如何正确释放 Netcode World
 
-## Updating the client and server
+<a id="updating-the-client-and-server"></a>
 
-When using Netcode for Entities, the server always updates on a fixed timestep to ensure a baseline level of determinism for client prediction (although it's not strict determinism), for physics stability, and for frame rate independence. The package also limits the maximum number of fixed-step iterations per frame to ensure that the server doesn't end up in a state where it takes several seconds to simulate a single frame.
+## 更新客户端与服务器
 
-Importantly, the fixed update doesn't use the [standard Unity update frequency](https://docs.unity3d.com/Manual/class-TimeManager.html), nor the physics system __Fixed Timestep__ frequency. It uses its own `ClientServerTickRate.SimulationTickRate` frequency (which` Unity.Physics` - if in use - must be an integer multiple of, refer to `ClientServerTickRate.PredictedFixedStepSimulationTickRatio`).
+使用 Netcode for Entities 时，服务器始终按固定时间步更新。这为客户端预测提供基础确定性，但并非严格确定性，同时也有助于物理稳定和帧率独立。包还会限制每帧固定步骤的最大迭代次数，避免服务器陷入模拟单帧就需要数秒的状态
 
-Clients, however, update at a dynamic timestep, except for [prediction code](intro-to-prediction.md), which always runs at the same fixed timestep as the server, attempting to maintain a deterministic relationship between the two simulations.
+需要注意，这套固定更新不使用 [Unity 标准更新频率](https://docs.unity3d.com/Manual/class-TimeManager.html)，也不使用物理系统的 **Fixed Timestep**。它使用独立的 `ClientServerTickRate.SimulationTickRate`。如果使用 `Unity.Physics`，其频率必须是该值的整数倍，参阅 `ClientServerTickRate.PredictedFixedStepSimulationTickRatio`
 
-Refer to [partial ticks](intro-to-prediction.md#partial-ticks) to understand how prediction is handled for refresh rates that aren't in sync with full ticks.
+客户端通常以动态时间步更新，但[预测代码](intro-to-prediction.md)除外。预测代码始终采用与服务器相同的固定时间步，尝试维持两套模拟之间的确定性关系
 
-### Configuring the server fixed update loop
+当显示刷新率无法与完整 Tick 同步时，预测的处理方式请参阅[部分 Tick](intro-to-prediction.md#partial-ticks)
 
-The [`ClientServerTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html) singleton component (in the server world) controls the server tick-rate.
+<a id="configuring-the-server-fixed-update-loop"></a>
 
-Using `ClientServerTickRate`, you can control different aspects of the server simulation loop. For example:
+### 配置服务器固定更新循环
 
-- `SimulationTickRate` configures the number of simulation ticks per second. The default number of simulation ticks is 60 per second.
-- `NetworkTickRate` configures how frequently the server sends snapshots to the clients (by default, the `NetworkTickRate` is identical to the `SimulationTickRate`).
+服务器 World 中的 [`ClientServerTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html) 单例组件控制服务器 Tick 率
 
-#### Avoiding performance issues
+可以通过它控制服务器模拟循环的多个方面：
 
-If the server updates at a lower rate than the simulation tick rate, it will perform multiple ticks in the same frame. For example, if the last server update took 50 ms (instead of the usual 16 ms), the server will need to catch up and will do ~3 simulation steps on the next frame (16 ms * 3 ≈ 50 ms).
+- `SimulationTickRate` 配置每秒模拟 Tick 数，默认值为 60
+- `NetworkTickRate` 配置服务器向客户端发送快照的频率，默认与 `SimulationTickRate` 相同
 
-This behavior can lead to compounding performance issues: the server update becomes slower and slower (because it's executing more steps per update, to catch up), causing it to become even further behind, creating more problems. `ClientServerTickRate` allows you to customize how the server behaves in this situation when the server can't maintain the desired tick-rate.
+<a id="avoiding-performance-issues"></a>
 
-- Setting [`MaxSimulationStepsPerFrame`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#ClientServerTickRate_MaxSimulationStepsPerFrame) controls how many simulation steps the server can run in a single frame.
-- Setting [`MaxSimulationStepBatchSize`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#MaxSimulationStepBatchSize) instructs the server loop to batch together multiple ticks into a single step, but with a multiplier on the delta time. For example, instead of running two steps, the server runs only one (but with double the delta time).
+#### 避免性能问题
+
+如果服务器更新频率低于模拟 Tick 率，就会在同一帧执行多个 Tick。例如，上一次服务器更新耗时 50 ms，而正常目标约为 16 ms，则服务器需要在下一帧执行大约三个模拟步骤来追赶，因为 `16 ms * 3 ≈ 50 ms`
+
+该行为可能引发性能恶化循环：服务器为了追赶而在每次更新执行更多步骤，更新因此越来越慢，又进一步落后。`ClientServerTickRate` 可以配置服务器无法维持目标 Tick 率时的行为
+
+- [`MaxSimulationStepsPerFrame`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#ClientServerTickRate_MaxSimulationStepsPerFrame) 控制服务器一帧最多运行多少个模拟步骤
+- [`MaxSimulationStepBatchSize`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#MaxSimulationStepBatchSize) 允许服务器循环把多个 Tick 合并为一个步骤，并成倍放大 Delta Time。例如，不运行两个步骤，而是运行一个 Delta Time 加倍的步骤
 
 > [!NOTE]
-> The batching enabled with `MaxSimulationStepBatchSize` only works under specific conditions and has its own nuances and considerations. Ensure that your game doesn't assume that one simulation step is equivalent to one tick and don't hard code `TimeData.DeltaTime`.
-> This type of situation can happen when your server is having performance issues. This produces mispredictions because the simulation granularity won't be the same on both client and server side.
+> `MaxSimulationStepBatchSize` 启用的批处理只在特定条件下生效，也有额外细节和限制。游戏逻辑不能假设一个模拟步骤必然等于一个 Tick，也不要硬编码 `TimeData.DeltaTime`
+>
+> 服务器出现性能问题时可能触发批处理。由于客户端与服务器的模拟粒度不同，这会产生错误预测
 
-Finally, you can configure how the server consumes the idle time to target the desired frame rate. [`TargetFrameRateMode`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#TargetFrameRateMode) controls how the server maintains the tick rate. Available values are:
+最后还可以配置服务器如何消耗空闲时间，以维持目标帧率。[`TargetFrameRateMode`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#TargetFrameRateMode) 提供以下选项：
 
-- `BusyWait` to run at maximum speed.
-- `Sleep` for `Application.TargetFrameRate` to reduce CPU load.
-- `Auto` to use `Sleep` on headless servers and `BusyWait` otherwise.
+- `BusyWait`：以最大速度运行
+- `Sleep`：使用 `Application.TargetFrameRate` 降低 CPU 负载
+- `Auto`：无头服务器使用 `Sleep`，其他环境使用 `BusyWait`
 
-### Configuring the client update loop
+<a id="configuring-the-client-update-loop"></a>
 
-Clients update at a dynamic timestep, with the exception of [prediction code](intro-to-prediction.md), which always runs at the same fixed timestep as the server in an attempt to maintain a deterministic relationship between the two simulations. Prediction runs in the [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html), which applies this unique fixed timestep for prediction.
+### 配置客户端更新循环
 
-The `ClientServerTickRate` configuration is sent (by the server, to the client) during the initial connection handshake. The client prediction loop runs at the exact same `SimulationTickRate` as the server.
+客户端采用动态时间步更新，但[预测代码](intro-to-prediction.md)除外。预测代码始终使用与服务器相同的固定时间步，尝试维持两套模拟之间的确定性关系。预测运行在 [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html) 中，由该组应用预测专用的固定时间步
 
-## World migration
+服务器会在首次连接握手期间把 `ClientServerTickRate` 配置发送给客户端，因此客户端预测循环会使用与服务器完全相同的 `SimulationTickRate`
 
-If you want to destroy the world you're in and spin up another world without losing the connection state, you can use `DriverMigrationSystem`, which allows you to store and load transport-related information so a smooth world transition can be made.
+<a id="world-migration"></a>
 
-```
+## World 迁移
+
+如果需要销毁当前 World 并启动另一个 World，同时保留连接状态，可以使用 `DriverMigrationSystem` 保存和加载 Transport 相关信息，从而平滑切换 World
+
+```csharp
 public World MigrateWorld(World sourceWorld)
 {
     DriverMigrationSystem migrationSystem = default;
@@ -248,16 +274,15 @@ public World MigrateWorld(World sourceWorld)
 
     var newWorld = migrationSystem.LoadWorld(ticket);
 
-    // NOTE: LoadWorld must be executed before you populate your world with the systems it needs!
-    // This is because LoadWorld creates a `MigrationTicket` Component that the NetworkStreamReceiveSystem needs in order to be able to Load
-    // the correct Driver.
+    // 必须先执行 LoadWorld，再向 World 填充所需系统
+    // LoadWorld 会创建 MigrationTicket 组件，NetworkStreamReceiveSystem 需要它来加载正确的 Driver
 
     return ClientServerBootstrap.CreateServerWorld(DefaultWorld, newWorld.Name, newWorld);
 }
 ```
 
-## Additional resources
+## 其他资源
 
-- [Entities overview](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/index.html)
-- [Thin clients](thin-clients.md)
-- [Introduction to prediction](intro-to-prediction.md)
+- [Entities 概述](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/index.html)
+- [瘦客户端](thin-clients.md)
+- [预测简介](intro-to-prediction.md)

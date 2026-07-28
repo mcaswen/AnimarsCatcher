@@ -1,42 +1,47 @@
-# Communicating with RPCs
+# 使用 RPC 通信
 
-Use remote procedure calls (RPCs) to communicate high-level game flow events and send one-off, non-predicted commands from the client to the server. A job on the sending side can issue RPCs, and the RPCs then execute on a job on the receiving side. This limits what you can do in an RPC, such as what data you can read and modify, and what calls you're allowed to make from the engine. For more information on the job system, refer to the Unity User Manual documentation on the [C# Job System](https://docs.unity3d.com/Manual/JobSystem.html).
+使用远程过程调用（RPC）传递高层游戏流程事件，并从客户端向服务器发送一次性的非预测命令。发送端 Job 可以发出 RPC，随后 RPC 在接收端 Job 中执行。这会限制 RPC 内可以执行的操作，例如可读取和修改的数据，以及允许调用的引擎 API。有关 Job System 的详细信息，请参阅 Unity 用户手册中的 [C# Job System](https://docs.unity3d.com/Manual/JobSystem.html)
 
-To make the system a bit more flexible in the Netcode for Entities context, you can create an entity that contains specific Netcode components such as [`SendRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SendRpcCommandRequest.html) and [`ReceiveRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequest.html), which this page outlines.
+为了让 Netcode for Entities 中的 RPC 更灵活，可以创建包含特定 Netcode 组件的实体，例如 [`SendRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SendRpcCommandRequest.html) 和 [`ReceiveRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequest.html)。本页将介绍这种方式
 
-## Comparing ghosts and RPCs
+<a id="comparing-ghosts-and-rpcs"></a>
+## 对比 Ghost 与 RPC
 
-You can use both [ghosts](ghost-snapshots.md#ghosts) and RPCs in your game. Each one has specific use cases where it excels compared to the other, and you should choose which one to use based on the requirements for a given scenario.
+游戏中可以同时使用 [Ghost](ghost-snapshots.md#ghosts) 和 RPC。二者各有更适合的场景，应根据具体需求选择
 
-### Ghost use cases
+<a id="ghost-use-cases"></a>
+### Ghost 用例
 
-Use ghosts to:
+使用 Ghost：
 
-* Replicate spatially local, ephemeral, and relevant per-entity data.
-* Enable [client prediction](intro-to-prediction.md) of ghost entities, which is the most effective latency-hiding multiplayer technique.
+* 复制具有空间局部性、生命周期较短且按实体判断相关性的数据
+* 启用 Ghost 实体的[客户端预测](intro-to-prediction.md)，这是隐藏多人游戏延迟最有效的技术
 
-### RPC use cases
+<a id="rpc-use-cases"></a>
+### RPC 用例
 
-Use RPCs to:
+使用 RPC：
 
-* Communicate high-level game flow events. For example, making every client do a certain thing, like load a specific level.
-* Send one-off, non-predicted commands from the client to the server. For example: Join this squad. Send a chat message. Unmute this player. Request to exit this realm.
+* 传递高层游戏流程事件，例如让所有客户端加载某个关卡
+* 从客户端向服务器发送一次性的非预测命令，例如加入小队、发送聊天消息、取消屏蔽某个玩家或请求离开当前区域
 
-### Key differences
+<a id="key-differences"></a>
+### 关键区别
 
-* RPCs are one-off events, and are therefore not automatically persisted.
-    * For example, if you send an RPC when a treasure chest is opened, the if a player disconnects and reconnects the chest will appear closed.
-* Ghost data persists for the lifetime of its ghost entity (and the lifetime of the ghost entity is itself replicated). Therefore, long-lived user-interactable entities should have their persistent state stored in ghost components.
-    * For example, a chest's finite-state machine (FSM) can be stored as an `enum` on a component. If a player opens the chest, disconnects, then reconnects, they will re-receive the chest, as well as its open state.
-* RPCs are sent as reliable packets, while ghosts snapshots are unreliable (with eventual consistency).
-* RPC data is sent and received without modification, while ghost data goes through optimizations like diff and delta-compression, and can go through value smoothing when received.
-* RPCs aren't tied to any particular tick or other snapshot timing data. They are processed on the frame that they are received.
-* Ghost snapshot data can work with interpolation and prediction (with snapshot history), and thus history, rollback, and resimulation.
-* Ghost snapshot data can be bandwidth optimized via relevancy and importance. RPCs are either broadcast, or sent to a single client.
+* RPC 是一次性事件，因此不会自动持久化
+    * 例如，宝箱打开时发送 RPC，玩家断开后重新连接，宝箱会看起来仍处于关闭状态
+* Ghost 数据会在 Ghost 实体生命周期内保持，Ghost 实体本身的生命周期也会复制。因此，长期存在且可交互的实体应将持久状态保存在 Ghost 组件中
+    * 例如，可以把宝箱有限状态机 FSM 作为组件中的 `enum` 保存。玩家打开宝箱、断开再重连后，会重新收到宝箱及其打开状态
+* RPC 使用可靠数据包发送，Ghost 快照使用不可靠传输并通过最终一致性收敛
+* RPC 数据不经修改直接发送和接收；Ghost 数据会经过差异检测、增量压缩等优化，接收后还可能进行数值平滑
+* RPC 不与特定 Tick 或其他快照时序数据绑定，而是在收到它的帧进行处理
+* Ghost 快照数据可配合插值和预测及其快照历史，因此支持历史、回滚和重新模拟
+* Ghost 快照数据可以通过相关性和重要度优化带宽；RPC 只能广播或发送给单个客户端
 
-## Extend `IRpcCommand`
+<a id="extend-irpccommand"></a>
+## 实现 `IRpcCommand`
 
-To use RPCs in Netcode for Entities, create a command by extending the [`IRpcCommand`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommand.html):
+若要在 Netcode for Entities 中使用 RPC，请创建实现 [`IRpcCommand`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommand.html) 的命令：
 
 ```c#
 public struct OurRpcCommand : IRpcCommand
@@ -44,7 +49,7 @@ public struct OurRpcCommand : IRpcCommand
 }
 ```
 
-Or, if you need some data in your RPC:
+如果 RPC 需要携带数据：
 
 ```c#
 public struct OurRpcCommand : IRpcCommand
@@ -54,16 +59,17 @@ public struct OurRpcCommand : IRpcCommand
 }
 ```
 
-This generates all the code you need for serialization and deserialization as well as registration of the RPC.
+源码生成器会生成序列化、反序列化以及注册该 RPC 所需的全部代码
 
-## Sending and receiving commands
+<a id="sending-and-receiving-commands"></a>
+## 发送与接收命令
 
-To complete the example, you need to create some entities to send and receive the commands you created. To send the command, you need to create an entity and add the command and the special component [`SendRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SendRpcCommandRequest.html) to it. This component has a member called `TargetConnection` that refers to the remote connection you want to send this command to.
+需要创建实体来发送和接收命令。发送命令时，创建实体并添加命令与特殊组件 [`SendRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SendRpcCommandRequest.html)。该组件的 `TargetConnection` 成员指向要接收命令的远程连接
 
 > [!NOTE]
-> If `TargetConnection` is set to `Entity.Null`, the message is broadcast to all clients. You don't have to set this value on a client, because clients can only send RPCs send to the server.
+> `TargetConnection` 设为 `Entity.Null` 时，消息会广播给所有客户端。客户端不必设置该值，因为客户端只能向服务器发送 RPC
 
-The following is an example of a simple send system which sends a command if the user presses the space bar on their keyboard.
+以下简单系统会在用户按下空格键时发送命令：
 
 ```c#
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -77,14 +83,12 @@ public class ClientRpcSendSystem : SystemBase
     protected override void OnUpdate()
     {
         if (Input.GetKey("space"))
-        {
             EntityManager.CreateEntity(typeof(OurRpcCommand), typeof(SendRpcCommandRequest));
-        }
     }
 }
 ```
 
-When the RPC is received, an entity that you can filter on is created by a code-generated system. To test if this works, the following example creates a system that receives the `OurRpcCommand`:
+收到 RPC 后，代码生成系统会创建一个可查询的实体。以下系统接收 `OurRpcCommand`：
 
 ```c#
 [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -95,26 +99,28 @@ public class ServerRpcReceiveSystem : SystemBase
         Entities.ForEach((Entity entity, ref OurRpcCommand cmd, ref ReceiveRpcCommandRequest req) =>
         {
             PostUpdateCommands.DestroyEntity(entity);
-            Debug.Log("We received a command!");
+            Debug.Log("收到一条命令");
         }).Run();
     }
 }
 ```
 
-The [`RpcSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcSystem.html) automatically finds all of the requests, sends them, and then deletes the send request. On the remote side they show up as entities with the same `IRpcCommand` and a [`ReceiveRpcCommandRequestComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequestComponent.html), which you can use to identify which connection the request was received from.
+[`RpcSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcSystem.html) 会自动查找全部请求、发送它们，再删除发送请求。在远端，这些请求会表现为带有相同 `IRpcCommand` 和 [`ReceiveRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequest.html) 的实体，后者可用于识别请求来自哪条连接
 
-## Creating an RPC without generating code
+<a id="creating-an-rpc-without-generating-code"></a>
+## 不使用代码生成创建 RPC
 
-Code generation for RPCs is optional. If you don't want to use it, you need to create a component and a serializer. These can be the same struct or two different ones. To create a single struct which is both the component and the serializer you need to add:
+RPC 代码生成不是必需的。如果不使用，需要手动创建组件和序列化器；二者可以是同一个结构，也可以分开。以下结构同时作为组件和序列化器：
 
 ```c#
 [BurstCompile]
 public struct OurRpcCommand : IComponentData, IRpcCommandSerializer<OurRpcCommand>
 {
     public int SpawnIndex;
+
     public void Serialize(ref DataStreamWriter writer, in RpcSerializerState state, in OurRpcCommand data)
     {
-        // Example writing the delta against a baseline of zero.
+        // 示例：相对于值为 2 的基线写入增量
         writer.WritePackedIntDelta(data.SpawnIndex, 2, state.CompressionModel);
     }
 
@@ -125,6 +131,7 @@ public struct OurRpcCommand : IComponentData, IRpcCommandSerializer<OurRpcComman
 
     public PortableFunctionPointer<RpcExecutor.ExecuteDelegate> CompileExecute()
     {
+        return InvokeExecuteFunctionPointer;
     }
 
     [BurstCompile(DisableDirectCall = true)]
@@ -132,23 +139,19 @@ public struct OurRpcCommand : IComponentData, IRpcCommandSerializer<OurRpcComman
     {
     }
 
-    static readonly PortableFunctionPointer<RpcExecutor.ExecuteDelegate> InvokeExecuteFunctionPointer = new PortableFunctionPointer<RpcExecutor.ExecuteDelegate>(InvokeExecute);
+    static readonly PortableFunctionPointer<RpcExecutor.ExecuteDelegate> InvokeExecuteFunctionPointer =
+        new PortableFunctionPointer<RpcExecutor.ExecuteDelegate>(InvokeExecute);
 }
 ```
 
-The [`IRpcCommandSerializer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommandSerializer.html) interface has three methods: `Serialize`, `Deserialize`, and `CompileExecute`. `Serialize` and `Deserialize` store the data in a packet, while `CompileExecute` uses Burst to create a `FunctionPointer`. The function it compiles takes an [`RpcExecutor.Parameters`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcExecutor.Parameters.html) by reference that contains entries that you're able to use as needed.
+[`IRpcCommandSerializer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommandSerializer.html) 接口包含 `Serialize`、`Deserialize` 和 `CompileExecute` 三个方法。`Serialize` 与 `Deserialize` 在数据包中写入和读取数据；`CompileExecute` 使用 Burst 创建 `FunctionPointer`。被编译的函数按引用接收 [`RpcExecutor.Parameters`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcExecutor.Parameters.html)，其中包含执行所需的条目
 
 > [!NOTE]
-> Don't read from (or write to) the struct field values themselves (do not read or write in-place), instead read from (and write to) the by-ref argument `data`.
-<!--
-TODO enable with single world host
-> [!NOTE]
-> When using a single-world host, local RPCs bypass the serialization/deserialization flow and are executed locally. You can access local RPC data using the `RpcExecutor.Parameters.GetPassthroughActionData` method and test whether you're in a passthrough situation using the `RpcExecutor.Parameters.IsPassthroughRPC` bool.
--->
+> 不要直接读取或写入结构自身的字段，也就是不要原地读写；应通过按引用传入的 `data` 参数读写
 
-Because the function is static, it needs to use `Deserialize` to read the struct data before it executes the RPC. The RPC then either uses the command buffer to modify the connection entity, or uses it to create a new request entity for more complex tasks. It then applies the command in a separate system at a later time. This means that you don't need to perform any additional operations to receive an RPC; its `Execute` method is called on the receiving end automatically.
+由于执行函数是静态的，执行 RPC 前需要使用 `Deserialize` 读取结构数据。RPC 随后可以通过命令缓冲区修改连接实体，或创建新的请求实体以执行更复杂的任务；实际命令会在稍后的另一个系统中应用。因此，接收 RPC 无需额外操作，接收端会自动调用其执行方法
 
-To create an entity that holds an RPC, use the function `ExecuteCreateRequestComponent<T>`. To do this, extend the previous `InvokeExecute` function example with:
+若要创建承载 RPC 的实体，请使用 `ExecuteCreateRequestComponent<T>`。可以将前面的 `InvokeExecute` 扩展为：
 
 ```c#
 [BurstCompile(DisableDirectCall = true)]
@@ -158,14 +161,12 @@ private static void InvokeExecute(ref RpcExecutor.Parameters parameters)
 }
 ```
 
-This creates an entity with a [`ReceiveRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequest.html) and `OurRpcCommand` components.
+这会创建带有 [`ReceiveRpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ReceiveRpcCommandRequest.html) 和 `OurRpcCommand` 组件的实体
 
 > [!NOTE]
-> You don't need to create a receiving RPC entity here if you don't need one.
-> For example, for an RPC denoting new chat messages, it may be simpler to append your chat message to a buffer on the
-> NetworkConnection entity, then consume said buffer directly via a system.
+> 如果不需要接收 RPC 实体，就不必在此创建。例如，对于表示新聊天消息的 RPC，直接把消息追加到 `NetworkConnection` 实体的缓冲区，再由系统消费该缓冲区可能更简单
 
-Once you create an [`IRpcCommandSerializer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommanSerializer.html), you need to make sure that the [`RpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcCommandRequestSystem-1.html) system picks it up. To do this, you can create a system that invokes the `RpcCommandRequest`, as follows:
+创建 [`IRpcCommandSerializer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IRpcCommandSerializer.html) 后，需要确保 [`RpcCommandRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcCommandRequestSystem-1.html) 系统能够处理它。可以创建如下系统：
 
 ```c#
 [UpdateInGroup(typeof(RpcCommandRequestSystemGroup))]
@@ -174,34 +175,39 @@ Once you create an [`IRpcCommandSerializer`](https://docs.unity3d.com/Packages/c
 partial struct OurRpcCommandRequestSystem : ISystem
 {
     RpcCommandRequest<OurRpcCommand, OurRpcCommand> m_Request;
+
     [BurstCompile]
     struct SendRpc : IJobChunk
     {
         public RpcCommandRequest<OurRpcCommand, OurRpcCommand>.SendRpcData data;
+
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
             data.Execute(chunk, unfilteredChunkIndex);
         }
     }
-        public void OnCreate(ref SystemState state)
-        {
-            m_Request.OnCreate(ref state);
-        }
-        [BurstCompile]
-        public void OnUpdate(ref SystemState state)
-        {
-            var sendJob = new SendRpc{data = m_Request.InitJobData(ref state)};
-            state.Dependency = sendJob.Schedule(m_Request.Query, state.Dependency);
-        }
+
+    public void OnCreate(ref SystemState state)
+    {
+        m_Request.OnCreate(ref state);
+    }
+
+    [BurstCompile]
+    public void OnUpdate(ref SystemState state)
+    {
+        var sendJob = new SendRpc { data = m_Request.InitJobData(ref state) };
+        state.Dependency = sendJob.Schedule(m_Request.Query, state.Dependency);
+    }
 }
 ```
 
-The `RpcCommandRequest` system uses an [`RpcQueue`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcQueue-1.html) internally to schedule outgoing RPCs.
+`RpcCommandRequest` 系统内部使用 [`RpcQueue`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcQueue-1.html) 调度传出 RPC
 
-## Serializing RPCs
+<a id="serializing-rpcs"></a>
+## 序列化 RPC
 
-You might have data that you want to attach to the `RpcCommand`. To do this, you need to add the data as a member of your command and then use the `Serialize` and `Deserialize` functions to decide what data should be serialized. Refer to the following code for an example of this:
+如果需要在 `RpcCommand` 上携带数据，请将数据添加为命令成员，再使用 `Serialize` 和 `Deserialize` 决定序列化哪些内容。例如：
 
 ```c#
 [BurstCompile]
@@ -224,6 +230,7 @@ public struct OurDataRpcCommand : IComponentData, IRpcCommandSerializer<OurDataR
 
     public PortableFunctionPointer<RpcExecutor.ExecuteDelegate> CompileExecute()
     {
+        return InvokeExecuteFunctionPointer;
     }
 
     [BurstCompile(DisableDirectCall = true)]
@@ -232,20 +239,22 @@ public struct OurDataRpcCommand : IComponentData, IRpcCommandSerializer<OurDataR
         RpcExecutor.ExecuteCreateRequestComponent<OurDataRpcCommand, OurDataRpcCommand>(ref parameters);
     }
 
-    static readonly PortableFunctionPointer<RpcExecutor.ExecuteDelegate> InvokeExecuteFunctionPointer = new PortableFunctionPointer<RpcExecutor.ExecuteDelegate>(InvokeExecute);
+    static readonly PortableFunctionPointer<RpcExecutor.ExecuteDelegate> InvokeExecuteFunctionPointer =
+        new PortableFunctionPointer<RpcExecutor.ExecuteDelegate>(InvokeExecute);
 }
 ```
 
 > [!NOTE]
-> To avoid problems, make sure the `Serialize` and `Deserialize` calls are symmetric. The example above writes an `int` then a `short`, so your code needs to read an `int` then a `short` in that order. If you omit reading a value, forget to write a value, or change the order of the way the code reads and writes, you might encounter problems.
+> `Serialize` 和 `Deserialize` 调用必须对称。上例先写入 `int`，再写入 `short`，读取时也必须按相同顺序读取 `int` 和 `short`。遗漏读取、忘记写入或改变读写顺序都可能引发问题
 
+<a id="rpcqueue"></a>
 ## `RpcQueue`
 
-The [`RpcQueue`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcQueue-1.html) is used internally to schedule outgoing RPCs. However, you can manually create your own queue and use it to schedule RPCs.
+[`RpcQueue`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.RpcQueue-1.html) 在内部用于调度传出 RPC，也可以手动创建队列并通过它调度 RPC
 
-To do this, call `GetSingleton<RpcCollection>().GetRpcQueue<OurRpcCommand>();`. You can either call it in `OnUpdate` or call it in `OnCreate` and cache the value through the lifetime of your application. If you do call it in `OnCreate`, you must make sure that the system calling it is created after `RpcSystem`.
+调用 `GetSingleton<RpcCollection>().GetRpcQueue<OurRpcCommand, OurRpcCommand>()` 获取队列。可以在 `OnUpdate` 中调用，也可以在 `OnCreate` 中调用并在应用生命周期内缓存。如果在 `OnCreate` 调用，必须确保调用系统在 `RpcSystem` 之后创建
 
-When you have the queue, get the `OutgoingRpcDataStreamBuffer` from an entity to schedule events in the queue and then call `rpcQueue.Schedule(rpcBuffer, new OurRpcCommand);`, as follows. This example sends an RPC using the `RpcQueue` when the user presses the space bar on their keyboard.
+获得队列后，从连接实体获取 `OutgoingRpcDataStreamBuffer`，再调用 `rpcQueue.Schedule(rpcBuffer, new OurRpcCommand())` 调度事件。以下示例在用户按下空格键时通过 `RpcQueue` 发送 RPC：
 
 ```c#
 [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]

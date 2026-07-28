@@ -1,49 +1,49 @@
-# Testing with thin clients
+# 使用瘦客户端进行测试
 
-Thin clients are a tool to help test and debug in the Editor by running simulated dummy clients alongside your normal client and server worlds.
+瘦客户端是一种测试与调试工具，可在编辑器中让模拟的虚拟客户端与正常客户端和服务器 World 一同运行
 
-These clients are heavily stripped down, and should run as little logic as possible (so they don't put a heavy load on the CPU while testing).
-Each thin client added adds a little bit of extra work to be computed each frame.
+这类客户端经过大幅精简，应尽可能少地运行逻辑，以免测试时对 CPU 造成很大负载
+每添加一个瘦客户端，每帧都会增加少量计算工作
 
-Only systems which have explicitly been set up to run on thin client worlds will run, marked with the `WorldSystemFilterFlags.ThinClientSimulation` flag on the `WorldSystemFilter` attribute.
-No rendering is done for thin client data, so they are invisible to the presentation.
+只有显式配置为在瘦客户端 World 中运行的系统才会执行，这些系统的 `WorldSystemFilter` 特性带有 `WorldSystemFilterFlags.ThinClientSimulation` 标志
+瘦客户端数据不会进行渲染，因此在表现层中不可见
 
-In some cases, you might need to check if your system logic should be running for thin clients, and then early out or cancel processing.
-The `World.IsThinClient()` extension methods can be used in these cases, and note that `World.IsClient` returns true for both thin and full clients.
+某些情况下，可能需要检查系统逻辑是否应为瘦客户端运行，并提前退出或取消处理
+此时可以使用 `World.IsThinClient()` 扩展方法。请注意，`World.IsClient` 对瘦客户端和完整客户端都会返回 true
 
-## Thin client workflow recommendations
+## 瘦客户端工作流建议
 
-Thin clients can be used in a variety of ways to help test multiplayer games. We recommend the following:
+瘦客户端可以通过多种方式协助测试多人游戏。建议采用以下用法：
 
-* Thin clients allow you to quickly test client flows, things like team assignment, spawn locations, leaderboards, UI etc.
-* Thin clients created in built players, allowing stress and soak testing of your game servers. For example, you may wish to add a configuration option to automatically create `n` thin client worlds (alongside your normal client world). Have each thin client "follow the leader" and automatically attempt to join the same IP address and port as your main client world. Thus, you can use your existing UI flows (matchmaking, lobby, relay etc.) to get these thin clients into the stress test target server.
-* Thin clients controlled by a second input source. Multiplayer games often have complex PvP interactions, and therefore you often wish to have an AI perform a specific action while your client is interacting with it. Examples: crouch, go prone, jump, run diagonally backwards, reload, enable shield, activate ability etc. Hooking thin client controls up to keyboard commands allows you to test these situations without requiring a play-test (or a second dev). You can also hookup thin clients to have mirrored inputs of the tester, with similarly good results.
+* 使用瘦客户端快速测试客户端流程，例如队伍分配、生成位置、排行榜和 UI 等
+* 在构建出的 Player 中创建瘦客户端，对游戏服务器进行压力测试和浸泡测试。例如，可以添加配置选项，在正常客户端 World 旁自动创建 `n` 个瘦客户端 World。让每个瘦客户端“跟随主客户端”，自动尝试加入主客户端 World 使用的同一 IP 地址和端口。这样便可利用现有 UI 流程，例如匹配、大厅和 Relay，将这些瘦客户端接入压力测试目标服务器
+* 使用第二输入源控制瘦客户端。多人游戏通常包含复杂的 PvP 交互，因此经常需要 AI 在客户端与其交互时执行特定动作，例如蹲伏、趴下、跳跃、向斜后方跑、装填、启用护盾或激活能力。将瘦客户端控制绑定到键盘命令，可以在无需组织试玩或第二名开发人员的情况下测试这些场景。也可以让瘦客户端镜像测试人员的输入，同样能获得良好效果
 
-## Thin client samples
+## 瘦客户端示例
 
 - [NetcodeSamples > HelloNetcode > ThinClient](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/2_Intermediate/06_ThinClients)
 - [NetcodeSamples > Asteroids](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/f22bb949b3865c68d5fc588a6e8d032096dc788a/NetcodeSamples/Assets/Samples/Asteroids/Client/Systems/InputSystem.cs#L66)
 
-## Setting up inputs for thin clients
+## 为瘦客户端设置输入
 
-Thin clients don't work out of the box with `AutoCommandTarget`, because `AutoCommandTarget` requires the same ghost to exist on both the client and the server, and thin clients don't create ghosts. So you need to set up the `CommandTarget` component on the connection entity yourself.
+瘦客户端无法直接使用 `AutoCommandTarget`，因为 `AutoCommandTarget` 要求同一个 Ghost 同时存在于客户端和服务器上，而瘦客户端不会创建 Ghost。因此，需要自行设置连接实体上的 `CommandTarget` 组件
 
-`IInputComponentData` is the newest input API. It automatically handles writing out inputs (from your input struct) directly to the replicated dynamic buffer.
-Additionally, when we bake the ghost entity - and said entity contains an `IInputCommandData` composed struct - we automatically add an underlying `ICommandData` dynamic buffer to the entity.
-However, this baking process is not available on thin clients, as thin clients do not create ghosts entities.
+`IInputComponentData` 是最新的输入 API。它会自动将输入结构中的输入直接写入复制的动态缓冲区
+此外，当烘焙的 Ghost 实体包含由 `IInputCommandData` 组成的结构时，系统会自动为实体添加底层 `ICommandData` 动态缓冲区
+但是，瘦客户端不会创建 Ghost 实体，因此无法使用此烘焙过程
 
-`ICommandData` is also supported with thin clients ([details here](command-stream.md)), but note that you'll need to perform the same thin client hookup work (below) that you do with `IInputComponentData`.
+瘦客户端也支持 `ICommandData`，详见[命令流](command-stream.md)，但仍需执行下述与 `IInputComponentData` 相同的瘦客户端接入工作
 
-Therefore, to support sending input from a thin client, you must do the following:
+因此，若要支持从瘦客户端发送输入，必须执行以下操作：
 
-1. Create an entity containing your `IInputCommmandData` (or `ICommandData`) component, as well as the code-generated `YourNamespace.YouCommandNameInputBufferData` dynamic buffer. **This may appear to throw a missing assembly definition error in your IDE, but it will work.**
-1. Set up the `CommandTarget` component to point to this entity. Therefore, in a `[WorldSystemFilter(WorldSystemFilterFlags.ThinClientSimulation)]` system:
+1. 创建一个实体，其中包含 `IInputCommandData`（或 `ICommandData`）组件，以及由代码生成的 `YourNamespace.YouCommandNameInputBufferData` 动态缓冲区。**IDE 可能会显示缺少程序集定义的错误，但实际可以正常工作**
+1. 设置 `CommandTarget` 组件，使其指向该实体。因此，在带有 `[WorldSystemFilter(WorldSystemFilterFlags.ThinClientSimulation)]` 的系统中执行：
 ```c#
     var myDummyGhostCharacterControllerEntity = entityManager.CreateEntity(typeof(MyNamespace.MyInputComponent), typeof(InputBufferData<MyNamespace.MyInputComponent>));
     var myConnectionEntity = SystemAPI.GetSingletonEntity<NetworkId>();
-    entityManager.SetComponentData(myConnectionEntity, new CommandTarget { targetEntity = myDummyGhostCharacterControllerEntity }); // This tells the netcode package which entity it should be sending inputs for.
+    entityManager.SetComponentData(myConnectionEntity, new CommandTarget { targetEntity = myDummyGhostCharacterControllerEntity }); // 告诉 Netcode 包应为哪个实体发送输入
 ```
-1. On the server (where you spawn the actual character controller ghost for the thin client, which will be replicated to all proper clients), you **_only_** need to setup the `CommandTarget` for thin clients (as presumably your player ghosts all use `AutoCommandTarget`. If you're **_not_** using `AutoCommandTarget`, you probably already perform this action for all clients already).
+1. 在服务器上生成瘦客户端实际使用的角色控制器 Ghost 后，该 Ghost 会复制到所有正常客户端。此时**_只需_**为瘦客户端设置 `CommandTarget`，因为其他玩家 Ghost 通常都使用 `AutoCommandTarget`。如果**_没有_**使用 `AutoCommandTarget`，可能已经为所有客户端执行了这一操作
 ```c#
     entityManager.SetComponentData(thinClientConnectionEntity, new CommandTarget { targetEntity = thinClientsCharacterControllerGhostEntity });
 ```

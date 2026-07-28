@@ -1,39 +1,40 @@
-# Use Unity Relay with Netcode for Entities
+# 在 Netcode for Entities 中使用 Unity Relay
 
-Using Unity Relay is required to connect players when using a self-hosted architecture with no dedicated server deployment.
+采用没有专用服务器部署的自托管架构时，需要使用 Unity Relay 连接玩家
 
-Netcode for Entities' default driver setup isn't configured to connect using Relay out of the box, and it's the user's responsibility to configure the `NetworkDriverStore` appropriately in this case.
+Netcode for Entities 的默认驱动配置不会直接使用 Relay 建立连接。在这种情况下，用户需要自行正确配置 `NetworkDriverStore`
 
-This page assumes familiarity with Relay and that necessary data has been already obtained. Please refer to the [Relay documentation](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction) for more detailed information and code examples.
+本页假定读者已经熟悉 Relay，并已获取必要数据。详细信息和代码示例请参阅 [Relay 文档](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction)
 
-## Configure `NetworkDriverStore` to use Relay
+<a id="configure-networkdriverstore-to-use-relay"></a>
+## 配置 `NetworkDriverStore` 以使用 Relay
 
-There are two possible strategies for configuring the `NetworkDriverStore` to use Relay:
+可以通过以下两种方式配置 `NetworkDriverStore` 使用 Relay：
 
-* By using a [custom driver constructor](networking-network-drivers.md#customize-network-driver-creation).
-    * The Netcode for Entities [Relay sample](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/1_Basics/01b_RelaySupport) show how to use this setup.
-* By [resetting the driver store](networking-network-drivers.md#reset-the-NetworkDriverStore-setup) after world creation.
+* 使用[自定义驱动构造器](networking-network-drivers.md#customize-network-driver-creation)
+    * Netcode for Entities 的 [Relay 示例](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/NetcodeSamples/Assets/Samples/HelloNetcode/1_Basics/01b_RelaySupport)展示了这种配置方式
+* 创建 World 后[重置驱动存储](networking-network-drivers.md#reset-the-networkdriverstore-setup)
 
-For the former, the set up and connection to the Relay service, the allocation, and the relative join-code must be obtained before the worlds are created.
+使用第一种方式时，必须在创建 World 前完成 Relay 服务的设置与连接，并取得分配和对应加入代码
 
-It's recommended that you establish and set up all your services connections and perform any other service-related operations that don't require a live connection before creating the client and server worlds, for the following reasons:
+建议在创建客户端和服务器 World 前，先建立并配置全部服务连接，并完成不要求实时连接的其他服务操作，原因如下：
 
-* It makes your workflows more contextual.
-* In case of errors, there's less world creation and disposal to do.
+* 工作流的上下文更加集中
+* 出现错误时，需要创建和销毁的 World 更少
 
-However, your scenario may be different, and there is no strict limitation imposed. Client and server worlds can be created and disposed at any time.
+不过，实际使用场景可能有所不同，本包并未施加严格限制。客户端和服务器 World 可以随时创建和销毁
 
-## Set up the driver using a custom `INetworkDriverConstructor`
+<a id="set-up-the-driver-using-a-custom-inetworkdriverconstructor"></a>
+## 使用自定义 `INetworkDriverConstructor` 设置驱动
 
-You can create a very simple driver constructor that initializes the `NetworkSettings` using the Relay data and passes it to the `NetworkStreamReceiveSystem.DriverConstructur`.
+可以创建一个简单的驱动构造器，使用 Relay 数据初始化 `NetworkSettings`，再将它传给 `NetworkStreamReceiveSystem.DriverConstructor`
 
-The following example shows how to set up the driver to support both a local IPC connection (for self-hosting) or Relay (connecting to either a remote or local server via Relay).
+以下示例展示如何设置驱动，使其同时支持本地 IPC 连接和 Relay 连接。IPC 用于自托管，Relay 用于通过 Relay 连接远程或本地服务器
 
 ```csharp
 /// <summary>
-/// Register client and server using Relay server settings.
-/// For the client, if the Relay settings are not set and the modality is `Client/Server`, it will
-/// try to setup the driver using IPCNetworkInterface.
+/// 使用 Relay 服务器设置注册客户端和服务器
+/// 对客户端而言，如果未设置 Relay 并且模式为 Client/Server，系统会尝试使用 IPCNetworkInterface 设置驱动
 /// </summary>
 public class RelayDriverConstructor : INetworkStreamDriverConstructor
 {
@@ -47,24 +48,23 @@ public class RelayDriverConstructor : INetworkStreamDriverConstructor
     }
 
     /// <summary>
-    /// This method will ensure that we register different driver types based on the Relay settings
-    /// settings.
+    /// 根据 Relay 设置注册不同类型的驱动
     /// <para>
-    /// Mode          |  Relay Settings
-    /// Client/Server |  Valid -> use Relay to connect to local server
-    ///                  Invalid -> use IPC to connect to local server
-    /// Client        |  Always use Relay. Expect data to be valid, or exceptions are thrown by Transport.
+    /// 模式          | Relay 设置
+    /// Client/Server | 有效 -> 使用 Relay 连接本地服务器
+    ///                 无效 -> 使用 IPC 连接本地服务器
+    /// Client        | 始终使用 Relay，数据必须有效，否则 Transport 会抛出异常
+    /// </para>
     /// <para>
-    /// <para>
-    /// For WebGL, WebSocket is always preferred for client in the Editor, to closely emulate the player behaviour.
+    /// 对于 WebGL，编辑器中的客户端始终优先使用 WebSocket，以尽可能还原 Player 行为
     /// </para>
     /// </summary>
     public void CreateClientDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
     {
         var settings = DefaultDriverBuilder.GetNetworkClientSettings();
-        //if the Relay data is not valid, connect via local IPC
-        if(ClientServerBootstrap.RequestedPlayType == ClientServerBootstrap.PlayType.ClientAndServer &&
-           !m_RelayClientData.Endpoint.IsValid)
+        // Relay 数据无效时通过本地 IPC 连接
+        if (ClientServerBootstrap.RequestedPlayType == ClientServerBootstrap.PlayType.ClientAndServer &&
+            !m_RelayClientData.Endpoint.IsValid)
         {
             DefaultDriverBuilder.RegisterClientIpcDriver(world, ref driverStore, netDebug, settings);
         }
@@ -81,12 +81,12 @@ public class RelayDriverConstructor : INetworkStreamDriverConstructor
 
     public void CreateServerDriver(World world, ref NetworkDriverStore driverStore, NetDebug netDebug)
     {
-        //The first driver is the IPC for internal client/server connection if necessary.
-        // IPC can't use Relay and needs to be set up without Relay data.
+        // 第一个驱动是 IPC，在需要时用于进程内客户端与服务器连接
+        // IPC 无法使用 Relay，必须在不提供 Relay 数据的情况下设置
         var ipcSettings = DefaultDriverBuilder.GetNetworkServerSettings();
         DefaultDriverBuilder.RegisterServerIpcDriver(world, ref driverStore, netDebug, ipcSettings);
         var relaySettings = DefaultDriverBuilder.GetNetworkServerSettings();
-        //The other driver (still the same port) is going to listen using Relay for external connections.
+        // 另一个驱动仍使用同一端口，通过 Relay 监听外部连接
         relaySettings.WithRelayParameters(ref m_RelayServerData);
 #if !UNITY_WEBGL
         DefaultDriverBuilder.RegisterServerUdpDriver(world, ref driverStore, netDebug, relaySettings);
@@ -97,14 +97,15 @@ public class RelayDriverConstructor : INetworkStreamDriverConstructor
 }
 ```
 
-## Set up the driver using `NetworkStreamDriverReset`
+<a id="set-up-the-driver-using-networkstreamdriverreset"></a>
+## 使用 `NetworkStreamDriverReset` 设置驱动
 
-Resetting the driver store is very similar to the previous example. The only difference is that the initialization can be performed after world creation.
+重置驱动存储与前一个示例非常相似，唯一的区别是可以在创建 World 后执行初始化
 
 ```csharp
 public void SetupClientWorld(World world, in RelayData relay)
 {
-    //we assume here we want to forcibly use Relay
+    // 此处假定需要强制使用 Relay
     var settings = DefaultDriverBuilder.GetNetworkClientSettings();
     settings.WithRelayParameters(ref m_RelayClientData);
     var netDebug = world.EntityManager.CreateEntityQuery(typeof(NetDebug)).GetSingleton<NetDebug>();
@@ -121,8 +122,9 @@ public void SetupServerWorld(World world, in RelayData relay)
     var ipcSettings = DefaultDriverBuilder.GetNetworkServerSettings();
     DefaultDriverBuilder.RegisterServerIpcDriver(world, ref driverStore, netDebug, ipcSettings);
     var relaySettings = DefaultDriverBuilder.GetNetworkServerSettings();
-    //The other driver (still the same port) is going to listen using relay for external conections.
+    // 另一个驱动仍使用同一端口，通过 Relay 监听外部连接
     relaySettings.WithRelayParameters(ref m_RelayServerData);
+#if !UNITY_WEBGL
     DefaultDriverBuilder.RegisterServerUdpDriver(world, ref driverStore, netDebug, relaySettings);
 #else
     DefaultDriverBuilder.RegisterServerWebSocketDriver(world, ref driverStore, netDebug, relaySettings);
@@ -130,5 +132,4 @@ public void SetupServerWorld(World world, in RelayData relay)
     var networkStreamDriver = world.EntityManager.CreateEntityQuery(typeof(NetworkStreamDriver)).GetSingleton<NetworkStreamDriver>();
     networkStreamDriver.ResetDriverStore(world, ref driverStore);
 }
-
 ```

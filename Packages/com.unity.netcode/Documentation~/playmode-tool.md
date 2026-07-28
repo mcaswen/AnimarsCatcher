@@ -1,108 +1,124 @@
-# PlayMode Tool window
+# PlayMode Tool 窗口
 
-Use the __PlayMode Tools__ window (menu: **Window** > **Multiplayer** > **PlayMode Tools**) to do the following:
-- Select the behaviour of the Netcode for Entities bootstrapping flow (assuming it's enabled) when you enter Play Mode. This controls whether the `ClientServerBootstrap` creates a client world, a server world, or both client and server worlds, and whether they connect automatically.
-- Enable and configure the [network simulator](network-connection.md#network-simulator).
-- Configure the number of [thin-clients](client-server-worlds.md#thin-clients) to use.
-- Change the current logging level, and control whether or not Unity creates packet dumps.
-- View, control, and debug Netcode for Entities client and server worlds and their transport data (only available after entering Play Mode).
-- Display bounding box gizmos for all ghosts.
+使用 __PlayMode Tools__ 窗口，菜单路径为 **Window** > **Multiplayer** > **PlayMode Tools**，可以执行以下操作：
 
-<img src="images/playmode-tool.png" width="600" alt="Playmode Tool"/>
+- 选择进入 Play 模式时 Netcode for Entities 启动流程的行为，前提是该流程已启用。它控制 `ClientServerBootstrap` 创建客户端 World、服务器 World 还是两者都创建，以及是否自动连接
+- 启用和配置[网络模拟器](network-connection.md#network-simulator)
+- 配置要使用的[瘦客户端](client-server-worlds.md#thin-clients)数量
+- 修改当前日志级别，并控制 Unity 是否创建数据包转储
+- 进入 Play 模式后，查看、控制和调试 Netcode for Entities 客户端与服务器 World 及其 Transport 数据
+- 显示全部 Ghost 的包围盒 Gizmo
 
-## Properties
+<img src="images/playmode-tool.png" width="600" alt="PlayMode Tool"/>
 
-| **Property**                  | **Description**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|-------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| __PlayMode Type__             | Determines the behaviour of the Netcode for Entities bootstrapping flow (assuming it's enabled) when entering Play Mode. __Client__ spawns only the client world, __Server__ spawns only the server world, and __Client & Server__ spawns one of each.                                                                                                                                                                                                                                                                                                                      |
-| __Simulate Dedicated Server__ | Denotes the build environment that Netcode for Entities emulates when it bakes the ServerWorld version of the sub scenes. For example, a client-hosted game server might have some additional assemblies which are unavailable on a Dedicated Game Server (DGS) build, so with this toggle unchecked, types in those assemblies would show up on the entities within the ServerWorld. This option is only visible when Client Hosted Builds are enabled in the Project Settings, because it defaults to emulating a DGS if your client can't support hosting a game server. |
-| __Num Thin Clients__          | Set the number of thin clients spawned and automatically maintained in-Editor by the package. You can use these clients to test multiplayer PvP interactions. Thin clients can't present and don't spawn any ghosts they receive from the server. However, they can generate fake input, and simulate a realistic load on the server.                                                                                                                                                                                                                            |                                                                                                                  |
+<a id="properties"></a>
+## 属性
+
+| 属性 | 说明 |
+|------|------|
+| __PlayMode Type__ | 决定进入 Play 模式时 Netcode for Entities 启动流程的行为，前提是该流程已启用。__Client__ 只生成客户端 World，__Server__ 只生成服务器 World，__Client & Server__ 各生成一个 |
+| __Simulate Dedicated Server__ | 指定 Netcode for Entities 烘焙 SubScene 的 ServerWorld 版本时模拟的构建环境。例如，客户端托管的游戏服务器可能包含 Dedicated Game Server（DGS）构建中不可用的额外程序集；取消该开关后，这些程序集中的类型会出现在 ServerWorld 实体上。只有在 Project Settings 中启用 Client Hosted Builds 时才显示此选项，因为客户端不支持托管游戏服务器时，系统默认模拟 DGS |
+| __Num Thin Clients__ | 设置包在编辑器内生成并自动维护的瘦客户端数量。可以使用它们测试多人 PvP 交互。瘦客户端没有表现层，也不会生成从服务器收到的 Ghost，但可以生成虚拟输入，并在服务器上模拟真实负载 |
 
 > [!NOTE]
-> Be aware that this window, when open, adheres strictly to the target _Num Thin Clients_ value at runtime. If you've spawned any thin clients yourself that take the total number of thin clients over _Num Thin Clients_, then those thin clients will be destroyed. This is a known issue.
+> 此窗口保持打开时，会在运行时严格维持目标 _Num Thin Clients_ 数量。如果自行生成瘦客户端并使总数超过该值，多出的瘦客户端会被销毁。这是一个已知问题
 
-### Emulate client network conditions
+<a id="emulate-client-network-conditions"></a>
+### 模拟客户端网络条件
 
-Use the network emulator to replicate specific network conditions while your game is running in the Unity Editor.
-When you enable network emulation, you can set the packet delay and packet loss in the following ways:
- - Manually set the packet delay and drop values.
- - Select a `preset`. For example, '4G' or 'Broadband'.
+在 Unity 编辑器中运行游戏时，可以使用网络模拟器复现特定网络条件
 
-Frequently test your gameplay with the emulator enabled to get a more accurate picture of how real-world network latency impacts gameplay quality. Gameplay test also demonstrate the performance implications of the rollback and re-simulate logic involved in client prediction. For example, a higher ping requires the client to perform more prediction ticks which uses higher CPU resources on the client's side.
+启用网络模拟后，可以通过以下方式设置数据包延迟和丢包：
 
-To manually specify network conditions, enter custom values in the following fields:
+- 手动设置数据包延迟和丢弃值
+- 选择预设，例如 4G 或 Broadband
+
+应经常在启用模拟器的情况下测试玩法，更准确地了解真实网络延迟对玩法质量的影响。玩法测试还会展示客户端预测回滚和重新模拟逻辑的性能成本。例如，Ping 越高，客户端需要执行的预测 Tick 越多，消耗的客户端 CPU 资源也越多
+
+若要手动指定网络条件，请在以下字段输入自定义值：
+
 - **RTT Delay**
 - **RTT Jitter**
 - **Packet Drop**
 
-If you use **Packet View**, enter custom values in the following fields:
+如果使用 **Packet View**，请在以下字段输入自定义值：
+
 - **Packet Delay**
 - **Packet Jitter**
 - **Packet Drop**
 
-Unity runs the network emulation via a Unity Transport Pipeline Stage. This stage is only added to the client driver and so Unity applies these settings to incoming and outgoing packets. To view the combined impact on the ping, open the dropdown and select __Ping View__.
+Unity 通过 Unity Transport Pipeline Stage 执行网络模拟。该 Stage 只添加到客户端驱动，因此设置会同时应用于传入和传出数据包。若要查看对 Ping 的综合影响，请打开下拉菜单并选择 __Ping View__
 
-| **Property**                           | **Description**                                                                                                                                                                                                                                                                         |
-|----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| __RTT Delay (ms)__                     | Use this property to emulate round trip time. This property delays the incoming and outgoing packet (in ms) such that the sum of the delays equals the specified value.                                                                                                                   |
-| __RTT Jitter (ms)__                    | Use this property to add (or subtract) a random value to the delay, which makes the delay a value between the delay you have set plus or minus the jitter value. For example, if you set __RTTDelay__ to 45 and __RTTJitter__ to 5, you will get a random value between 40 and 50.      |
-| __Packet Drop (%)__                    | Use this property to simulate bad connections where not all packets arrive. Specify a value (as a percentage) and Netcode for Entities discards that percentage of packets from the total it receives. For example, set the value to 5 and Netcode for Entities discards 5% of all incoming and outgoing packets. |
-| __Packet Fuzz (%)__                    | Use this property to simulate security-related person-in-the-middle (PITM) attacks, where malicious clients attempt to bring down your server (or other clients) by intentionally serializing bad data.                                                                                                   |
-| __Auto Connect Address (Client only)__ | Specify which server address a client connects to. This field only appears if you set __PlayMode Type__ to __Client__. If you're not using auto connect functionality, your user code needs to read this value (via `ClientServerBootstrap.IsEditorInputtedAddressValidForConnect`), and manually connect to the outputted `NetworkEndpoint`.                                                                  |
-| __Auto Connect Port (Client only)__    | Override and/or specify which port to use for both listening (server) and connecting (client)                                                                                                                                                                                           |
-
-> [!NOTE]
-> When you enable network emulation, Unity forces the Unity Transport's network interface to be a full UDP socket. Otherwise, Unity uses an IPC (Inter-Process Communication) connection when both client and server worlds exist in the same process.
-> Refer to [DefaultDriverConstructor](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IPCAndSocketDriverConstructor.html) <br/>
-> [!NOTE]
-> Unity uses `AutoConnectAddress` and `AutoConnectPort` when it automatically connects the client to a server in client-only mode, and overrides the values set in the [ClientServerBootstrap](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html). However, Unity ignores these fields when the bootstrap sets `AutoConnectPort` to 0. You can use the __Connect__ button in the Playmode Tools window to force the connection to the target `AutoConnectAddress` and `AutoConnectPort`.
-
-### Visualize bounding boxes on GameObjects
-Entities that use Entities Graphics automatically draw bounding boxes. To draw bounding boxes around objects that don't use entities graphics, add the `GhostDebugMeshBounds` component to the GameObject's supporting entity. You can call `Initialize` for convenience to set it up.
-Refer to `GhostPresentationGameObjectEntityOwner` for an example.
-
-<img src="images/DebugBoundingBox.png" width="600" alt="Predicted and Server Debug Bounding Boxes"/>
-
-### Visualize importance of ghosts
-
-When using [ghost importance](optimize-ghosts.html#importance-scaling), you can visualize the importance of ghosts in the Scene and Game view by enabling the Importance Visualizer in the PlayMode Tool window.
-
-| **Property**          | **Description**                                                                                                                                                                                                                                                          |
-|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| __Connection entity__ | Select the connection to visualize importance for.                                                                                                                                                                                                                       |
-| __Draw entity mode__  | Select which mode to use when visualizing importance. **Per entity importance heatmap** colors each entity with its importance value. **Per chunk** groups entities into chunks and colors based on the importance value of the chunk.                                   |
-| __Tile draw mode__    | Selects whether to draw a grid or not, and which axis to draw it on. The grid is based on [GhostDistanceData](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceData.html), and needs to be present for this to work. |
-| __Heatmap Gradient__  | Allows you to customize the gradient used for the heatmap visualization.                                                                                                                                                                                                 |
-| __Render Distance__   | How many tiles to render. Increases from (0, 0, 0).                                                                                                                                                                                                                      |
-
-The data for importance visualization is gathered from the server world. A line is drawn between each ghost's position to the first entity found in the same chunk of that ghost (the first entity in the chunk is arbitrary and has no specific meaning). When using the per entity mode, each line is colored based on the gradient, where high priority is the first color (green by default), and low priority is the last color (red by default). When using the per chunk mode, each line is colored the same for all ghosts in the same chunk.
-
-The tile draw mode is only applicable when using the built-in [distance-based importance scaling](optimize-ghosts.html#distance-based-importance). It is based on the tiles from [GhostDistanceData](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceData.html). If you aren't using distance-based importance scaling, then grid mode is not applicable.
-
-The following image shows an example importance visualization from the Asteroids sample project using the per entity importance heatmap mode, with a grid on the XZ plane. All asteroids have a line, and each origin point where many lines start from signifies that ghosts belong to that specific chunk. To interpret this, we can see that in the middle of the screen is our ship. This ship is inside a tile. That tile, and the immediate surrounding tiles, all have the same green color. The color is relative, so the more green the color, the higher priority that chunk has. Further away tiles have lower priority and show up as more red. Also note that there can be multiple chunks within the same tile. You can also see that only the closest tiles have asteroids rendered. This is because of relevancy, not importance. This indicates that the system works as intended: the closest asteroids are updated more often than the asteroids that are further away. With a custom importance scaling function that is not based on distance, the lines might be more interwoven and not as clear as this example.
-
-<img src="images/importance-visualizer.png" width="600" alt="Asteroids sample with importance visualizer"/>
+| 属性 | 说明 |
+|------|------|
+| __RTT Delay (ms)__ | 模拟往返时间。该属性会分别延迟传入和传出数据包，二者延迟之和等于指定毫秒值 |
+| __RTT Jitter (ms)__ | 在延迟上加减随机值，使实际延迟位于设定延迟加减抖动值的区间内。例如，__RTT Delay__ 为 45、__RTT Jitter__ 为 5 时，结果是 40 到 50 之间的随机值 |
+| __Packet Drop (%)__ | 模拟部分数据包无法抵达的不良连接。指定百分比后，Netcode for Entities 会丢弃收到数据包总数中的对应比例。例如设为 5 时，会丢弃全部传入和传出数据包的 5% |
+| __Packet Fuzz (%)__ | 模拟与安全有关的中间人攻击，恶意客户端通过故意序列化错误数据尝试使服务器或其他客户端崩溃 |
+| __Auto Connect Address (Client only)__ | 指定客户端连接的服务器地址。仅当 __PlayMode Type__ 为 __Client__ 时显示。如果不使用自动连接，用户代码需要通过 `ClientServerBootstrap.IsEditorInputtedAddressValidForConnect` 读取该值，并手动连接到输出的 `NetworkEndpoint` |
+| __Auto Connect Port (Client only)__ | 覆盖或指定服务器监听和客户端连接所使用的端口 |
 
 > [!NOTE]
-> The importance visualizer only works when the server world is present, and requires [Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@latest) to function correctly.
-
-## Initialize the network emulator from the command line
-Use the command line arguments `--loadNetworkSimulatorJsonFile [optionalJsonFilePath]` to load an existing JSON (.json) `SimulatorUtility.Parameters` preset. If the file isn't found, unity throws an error.
-Alternatively; use `--createNetworkSimulatorJsonFile [optionalJsonFilePath]` to generate a default JSON file automatically. The default file name (if unspecified) is `NetworkSimulatorProfile.json`.
-
-Passing in either parameter always enables a simulator profile, even in the error case. If the file isn't found or generated, it uses the `NetworkSimulatorSettings.DefaultSimulatorParameters`.
+> 启用网络模拟时，Unity 会强制 Unity Transport 使用完整 UDP Socket 网络接口。否则，如果客户端与服务器 World 位于同一进程，Unity 会使用 IPC 连接。参阅 [DefaultDriverConstructor](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IPCAndSocketDriverConstructor.html)
 
 > [!NOTE]
-> You can only enable Network emulation in development builds.
+> 仅客户端模式下自动连接客户端与服务器时，Unity 使用 `AutoConnectAddress` 和 `AutoConnectPort`，并覆盖 [ClientServerBootstrap](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html) 中设置的值。但是，当 Bootstrap 将 `AutoConnectPort` 设为 0 时，Unity 会忽略这些字段。可以使用 PlayMode Tools 窗口中的 __Connect__ 按钮，强制连接目标 `AutoConnectAddress` 和 `AutoConnectPort`
 
-## Use the Playmode Tool window with Multiplayer Play Mode
+<a id="visualize-bounding-boxes-on-gameobjects"></a>
+### 显示 GameObject 包围盒
 
-To use the Playmode Tool window in Multiplayer Play Mode to test a [virtual player](https://docs-multiplayer.unity3d.com/mppm/current/virtual-players/) in a project that uses netcode for Entities, perform the following actions:
-1. [Install the Multiplayer Play Mode package](https://docs-multiplayer.unity3d.com/mppm/current/install/).
-2. Open the Multiplayer Play Mode window (**Window** > **Multiplayer Play Mode**).
-3. [Activate a virtual player](https://docs-multiplayer.unity3d.com/mppm/current/virtual-players/virtual-players-enable/).
-4. IN a virtual player's Play Mode window, navigate to **Layout**  and select **Playmode Tool**.
-5. Set the **Play Mode Type** to make this clone act as a __Client__, a __Server__, or both a __Client & Server__.
+使用 Entities Graphics 的实体会自动绘制包围盒。若要为不使用 Entities Graphics 的对象绘制包围盒，请向 GameObject 对应的实体添加 `GhostDebugMeshBounds` 组件。可以调用 `Initialize` 辅助方法完成设置
+
+示例请参阅 `GhostPresentationGameObjectEntityOwner`
+
+<img src="images/DebugBoundingBox.png" width="600" alt="预测与服务器调试包围盒"/>
+
+<a id="visualize-importance-of-ghosts"></a>
+### 显示 Ghost 重要度
+
+使用 [Ghost 重要度](optimization/optimize-ghosts.md#importance-scaling)时，可以在 PlayMode Tool 窗口中启用 Importance Visualizer，在 Scene 和 Game 视图中显示 Ghost 重要度
+
+| 属性 | 说明 |
+|------|------|
+| __Connection entity__ | 选择需要显示重要度的连接 |
+| __Draw entity mode__ | 选择重要度显示模式。**Per entity importance heatmap** 按实体重要度为每个实体着色；**Per chunk** 将实体按 Chunk 分组，并根据 Chunk 重要度着色 |
+| __Tile draw mode__ | 选择是否绘制网格以及在哪个轴平面绘制。网格基于 [GhostDistanceData](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceData.html)，必须存在该数据才能工作 |
+| __Heatmap Gradient__ | 自定义热力图使用的渐变 |
+| __Render Distance__ | 要渲染的 Tile 数量，从 `(0, 0, 0)` 向外扩展 |
+
+重要度可视化数据来自服务器 World。系统会在每个 Ghost 的位置与该 Ghost 所在 Chunk 的第一个实体之间绘制连线；Chunk 中第一个实体是任意的，没有特殊含义。使用 Per Entity 模式时，每条线根据渐变着色，高优先级使用第一个颜色，默认绿色；低优先级使用最后一个颜色，默认红色。使用 Per Chunk 模式时，同一 Chunk 中全部 Ghost 的连线颜色相同
+
+Tile 绘制模式只适用于内置的[基于距离的重要度缩放](optimization/optimize-ghosts.md#distance-based-importance)，其网格基于 [GhostDistanceData](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostDistanceData.html)。如果未使用基于距离的重要度缩放，网格模式不适用
+
+下图展示 Asteroids 示例项目使用 Per Entity Importance Heatmap 模式的结果，并在 XZ 平面显示网格。每颗小行星都有连线，多条线共同起始的位置表示这些 Ghost 属于同一个 Chunk。屏幕中央是玩家飞船，飞船位于一个 Tile 内；该 Tile 及其相邻 Tile 都是绿色。颜色是相对的，越绿表示 Chunk 优先级越高，距离更远的 Tile 优先级较低，因此更红。同一 Tile 内可能有多个 Chunk。还可以看到只有最近的 Tile 渲染了小行星，这是相关性而不是重要度导致的。该结果表明系统按预期工作：最近的小行星比远处小行星更新更频繁。如果使用不基于距离的自定义重要度缩放函数，连线可能相互交织，不会像本例这样清晰
+
+<img src="images/importance-visualizer.png" width="600" alt="使用重要度可视化器的 Asteroids 示例"/>
+
+> [!NOTE]
+> Importance Visualizer 只在存在服务器 World 时工作，并且需要 [Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@latest) 才能正确运行
+
+<a id="initialize-the-network-emulator-from-the-command-line"></a>
+## 从命令行初始化网络模拟器
+
+使用命令行参数 `--loadNetworkSimulatorJsonFile [optionalJsonFilePath]` 加载现有 JSON 文件形式的 `SimulatorUtility.Parameters` 预设。找不到文件时，Unity 会抛出错误
+
+也可以使用 `--createNetworkSimulatorJsonFile [optionalJsonFilePath]` 自动生成默认 JSON 文件。未指定名称时，默认文件名为 `NetworkSimulatorProfile.json`
+
+传入任一参数都会启用模拟器配置，即使发生错误也是如此。如果文件未找到或未生成，则使用 `NetworkSimulatorSettings.DefaultSimulatorParameters`
+
+> [!NOTE]
+> 只有 Development 构建可以启用网络模拟
+
+<a id="use-the-playmode-tool-window-with-multiplayer-play-mode"></a>
+## 在 Multiplayer Play Mode 中使用 PlayMode Tool 窗口
+
+若要在使用 Netcode for Entities 的项目中，通过 Multiplayer Play Mode 的 PlayMode Tool 窗口测试[虚拟 Player](https://docs-multiplayer.unity3d.com/mppm/current/virtual-players/)，请执行以下操作：
+
+1. [安装 Multiplayer Play Mode 包](https://docs-multiplayer.unity3d.com/mppm/current/install/)
+2. 打开 Multiplayer Play Mode 窗口：**Window** > **Multiplayer Play Mode**
+3. [激活虚拟 Player](https://docs-multiplayer.unity3d.com/mppm/current/virtual-players/virtual-players-enable/)
+4. 在虚拟 Player 的 Play Mode 窗口中打开 **Layout**，选择 **PlayMode Tool**
+5. 设置 **Play Mode Type**，使该克隆作为 __Client__、__Server__ 或同时作为 __Client & Server__ 运行
 
 >[!NOTE]
-> If the [Dedicated Server package](https://docs.unity3d.com/Packages/com.unity.dedicated-server@1.0/manual/index.html) exists in your project, the [Multiplayer Role](https://docs.unity3d.com/Packages/com.unity.dedicated-server@1.0/manual/multiplayer-roles.html) you select overrides the PlayMode Type.
+> 如果项目中安装了 [Dedicated Server 包](https://docs.unity3d.com/Packages/com.unity.dedicated-server@1.0/manual/index.html)，所选 [Multiplayer Role](https://docs.unity3d.com/Packages/com.unity.dedicated-server@1.0/manual/multiplayer-roles.html) 会覆盖 PlayMode Type

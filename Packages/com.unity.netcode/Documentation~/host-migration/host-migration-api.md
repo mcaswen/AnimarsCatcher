@@ -1,40 +1,42 @@
-# Host migration API and components
+# 主机迁移 API 与组件
 
-Understand the host migration API, components, and component options.
+了解主机迁移 API、组件和组件选项
 
-## Host migration API
+<a id="host-migration-api"></a>
+## 主机迁移 API
 
-| `HostMigrationData` class | Description |
+| `HostMigrationData` 类 | 说明 |
 |-|-|
-| `Get(fromWorld, toData)` | Get the current host migration data from the host migration system in the given server world and copy it into the native list. The list is resized to fit the data if required. |
-| `Set(fromData, toWorld)` | Deploy the given migration data in the target server world. This would be the data downloaded from the lobby service but with a world manually created. |
+| `Get(fromWorld, toData)` | 从给定服务器 World 的主机迁移系统获取当前主机迁移数据，并将其复制到原生列表。必要时会调整列表大小以容纳数据 |
+| `Set(fromData, toWorld)` | 在目标服务器 World 中部署给定迁移数据。通常是从 Lobby 服务下载的数据，但需要手动创建 World |
 
-## Host migration components
+<a id="host-migration-components"></a>
+## 主机迁移组件
 
-| Components | Description |
+| 组件 | 说明 |
 |-|-|
-| `NetworkStreamIsReconnected` | This component is added to all connections on clients and the server so that they can react to being reconnected. The spawned ghosts on the new host also receive this component, so if there are any fixes needed you can query against this component. |
-| `EnableHostMigration` | Enable the host migration system. When enabled, the system collects host migration data at the interval specified in `HostMigrationConfig`, and updates the last update time in `HostMigrationStats`. |
-| `HostMigrationInProgress` | This component is used to detect when a host migration is in progress and when it's complete. |
-| `HostMigrationConfig` | A singleton component that exposes a few options to modify in the host migration system. |
-| `HostMigrationStats` | A few statistics about the lobby operations like the data blob size. This component also contains the last update time of the host migration data which can be used to see when it's time to upload it again.|
+| `NetworkStreamIsReconnected` | 此组件会添加到客户端和服务器上的全部连接，使它们能够响应重新连接。新主机上生成的 Ghost 也会收到此组件，因此可以查询该组件并执行所需修复 |
+| `EnableHostMigration` | 启用主机迁移系统。启用后，系统会按照 `HostMigrationConfig` 指定的间隔收集主机迁移数据，并更新 `HostMigrationStats` 中的最近更新时间 |
+| `HostMigrationInProgress` | 用于检测主机迁移正在进行以及迁移已经完成 |
+| `HostMigrationConfig` | 单例组件，公开主机迁移系统中可修改的一些选项 |
+| `HostMigrationStats` | Lobby 操作的部分统计信息，例如数据 Blob 大小。此组件还包含主机迁移数据的最近更新时间，可用于判断何时需要再次上传 |
 
-The `HostMigrationConfig` component has the following options:
+<a id="hostmigrationconfig-component-options"></a>
+`HostMigrationConfig` 组件包含以下选项：
 
-* `StoreOwnGhosts`: Enable or disable saving of local client-owned ghosts on the host. When the host disconnects this client also disappears, so this data might be unnecessary (defaults to false).
-* `MigrationTimeout`: How long to wait for ghost prefabs to be loaded (defaults to 10 seconds).
-* `ServerUpdateInterval`: The interval at which host migration data should be updated. The default is 2 seconds. 0 seconds means data is collected on every system update.
+* `StoreOwnGhosts`：启用或禁用保存主机上由本地客户端拥有的 Ghost。主机断开时，该客户端也会消失，因此这些数据可能不需要保存，默认为 false
+* `MigrationTimeout`：等待 Ghost 预制体加载的最长时间，默认为 10 秒
+* `ServerUpdateInterval`：更新主机迁移数据的间隔，默认为 2 秒。设为 0 秒表示每次系统更新都收集数据
 
-The `HostMigrationStats` component has the following information:
+`HostMigrationStats` 组件包含以下信息：
 
-* `GhostCount`: How many ghosts are present in the host migration data.
-* `PrefabCount`: How many ghost prefabs are in the host migration data.
-* `UpdateSize`: The size of the last serialized host migration data blob.
-* `TotalUpdateSize`: The total size collected so far from the host migration system.
-* `LastDataUpdateTime`: How many ghosts are present in the host migration data.
+* `GhostCount`：主机迁移数据中包含的 Ghost 数量
+* `PrefabCount`：主机迁移数据中包含的 Ghost 预制体数量
+* `UpdateSize`：最近一次序列化的主机迁移数据 Blob 大小
+* `TotalUpdateSize`：主机迁移系统迄今收集的数据总大小
+* `LastDataUpdateTime`：最近一次更新主机迁移数据的时间
 
+## 其他资源
 
-## Additional resources
-
-* [Introduction to host migration](host-migration-intro.md)
-* [Add host migration to your project](add-host-migration.md)
+* [主机迁移简介](host-migration-intro.md)
+* [为项目添加主机迁移](add-host-migration.md)

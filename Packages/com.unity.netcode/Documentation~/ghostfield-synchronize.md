@@ -1,32 +1,32 @@
-# Serialization and synchronization with `GhostFieldAttribute`
+# 使用 `GhostFieldAttribute` 进行序列化与同步
 
-Use [`GhostFieldAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html) to specify which fields and properties of [`Unity.Entities.IComponentData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IComponentData.html) or [`Unity.Entities.IBufferElementData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html) should be serialized and replicated from server to client. When a component or buffer contains at least one field that's annotated with `GhostFieldAttribute`, a struct implementing the component serialization is automatically code generated.
+使用 [`GhostFieldAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html) 指定 [`Unity.Entities.IComponentData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IComponentData.html) 或 [`Unity.Entities.IBufferElementData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html) 中需要序列化并从服务器复制到客户端的字段和属性。当组件或缓冲区中至少有一个字段标记了 `GhostFieldAttribute` 时，系统会自动生成负责组件序列化的结构体
 
-In addition to `GhostFieldAttribute`, you can use [`GhostComponentAttribute`](ghostcomponentattribute.md) to further customize how replication is handled by your runtime.
+除 `GhostFieldAttribute` 外，还可以使用 [`GhostComponentAttribute`](ghostcomponentattribute.md) 进一步自定义运行时处理复制的方式
 
-## Customizing `GhostFieldAttribute` serialization
+<a id="customizing-ghostfieldattribute-serialization"></a>
+## 自定义 `GhostFieldAttribute` 序列化
 
-Use these properties to customize how components and buffers are serialized using `GhostFieldAttribute`. For more details, refer to the [`GhostFieldAttribute` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html).
+使用以下属性自定义 `GhostFieldAttribute` 对组件和缓冲区的序列化方式。详细信息请参阅 [`GhostFieldAttribute` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html)
 
-| Property | Default value | Description |
+| 属性 | 默认值 | 说明 |
 |---|---|---|
-| [`Quantization`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Quantization) | Disabled by default on float and unavailable on integers. | Use the `Quantization` property to set [quantization](compression.md#quantization) for floating point numbers (and other supported types, refer to [ghost type templates](ghost-types-templates.md)) to limit the precision of data. The floating point number is multiplied by the quantization value and converted to an integer to save bandwidth. |
-| [`Composite`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Composite) | Disabled by default. | Use the `Composite` property to control how [delta compression](compression.md#delta-compression) computes the change field's bitmask for non-primitive fields (such as structs). When set to `true`, delta compression templating generates only one bit to indicate whether the entire struct contains any changes. If `Composite` is false, each field has its own change-bit. Use `Composite=true` if all fields are typically modified together (for example, `GUID`). |
-| [`SendData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SendData) | Enabled by default. | Use the `SendData` property to instruct code generation not to include a field in the serialization data. This is particularly useful for non-primitive members (like structs) which have all fields serialized by default. |
-| [`Smoothing`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Smoothing)| Default setting is [`Clamp`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html#Unity_NetCode_SmoothingAction_Clamp). | Use the `Smoothing` property to control how a field is updated when the ghost is in `GhostMode.Interpolated`. Options are `Clamp` (every time a snapshot is received, clamp the client value to the latest snapshot value), `Interpolate` (interpolate the field between the last two snapshot values every frame; if no data is available for the next tick, clamp to the latest value), and `InterpolateAndExtrapolate` (interpolate the field between the last two snapshot values every frame; if no data is available for the next tick, the next value is linearly extrapolated using the previous two snapshot values). |
-| [`MaxSmoothingDistance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_MaxSmoothingDistance) |  | Use the `MaxSmoothingDistance` property to disable interpolation when the values change more than the specified limit between two snapshots. This is useful for dealing with teleportation, for example. |
-| [`SubType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType) |  | Use the `SubType` property to specify a custom serializer for a field using the [`GhostFieldSubType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldSubType.html) API. |
+| [`Quantization`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Quantization) | float 默认禁用，整数不可用 | 使用 `Quantization` 属性为浮点数及其他受支持类型设置[量化](compression.md#quantization)，以限制数据精度；支持类型请参阅 [Ghost 类型模板](ghost-types-templates.md)。浮点数会乘以量化值并转换为整数，从而节省带宽 |
+| [`Composite`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Composite) | 默认禁用 | 使用 `Composite` 属性控制[增量压缩](compression.md#delta-compression)如何为结构体等非原始字段计算变化位掩码。设为 `true` 时，增量压缩模板只生成一位，用于表示整个结构体内是否存在任何变化。设为 false 时，每个字段都有自己的变化位。如果所有字段通常一起修改，例如 `GUID`，请使用 `Composite=true` |
+| [`SendData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SendData) | 默认启用 | 使用 `SendData` 属性指示代码生成过程不要把字段包含在序列化数据中。这对结构体等默认序列化全部字段的非原始成员尤其有用 |
+| [`Smoothing`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Smoothing) | 默认为 [`Clamp`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html#Unity_NetCode_SmoothingAction_Clamp) | 使用 `Smoothing` 属性控制 Ghost 处于 `GhostMode.Interpolated` 时字段的更新方式。可选值为：`Clamp`，每次收到快照都将客户端值直接设为最新快照值；`Interpolate`，每帧在最近两份快照值之间进行插值，如果下一 Tick 没有数据则停在最新值；`InterpolateAndExtrapolate`，每帧在最近两份快照值之间进行插值，如果下一 Tick 没有数据，则使用前两份快照值线性外推下一值 |
+| [`MaxSmoothingDistance`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_MaxSmoothingDistance) |  | 使用 `MaxSmoothingDistance` 属性，在两份快照之间的数值变化超过指定限制时禁用插值，例如可用于处理瞬移 |
+| [`SubType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType) |  | 使用 `SubType` 属性，通过 [`GhostFieldSubType`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldSubType.html) API 为字段指定自定义序列化器 |
 
->[!NOTE] Ghosts that are marked as **both** static-optimized **and** interpolated will **never** extrapolate,
-> because static-optimized ghosts do not send snapshot updates when they haven't changed, so we therefore cannot differentiate
-> between 'this continuously changing value has since stopped changing' and 'we have not yet received the next continuous value'.
+>[!NOTE]
+> 同时标记为静态优化和插值模式的 Ghost **永远不会**外推。静态优化 Ghost 未发生变化时不会发送快照更新，因此无法区分“持续变化的值已经停止变化”与“尚未收到下一个持续变化值”
 
-### `GhostField` inheritance
+<a id="ghostfield-inheritance"></a>
+### `GhostField` 继承
 
-If a `[GhostField]` is specified for a non-primitive field type, the attribute (and some of its properties) are automatically inherited by all subfields which don't themselves implement a `[GhostField]` attribute. For example:
+如果为非原始字段类型指定 `[GhostField]`，其特性和部分属性会自动被所有未自行声明 `[GhostField]` 的子字段继承。例如：
 
 ```c#
-
 public struct Vector2
 {
     public float x;
@@ -35,25 +35,25 @@ public struct Vector2
 
 public struct MyComponent : IComponentData
 {
-    //Value.x will inherit the quantization value specified by the parent definition (1000).
-    //Value.y will maintain its original quantization value (100).
+    // Value.x 会继承父级定义中指定的量化值 1000
+    // Value.y 会保留自身原有的量化值 100
     [GhostField(Quantized=1000)] public Vector2 Value;
 }
 ```
 
 > [!NOTE]
-> The `SubType` property always resets to the default.
+> `SubType` 属性始终重置为默认值
 
-## Component serialization
+<a id="component-serialization"></a>
+## 组件序列化
 
-To mark a component for serialization and replication, add a `[GhostField]` attribute to the values you want to send.
+若要将组件标记为需要序列化和复制，请为需要发送的值添加 `[GhostField]` 特性
 
-The component declaration must:
+组件声明必须满足以下要求：
 
-- Be a concrete type. Generic structs are not supported.
-- Be `public` or `internal`.
-- Implement either `IComponentData` or any interface inheriting from it. Generic interfaces inheriting from
-  `IComponentData` are supported.
+- 必须是具体类型，不支持泛型结构体
+- 必须是 `public` 或 `internal`
+- 必须实现 `IComponentData` 或任何继承该接口的接口，支持继承 `IComponentData` 的泛型接口
 
 ```csharp
 public struct MySerializedComponent : IComponentData
@@ -66,18 +66,18 @@ public struct MySerializedComponent : IComponentData
 }
 ```
 
-Only `public` members of the component can be serialized. Adding `[GhostField]` to a `private` member has no effect.
+只有组件的 `public` 成员可以序列化。为 `private` 成员添加 `[GhostField]` 不会产生任何效果
 
-## Dynamic buffer serialization
+<a id="dynamic-buffer-serialization"></a>
+## 动态缓冲区序列化
 
-To mark a buffer for serialization and replication, all `public` fields must be annotated with a `[GhostField]` attribute.
+若要将缓冲区标记为需要序列化和复制，必须为所有 `public` 字段添加 `[GhostField]` 特性
 
-The buffer declaration must:
+缓冲区声明必须满足以下要求：
 
-- Be a concrete type. Generic structs are not supported.
-- Be `public` or `internal`.
-- Implement either `IBufferElementData` or any interface inheriting from it. Generic interfaces inheriting from
-`IBufferElementData` are supported.
+- 必须是具体类型，不支持泛型结构体
+- 必须是 `public` 或 `internal`
+- 必须实现 `IBufferElementData` 或任何继承该接口的接口，支持继承 `IBufferElementData` 的泛型接口
 
 ```csharp
 public struct SerialisedBuffer : IBufferElementData
@@ -85,68 +85,70 @@ public struct SerialisedBuffer : IBufferElementData
     [GhostField]public int Field0;
     [GhostField(Quantization=1000)]public float Field1;
     [GhostField(Quantization=1000)]public float2 Position;
-    public float2 NonSerialisedField; // This is an explicit error!
-    private float2 NonSerialisedField; // We allow this. Ensure you set this on the client, before reading from it.
-    [GhostField(SendData=false)]public int NotSentAndUninitialised; // We allow this. Ensure you set this on the client, before reading from it.
+    public float2 NonSerialisedField; // 这是明确的错误
+    private float2 NonSerialisedField; // 允许这样做，但在客户端读取前应自行设置该值
+    [GhostField(SendData=false)]public int NotSentAndUninitialised; // 允许这样做，但在客户端读取前应自行设置该值
     ...
 }
 ```
 
-You can use the [`SendData` property](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SendData) to skip serialization and replication of a field, which means that:
+可以使用 [`SendData` 属性](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SendData)跳过字段的序列化和复制，这意味着：
 
-- The value of the fields that aren't replicated are never altered.
-- For new buffer elements, their content isn't set to default and the content is undefined (can be any value).
+- 未复制字段的值永远不会被修改
+- 对于新的缓冲区元素，其内容不会被设为默认值，而是处于未定义状态，可以是任意值
 
-Dynamic buffer fields don't support [`SmoothingAction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html) so the `GhostFieldAttribute.Smoothing` and `GhostFieldAttribute.MaxSmoothingDistance` properties are ignored on buffers.
+动态缓冲区字段不支持 [`SmoothingAction`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html)，因此缓冲区会忽略 `GhostFieldAttribute.Smoothing` 和 `GhostFieldAttribute.MaxSmoothingDistance` 属性
 
-## `ICommandData` and `IInputComponentData` serialization
+<a id="icommanddata-and-iinputcomponentdata-serialization"></a>
+## `ICommandData` 与 `IInputComponentData` 序列化
 
-You can annotate your input's fields with `[GhostField]` to replicate them from server to client. This can be useful, for example, to enable client-side prediction of other players' character controllers on your local machine.
+可以为输入字段添加 `[GhostField]`，使其从服务器复制到客户端。例如，这可用于在本地计算机上启用其他玩家角色控制器的客户端预测
 
-When using automated input synchronization with [`IInputComponentData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IInputComponentData.html):
-
-```c#
-    public struct MyCommand : IInputComponentData
-    {
-        [GhostField] public int Value;
-    }
-```
-
-[`ICommandData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ICommandData.html) is a subclass of [`IBufferElementData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html) and can be serialized for replication from the server to clients. As such, the same rules as for [buffers](#dynamic-buffer-serialization) apply: if the command buffer is to be serialized, then all fields must be annotated.
-
-When using `ICommandData`:
+使用 [`IInputComponentData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.IInputComponentData.html) 自动同步输入时：
 
 ```c#
-    [GhostComponent()]
-    public struct MyCommand : ICommandData
-    {
-        [GhostField] public NetworkTick Tick {get; set;}
-        [GhostField] public int Value;
-    }
+public struct MyCommand : IInputComponentData
+{
+    [GhostField] public int Value;
+}
 ```
 
-Command data serialization is particularly useful for implementing [remote player prediction](prediction-n4e.md#remote-player-prediction).
+[`ICommandData`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ICommandData.html) 继承自 [`IBufferElementData`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html)，可以序列化并从服务器复制到客户端。因此，它遵循与[缓冲区](#dynamic-buffer-serialization)相同的规则：如果需要序列化命令缓冲区，就必须标记所有字段
 
-## Adding serialization support for custom types
+使用 `ICommandData` 时：
 
-The types you can serialize with `GhostFieldAttribute` are specified via templates. Refer to the [Ghost types templates page](ghost-types-templates.md#supported-types) for a list of the default supported types.
+```c#
+[GhostComponent()]
+public struct MyCommand : ICommandData
+{
+    [GhostField] public NetworkTick Tick {get; set;}
+    [GhostField] public int Value;
+}
+```
 
-In addition to the default supported types you can also:
+命令数据序列化对实现[远程玩家预测](prediction-n4e.md#remote-player-prediction)尤其有用
 
-- Add your own templates for new types.
-- Provide a custom serialization template for a type and target it using the [`SubType` property](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType) of `GhostFieldAttribute`.
+<a id="adding-serialization-support-for-custom-types"></a>
+## 为自定义类型添加序列化支持
 
-Refer to [how to use and write templates](ghost-types-templates.md#defining-additional-templates) for more information on creating templates.
+可通过 `GhostFieldAttribute` 序列化的类型由模板指定。默认支持的类型列表请参阅 [Ghost 类型模板页面](ghost-types-templates.md#supported-types)
+
+除默认支持的类型外，还可以：
+
+- 为新类型添加自定义模板
+- 为某种类型提供自定义序列化模板，并使用 `GhostFieldAttribute` 的 [`SubType` 属性](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType)指定该模板
+
+有关创建模板的详细信息，请参阅[如何使用和编写模板](ghost-types-templates.md#defining-additional-templates)
 
 >[!NOTE]
-> Creating templates for serialization is non-trivial. If it's possible to replicate a type by adding `[GhostField]`, it's often easier to just do so. If you don't have access to a type, you can create a [variant](ghost-variants.md) instead.
+> 创建序列化模板并不简单。如果可以通过添加 `[GhostField]` 复制某个类型，通常直接这样做会更容易。如果无法访问该类型，可以改为创建[变体](ghost-variants.md)
 
-## Additional resources
+## 其他资源
 
-- [`GhostFieldAttribute` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html)
-- [`Unity.Entities.IComponentData` API documentation](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IComponentData.html)
-- [`Unity.Entities.IBufferElementData` API documentation](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html)
-- [Ghost types templates](ghost-types-templates.md)
-- [Ghost variants](ghost-variants.md)
-- [Customizing replication with `GhostComponentAttribute`](ghostcomponentattribute.md)
-- [Preserialize ghosts](optimization/optimize-ghosts.md#preserialize-ghosts)
+- [`GhostFieldAttribute` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html)
+- [`Unity.Entities.IComponentData` API 文档](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IComponentData.html)
+- [`Unity.Entities.IBufferElementData` API 文档](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.IBufferElementData.html)
+- [Ghost 类型模板](ghost-types-templates.md)
+- [Ghost 变体](ghost-variants.md)
+- [使用 `GhostComponentAttribute` 自定义复制行为](ghostcomponentattribute.md)
+- [预序列化 Ghost](optimization/optimize-ghosts.md#preserialize-ghosts)

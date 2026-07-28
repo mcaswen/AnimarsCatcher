@@ -1,77 +1,83 @@
-# Introduction to host migration
+# 主机迁移简介
 
-Understand the basics of host migration in Netcode for Entities and whether it might be suitable for your project.
+了解 Netcode for Entities 中主机迁移的基础知识，以及它是否适合当前项目
 
-Host migration in Netcode for Entities uses [Unity Gaming Services](https://unity.com/solutions/gaming-services) to allow a client hosted networking experience to continue after the loss of the host. You can use host migration to manage a variety of voluntary and involuntary interruptions, including network disconnections, power failures, or the host exiting the application.
+Netcode for Entities 的主机迁移使用 [Unity Gaming Services](https://unity.com/solutions/gaming-services)，使客户端托管的网络会话在失去主机后仍能继续。主机迁移可用于处理各种主动或意外中断，包括网络断开、电源故障或主机退出应用
 
-## Host migration basics
+<a id="host-migration-basics"></a>
+## 主机迁移基础
 
-Host migration is the process of transferring the responsibilities of the host role from one client to another with minimal gameplay disruption. In Netcode for Entities, host migration requires using [Unity Gaming Services](https://unity.com/solutions/gaming-services), specifically the [Unity Lobby service](https://docs.unity.com/ugs/manual/lobby/manual/unity-lobby-service), [Unity Relay](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction), and [Unity Authentication](https://docs.unity.com/ugs/en-us/manual/authentication/manual/overview). This requires your project to be linked to a project in the [Unity Cloud Dashboard](https://cloud.unity.com/).
+主机迁移是指以尽量小的玩法中断，将主机角色的职责从一个客户端转移到另一个客户端。在 Netcode for Entities 中，主机迁移需要使用 [Unity Gaming Services](https://unity.com/solutions/gaming-services)，具体包括 [Unity Lobby 服务](https://docs.unity.com/ugs/manual/lobby/manual/unity-lobby-service)、[Unity Relay](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction) 和 [Unity Authentication](https://docs.unity.com/ugs/en-us/manual/authentication/manual/overview)。因此，项目必须关联到 [Unity Cloud Dashboard](https://cloud.unity.com/) 中的项目
 
-For a complete list of host migration requirements, refer to the [Host migration requirements page](host-migration-requirements.md). You can also refer to the [Host migration in Asteroids sample](host-migration-sample.md) for an example implementation of host migration.
+完整的主机迁移要求请参阅[主机迁移要求页面](host-migration-requirements.md)。还可以参阅 [Asteroids 主机迁移示例](host-migration-sample.md)，了解主机迁移的实现方式
 
-## Host migration process
+<a id="host-migration-process"></a>
+## 主机迁移过程
 
-When host migration is enabled, the host serializes a snapshot of the synchronizable game state at regular intervals, including the list of connected clients, added components, loaded scenes, and all ghost and ghost prefab information. This host migration data is uploaded securely to the connected lobby, with each snapshot overwriting the previous one.
+启用主机迁移后，主机会定期序列化可同步游戏状态的快照，其中包括已连接客户端列表、已添加组件、已加载场景，以及全部 Ghost 与 Ghost 预制体信息。主机迁移数据会安全上传到当前连接的 Lobby，每份新快照都会覆盖上一份
 
-A host migration is triggered when the host leaves or is disconnected and the relay connection is lost. The lobby notifies all connected clients and one of the clients is chosen as the new host, requests a new [relay allocation](https://docs.unity.com/ugs/en-us/manual/relay/manual/connection-flow#1), and updates the lobby data with the new relay allocation information. The other clients can then join the new relay allocation when they receive the lobby update.
+当主机离开或断开连接，并且 Relay 连接丢失时，会触发主机迁移。Lobby 通知所有已连接客户端，选择其中一个客户端作为新主机。新主机会请求新的 [Relay 分配](https://docs.unity.com/ugs/en-us/manual/relay/manual/connection-flow#1)，并使用新的 Relay 分配信息更新 Lobby 数据。其他客户端收到 Lobby 更新后，即可加入新的 Relay 分配
 
-After the host role is migrated, the new host downloads the most recent snapshot from the lobby and creates a new server world based on that game state. Ghosts are instantiated and their ghost component data deployed so that they're in the same state as when the last snapshot was sent. When connections from clients arrive, the lobby identifies which ones were previously connected and which ghosts were owned by them, ensuring that the game state is maintained for all clients.
+主机角色迁移后，新主机会从 Lobby 下载最近的快照，并根据该游戏状态创建新的服务器 World。系统实例化 Ghost 并部署其 Ghost 组件数据，使它们恢复到最近一次发送快照时的状态。当客户端连接抵达后，Lobby 会识别哪些客户端此前已连接，以及哪些 Ghost 归它们所有，从而为所有客户端保持游戏状态
 
-### Host migration data
+<a id="host-migration-data"></a>
+### 主机迁移数据
 
-The following data is saved and restored on the new host as part of host migration:
+主机迁移期间，以下数据会被保存并在新主机上恢复：
 
-* All user components on the connection entity on the server, as well as the [`NetworkStreamInGame`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamInGame.html) component presence. The connection entity on the client has no special handling.
-* All ghosts and their ghost components. The full component data of ghost components is saved and restored, not just ghost fields.
-* Server-only components with at least one variable marked with a `GhostField` attribute.
-* The current network tick and elapsed time values.
-* Only data which is normally included in [snapshots](ghost-snapshots.md) is supported (components and dynamic buffers). For example, native containers aren't included in the migration data.
+* 服务器连接实体上的全部用户组件，以及 [`NetworkStreamInGame`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamInGame.html) 组件是否存在。客户端上的连接实体没有特殊处理
+* 全部 Ghost 及其 Ghost 组件。系统会保存和恢复 Ghost 组件的完整组件数据，而不只是 Ghost 字段
+* 至少有一个变量标记了 `GhostField` 特性的仅服务器组件
+* 当前网络 Tick 与经过时间值
+* 只支持通常包含在[快照](ghost-snapshots.md)中的数据，例如组件和动态缓冲区。原生容器不会包含在迁移数据中
 
-### Detecting connection loss
+<a id="detecting-connection-loss"></a>
+### 检测连接丢失
 
-Connected players detect the loss of a connection to the server first, although this doesn't immediately result in a host migration. It's the disconnection signal to the [Lobby service](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service) that triggers the election of a new host and a host migration. The disconnection signal comes from one of two events, whichever comes first:
+已连接玩家会最先检测到与服务器的连接丢失，但这不会立即触发主机迁移。向 [Lobby 服务](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service)发出的断开信号才会触发新主机选举和主机迁移。断开信号来自以下两个事件中先发生的一个：
 
-* A timeout on the Relay connection (10s)
-* A disconnection from the Lobby WebSocket connection
+* Relay 连接超时，默认 10 秒
+* Lobby WebSocket 连接断开
 
-You must subscribe to Lobby events for the WebSocket connection to be active and send disconnection events.
+必须订阅 Lobby 事件，WebSocket 连接才会保持活动并发送断开事件
 
-### Managing end-to-end latency
+<a id="managing-end-to-end-latency"></a>
+### 管理端到端延迟
 
-Multiple delays and timeouts are involved in the end-to-end host migration process. Some of these values are customizable in code, others are configurable via the Unity Dashboard, and others are fixed constants.
+完整的主机迁移过程涉及多个延迟和超时。其中一些值可以在代码中自定义，一些可以通过 Unity Dashboard 配置，还有一些是固定常量
 
-| Description                     | Default                | Minimum | Configurable |
-| - | - | - | - |
-| Relay keepalive | 10s | 10s | No |
-| Lobby player removal delay | 120s | 5s | Yes, on the Unity Dashboard |
-| Lobby host election delay | 120s | 5s | Yes, on the Unity Dashboard |
+| 说明                    | 默认值 | 最小值 | 是否可配置 |
+|-------------------------|--------|--------|------------|
+| Relay 保活              | 10 秒  | 10 秒  | 否 |
+| Lobby 玩家移除延迟      | 120 秒 | 5 秒   | 是，在 Unity Dashboard 中配置 |
+| Lobby 主机选举延迟      | 120 秒 | 5 秒   | 是，在 Unity Dashboard 中配置 |
 
-## Host migration sequence
+<a id="host-migration-sequence"></a>
+## 主机迁移时序
 
-The following diagram shows the high level interactions during a host migration with three players.
+下图展示了三名玩家进行主机迁移时的高层交互
 
-![Host migration sequence diagram](../images/host-migration-sequence.png)
+![主机迁移时序图](../images/host-migration-sequence.png)
 
-The steps described in the diagram are as follows:
+图中步骤如下：
 
-1. P1 creates a lobby with connection information (the [Relay join code](https://docs.unity.com/ugs/en-us/manual/relay/manual/join-codes) or direct IP address and port).
-1. P1 starts uploading migration data periodically.
-1. P2 joins the lobby and reads the connection information.
-1. P2 connects to P1.
-1. P3 joins the lobby and reads the connection information.
-1. P3 connects to P1.
-1. P1 is detected as disconnected from the lobby and the service changes the host to P2.
-1. The lobby informs P2 of the host change.
-1. P2 downloads and applies the migration data left by the previous host.
-1. P2 starts uploading migration data periodically.
-1. The lobby informs P3 of the host change.
-1. P3 connects to P2 and the host migration is complete.
+1. P1 使用连接信息创建 Lobby，连接信息为 [Relay 加入代码](https://docs.unity.com/ugs/en-us/manual/relay/manual/join-codes)或直接 IP 地址与端口
+1. P1 开始定期上传迁移数据
+1. P2 加入 Lobby 并读取连接信息
+1. P2 连接 P1
+1. P3 加入 Lobby 并读取连接信息
+1. P3 连接 P1
+1. Lobby 检测到 P1 已断开，并由服务将主机改为 P2
+1. Lobby 通知 P2 主机已变更
+1. P2 下载并应用上一任主机留下的迁移数据
+1. P2 开始定期上传迁移数据
+1. Lobby 通知 P3 主机已变更
+1. P3 连接 P2，主机迁移完成
 
-## Additional resources
+## 其他资源
 
-* [Host migration in Asteroids sample](host-migration-sample.md)
-* [Unity Lobby documentation](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service)
-* [Unity Relay documentation](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction)
-* [Unity Authentication documentation](https://docs.unity.com/ugs/en-us/manual/authentication/manual/overview)
-* [`NetworkStreamInGame` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamInGame.html)
+* [Asteroids 主机迁移示例](host-migration-sample.md)
+* [Unity Lobby 文档](https://docs.unity.com/ugs/en-us/manual/lobby/manual/unity-lobby-service)
+* [Unity Relay 文档](https://docs.unity.com/ugs/en-us/manual/relay/manual/introduction)
+* [Unity Authentication 文档](https://docs.unity.com/ugs/en-us/manual/authentication/manual/overview)
+* [`NetworkStreamInGame` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamInGame.html)

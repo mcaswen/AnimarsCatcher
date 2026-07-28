@@ -1,162 +1,184 @@
-# Ghosts and snapshots
+# Ghost 与快照
 
-Understand [ghosts](#ghosts) and [snapshots](#snapshots) in Netcode for Entities and how to use them to synchronize states in your multiplayer project.
+了解 Netcode for Entities 中的 [Ghost](#ghosts) 和[快照](#snapshots)，以及如何使用它们同步多人游戏项目中的状态
 
-Netcode for Entities also supports a limited form of [remote procedure call-like operations (RPCs)](rpcs.md) to handle events. For more information about when to use ghosts or RPCs, refer to the [comparison on the RPC page](rpcs.md#comparing-ghosts-and-rpcs).
+Netcode for Entities 还支持一种有限的[类远程过程调用操作（RPC）](rpcs.md)，用于处理事件。有关何时使用 Ghost 或 RPC，请参阅 [RPC 页面中的对比](rpcs.md#comparing-ghosts-and-rpcs)
 
-## Ghosts
+<a id="ghosts"></a>
+## Ghost
 
-A ghost is a networked object in a multiplayer game.
-* A ghost is owned by (and simulated by) the server. In other words; the server has final authority over all ghosts. The server may therefore spawn, destroy, and update ghost entities.
-* Each client connected to the server has a copy of each relevant server ghost, and the client updates this representation by receiving [snapshots](#snapshots) sent by the server - once per network tick - which contains the current state of a subset of these ghosts. The client then presents the updated state of the ghosts to the rest of the game simulation on one of two timelines (see [interpolation](#interpolation.md) and [client prediction](#intro-to-prediction.md)), allowing ghosts to be smoothly rendered etc.
-_Note, then; the client cannot directly control or affect ghosts, because the server has authority over the entire game simulation. Therefore, any modification the client makes to a ghost is considered a client prediction, and can (and will) be reverted when new, server authoritative snapshot data arrives._
+Ghost 是多人游戏中的网络对象
 
-When you create a ghost, you need to define how it's [synchronized between client and server](#synchronizing-ghost-components-and-fields). For more information about how to spawn ghosts after defining them, refer to the [Ghost spawning page](#ghost-spawning.md).
+* Ghost 由服务器拥有并模拟。换言之，服务器拥有所有 Ghost 的最终权威，因此可以生成、销毁和更新 Ghost 实体
+* 连接到服务器的每个客户端都保存每个相关服务器 Ghost 的副本。服务器每个网络 Tick 发送一次[快照](#snapshots)，其中包含一部分 Ghost 的当前状态，客户端通过接收快照更新本地表示。客户端随后在两条时间线之一上向游戏模拟的其余部分呈现 Ghost 更新状态，参阅[插值](interpolation.md)和[客户端预测](intro-to-prediction.md)，从而平滑渲染 Ghost 等内容
 
-### Create a ghost
+请注意，客户端不能直接控制或影响 Ghost，因为服务器拥有整个游戏模拟的权威。因此，客户端对 Ghost 进行的任何修改都属于客户端预测，并且新的服务器权威快照数据抵达时可能而且通常会被还原
 
-Create ghosts in the Unity Editor by [creating a prefab](https://docs.unity3d.com/Manual/CreatingPrefabs.html) with a [`GhostAuthoringComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html).
+创建 Ghost 时，需要定义它在[客户端与服务器之间的同步方式](#synchronize-ghost-components-and-fields)。定义完成后如何生成 Ghost，请参阅 [Ghost 生成页面](ghost-spawning.md)
 
-The `GhostAuthoringComponent` in the Editor has a small editor that you can use to configure how Netcode for Entities synchronizes the prefab. You must set the __Name__, __Importance__, __Supported Ghost Mode__, __Default Ghost Mode__ and __Optimization Mode__ property on each ghost, and we also suggest you set the __MaxSendRate__ value to reduce absolute bandwidth consumption. _Netcode for Entities uses the __Importance__ property to control which entities it sends when there's not enough bandwidth to send all entities within a single snapshot (the size of each snapshot packet can be customized). A higher value makes it more likely that the ghost is sent._
+<a id="create-a-ghost"></a>
+### 创建 Ghost
 
-The (optional) __MaxSendRate__ property denotes the absolute maximum send frequency (in Hz) for ghost chunks of this ghost prefab type (excluding a few nuanced exceptions).
-__Important Note:__ `MaxSendRate` only denotes the maximum *possible* replication frequency, and cannot be enforced in all cases. I.e. Other factors (like `ClientServerTickRate.NetworkTickRate`, ghost instance count, __Importance__, Importance-Scaling, `GhostSendSystemData.DefaultSnapshotPacketSize`, and structural changes etc.) will determine the final send rate.
+在 Unity 编辑器中创建带有 [`GhostAuthoringComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostAuthoringComponent.html) 的[预制体](https://docs.unity3d.com/Manual/CreatingPrefabs.html)，即可创建 Ghost
 
-Examples:
-* A ghost with a `MaxSendRate` of 100Hz will still be rate limited by the `NetworkTickRate` itself, which is 60Hz by default.
-* Similarly, a ghost with a `MaxSendRate` of 60Hz instantiated in a project with a `NetworkTickRate` of 30Hz will be sent at a maximum of 30Hz.
-* As this calculation can only be performed on integer/whole `ticksSinceLastSent` ticks, a ghost with a `MaxSendRate` in-between multiples of the `NetworkTickRate` will be rounded down to the next multiple.
-E.g. `NetworkTickRate:30Hz`, `MaxSendRate:45` means 30Hz is the actual maximum send rate.
+编辑器中的 `GhostAuthoringComponent` 提供一个小型配置界面，用于设置 Netcode for Entities 如何同步该预制体。每个 Ghost 都必须设置 __Name__、__Importance__、__Supported Ghost Mode__、__Default Ghost Mode__ 和 __Optimization Mode__。还建议设置 __MaxSendRate__，以降低绝对带宽消耗。Netcode for Entities 在带宽不足以把全部实体放入单份快照时，使用 __Importance__ 属性决定发送哪些实体；每份快照数据包的大小可以自定义。值越高，Ghost 越可能被发送
 
-### __Supported Ghost Mode__ options
+可选属性 __MaxSendRate__ 表示该 Ghost 预制体类型所在 Ghost Chunk 的绝对最大发送频率，单位为 Hz，但存在少数特殊例外
 
-* __All__: This ghost supports both [interpolation](interpolation.md) and [prediction](intro-to-prediction.md).
-* __Interpolated__: This ghost only supports interpolation. It can't be spawned as a predicted ghost.
-* __Predicted__: This ghost only supports prediction. It can't be spawned as an interpolated ghost.
+**重要说明：**`MaxSendRate` 只表示最高**可能**复制频率，无法保证在所有情况下达到。最终发送速率还取决于 `ClientServerTickRate.NetworkTickRate`、Ghost 实例数量、__Importance__、重要度缩放、`GhostSendSystemData.DefaultSnapshotPacketSize`、结构变化等因素
 
-### __Default Ghost Mode__ options
+示例：
 
-* __Interpolated__: Unity treats all ghosts that it receives from the server as interpolated.
-* __Predicted__: Unity treats all ghosts that it receives from the server are treated predicted.
-* __Owner predicted__: The ghost is predicted for the client that owns it, and interpolated for all other clients. When you select this property, you must also add a __GhostOwner__ and set its __NetworkId__ field in your code. Unity compares this field to each clients' network ID to find the correct owner.
+* `MaxSendRate` 为 100Hz 的 Ghost 仍会受到 `NetworkTickRate` 限制，后者默认为 60Hz
+* 类似地，在 `NetworkTickRate` 为 30Hz 的项目中，`MaxSendRate` 为 60Hz 的 Ghost 实例最高只会以 30Hz 发送
+* 该计算只能基于整数个 `ticksSinceLastSent` Tick，因此当 `MaxSendRate` 位于 `NetworkTickRate` 的整数分频之间时，会向下取到下一个可实现的频率。例如，`NetworkTickRate:30Hz`、`MaxSendRate:45` 时，实际最大发送速率为 30Hz
 
-### __Optimization Mode__ options
+<a id="supported-ghost-mode-options"></a>
+### __Supported Ghost Mode__ 选项
 
-* __Dynamic__: This is the default setting. Use this when you expect the ghost to change often. The ghost is optimized for a small snapshot size when both changing and not changing.
-* __Static__: Use this when you expect the ghost to change infrequently. The ghost isn't optimized for a small snapshot size when changing, but isn't sent at all when it's not changing.
+* __All__：Ghost 同时支持[插值](interpolation.md)和[预测](intro-to-prediction.md)
+* __Interpolated__：Ghost 只支持插值，不能作为预测 Ghost 生成
+* __Predicted__：Ghost 只支持预测，不能作为插值 Ghost 生成
 
-## Structural changes on instantiated ghosts
+<a id="default-ghost-mode-options"></a>
+### __Default Ghost Mode__ 选项
 
-You can make some structural changes to already instantiated ghost prefabs, such as [adding or removing components](#add-or-remove-components-on-an-instantiated-prefab) or [adding, removing, or destroying child entities](#add-remove-or-destroy-child-entities-on-an-instantiated-prefab), although there are limitations.
+* __Interpolated__：Unity 将服务器发来的所有 Ghost 视为插值 Ghost
+* __Predicted__：Unity 将服务器发来的所有 Ghost 视为预测 Ghost
+* __Owner predicted__：拥有 Ghost 的客户端对其进行预测，其他客户端对其进行插值。选择此属性时，还必须添加 __GhostOwner__，并在代码中设置其 __NetworkId__ 字段。Unity 会将该字段与各客户端的网络 ID 比较，以找出正确所有者
 
-| Action                                         | Supported  | Limitations                                                                |
-|------------------------------------------------|------------|----------------------------------------------------------------------------|
-| Add or remove components or buffers            | Yes        | None                                                                       |                                                  |
-| Add or remove replicated components or buffers | Yes        | Refer to [adding or removing components](#add-or-remove-components-on-an-instantiated-prefab)                        |
-| Add, remove, or destroy child entities                   | Yes        | Refer to [adding, removing, or destroying child entities](#add-remove-or-destroy-child-entities-on-an-instantiated-prefab)   |
+<a id="optimization-mode-options"></a>
+### __Optimization Mode__ 选项
+
+* __Dynamic__：默认设置。预期 Ghost 经常变化时使用。无论变化还是不变化，都会针对较小的快照大小进行优化
+* __Static__：预期 Ghost 很少变化时使用。Ghost 发生变化时不会针对较小快照优化，但未变化时完全不发送
+
+<a id="structural-changes-on-instantiated-ghosts"></a>
+## 已实例化 Ghost 上的结构变化
+
+可以对已经实例化的 Ghost 预制体进行部分结构变化，例如[添加或移除组件](#add-or-remove-components-on-an-instantiated-prefab)，或[添加、移除、销毁子实体](#add-remove-or-destroy-child-entities-on-an-instantiated-prefab)，但存在限制
+
+| 操作 | 是否支持 | 限制 |
+|------|----------|------|
+| 添加或移除组件或缓冲区 | 是 | 无 |
+| 添加或移除复制组件或缓冲区 | 是 | 参阅[添加或移除组件](#add-or-remove-components-on-an-instantiated-prefab) |
+| 添加、移除或销毁子实体 | 是 | 参阅[添加、移除或销毁子实体](#add-remove-or-destroy-child-entities-on-an-instantiated-prefab) |
 
 > [!NOTE]
-> Adding, removing, or destroying child entities is not technically a structural change, but has implications for replication.
+> 严格来说，添加、移除或销毁子实体不属于结构变化，但会影响复制
 
-### Add or remove components on an instantiated prefab
+<a id="add-or-remove-components-on-an-instantiated-prefab"></a>
+### 在已实例化预制体上添加或移除组件
 
-You can add or remove any user-side components from both the root and child entities of an instantiated prefab and serialization and deserialization of the ghost, as well as delta compression, will continue to work.
+可以在已实例化预制体的根实体和子实体上添加或移除任意用户组件，Ghost 的序列化、反序列化和增量压缩仍会正常工作
 
-However, adding a component to an instantiated ghost (even if it has a `[GhostField]`), will not replicate the component to other instances of the same ghost prefab. For a component to be replicated, it must be part of the prefab at authoring time.
+但是，向已实例化 Ghost 添加组件，即使组件带有 `[GhostField]`，也不会把该组件复制到同一 Ghost 预制体的其他实例。需要复制的组件必须在创作阶段就是预制体的一部分
 
-### Add, remove, or destroy child entities on an instantiated prefab
+<a id="add-remove-or-destroy-child-entities-on-an-instantiated-prefab"></a>
+### 在已实例化预制体上添加、移除或销毁子实体
 
-You can't remove or change the index of any replicated child entity within the `LinkedEntityGroup` buffer, since doing so can cause serialization and deserialization errors. You can, however, do the following:
+不能移除 `LinkedEntityGroup` 缓冲区中的复制子实体，也不能改变其索引，否则可能导致序列化和反序列化错误。不过，可以执行以下操作：
 
-* Destroy any child entity in the `LinkedEntityGroup`, with or without replicated components, as long as you don't re-order or remove the associated entry in the `LinkedEntityGroup`.
-* Remove entities from the `LinkedEntityGroup` buffer, as long as doing so doesn't cause a re-ordering of the original replicated child entities.
-* Append entities to the `LinkedEntityGroup`.
-    * In general, avoid prepending or inserting entities in between the original entries of the `LinkedEntityGroup` buffer. However, you can insert an entity in the `LinkedEntityGroup` after the last children that has replicated components.
+* 销毁 `LinkedEntityGroup` 中任意子实体，无论其是否具有复制组件；但不能重新排序或移除 `LinkedEntityGroup` 中对应的条目
+* 从 `LinkedEntityGroup` 缓冲区移除实体，前提是不会导致原始复制子实体重新排序
+* 向 `LinkedEntityGroup` 末尾追加实体
+    * 通常应避免在 `LinkedEntityGroup` 缓冲区原始条目前插入实体，或在原始条目之间插入实体。不过，可以在最后一个带有复制组件的子项之后插入实体
 
-Refer to the following examples of valid and invalid configurations for more details:
+以下有效与无效配置示例提供了更多细节：
 
-```
-// This is a valid configuration, where (*) denotes a destroyed entity.
+```text
+// 有效配置，(*) 表示已销毁实体
 root
-  child 1 (*) <-- Replicated
+  child 1 (*) <-- 已复制
   child 2
-  child 3     <-- Replicated
+  child 3     <-- 已复制
   child 4 (*)
 
-// This is a valid configuration, where entities have been appended.
+// 有效配置，实体追加在末尾
 root
-  child 1   <-- Replicated
-  child 2   <-- Replicated
-  =-----=  Append / Remove after here
+  child 1   <-- 已复制
+  child 2   <-- 已复制
+  =-----=  从此处之后追加或移除
   child 3
   user entity 1
   user entity 2
 
-// This is an invalid configuration because entities have been prepended, changing the index.
+// 无效配置，在开头插入实体导致索引变化
 root
-  new user entity 1 <--- INVALID, break replicated entity indexes
-  child 1  <-- Replicated
-  child 2  <-- Replicated
+  new user entity 1 <--- 无效，会破坏复制实体索引
+  child 1  <-- 已复制
+  child 2  <-- 已复制
   child 3
 
-// This is an invalid configuration, because entities have been added in between original entries, changing the index.
+// 无效配置，在原始条目之间添加实体导致索引变化
 root
-  child 1  <-- Replicated
-  new user entity 1 <--- INVALID, break replicated entity indexes
-  child 2  <-- Replicated
+  child 1  <-- 已复制
+  new user entity 1 <--- 无效，会破坏复制实体索引
+  child 2  <-- 已复制
   child 3
 ```
 
-## Synchronize ghost components and fields
+<a id="synchronize-ghost-components-and-fields"></a>
+## 同步 Ghost 组件与字段
 
-Netcode for Entities uses C# attributes to configure which components and fields to synchronize as part of a ghost.
+Netcode for Entities 使用 C# 特性配置 Ghost 中需要同步的组件和字段
 
-You can use the following fundamental attributes:
+可以使用以下基础特性：
 
-| Attribute | Usage | More information |
-|---|---|---|
-| [`GhostFieldAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html)           | Use the `GhostFieldAttribute` on a struct field or property to specify which component (or buffer) fields to serialize. Once a component has at least one field marked with `[GhostField]`, it becomes replicated and is transmitted as part of the ghost data.   | [Serializing and synchronization with GhostFieldAttribute](ghostfield-synchronize.md) |
-| [`GhostEnabledBitAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostEnabledBitAttribute.html) | Use the `GhostEnabledBitAttribute` on an `IEnableableComponent` struct definition to specify that the enabled bit for this component should be serialized. Once a component is flagged with `[GhostEnabledBit]`, its enabled bit becomes replicated, and is transmitted as part of the ghost data. | [GhostComponentAttribute](ghostcomponentattribute.md) |
-| [`GhostComponentAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostComponentAttribute.html)   | Use the `GhostComponentAttribute` on a `ComponentType` struct definition to:<br/>- Declare for which version of the prefab the component should be present.<br/>- Declare if the component should be serialized for child entities.<br/>- Declare to which subset of clients a component should be replicated. <br/>Important: Adding a `GhostComponentAttribute` won't make your component fields replicate. You must mark each field with a `GhostFieldAttribute` individually.  | [GhostComponentAttribute](ghostcomponentattribute.md) |
+| 特性 | 用法 | 更多信息 |
+|------|------|----------|
+| [`GhostFieldAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html) | 在结构字段或属性上使用 `GhostFieldAttribute`，指定需要序列化的组件或缓冲区字段。组件至少有一个字段标记 `[GhostField]` 后，就会成为复制组件，并作为 Ghost 数据的一部分传输 | [使用 GhostFieldAttribute 进行序列化与同步](ghostfield-synchronize.md) |
+| [`GhostEnabledBitAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostEnabledBitAttribute.html) | 在 `IEnableableComponent` 结构定义上使用 `GhostEnabledBitAttribute`，指定需要序列化该组件的启用位。组件标记 `[GhostEnabledBit]` 后，其启用位会被复制，并作为 Ghost 数据的一部分传输 | [GhostComponentAttribute](ghostcomponentattribute.md) |
+| [`GhostComponentAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostComponentAttribute.html) | 在 `ComponentType` 结构定义上使用 `GhostComponentAttribute`，可以声明组件存在于预制体的哪些版本、是否为子实体序列化组件，以及组件复制到哪些客户端。重要：添加 `GhostComponentAttribute` 不会使组件字段自动复制，必须分别使用 `GhostFieldAttribute` 标记每个字段 | [GhostComponentAttribute](ghostcomponentattribute.md) |
 
-## Snapshots
+<a id="snapshots"></a>
+## 快照
 
-A snapshot is a representation of the state of all ghosts on the server for a given network tick. Netcode for Entities sends one snapshot to each connected client once per tick, at a rate defined by [`NetworkTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_NetworkTickRate) (which can differ from the [`SimulationTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_SimulationTickRate)). If the `NetworkTickRate` is lower than the `SimulationTickRate`, then Netcode for Entities creates a subset group of connections, and sends one snapshot to each connection in the subset. Then, on the next tick, it sends a snapshot to the next subset, and so on. This is referred to as a round robin approach because it distributes the `GhostSendSystem` load across multiple `SimulationTickRate` ticks.
+快照表示服务器上全部 Ghost 在某个网络 Tick 的状态。Netcode for Entities 按 [`NetworkTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_NetworkTickRate) 定义的频率，每个 Tick 向每个已连接客户端发送一份快照。该频率可以与 [`SimulationTickRate`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_SimulationTickRate) 不同
 
-### Snapshot processing
+如果 `NetworkTickRate` 低于 `SimulationTickRate`，Netcode for Entities 会把连接划分为多个子集，并在当前 Tick 向一个子集中的各连接发送快照；下一 Tick 再向下一个子集发送，依此类推。这称为轮询方式，因为它把 `GhostSendSystem` 负载分散到多个 `SimulationTickRate` Tick
 
-The ghost snapshot system synchronizes entities, which exist on the server, to all clients. To improve performance, the server processes ghosts per [chunk](https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-chunk.html), rather than per entity. On the receiving client side, however, processing is done per entity. It's not possible to process per chunk on both sides because one set of entities in one chunk on the server may not correspond with the same set of entities in one chunk on the client. There are also multiple clients, each with their own entity-in-chunk layout.
+<a id="snapshot-processing"></a>
+### 快照处理
 
-### Partial snapshots
+Ghost 快照系统将服务器上存在的实体同步到所有客户端。为提升性能，服务器按 [Chunk](https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/components-chunk.html) 处理 Ghost，而不是逐实体处理；接收端客户端则按实体处理
 
-When replicating a lot of ghosts (or ghost data), the per-tick snapshot data size is clamped to the upper Maximum Transmission Unit (MTU) limit. As a result, it's common and expected for a snapshot to only contain a subset of all ghosts. These snapshots are referred to as partial snapshots. Ghosts in chunks with the highest importance values are added first, and Netcode for Entities streams your large world a few ghost chunks at a time, instead of sending all of them at once in a huge packet. This is effectively an importance priority queue.
+两端无法都按 Chunk 处理，因为服务器某个 Chunk 中的一组实体不一定对应客户端某个 Chunk 中的同一组实体。此外，多个客户端各自拥有不同的实体与 Chunk 布局
 
-_You can also use `MaxSendRate` to reduce the number of ghost chunks which are even considered as part of each snapshot's importance priority queue, which can also reduce total bandwidth consumption._
+<a id="partial-snapshots"></a>
+### 部分快照
 
-You can change the maximum size of snapshots. Reducing the maximum size saves bandwidth at the cost of a higher relative header overhead and less usable data, while increasing it may cause multiple UDP packets to have to be sent per snapshot, which can increase the probability of packet loss.
+复制大量 Ghost 或 Ghost 数据时，每 Tick 快照数据大小会受到最大传输单元 MTU 上限约束。因此，一份快照只包含全部 Ghost 的一个子集是常见且符合预期的情况，这种快照称为部分快照
 
-Refer to the documentation on [importance scaling](optimizations.md#importance-scaling) for more details.
+系统会优先添加重要度最高的 Chunk，再每次传输少量 Ghost Chunk，逐步流式发送大型 World，而不是一次发送一个巨大数据包。该过程实际上是一个按重要度排序的优先队列
 
-### Snapshot visualization tool
+还可以使用 `MaxSendRate` 减少每份快照的重要度优先队列需要考虑的 Ghost Chunk 数量，从而降低总带宽消耗
 
-To understand what's being sent over the network, you can use the Network Debugger snapshot visualization tool.
+可以修改快照最大大小。减小上限会节省带宽，但相对标头开销更高、可用数据更少；增大上限可能导致每份快照需要发送多个 UDP 数据包，从而增加丢包概率
 
-To open the tool, go to __Multiplayer__ > __Open NetDbg__, and the tool opens in a browser window. It displays a vertical bar for each received snapshot, with a breakdown of key information about each snapshot.
+详细信息请参阅[重要度缩放](optimizations.md#importance-scaling)文档
 
-For more information about a particular snapshot, select one of the bars.
+<a id="snapshot-visualization-tool"></a>
+### 快照可视化工具
 
-<img src="images/snapshot-debugger.png" width="1000" alt="net debug tool">
+可以使用 Network Debugger 快照可视化工具，了解通过网络发送的内容
+
+前往 __Multiplayer__ > __Open NetDbg__ 打开该工具。工具会在浏览器窗口中打开，并为每份收到的快照显示一条竖条，同时分解显示快照的关键信息
+
+若要查看某份快照的详细信息，请选择对应竖条
+
+<img src="images/snapshot-debugger.png" width="1000" alt="Net Debugger 工具">
 
 > [!NOTE]
-> This tool is a prototype.
+> 此工具目前是原型版本
 
-## Additional resources
+## 其他资源
 
-- [Communicating with RPCs](rpcs.md)
-- [`NetworkTickRate` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_NetworkTickRate)
-- [`SimulationTickRate` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_SimulationTickRate)
-- [Serializing and synchronizing with GhostField](ghostfield-synchronize.md)
-- [Customizing replication with `GhostComponentAttribute`](ghostcomponentattribute.md)
-- [Creating replication schemas with `GhostComponentVariationAttribute`](ghost-variants.md)
-- [Spawning ghosts](ghost-spawning.md)
-- [Ghost type templates](ghost-types-templates.md)
+- [使用 RPC 通信](rpcs.md)
+- [`NetworkTickRate` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_NetworkTickRate)
+- [`SimulationTickRate` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_SimulationTickRate)
+- [使用 GhostField 进行序列化与同步](ghostfield-synchronize.md)
+- [使用 `GhostComponentAttribute` 自定义复制行为](ghostcomponentattribute.md)
+- [使用 `GhostComponentVariationAttribute` 创建复制模式](ghost-variants.md)
+- [生成 Ghost](ghost-spawning.md)
+- [Ghost 类型模板](ghost-types-templates.md)

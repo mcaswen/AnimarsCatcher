@@ -1,9 +1,9 @@
-# Synchronizing states and inputs
+# 同步状态与输入
 
-Use ghosts, commands, and RPCs to synchronize states and inputs between server and clients in your multiplayer game.
+在多人游戏中使用 Ghost、命令和 RPC 同步服务器与客户端之间的状态和输入
 
-| **Topic**                                       | **Description**                               |
+| **主题**                                        | **说明**                                      |
 |:------------------------------------------------|:----------------------------------------------|
-| **[Synchronization with ghosts](ghosts.md)** | Use ghosts to synchronize and replicate states between server and clients in a consistent and customizable way.|
-| **[Communication with RPCs](rpcs.md)** | Use remote procedure calls (RPCs) to communicate high-level game flow events and send one-off, non-predicted commands from the client to the server. |
-| **[Handling inputs with the command stream](command-stream.md)** | Clients send a continuous command stream to the server when [`NetworkStreamConnection`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamConnection.html) is tagged as in-game. This stream includes all inputs and acknowledgements of the last received snapshot. |
+| **[使用 Ghost 进行同步](ghosts.md)** | 使用 Ghost 以一致且可自定义的方式在服务器与客户端之间同步并复制状态 |
+| **[使用 RPC 通信](rpcs.md)** | 使用远程过程调用（RPC）传递高层游戏流程事件，并从客户端向服务器发送一次性的非预测命令 |
+| **[使用命令流处理输入](command-stream.md)** | 当 [`NetworkStreamConnection`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkStreamConnection.html) 被标记为游戏中状态时，客户端会持续向服务器发送命令流。该数据流包括全部输入，以及对最近收到快照的确认 |

@@ -1,126 +1,147 @@
-# Connecting server and clients
+# 连接服务器与客户端
 
-Netcode for Entities uses the [Unity Transport package](https://docs.unity3d.com/Packages/com.unity.transport@latest) to manage connections and stores each connection as an entity. Each connection entity has a [NetworkStreamConnection](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamConnection.html) component with the `Transport` handle for the connection. When the connection is closed, either because the server disconnected the user or the client requested to disconnect, the entity is destroyed.
+Netcode for Entities 使用 [Unity Transport 包](https://docs.unity3d.com/Packages/com.unity.transport@latest)管理连接，并将每条连接保存为实体。每个连接实体都有一个 [`NetworkStreamConnection`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamConnection.html) 组件，其中保存该连接的 Transport 句柄。无论是服务器断开用户，还是客户端主动请求断开，连接关闭后都会销毁该实体
 
-To target which entity should receive the player commands, when not using the [`AutoCommandTarget` feature](command-stream.md#automatically-handling-commands-autocommandtarget) or for having more manual control, each connection has a [CommandTarget](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.CommandTarget.html) which must point to the entity where the received commands need to be stored. Your game is responsible for keeping this entity reference up to date.
+不使用 [`AutoCommandTarget`](command-stream.md#automatically-handling-commands-autocommandtarget)，或者需要更精细地手动控制时，每条连接上的 [`CommandTarget`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.CommandTarget.html) 必须指向用于保存所接收玩家命令的实体。游戏代码负责持续维护该实体引用
 
-Your game can mark a connection as being in-game with the `NetworkStreamInGame` component. Your game must do this; it's never done automatically. Before the `NetworkStreamInGame` component is added to the connection, the client does not send commands, nor does the server send snapshots.
+游戏可以在连接上添加 `NetworkStreamInGame` 组件，将其标记为 InGame。该操作不会自动发生，必须由游戏主动完成。在连接获得 `NetworkStreamInGame` 之前，客户端不会发送命令，服务器也不会发送快照
 
-To request to disconnect, add a `NetworkStreamRequestDisconnect` component to the entity. Direct disconnection through the driver is not supported.
+要请求断开连接，应在连接实体上添加 `NetworkStreamRequestDisconnect` 组件。不支持通过 Driver 直接断开
 
-### Incoming buffers
+<a id="incoming-buffers"></a>
 
-Each connection can have up to three incoming buffers, one for each type of stream: commands, RPCs, and snapshots (client only).
+### 接收缓冲区
 
-- [IncomingRpcDataStreamBuffer](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingRpcDataStreamBuffer.html)
-- [IncomingCommandDataStreamBuffer](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingCommandDataStreamBuffer.html)
-- [IncomingSnapshotDataStreamBuffer](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingSnapshotDataStreamBuffer.html)
+每条连接最多有三个接收缓冲区，分别对应命令、RPC 和快照三类数据流，其中快照缓冲区仅存在于客户端：
 
-When a client receives a snapshot from the server, the message is queued into the buffer and processed later by the [`GhostReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingSnapshotDataStreamBuffer.html).
-RPCs and commands follow the same principle. The messages are gathered first by the [`NetworkStreamReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html) and then consumed by the respective RPC and command receive system.
+- [`IncomingRpcDataStreamBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingRpcDataStreamBuffer.html)
+- [`IncomingCommandDataStreamBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingCommandDataStreamBuffer.html)
+- [`IncomingSnapshotDataStreamBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.IncomingSnapshotDataStreamBuffer.html)
 
-> [!NOTE]
-> Server connection does not have an IncomingSnapshotDataStreamBuffer.
+客户端收到服务器快照后，消息会先进入缓冲区，再由 [`GhostReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostReceiveSystem.html) 处理
 
-### Outgoing buffers
-
-Each connection can have up to two outgoing buffers: one for RPCs and one for commands (client only).
-
-- [OutgoingRpcDataStreamBuffer](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.OutgoingRpcDataStreamBuffer.html)
-- [OutgoingCommandDataStreamBuffer](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.OutgoingCommandDataStreamBuffer.html)
-
-When commands are produced, they're first queued into the outgoing buffer, which is flushed by the client at regular intervals (every new tick). RPC messages follow the sample principle: they're gathered initially by their respective send system that encodes them into the buffer. Then, the [RpcSystem](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.OutgoingCommandDataStreamBuffer.html) flushes the RPCs in the queue (by coalescing multiple messages into one maximum transmission unit (MTU)) at regular intervals.
-
-## Connection flow
-
-When your game starts, Netcode for Entities doesn't automatically connect the client to the server, nor makes the server start listening to a specific port. By default, `ClientServerBoostrap` only creates the client and server worlds. It's up to developer to decide how and when the server and client open their communication channel.
-
-There are a number of different options:
-
-- [Manually start listening for a connection on the server, or connect to a server from the client using the `NetworkStreamDriver`.](#manually-listen-or-connect)
-- [Automatically connect and listen by using the `AutoConnectPort` (and relative `DefaultConnectAddress`).](#using-the-autoconnectport)
-- [Create a `NetworkStreamRequestConnect` and/or `NetworkStreamRequestListen` request in the client and/or server world respectively.](#controlling-the-connection-flow-using-networkstreamrequest)
+RPC 和命令采用相同原则：消息先由 [`NetworkStreamReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html) 收集，再由各自的 RPC 或命令接收系统消费
 
 > [!NOTE]
-> Regardless of how you choose to connect to the server, we strongly recommend ensuring `Application.runInBackground` is `true` while connected.
-> You can do so by setting `Application.runInBackground = true;` directly, or setting it project-wide via **Project Settings** > **Player** > **Resolution and Presentation**.
-> If you don't, your multiplayer game will stall (and likely disconnect) if and when the application loses focus (for example, by the player tabbing out), as netcode will be unable to tick.
-> The server should likely always have this enabled.
-> We provide error warnings for both via `WarnAboutApplicationRunInBackground`.
+> 服务器连接没有 `IncomingSnapshotDataStreamBuffer`
 
-### Manually listen or connect
+<a id="outgoing-buffers"></a>
 
-To establish a connection, you must get the [NetworkStreamDriver](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamDriver.html) singleton (present on both client and server worlds) and then call either `Connect` or `Listen` on it.
+### 发送缓冲区
 
-Refer to the [DOTS samples repository](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/NetcodeSamples/Assets/Samples/HelloNetcode/1_Basics/01_BootstrapAndFrontend/Frontend/Frontend.cs#L80) for example code that covers manually listening and connecting.
+每条连接最多有两个发送缓冲区，分别用于 RPC 和命令，其中命令缓冲区仅存在于客户端：
 
-### Using the `AutoConnectPort`
+- [`OutgoingRpcDataStreamBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.OutgoingRpcDataStreamBuffer.html)
+- [`OutgoingCommandDataStreamBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.OutgoingCommandDataStreamBuffer.html)
 
-The `ClientServerBootstrap` [`AutoConnectPort` field](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_AutoConnectPort) contains two special properties that can be used to instruct the server and client to automatically listen and connect respectively when initially set up.
+命令产生后先进入发送缓冲区，客户端会按固定间隔，也就是每个新 Tick，刷新该缓冲区
 
-- [DefaultConnectAddress](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_DefaultConnectAddress)
-- [DefaultListenAddress](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_DefaultListenAddress)
+RPC 消息采用相同原则：对应发送系统先收集并编码消息，将其写入缓冲区；随后 [`RpcSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.RpcSystem.html) 按固定间隔刷新 RPC 队列，并把多条消息合并到一个最大传输单元（MTU）内
 
-To set up the `AutoConnectPort`, you need to create a custom [bootstrap](client-server-worlds.md#bootstrap) and set a value other than 0 for the `AutoConnectPort` before creating your worlds. For example:
+<a id="connection-flow"></a>
 
-```c#
+## 连接流程
+
+游戏启动时，Netcode for Entities 不会自动让客户端连接服务器，也不会自动让服务器监听特定端口。默认情况下，`ClientServerBootstrap` 只负责创建客户端和服务器 World，由开发者决定双方何时以及如何打开通信通道
+
+可以采用以下方式：
+
+- [通过 `NetworkStreamDriver` 手动让服务器开始监听，或让客户端连接服务器](#manually-listen-or-connect)
+- [使用 `AutoConnectPort` 和对应的 `DefaultConnectAddress` 自动连接与监听](#using-the-autoconnectport)
+- [分别在客户端或服务器 World 创建 `NetworkStreamRequestConnect` 或 `NetworkStreamRequestListen` 请求](#controlling-the-connection-flow-using-networkstreamrequest)
+
+> [!NOTE]
+> 无论采用哪种服务器连接方式，都强烈建议在连接期间确保 `Application.runInBackground` 为 `true`
+>
+> 可以直接设置 `Application.runInBackground = true;`，也可以在 **Project Settings** > **Player** > **Resolution and Presentation** 中进行项目级配置。否则应用失去焦点时，例如玩家切换到其他窗口，Netcode 将无法继续 Tick，多人游戏会停滞并很可能断开连接
+>
+> 服务器通常应始终启用该选项。`WarnAboutApplicationRunInBackground` 会为客户端和服务器提供相关错误警告
+
+<a id="manually-listen-or-connect"></a>
+
+### 手动监听或连接
+
+要建立连接，先获取客户端和服务器 World 中都存在的 [`NetworkStreamDriver`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamDriver.html) 单例，然后调用其 `Connect` 或 `Listen`
+
+手动监听和连接的代码示例请参阅 [DOTS 示例仓库](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/NetcodeSamples/Assets/Samples/HelloNetcode/1_Basics/01_BootstrapAndFrontend/Frontend/Frontend.cs#L80)
+
+<a id="using-the-autoconnectport"></a>
+
+### 使用 `AutoConnectPort`
+
+`ClientServerBootstrap` 的 [`AutoConnectPort`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_AutoConnectPort) 可以配合以下两个地址属性，让服务器和客户端在初始化时分别自动监听与连接：
+
+- [`DefaultConnectAddress`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_DefaultConnectAddress)
+- [`DefaultListenAddress`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerBootstrap.html#Unity_NetCode_ClientServerBootstrap_DefaultListenAddress)
+
+要配置 `AutoConnectPort`，需要创建自定义 [Bootstrap](client-server-worlds.md#bootstrap)，并在创建 World 前把 `AutoConnectPort` 设为非 0 值。例如：
+
+```csharp
 public class AutoConnectBootstrap : ClientServerBootstrap
 {
     public override bool Initialize(string defaultWorldName)
     {
-        // This will enable auto connect.
+        // 启用自动连接
         AutoConnectPort = 7979;
-        // Create the default client and server worlds, depending on build type in a player or the PlayMode Tools in the editor
+
+        // 根据 Player 构建类型或 Editor 的 PlayMode Tools 设置，创建默认客户端和服务器 World
         CreateDefaultClientServerWorlds();
         return true;
     }
 }
 ```
 
-The server starts listening at the wildcard address (`DefaultListenAddress`:`AutoConnectPort`). The `DefaultConnectAddress` is by default set to `NetworkEndpoint.AnyIpv4`. The client starts connecting to server address (`DefaultConnectAddress`:`AutoConnectPort`). The `DefaultConnectAddress` is by default set to `NetworkEndpoint.Loopback`.
+服务器开始监听 `DefaultListenAddress:AutoConnectPort`，`DefaultListenAddress` 默认是 `NetworkEndpoint.AnyIpv4`。客户端开始连接 `DefaultConnectAddress:AutoConnectPort`，`DefaultConnectAddress` 默认是 `NetworkEndpoint.Loopback`
 
 > [!NOTE]
-> In the Editor, the [PlayMode tool](playmode-tool.md) allows you to override both the `AutoConnectAddress` and `AutoConnectPort` fields. However, when `AutoConnectPort` is set to 0, the PlayMode Tool's override functionality won't be used. The intent is then you need to manually trigger connection.
+> 在 Editor 中，[PlayMode Tool](playmode-tool.md) 可以覆盖 `AutoConnectAddress` 和 `AutoConnectPort`。但当 `AutoConnectPort` 为 0 时，不会应用 PlayMode Tool 的覆盖值，此时需要手动触发连接
 
-### Controlling the connection flow using `NetworkStreamRequest`
+<a id="controlling-the-connection-flow-using-networkstreamrequest"></a>
 
-Instead of invoking and calling methods on the [NetworkStreamDriver](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamDriver.html) you can instead create:
+### 使用 `NetworkStreamRequest` 控制连接流程
 
-- A [NetworkStreamRequestConnect](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamRequestConnect.html) singleton to request a connection to the desired server address/port.
-- A [NetworkStreamRequestListen](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamRequestListen.html) singleton to make the server start listening at the desired address/port.
+除了直接调用 [`NetworkStreamDriver`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamDriver.html) 的方法，还可以创建请求实体：
+
+- 创建 [`NetworkStreamRequestConnect`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamRequestConnect.html) 单例，请求连接目标服务器地址与端口
+- 创建 [`NetworkStreamRequestListen`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamRequestListen.html) 单例，请求服务器开始监听目标地址与端口
 
 ```csharp
-//On the client world, create a new entity with a NetworkStreamRequestConnect. It will be consumed by NetworkStreamReceiveSystem later.
+// 在客户端 World 创建包含 NetworkStreamRequestConnect 的实体，稍后由 NetworkStreamReceiveSystem 消费
 var connectRequest = clientWorld.EntityManager.CreateEntity(typeof(NetworkStreamRequestConnect));
-EntityManager.SetComponentData(connectRequest, new NetworkStreamRequestConnect { Endpoint = serverEndPoint });
+clientWorld.EntityManager.SetComponentData(connectRequest,
+    new NetworkStreamRequestConnect { Endpoint = serverEndPoint });
 
-//On the server world, create a new entity with a NetworkStreamRequestConnect. It will be consumed by NetworkStreamReceiveSystem later.
+// 在服务器 World 创建包含 NetworkStreamRequestListen 的实体，稍后由 NetworkStreamReceiveSystem 消费
 var listenRequest = serverWorld.EntityManager.CreateEntity(typeof(NetworkStreamRequestListen));
-EntityManager.SetComponentData(listenRequest, new NetworkStreamRequestListen { Endpoint = serverEndPoint });
-
+serverWorld.EntityManager.SetComponentData(listenRequest,
+    new NetworkStreamRequestListen { Endpoint = serverEndPoint });
 ```
 
-The request will be then consumed at runtime by the [NetworkStreamReceiveSystem](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html).
+[`NetworkStreamReceiveSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkStreamReceiveSystem.html) 会在运行时消费这些请求
 
 > [!NOTE]
-> If you encounter runtime errors, open the PlayMode Tools window and re-enter Play Mode.
-> If worlds exist, then bootstrapping (see above) is creating the worlds automatically.
-> If the server world is already listening, and/or the client world already connecting, then auto-connection (see above) is already enabled. You will therefore need to modify your bootstrap to disable auto-connection to support manual connection workflows.
+> 如果遇到运行时错误，请打开 PlayMode Tools 窗口并重新进入 Play Mode
+>
+> 如果 World 已经存在，说明 Bootstrap 正在自动创建它们。如果服务器 World 已开始监听，或者客户端 World 已开始连接，说明自动连接已经启用。此时需要修改 Bootstrap 并禁用自动连接，才能使用手动连接流程
 
-### Network simulator
+<a id="network-simulator"></a>
 
-Unity Transport provides a [SimulatorUtility](playmode-tool.md#networksimulator), which is available (and configurable) in the Netcode for Entities package. Access it via **Multiplayer** > **PlayMode Tools** in the Editor.
+### 网络模拟器
 
-We strongly recommend that you frequently test your gameplay with the simulator enabled, as it more closely resembles real-world conditions.
+Unity Transport 提供了 [`SimulatorUtility`](playmode-tool.md#networksimulator)，可以通过 Netcode for Entities 包进行配置。在 Editor 中打开 **Multiplayer** > **PlayMode Tools** 即可使用
 
-## Listening for client connection events
+强烈建议经常在启用模拟器的情况下测试玩法，因为这种环境更接近真实网络条件
 
-There is a `public NativeArray<NetCodeConnectionEvent>.ReadOnly ConnectionEventsForTick` collection (via the `NetworkStreamDriver` singleton), allowing you to iterate over (and thus react to) client connection events on the client and server.
+<a id="listening-for-client-connection-events"></a>
 
-These events only persist for a single `SimulationSystemGroup` tick, and are reset during `NetworkStreamConnectSystem` and `NetworkStreamListenSystem` respectively. If your system runs _after_ these aforementioned system's jobs execute, you'll receive notifications on the same tick that they were raised. However, if you query this collection _before_ this system's jobs execute, you'll be iterating over the previous tick's values.
+## 监听客户端连接事件
+
+`NetworkStreamDriver` 单例提供只读集合 `public NativeArray<NetCodeConnectionEvent>.ReadOnly ConnectionEventsForTick`，客户端和服务器都可以遍历它并响应客户端连接事件
+
+这些事件只保留一个 `SimulationSystemGroup` Tick，并分别在 `NetworkStreamConnectSystem` 和 `NetworkStreamListenSystem` 中重置。如果系统在上述系统的 Job 执行后运行，就会在事件产生的同一 Tick 收到通知；如果在这些 Job 执行前查询集合，则读到的是上一个 Tick 的值
 
 ```csharp
-// Example System:
+// 连接事件监听系统示例
 [UpdateAfter(typeof(NetworkReceiveSystemGroup))]
 [BurstCompile]
 public partial struct NetCodeConnectionEventListener : ISystem
@@ -128,7 +149,8 @@ public partial struct NetCodeConnectionEventListener : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        var connectionEventsForClient = SystemAPI.GetSingleton<NetworkStreamDriver>().ConnectionEventsForTick;
+        var connectionEventsForClient =
+            SystemAPI.GetSingleton<NetworkStreamDriver>().ConnectionEventsForTick;
         foreach (var evt in connectionEventsForClient)
         {
             UnityEngine.Debug.Log($"[{state.WorldUnmanaged.Name}] {evt.ToFixedString()}!");
@@ -138,89 +160,100 @@ public partial struct NetCodeConnectionEventListener : ISystem
 ```
 
 > [!NOTE]
-> Because the server runs on a fixed delta-time, the `SimulationSystemGroup` may tick any number of times (including zero times) on each render frame.
-> Because of this, `ConnectionEventsForTick` is only valid to be read in a system running inside the `SimulationSystemGroup`.
-> For example, trying to access it outside the `SimulationSystemGroup` can lead to a) either **_only_** seeing events for the current tick (meaning you miss events for previous ticks) or b) receiving events multiple times, if the simulation doesn't tick on this render frame.
-> Therefore, do not access `ConnectionEventsForTick` inside the `InitializationSystemGroup`, nor inside the `PresentationSystemGroup`, nor inside any `MonoBehaviour` Unity method (non-exhaustive list!).
+> 服务器采用固定 Delta Time，因此每个渲染帧中 `SimulationSystemGroup` 可能运行任意次数，也可能一次都不运行
+>
+> 因此，`ConnectionEventsForTick` 只能在 `SimulationSystemGroup` 内的系统中读取。在该组之外访问它，可能只看到当前 Tick 的事件而漏掉之前 Tick，也可能在某个没有模拟 Tick 的渲染帧中重复收到事件
+>
+> 不要在 `InitializationSystemGroup`、`PresentationSystemGroup` 或任何 `MonoBehaviour` Unity 回调中访问 `ConnectionEventsForTick`
 
-### NetCodeConnectionEvents on the client
+<a id="netcodeconnectionevents-on-the-client"></a>
 
-| Connection status | Invocation rules                                                                                                                                                                                                                                                                                                                            |
-|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Unknown`         | Never raised.                                                                                                                                                                                                                                                                                                                               |
-| `Connecting`      | Raised once for your own client, once the `NetworkStreamReceiveSystem` registers your `Connect` call (which may be one frame after you call `Connect`).                                                                                                                                                                                     |
-| `Handshake`       | Raised once for your own client, once your client has entered the internal transport driver `Connected` state.<br/>_The client must now wait for Netcode's own automatic handshake process to complete (see `NetworkProtocolVersion` and `RequestProtocolVersionHandshake`), which typically takes only a few ticks (it's ping dependent)._ |
-| `Approval`        | Raised once for your own client, but only when [Connection Approval](#connection-approval) is enabled. Appears after successfully handshaking with the server.<br/>_Therefore, note that enabling `Approval` will cause clients to take a few frames longer to connect to the server._                                                      |
-| `Connected`       | Raised once for your own client, once the server sends you your `NetworkId`.                                                                                                                                                                                                                                                                |
-| `Disconnected`    | Raised once for your own client, once you disconnect from/timeout from/are disconnected by the server. The `DisconnectReason` will be set.                                                                                                                                                                                                  |
+### 客户端上的 `NetCodeConnectionEvent`
 
-> [!NOTE]
-> Clients do **_not_** receive events for other clients. Any events raised in a client world will only be for its own client connection.
-
-> [!NOTE]
-> The `Handshake` and `Approval` steps can fail, and thus have a timeout of `ClientServerTickRate.HandshakeApprovalTimeoutMS` (default: 5000ms).
-
-### NetCodeConnectionEvents on the server
-
-| Connection Status | Invocation Rules                                                                                                                                                                                                                                                                                          |
-|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `Unknown`         | Never raised.                                                                                                                                                                                                                                                                                             |
-| `Connecting`      | Never raised on the server, because the server doesn't know when a client begins to connect.                                                                                                                                                                                                              |
-| `Handshake`       | Raised once for every client, and entered as soon as the server's listening driver accepts your transport connection. The server will be in this state until `NetworkProtocolVersion` information has been to be exchanged.<br/>Note: As of 1.3, handshaking is no longer instantaneous, and can timeout. |
-| `Approval`        | Raised once for every client, but only when approval flow is enabled. Appears after netcode's internal handshaking process succeeds (i.e. on the tick the client would be considered `Connected`, if not requiring approval). See `NetworkStreamDriver.RequireConnectionApproval`.                        |
-| `Connected`       | Raised once for every accepted client, on the frame the server accepts the connection (i.e. assigns said client a `NetworkId`, after `Handshake`, and after `Approval` (if enabled)).                                                                                                                     |
-| `Disconnected`    | Raised once for every accepted client which then disconnects, on the frame we receive the disconnect event or state. The `DisconnectReason` will be set.                                                                                                                                                  |
+| 连接状态 | 触发规则 |
+|---|---|
+| `Unknown` | 永不触发 |
+| `Connecting` | 当前客户端触发一次。`NetworkStreamReceiveSystem` 注册 `Connect` 调用时触发，可能比调用 `Connect` 晚一帧 |
+| `Handshake` | 当前客户端触发一次。客户端进入 Transport Driver 内部 `Connected` 状态时触发。随后客户端需要等待 Netcode 自动握手完成，参阅 `NetworkProtocolVersion` 与 `RequestProtocolVersionHandshake`。该过程取决于 Ping，通常只需几个 Tick |
+| `Approval` | 仅启用[连接审批](#connection-approval)时，当前客户端触发一次。在与服务器成功握手后出现。启用审批会让客户端连接服务器多花几帧 |
+| `Connected` | 当前客户端触发一次。服务器向该客户端发送 `NetworkId` 时触发 |
+| `Disconnected` | 当前客户端触发一次。主动断开、超时或被服务器断开时触发，并设置 `DisconnectReason` |
 
 > [!NOTE]
-> The server does not raise any events when it successfully `Binds`, nor when it begins to `Listen`. Use existing APIs to query these statuses.
+> 客户端不会收到其他客户端的事件。客户端 World 中产生的事件只属于自身连接
 
-## Connection approval
+> [!NOTE]
+> `Handshake` 和 `Approval` 阶段都可能失败，因此受 `ClientServerTickRate.HandshakeApprovalTimeoutMS` 超时限制，默认值为 5000 ms
 
-You can optionally require connection approval for every client connection on the server. Approval should be used to validate connections attempting to connect with this server, for the purposes of player convenience (whitelists & blacklists, password protected servers etc) and validation (user must pass a secret token - received by the matchmaking response - to ensure that only matchmade players may join this server).
+<a id="netcodeconnectionevents-on-the-server"></a>
 
-When connection approval is enabled, the following changes apply:
-* Clients can only send `IApprovalRpcCommand` RPCs to the server for processing during the `Handshake` and `Approval` phases.
-* All clients move from the `Handshake` state to the `Approval` state, rather than directly to `Connected`.
-* The server must manually approve each connection by adding the `ConnectionApproved` component to its connection entity.
-* The `NetworkId` is only assigned after connection approval succeeds. If approval is denied, the client is disconnected.
-* The approval process has a timeout (see [ClientServerTickRate.HandshakeApprovalTimeoutMS](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.HandshakeApprovalTimeoutMS.html)), and therefore, may do so.
+### 服务器上的 `NetCodeConnectionEvent`
 
-To reiterate: During the `Handshake` and `Approval` phases, a client may send multiple RPCs, as long as each is of the `IApprovalRpcCommand` RPC type. These RPC payloads can contain authentication tokens, player identities, or anything required to verify that the client is allowed to continue. To approve a connection, the server needs to add a `ConnectionApproved` component to the network connection entity and the connection flow will continue.
+| 连接状态 | 触发规则 |
+|---|---|
+| `Unknown` | 永不触发 |
+| `Connecting` | 服务器不知道客户端何时开始连接，因此永不触发 |
+| `Handshake` | 每个客户端触发一次。服务器监听 Driver 接受 Transport 连接后立即进入该状态，并保持到交换完 `NetworkProtocolVersion` 信息。自 1.3 起，握手不再是瞬时过程，也可能超时 |
+| `Approval` | 仅启用审批流程时，每个客户端触发一次。在 Netcode 内部握手成功后出现；如果不要求审批，此时客户端原本会进入 `Connected`。参阅 `NetworkStreamDriver.RequireConnectionApproval` |
+| `Connected` | 每个获准客户端触发一次。服务器接受连接并为该客户端分配 `NetworkId` 的帧触发，发生在 `Handshake` 和可选 `Approval` 之后 |
+| `Disconnected` | 每个连接后又断开的客户端触发一次。在服务器收到断开事件或状态的帧触发，并设置 `DisconnectReason` |
 
-The `NetworkStreamDriver` has a `RequireConnectionApproval` field which must be set to true on both client and server for proper connection flow.
+> [!NOTE]
+> 服务器成功执行 `Bind` 或开始 `Listen` 时不会产生事件，应使用现有 API 查询这些状态
 
-Enabling connection approval is done like this:
+<a id="connection-approval"></a>
+
+## 连接审批
+
+服务器可以要求审批每条客户端连接。审批适合验证尝试连接服务器的客户端，可以用于玩家准入控制，例如白名单、黑名单和密码保护服务器，也可以用于身份验证，例如要求玩家提交匹配服务响应中包含的秘密令牌，确保只有成功匹配的玩家能够加入服务器
+
+启用连接审批后，连接流程会发生以下变化：
+
+- 在 `Handshake` 和 `Approval` 阶段，客户端只能发送实现 `IApprovalRpcCommand` 的 RPC 供服务器处理
+- 所有客户端从 `Handshake` 进入 `Approval`，而不是直接进入 `Connected`
+- 服务器必须为每条连接的实体添加 `ConnectionApproved` 组件，手动批准连接
+- 只有连接审批成功后才会分配 `NetworkId`；拒绝审批时会断开客户端
+- 审批流程受 [`ClientServerTickRate.HandshakeApprovalTimeoutMS`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientServerTickRate.html#Unity_NetCode_ClientServerTickRate_HandshakeApprovalTimeoutMS) 限制，可能因超时而失败
+
+再次强调：在 `Handshake` 和 `Approval` 阶段，客户端可以发送多条 RPC，但每条都必须实现 `IApprovalRpcCommand`。这些 RPC 负载可以包含认证令牌、玩家身份或其他用于验证客户端是否允许继续连接的数据。服务器验证通过后，在网络连接实体上添加 `ConnectionApproved`，连接流程就会继续
+
+必须在客户端和服务器上都把 `NetworkStreamDriver.RequireConnectionApproval` 设为 `true`，审批流程才能正确工作
+
+启用连接审批：
 
 ```csharp
 if (isServer)
 {
-    using var drvQuery = server.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
-drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.RequireConnectionApproval = true;
-drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(ep);
+    using var drvQuery = server.EntityManager.CreateEntityQuery(
+        ComponentType.ReadWrite<NetworkStreamDriver>());
+    drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.RequireConnectionApproval = true;
+    drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.Listen(ep);
 }
 else
 {
-    using var drvQuery = client.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<NetworkStreamDriver>());
+    using var drvQuery = client.EntityManager.CreateEntityQuery(
+        ComponentType.ReadWrite<NetworkStreamDriver>());
     drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.RequireConnectionApproval = true;
     drvQuery.GetSingletonRW<NetworkStreamDriver>().ValueRW.Connect(client.EntityManager, ep);
 }
 ```
 
-And connection approval handling could be set up like this:
+连接审批处理可以按以下方式配置：
 
 ```csharp
-// The approval RPC, here it contains a hypothetical payload the server will validate
+// 审批 RPC，此处包含服务器要验证的假设负载
 public struct ApprovalFlow : IApprovalRpcCommand
 {
     public FixedString512Bytes Payload;
 }
 
-// This is used to indicate we've already sent an approval RPC and don't need to do so again
+// 标记已经发送审批 RPC，避免重复发送
 public struct ApprovalStarted : IComponentData
 {
 }
 
-[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ThinClientSimulation)]
+[WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation |
+    WorldSystemFilterFlags.ThinClientSimulation)]
 public partial struct ClientConnectionApprovalSystem : ISystem
 {
     public void OnCreate(ref SystemState state)
@@ -231,15 +264,20 @@ public partial struct ClientConnectionApprovalSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
-        // Check connections which have not yet fully connected and send connection approval message
-        foreach (var (connection, entity) in SystemAPI.Query<RefRW<NetworkStreamConnection>>().WithNone<NetworkId>().WithNone<ApprovalStarted>().WithEntityAccess())
+
+        // 查找尚未完全连接的连接，并发送审批消息
+        foreach (var (connection, entity) in
+            SystemAPI.Query<RefRW<NetworkStreamConnection>>()
+                .WithNone<NetworkId>()
+                .WithNone<ApprovalStarted>()
+                .WithEntityAccess())
         {
             var sendApprovalMsg = ecb.CreateEntity();
             ecb.AddComponent(sendApprovalMsg, new ApprovalFlow { Payload = "ABC" });
             ecb.AddComponent<SendRpcCommandRequest>(sendApprovalMsg);
-
             ecb.AddComponent<ApprovalStarted>(entity);
         }
+
         ecb.Playback(state.EntityManager);
     }
 }
@@ -250,23 +288,27 @@ public partial struct ServerConnectionApprovalSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
-        // Check connections which have not yet fully connected and send connection approval message
-        foreach (var (receiveRpc, approvalMsg, entity) in SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>,RefRW<ApprovalFlow>>().WithEntityAccess())
+
+        // 处理尚未完成审批的客户端消息
+        foreach (var (receiveRpc, approvalMsg, entity) in
+            SystemAPI.Query<RefRO<ReceiveRpcCommandRequest>, RefRW<ApprovalFlow>>()
+                .WithEntityAccess())
         {
             var connectionEntity = receiveRpc.ValueRO.SourceConnection;
             if (approvalMsg.ValueRO.Payload.Equals("ABC"))
             {
                 ecb.AddComponent<ConnectionApproved>(connectionEntity);
 
-                // Destroy RPC message
+                // 销毁已经处理的 RPC 消息
                 ecb.DestroyEntity(entity);
             }
             else
             {
-                // Failed approval messages should be disconnected
+                // 审批失败时断开连接
                 ecb.AddComponent<NetworkStreamRequestDisconnect>(connectionEntity);
             }
         }
+
         ecb.Playback(state.EntityManager);
     }
 }

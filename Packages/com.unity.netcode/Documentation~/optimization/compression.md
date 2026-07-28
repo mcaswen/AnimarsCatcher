@@ -1,26 +1,26 @@
-# Data compression
+# 数据压缩
 
-Use data compression to reduce bandwidth consumption, minimizing the likelihood that a player will experience gameplay issues as a result of bandwidth limitations.
+使用数据压缩减少带宽消耗，尽量降低玩家因带宽受限而遇到玩法问题的可能性
 
 > [!NOTE]
-> Netcode for Entities defaults to a bandwidth-intensive snapshot send configuration to enable you to get up and running quickly. It's expected and recommended that you modify the default bandwidth consumption before releasing a game into production. Refer to the [optimizing performance page](../optimizations.md) for more information about ways to optimize your game.
+> 为便于快速运行项目，Netcode for Entities 默认采用带宽消耗较高的快照发送配置。发布正式游戏之前，应修改默认带宽消耗。有关游戏优化方法的详细信息，请参阅[性能优化页面](../optimizations.md)
 
-## Quantization
+## 量化
 
-Quantization involves limiting the precision of data for the sake of reducing the number of bits required to send and receive that data. A float takes up 32 bits, giving it an approximate range of `±1.5 x 10^−45 to ±3.4 x 10^38` with the IEC 60559 standard, which is more precision than most games need. For example, if you don't need millimeter precision, setting a quantization value of `100` cuts off all sub-millimeter noise from your floats, reducing the amount of bits required to send your float values.
+量化是指限制数据精度，从而减少发送和接收该数据所需的位数。一个 float 占用 32 位，按照 IEC 60559 标准，其近似范围为 `±1.5 x 10^−45 到 ±3.4 x 10^38`，精度高于大多数游戏的实际需要。例如，如果不需要毫米级精度，将量化值设为 `100` 会截去 float 中所有低于毫米级的噪声，从而减少发送 float 值所需的位数
 
-Quantization can cause issues when used with client-side prediction. Refer to the [prediction edge cases page](../prediction-details.md) for more details.
+量化与客户端预测共同使用时可能引发问题。详细信息请参阅[预测边界情况页面](../prediction-details.md)
 
-### Compression model
+### 压缩模型
 
-Netcode's quantization is optimized for [Huffman delta compression](https://en.wikipedia.org/wiki/Huffman_coding) to be executed on top of it, which means that you'll get the most bandwidth gains by sending small values (including small deltas between values).
+Netcode 的量化针对后续执行的 [Huffman 增量压缩](https://en.wikipedia.org/wiki/Huffman_coding)进行了优化。这意味着发送较小的值，包括数值之间较小的增量，可以获得最大的带宽收益
 
-For example, sending `123456789.123456789` (for a new ghost spawn, for example, where delta compression will delta against a baseline of 0) with a quantization value of `10` would result in Netcode replicating a value of `1234567891`, which wouldn't produce much optimization at all, since the number of bits used to Huffman encode a delta of `1234567891` is large. Since the Netcode for Entities compression model uses buckets of values to compress, with lower values getting a lower bit count, you won't see much difference in compression between different high values, but you will with low values.
+例如，以量化值 `10` 发送 `123456789.123456789` 时，Netcode 实际复制的值为 `1234567891`。新 Ghost 生成时，增量压缩会以 0 为基线；由于 Huffman 编码增量 `1234567891` 需要很多位，因此几乎无法产生优化效果。Netcode for Entities 的压缩模型按数值区间进行压缩，数值越小所需位数越少，所以不同大数值之间的压缩效果差异不大，而小数值之间则会有明显差异
 
-So sending `0.123456789` with a quantization value of `10` would send only the value `1`. Huffman compression would use only 3 bits for this. Quantization of `100` would use 7 bits, `1000` would use 13 bits etc. You can test this yourself using `StreamCompressionModel.Default.GetCompressedSizeInBits(some_uint_value)`. To test the size of `0.123456789` with Quantization of `100`, multiply 0.123456789 by 100, cast to uint (cut off the digits after the comma) and call `StreamCompressionModel.Default.GetCompressedSizeInBits(12)`.
+因此，以量化值 `10` 发送 `0.123456789` 时，只会发送数值 `1`，Huffman 压缩仅使用 3 位。量化值为 `100` 时使用 7 位，量化值为 `1000` 时使用 13 位，依此类推。可以使用 `StreamCompressionModel.Default.GetCompressedSizeInBits(some_uint_value)` 自行测试。若要测试 `0.123456789` 在量化值 `100` 下的大小，将 0.123456789 乘以 100，转换为 uint 以截去小数部分，再调用 `StreamCompressionModel.Default.GetCompressedSizeInBits(12)`
 
-## Delta compression
+## 增量压缩
 
-As mentioned above, sending smaller values results in smaller amount of bits needed for the same type. A 32 bit float can be sent using less than 8 bits if it only changes a little. Games are usually composed of objects moving in small steps (rather than constantly teleporting), and sending the delta between each value change instead of the absolute value each time results in great bandwidth optimization gains. Use the [`Composite` property on `GhostFieldAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Composite) to customize delta compression for a component.
+如上所述，对于相同类型，发送的值越小，所需位数越少。如果一个 32 位 float 的变化很小，发送它可能只需不到 8 位。游戏对象通常以较小步长移动，而不是不断瞬移，因此发送每次数值变化的增量，而非每次都发送绝对值，可以显著节省带宽。使用 [`GhostFieldAttribute` 的 `Composite` 属性](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_Composite)自定义组件的增量压缩
 
-Note that delta compression is calculated against a baseline. For [pre-spawned ghosts](../ghost-spawning.md#pre-spawned-ghosts), this baseline is updated against the ghost's initial value instead of zero.
+请注意，增量压缩以基线为参照进行计算。对于[预生成 Ghost](../ghost-spawning.md#pre-spawned-ghosts)，该基线会以 Ghost 的初始值更新，而不是以零为基线

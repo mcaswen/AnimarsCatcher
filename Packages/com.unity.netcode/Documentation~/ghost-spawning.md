@@ -1,180 +1,219 @@
-# Spawn ghosts
+# 生成 Ghost
 
-After creating ghost prefabs (and defining how they're [synchronized](ghost-snapshots.md#synchronizing-ghost-components-and-fields) between the client and server), [ghosts](ghost-snapshots.md#ghosts) can spawned by:
+创建 Ghost Prefab，并定义客户端与服务器之间的[同步方式](ghost-snapshots.md#synchronizing-ghost-components-and-fields)后，可以通过以下方式生成 [Ghost](ghost-snapshots.md#ghosts)：
 
-- Instantiating them on your server via server simulation logic. All entities instantiated from a ghost prefab by the server are automatically spawned and replicated to the client. The spawning and despawning is handled by the Netcode for Entities package.
-- Instantiating ghosts prefabs configured as `Predicted` or `OwnerPredicted` on the client [using predicted spawning](#implement-predicted-spawning-for-player-spawned-objects).
-- By adding instances of ghost prefabs inside a sub-scene (in-scene placed objects). See [pre-spawned](#pre-spawned-ghosts) for more details.
+- 由服务器模拟逻辑实例化。服务器从 Ghost Prefab 实例化的所有实体都会自动生成并复制到客户端，生成与 Despawn 由 Netcode for Entities 包处理
+- 在客户端实例化配置为 `Predicted` 或 `OwnerPredicted` 的 Ghost Prefab，使用[预测生成](#implement-predicted-spawning-for-player-spawned-objects)
+- 把 Ghost Prefab 实例放入 SubScene，作为场景内放置对象。详情请参阅[预生成 Ghost](#pre-spawned-ghosts)
 
-## Spawn ghosts on the server
+<a id="spawn-ghosts-on-the-server"></a>
 
-The server can spawn replicated entities in two ways:
+## 在服务器上生成 Ghost
 
-- By instantiating the prefab via the `EntityManager.Instantiate` method (or variants).
-- By using [pre-spawned ghosts](#pre-spawned-ghosts).
+服务器可以通过两种方式生成复制实体：
 
-In both cases, the server is allowed to spawn new ghosts at any point in time and systems:
+- 使用 `EntityManager.Instantiate` 或其变体实例化 Prefab
+- 使用[预生成 Ghost](#pre-spawned-ghosts)
 
-- Before clients are connected.
-- After clients are connected.
-- In any place or groups inside `SimulationSystemGroup` (suggested and preferred).
-- Inside the `InitializatioSystemGroup` (this group does not run at a fixed step so care may be necessary).
+两种方式下，服务器都可以在任意时间和系统中生成新 Ghost：
 
-Because the server has authority, by default all replicated entities present on the server are automatically spawned on each client by the [snapshot replication](ghost-snapshots.md#snapshots) sub-system. Updates from the server version of each ghost are then sent to each client, as defined by the ghost's synchronization settings.
+- 客户端连接之前
+- 客户端连接之后
+- `SimulationSystemGroup` 内的任何位置或系统组中，这是建议并优先采用的位置
+- `InitializationSystemGroup` 内，但该组不按固定时间步运行，需要谨慎处理
 
-### Limit replicated entities on a per-client basis
+服务器拥有权威，因此默认情况下，服务器上的所有复制实体都会由[快照复制](ghost-snapshots.md#snapshots)子系统自动生成到每个客户端。随后，服务器会按照 Ghost 同步配置向各客户端发送对应 Ghost 的更新
 
-There are situations where the default behavior of replicating all entities to all clients is not desirable. For example, in large virtual worlds, clients usually interact and view only a subset of the world (the area nearby the player location), and in team versus team battles certain replicated entities are team-specific.
+<a id="limit-replicated-entities-on-a-per-client-basis"></a>
 
-On the server-side you can use [relevancy](optimizations.md#relevancy) to specify, on a per-client basis, which entities need to be replicated or not.
+### 按客户端限制复制实体
 
-## Spawning ghosts on the client
+某些场景不适合把所有实体复制给所有客户端。例如，大型虚拟 World 中，客户端通常只会观察和交互玩家附近的区域；团队对战中，部分复制实体可能只属于特定队伍
 
-You can spawn a ghost on clients in multiple different ways, as described in the [spawn types](#spawn-types) table below.
+服务器可以使用[相关性](optimizations.md#relevancy)，按客户端指定哪些实体需要复制、哪些不需要复制
 
-### Spawn types
+<a id="spawning-ghosts-on-the-client"></a>
 
-| Type                                                  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|-------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Delayed or interpolated spawning                      | [Interpolated](interpolation.md) ghosts don't use [prediction](prediction-n4e.md) and aren't immediately spawned when the client world starts. Otherwise, the ghost object would appear when the first snapshot arrives, even if its ghost data is only applicable for a later interpolation tick. _For example; a player ghost would appear to spawn, idle for a few ticks, and then begin to interpolate (as new data is finally received from the server)._<br/><br/>Instead, they are spawned on the __Interpolation Timeline__. This delay in spawning is governed by the interpolation timeline delay, which can be configured via [`ClientTickRate.InterpolationTimeNetTicks`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientTickRate.InterpolationTimeNetTicks.html) (or [`ClientTickRate.InterpolationTimeMS`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientTickRate.InterpolationTimeMS.html)). Interpolated ghosts spawn when the [`NetworkTime.InterpolationTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkTime.InterpolationTick.html) is greater or equal to a ghosts [`GhostInstance.spawnTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInstance.spawnTick.html). Refer to [time synchronization](time-synchronization.md) for more information about interpolation delay and interpolation tick. |
-| Predicted spawning for client-predicted player spawns | The spawned ghost is [predicted](prediction-n4e.md), and typically instantiated in response to inputs raised on the client. This usually applies to objects that the player spawns, like in-game bullets or rockets that the player fires. Refer to [implementing predicted spawning for player-spawned objects](#implementing-predicted-spawning-for-player-spawned-objects) for more information. Predictively spawning ghosts in this way removes round trip spawn delays and reduces perceived latency, improving gameplay quality. If/when the server authoritative snapshot data arrives for the ghost object, we first map our predicted spawn entity to the real ghost entity (in a process known as 'Ghost Classification'), and then the `GhostUpdateSystem` applies the data directly to the predicted ghost, and plays back the local inputs that have happened since that time. If the predictive spawn was created by the client in error, the prediction error is corrected by destroying the predicted ghost.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Pre-spawned Ghost (i.e. Ghost Prespawns)              | All ghost prefabs dragged into a sub scene - at authoring time - are considered prespawns. These are typically level-specific gameplay entities like spawn points, destructible rocks, openable doors, loot chests, weapon pickups etc. [See details of pre-spawned ghosts](#pre-spawned-ghosts).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+## 在客户端生成 Ghost
 
-Netcode for Entities doesn't require a specific spawn message for client-side ghosts. When the client receives a new ghost ID from the server, it's treated as an implicit spawn and the ghost is assigned a [spawn type](#spawn-types) based on a set of classification systems.
+客户端可以使用以下多种生成类型
 
-Once you have the spawn type, the [`GhostSpawnSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnSystem.html) handles instantiating the new entity.
+<a id="spawn-types"></a>
+
+### 生成类型
+
+**延迟生成或插值生成**
+
+[插值](interpolation.md) Ghost 不使用[预测](prediction-n4e.md)，客户端 World 启动后也不会立即生成它。如果第一份快照到达时立刻显示 Ghost，而快照数据实际属于更晚的插值 Tick，就会出现对象先生成并静止若干 Tick，收到更多服务器数据后才开始插值的现象
+
+因此，插值 Ghost 会在**插值时间线**上生成。生成延迟由插值时间线延迟控制，可以通过 [`ClientTickRate.InterpolationTimeNetTicks`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientTickRate.InterpolationTimeNetTicks.html) 或 [`ClientTickRate.InterpolationTimeMS`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.ClientTickRate.InterpolationTimeMS.html) 配置。当 [`NetworkTime.InterpolationTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.NetworkTime.InterpolationTick.html) 大于或等于 Ghost 的 [`GhostInstance.spawnTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostInstance.spawnTick.html) 时，插值 Ghost 才会生成。插值延迟与插值 Tick 的更多信息请参阅[时间同步](time-synchronization.md)
+
+**客户端预测的玩家生成对象**
+
+这类 Ghost 使用[预测](prediction-n4e.md)，通常由客户端产生的输入触发实例化，例如玩家发射的子弹或火箭。详情请参阅[实现玩家对象的预测生成](#implementing-predicted-spawning-for-player-spawned-objects)
+
+预测生成可以消除生成过程的网络往返延迟，降低感知延迟。服务器权威快照到达后，系统先把本地预测生成实体映射到真实 Ghost 实体，这个过程称为 Ghost 分类；随后 `GhostUpdateSystem` 直接把服务器数据应用到预测 Ghost，并重演此后产生的本地输入。如果客户端错误地执行了预测生成，系统会销毁该预测 Ghost 来修正错误
+
+**预生成 Ghost（Ghost Prespawn）**
+
+所有在 Authoring 阶段拖入 SubScene 的 Ghost Prefab 实例都属于预生成 Ghost。它们通常是关卡专属玩法实体，例如出生点、可破坏岩石、可开关门、宝箱和武器拾取物。详情请参阅[预生成 Ghost](#pre-spawned-ghosts)
+
+Netcode for Entities 不要求为客户端 Ghost 使用专门的生成消息。客户端从服务器收到新的 Ghost ID 时，会将其视为隐式生成，并由一组分类系统为其指定[生成类型](#spawn-types)
+
+确定生成类型后，[`GhostSpawnSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnSystem.html) 负责实例化新实体
 
 > [!NOTE]
-> Ghost entities can only be spawned if the ghost prefabs are loaded in the world. Server and client need to agree on the prefabs they have and the server will only replicate to the client ghosts for which the client has the prefab.
+> 只有 Ghost Prefab 已加载到 World 时才能生成 Ghost。服务器和客户端必须对各自拥有的 Prefab 达成一致，服务器只会向客户端复制客户端已拥有 Prefab 的 Ghost
 
-## Implement predicted spawning for player-spawned objects
+<a id="implement-predicted-spawning-for-player-spawned-objects"></a>
+<a id="implementing-predicted-spawning-for-player-spawned-objects"></a>
 
-Like other aspects of [client prediction](intro-to-prediction.md#client-prediction), predicted spawns require the same logic to be run on both the client and server, to make sure that the two are as deterministic as possible.
+## 为玩家生成对象实现预测生成
 
-The predicted spawning process on the client requires two steps:
+与[客户端预测](intro-to-prediction.md#client-prediction)的其他部分一样，预测生成要求客户端和服务器运行相同逻辑，让两者尽可能保持确定性
 
-1. Create the entity in a system that runs inside the prediction loop.
-2. After the entity has been created, the entity must be first 'classified' as a predicted spawn and then
-matched with the authoritative update received from the server.
+客户端预测生成包含两个步骤：
 
-### Spawn predicted ghosts on the client side
+1. 在预测循环内运行的系统中创建实体
+2. 实体创建后，先将其分类为预测生成，再与服务器发送的权威更新进行匹配
 
-To spawn predicted ghosts on the client side, you need to add your spawn system to the [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html) to make the client code instantiate the spawn under the same conditions that the server does (for example, after the player presses the shoot mouse button).
+<a id="spawn-predicted-ghosts-on-the-client-side"></a>
 
-All ghost prefabs configured to be predicted upon spawn have the [`PredictedGhostSpawnRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawnRequest.html) component already added to them, and are therefore treated as predicted spawns by default.
+### 在客户端生成预测 Ghost
 
-When your system (running in the client world) instantiates the ghost entity, it's already treated as a predicted spawn automatically, and the only change required to your system (to make it correct) is to add an early out for `networkTime.IsFirstTimeFullyPredictingTick`.
+需要把生成系统添加到 [`PredictedSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedSimulationSystemGroup.html)，使客户端代码在与服务器相同的条件下实例化对象，例如玩家按下射击键后
 
-When the first snapshot update for this entity arrives on the client, the system detects that the received update is for an entity already spawned by the client and from that time on, all the updates are applied to it.
+所有配置为生成时预测的 Ghost Prefab 都已添加 [`PredictedGhostSpawnRequest`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawnRequest.html) 组件，因此默认会被视为预测生成
 
-In the prediction system code, the [`NetworkTime.IsFirstTimeFullyPredictingTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html) value needs to be checked to prevent the spawned object from being spawned multiple times as data is rolled back and re-simulated as part of the prediction loop.
+客户端 World 中的系统实例化 Ghost 实体后，它会自动作为预测生成处理。为了确保系统行为正确，只需要在 `networkTime.IsFirstTimeFullyPredictingTick` 为 `false` 时提前退出
+
+客户端收到该实体的第一份快照更新后，系统会检测到它对应一个已由客户端生成的实体，此后的所有更新都会直接应用到该实体
+
+预测循环会回滚并重新模拟数据，因此必须检查 [`NetworkTime.IsFirstTimeFullyPredictingTick`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.NetworkTime.html)，避免同一对象被重复生成
 
 ```csharp
 public void OnUpdate()
 {
-    // Other input like movement handled here or in another system...
+    // 角色移动等其他输入可以在这里或其他系统中处理
 
     var networkTime = SystemAPI.GetSingleton<NetworkTime>();
     if (!networkTime.IsFirstTimeFullyPredictingTick)
         return;
-    // Handle the input for instantiating a bullet for example here
+
+    // 在这里处理实例化子弹等对象的输入
     // ...
 }
 ```
 
-#### Conditions to check before spawning predicted ghosts
+<a id="conditions-to-check-before-spawning-predicted-ghosts"></a>
 
-Clients shouldn't be allowed to spawn an entity until:
+#### 生成预测 Ghost 前的检查条件
 
-1. A singleton `NetworkStreamConnectionInGame` exists. This is a necessary requirement because otherwise the created entity will be disposed of automatically.
-2. The `GhostCollectionPrefab` buffer has been initialized (length > 0) and:
-    - A ghost prefab matching the spawned entity `GhostType` component exists in that buffer.
-    - Alternatively, an entry in the `GhostCollection.GhostTypeToColletionIndex` hashmap is present (this is a faster check).
+满足以下条件前，客户端不应生成实体：
+
+1. World 中存在 `NetworkStreamInGame` 单例，否则创建的实体会被自动释放
+2. `GhostCollectionPrefab` 缓冲区已经初始化，长度大于 0，并且满足以下任一条件
+   - 缓冲区中存在与待生成实体 `GhostType` 组件匹配的 Ghost Prefab
+   - `GhostCollection.GhostTypeToColletionIndex` 哈希表中存在对应条目，这是更快的检查方式
 
 ```csharp
 [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]
 public partial class SpawnGhost : SystemBase
 {
+    protected override void OnCreate()
+    {
+        RequireForUpdate<NetworkStreamInGame>();
+        RequireForUpdate<GhostCollection>();
+    }
+
     protected override void OnUpdate()
     {
         var networkTime = SystemAPI.GetSingleton<NetworkTime>();
-        //Only do that once. When the client re-simulate the same tick, the flag is false.
-        if(!networkTime.IsFirstTimeFullyPredictedTick())
+
+        // 同一 Tick 重新模拟时该标志为 false，确保只生成一次
+        if (!networkTime.IsFirstTimeFullyPredictingTick)
             return;
+
         var prefab = GetPrefabToSpawn();
-        var typeToCollection = SystemApi.GetSingleton<GhostCollection>() GhostTypeToColletionIndex;
-        var type = World.EntityManager.GetComponentData<GhostType>(prefab);
-        //Can't spawn yet. The prefab is not registered.
-        if(!typeToCollection.ContainsKey(type))
+        var typeToCollection =
+            SystemAPI.GetSingleton<GhostCollection>().GhostTypeToColletionIndex;
+        var type = EntityManager.GetComponentData<GhostType>(prefab);
+
+        // Prefab 尚未注册，当前不能生成
+        if (!typeToCollection.ContainsKey(type))
             return;
-        //it is now valid to spawn. That does not means the ghost will be initialized properly yet
-        //that can be still the case if the
+
+        EntityManager.Instantiate(prefab);
     }
 }
 ```
 
-The `GhostCollection` data condition is critical for spawning predicted ghosts because the data is required by the
-`PredictedGhostSpawningSystem` to initialize the new ghosts.
+`GhostCollection` 数据条件非常关键，因为 `PredictedGhostSpawningSystem` 需要这些数据初始化新 Ghost
 
-If the originating prefab isn't found inside the `GhostCollectionPrefab` during this initialization phase, exceptions are thrown to flag that the current predicted spawn can't be handled.
+初始化期间，如果在 `GhostCollectionPrefab` 中找不到来源 Prefab，系统会抛出异常，表明当前预测生成无法处理
 
-#### Specify rollback options for predicted spawned ghosts
+<a id="specify-rollback-options-for-predicted-spawned-ghosts"></a>
 
-When a ghost is predicted by the client (owner-predicted or predicted ghost modes), you can specify how predicted spawned ghosts handle [prediction and rollback](intro-to-prediction.md#rollback-and-replay) until the authoritative spawned ghost has been confirmed and received by the client.
+#### 指定预测生成 Ghost 的回滚选项
 
-By checking the **Rollback Predicted Spawned Ghost State** toggle in the Ghost Authoring component inspector, the unclassified spawned ghosts on the client roll back and resimulate their state starting from the spawn tick when a new snapshot (that contains the predicted ghost) is received from the server.
+客户端预测 Ghost 时，无论采用 Owner Predicted 还是 Predicted 模式，都可以指定在收到并确认服务器权威 Ghost 前，预测生成 Ghost 如何处理[预测与回滚](intro-to-prediction.md#rollback-and-replay)
 
-This can alleviate some misprediction errors caused by ghost-ghost interaction (refer to [prediction error and mitigation](prediction-details.md#predicted-spawn-interactions-with-other-predicted-ghosts)).
+在 Ghost Authoring 组件 Inspector 中勾选 **Rollback Predicted Spawned Ghost State** 后，客户端上的未分类生成 Ghost 会在收到包含该预测 Ghost 的新服务器快照时，从生成 Tick 开始回滚并重新模拟状态
 
-### Ghost classification and entity matching
+这可以缓解 Ghost 之间交互造成的部分错误预测，参阅[预测错误及缓解方式](prediction-details.md#predicted-spawn-interactions-with-other-predicted-ghosts)
 
-The process of matching a predicted spawned ghost to its server-authoritative counterpart is referred to as classification. If classification fails, the locally predicted spawn is deleted after a grace period.
+<a id="ghost-classification-and-entity-matching"></a>
 
-Netcode for Entities provides a default classification strategy to automatically handle all the client-spawned predicted objects by the client, which is implemented by the [`GhostSpawnClassificationSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnClassificationSystem.html).
+### Ghost 分类与实体匹配
 
-The `GhostSpawnClassificationSystem` uses a tick-based check to match newly received ghosts with any of the
-client-predicted spawned ones based on their types and spawning tick (within a five-tick window).
+把预测生成 Ghost 与服务器权威对象配对的过程称为分类。如果分类失败，本地预测生成对象会在宽限期后被删除
 
-The default implementation has some limitations:
+Netcode for Entities 提供默认分类策略，由 [`GhostSpawnClassificationSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnClassificationSystem.html) 自动处理客户端生成的所有预测对象
 
-- It can only reliably match one predicted spawned ghost of a single type inside the five-tick window. For example, if you spawn multiple bullets in the same tick then only one of them can be matched, and the match may not be the correct one. The spawning tick value alone is not enough to resolve the individual bullet identity.
-- If [tick batching](client-server-worlds.md#avoiding-performance-issues) is enabled and the server batches ticks together then inputs can be applied on a different tick than the one they were issued on, causing entities to be spawned at a slightly different tick than intended. These differences can impact the `GhostSpawnClassificationSystem` logic and cause it to fail to match ghosts correctly.
+`GhostSpawnClassificationSystem` 根据 Ghost 类型与生成 Tick，在五个 Tick 的窗口内，将新收到的 Ghost 与客户端预测生成对象进行匹配
 
-If you want more control or advanced logic for matching spawned ghosts, then you can [add your own classification system](#add-your-own-classification-system) to override the default behavior.
+默认实现存在以下限制：
 
-### Add your own classification system
+- 在五 Tick 窗口内，同一类型通常只能可靠匹配一个预测生成 Ghost。例如，同一 Tick 生成多枚子弹时，只有一枚能够匹配，而且可能匹配错误。仅凭生成 Tick 无法区分每枚子弹的身份
+- 如果启用 [Tick 批处理](client-server-worlds.md#avoiding-performance-issues)，服务器合并 Tick 后，输入可能在不同于产生它的 Tick 上应用，实体生成 Tick 也会略有偏差。这会影响 `GhostSpawnClassificationSystem`，导致匹配失败
 
-You can create your own classification system to override the default client classification. Your custom classification system must:
+如果需要更精确或更复杂的生成匹配逻辑，可以[添加自定义分类系统](#add-your-own-classification-system)覆盖默认行为
 
-- Update in the [`GhostSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSimulationSystemGroup.html).
-- Run after the [`GhostSpawnClassificationSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnClassificationSystem.html).
+<a id="add-your-own-classification-system"></a>
 
-The classification system works by inspecting the ghosts that need to be spawned by retrieving the
-[`GhostSpawnBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnBuffer.html) on the singleton
-[`GhostSpawnQueueComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostSpawnQueue.html) entity and changing their `SpawnType`.
+### 添加自定义分类系统
 
-Each entry in the `GhostSpawnQueueComponent` list should be compared to the entries in the [`PredictedGhostSpawn`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawn.html) buffer on the singleton with a [`PredictedGhostSpawnList`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawnList.html) component.
-If the two entries have the same type and match, then the classification system should set the `PredictedSpawnEntity` property in the [`GhostSpawnBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnBuffer.html) element and remove the entry from `PredictedGhostSpawn` buffer.
+自定义分类系统必须：
+
+- 在 [`GhostSimulationSystemGroup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSimulationSystemGroup.html) 中更新
+- 在 [`GhostSpawnClassificationSystem`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnClassificationSystem.html) 之后运行
+
+分类系统通过以下方式工作：读取单例 [`GhostSpawnQueueComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.GhostSpawnQueue.html) 实体上的 [`GhostSpawnBuffer`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnBuffer.html)，检查待生成 Ghost，并修改其 `SpawnType`
+
+应当把 `GhostSpawnQueueComponent` 列表中的每个条目，与包含 [`PredictedGhostSpawnList`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawnList.html) 组件的单例实体上的 [`PredictedGhostSpawn`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PredictedGhostSpawn.html) 缓冲区条目进行比较
+
+如果两者类型相同且匹配，分类系统应设置 `GhostSpawnBuffer` 元素的 `PredictedSpawnEntity`，并从 `PredictedGhostSpawn` 缓冲区删除相应条目
 
 ```csharp
-public void Execute(DynamicBuffer<GhostSpawnBuffer> ghosts, DynamicBuffer<SnapshotDataBuffer> data)
+public void Execute(DynamicBuffer<GhostSpawnBuffer> ghosts,
+    DynamicBuffer<SnapshotDataBuffer> data)
 {
     var predictedSpawnList = PredictedSpawnListLookup[spawnListEntity];
     for (int i = 0; i < ghosts.Length; ++i)
     {
         var newGhostSpawn = ghosts[i];
-        if (newGhostSpawn.SpawnType != GhostSpawnBuffer.Type.Predicted || newGhostSpawn.HasClassifiedPredictedSpawn || newGhostSpawn.PredictedSpawnEntity != Entity.Null)
+        if (newGhostSpawn.SpawnType != GhostSpawnBuffer.Type.Predicted ||
+            newGhostSpawn.HasClassifiedPredictedSpawn ||
+            newGhostSpawn.PredictedSpawnEntity != Entity.Null)
             continue;
 
-        // Mark all the spawns of this type as classified even if not our own predicted spawns
-        // otherwise spawns from other players might be picked up by the default classification system when
-        // it runs.
+        // 即使对象不是由本机预测生成，也要把该类型的所有生成标记为已分类
+        // 否则默认分类系统运行时，可能错误选中其他玩家生成的对象
         if (newGhostSpawn.GhostType == ghostType)
             newGhostSpawn.HasClassifiedPredictedSpawn = true;
 
-        // Find new ghost spawns (from ghost snapshot) which match the predict spawned ghost type handled by
-        // this classification system. You can use the SnapshotDataBufferLookup to inspect components in the
-        // received snapshot in your matching function
+        // 查找快照中的新 Ghost，并与本系统处理的预测生成类型匹配
+        // 匹配函数可以通过 SnapshotDataBufferLookup 检查所接收快照中的组件
         for (int j = 0; j < predictedSpawnList.Length; ++j)
         {
             if (newGhostSpawn.GhostType != predictedSpawnList[j].ghostType)
@@ -188,94 +227,106 @@ public void Execute(DynamicBuffer<GhostSpawnBuffer> ghosts, DynamicBuffer<Snapsh
                 break;
             }
         }
+
         ghosts[i] = newGhostSpawn;
     }
 }
 ```
 
-Inside your classification system you can use the [`SnapshotDataBufferLookup`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnQueue.html) to:
+分类系统可以使用 `SnapshotDataBufferLookup`：
 
-- Check for component presence in the ghost archetype.
-- Retrieve from the snapshot data associated with the new ghost any replicated component type.
+- 检查 Ghost Archetype 中是否存在某个组件
+- 从新 Ghost 对应的快照数据中读取任意已复制组件类型
 
-## Pre-spawned ghosts
+<a id="pre-spawned"></a>
+<a id="pre-spawned-ghosts"></a>
 
-Ghosts that are saved directly into subscenes are referred to as pre-spawned ghosts, and are spawned when the subscene is loaded on both client and server worlds. If a pre-spawned ghost hasn't changed on the server (from the values it had when originally baked into the subscene), then no snapshot updates are required to activate it on the client. In other words, it's treated as already acknowledged.
-Therefore, even if there are a few changes, those changes are delta-compressed against the subscene baseline.
+## 预生成 Ghost
 
-Pre-spawns are best suited for ghosts that are:
+直接保存在 SubScene 中的 Ghost 称为预生成 Ghost。当客户端和服务器 World 加载 SubScene 时，它们会随场景生成。如果预生成 Ghost 在服务器上的值与最初烘焙到 SubScene 时相比没有变化，则无需快照更新即可在客户端激活，系统会把它视为已经确认。即使存在少量变更，这些变更也会相对 SubScene 基线进行 Delta 压缩
 
-* **Persistent**: that share their lifetimes with the subscene itself. Destroying a pre-spawned ghost and replacing it with a new instance is inefficient, because new joiners will not only need to handle the destruction of the original pre-spawn (which they've already loaded), but then replicate the new spawn as a completely new ghost.
-* **Statically optimized**: benefitting from the fact that most of their data will be delta-compressed to ~0 in the common case.
+预生成最适合以下 Ghost：
 
-Good examples of pre-spawned ghosts in a game include trees you can chop down which regrow (which are disabled, not destroyed when chopped), and doors that can be opened and closed by players.
+- **持久对象**：生命周期与 SubScene 相同。销毁预生成 Ghost 再用新实例替换的效率很低，因为后来加入的客户端不仅要处理原始预生成对象的销毁，还要把替代对象作为全新 Ghost 复制
+- **静态优化对象**：常规情况下大部分数据都能通过 Delta 压缩接近 0，从而获益
 
-> [!NOTE]
-> Regarding persistence: be careful using pre-spawns with [ghost relevancy](optimizations.md#relevancy), because all pre-spawned ghosts that are irrelevant to a client will need to be loaded on said client, then marked for deletion by the server (as irrelevant), and then deleted on said client (via events sent inside the snapshot).
-> Irrelevant ghosts therefore have the same pitfalls as manually destroyed pre-spawns, and so it may be more efficient to treat pre-spawns as always relevant (and statically optimized too, where possible).
-> Alternatively, you can convert these regularly irrelevant pre-spawns into runtime spawns, replacing their subscene entries with server-only spawners, as the client will therefore only receive the ghosts which are actually relevant to begin with.
-
-To create a pre-spawned ghost, place a ghost prefab into a subscene in the Unity Editor. To do so:
-
-1. Right click on the **Hierarchy** in the inspector and click **New Subscene**.
-2. Drag an instance of a ghost prefab into the newly created subscene.
-
-<img src="images/prespawn-ghost.png" alt="prespawn ghost" width="700">
-
-### Pre-spawned ghost limitations
-
-There are some limitations when creating pre-spawned ghosts:
-
-- Pre-spawned ghosts must be an instance of a ghost prefab.
-- Pre-spawned ghosts must be placed into a subscene (i.e. not directly into a scene), like all other authored/baked entities.
-- Pre-spawned ghosts in the same scene can't have the exact same position and rotation as another pre-spawn (as their `LocalTransform` is used to deterministically sort them).
-- Pre-spawned ghosts must always be placed on the main scene section (section 0).
-- The `GhostAuthoringComponent` on the pre-spawned ghost cannot be configured differently than its ghost prefab source (as that data is handled on a ghost type basis, not a per-scene-instance basis), and is therefore marked as read-only. However, other authoring data can be modified, as expected.
-
-### How pre-spawned ghosts work
-
-At [baking time](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/baking-overview.html), each subscene assigns a [`PreSpawnedGhostIndex`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSpawnedGhostIndex.html) to the ghosts it contains, which are unique IDs for the ghosts within that subscene.
-The IDs are assigned by sorting the ghosts using a deterministic hash, differentiated by the ghost type (or prefab ID) and the [`SceneGUID`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SceneSectionData.SceneGUID.html) of the scene section.
-If two or more ghosts of the same type are added to the same subscene section (a very common case), uniqueness is determined by adding the entity's `Position` and `Rotation` to its ID (which is why there is the limitation of not supporting two or more ghosts of the same type being pre-spawned at the same scene location).
-All of this is done because pre-spawned ghosts can't be given unique, deterministic ghost IDs at bake/build time.
-
-Each subscene has a resulting combined hash that contains all the ghosts' calculated hashes, which is extracted and used to:
-
-- Group the pre-spawned ghosts on a per-subscene basis by assigning a [`SubSceneGhostComponentHash`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SubSceneGhostComponentHash.html) shared component to all the ghosts in the scene.
-- Add to the first [`SceneSection`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SceneSection.html) in the subscene a [`SubSceneWithPrespawnGhosts`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SubSceneWithPrespawnGhosts.html) component, which is used by the runtime to handle subscenes with pre-spawned ghosts.
-
->[!NOTE]
-> Additionally, for safety reasons, each pre-spawn ghost is baked with the `Disabled` component, to hide it from user-land systems until it has been fully re-initialized at runtime (i.e. the scene is loaded, and the serialization baseline has been calculated).
-
-At runtime, when a subscene has been loaded, it's processed by both client and server:
-
-- For each pre-spawned ghost, a pre-spawn baseline is extracted and used to delta compress the ghost component when it's first sent (for bandwidth optimization).
-- The server assigns a unique ghost ID range to each subscene, which is used to assign distinct ghost ID's to the newly instantiated pre-spawned ghosts based on their [`PreSpawnedGhostIndex`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSpawnedGhostIndex.html).
-- The server replicates these assigned ID ranges for each subscene (identified by the hash assigned to the `SubSceneWithPrespawnGhosts` component) using an internal ghost entity named 'PrespawnSceneList'.
-- Once the client has loaded the subscene and received the ghost range, it then:
-  - Assigns - to each pre-spawned ghost - its server authoritative ghost ID.
-  - Reports to the server that it's ready to stream the pre-spawned ghosts (via [RPC](rpcs.md)).
-
-For both client and server, when a subscene has been processed (and ghost ID assigned), a `PrespawnsSceneInitialized` internal component is added to the main `SceneSection`.
-The client automatically tracks when subscenes with pre-spawned ghosts are loaded or unloaded, and reports to the server to stop streaming pre-spawned ghosts associated with them.
-
-All the pre-spawn ghost ID setup described in the previous paragraphs is done automatically, so nothing special needs to be done to keep pre-spawned ghosts synchronized between client and server.
+适合预生成的对象包括可砍伐并重新生长的树，以及可由玩家开关的门。树木被砍伐时应禁用而不是销毁
 
 > [!NOTE]
-> If pre-spawned ghosts are moved before going in-game, or in general before the baseline is calculated properly, then data may be not replicated correctly (the snapshot delta compression will fail).
-> Both server and client calculate a cyclic redundancy check (CRC) of the baseline and this hash is validated when clients connect. A mismatch will cause a disconnection. This is also why ghosts are `Disabled` when the scene is loaded.
+> 对预生成 Ghost 使用 [Ghost 相关性](optimizations.md#relevancy)时要注意持久性。与客户端无关的预生成 Ghost 仍需先在该客户端加载，再由服务器标记删除，最后通过快照事件在客户端删除
+>
+> 因此，无关 Ghost 会遇到与手动销毁预生成对象相同的问题。把预生成 Ghost 视为始终相关，并尽可能使用静态优化，通常效率更高
+>
+> 另一种方式是把经常无关的预生成对象改为运行时生成，并用仅服务器生成器替换其 SubScene 条目，使客户端一开始就只接收真正相关的 Ghost
 
-#### Dynamically loading subscenes with pre-spawned ghosts
+在 Unity Editor 中把 Ghost Prefab 放入 SubScene，即可创建预生成 Ghost：
 
-You can load a subscene at runtime with pre-spawned ghosts while you're already in-game and the pre-spawned ghosts are automatically handled and synchronized. You can also unload subscenes that contain pre-spawned ghosts on demand. Netcode for Entities handles it automatically, and the server stops reporting the pre-spawned ghosts for sections the client has unloaded.
+1. 在 Inspector 的 **Hierarchy** 中单击右键，再单击 **New Subscene**
+2. 把 Ghost Prefab 实例拖入新建的 SubScene
 
-## Additional resources
+<img src="images/prespawn-ghost.png" alt="预生成 Ghost" width="700">
 
-* [Ghosts and snapshots](ghost-snapshots.md)
-* [Serializing and synchronizing with `GhostFieldAttribute`](ghostfield-synchronize.md)
-* [`GhostSpawnSystem` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnSystem.html)
-* [Introduction to prediction](intro-to-prediction.md)
-* [`ClientPopulatePrespawnedGhostsSystem` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientPopulatePrespawnedGhostsSystem.html)
-* [`ClientTrackLoadedPrespawnSections` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTrackLoadedPrespawnSections.html)
-* [`ServerPopulatePrespawnedGhostsSystem` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ServerPopulatePrespawnedGhostsSystem.html)
-* [`ServerTrackLoadedPrespawnSections` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ServerTrackLoadedPrespawnSections.html)
+<a id="pre-spawned-ghost-limitations"></a>
+
+### 预生成 Ghost 的限制
+
+- 预生成 Ghost 必须是 Ghost Prefab 的实例
+- 与其他 Authoring 或烘焙实体一样，预生成 Ghost 必须放入 SubScene，不能直接放在 Scene 中
+- 同一 Scene 中的预生成 Ghost 不能与另一个预生成对象拥有完全相同的位置和旋转，因为系统使用 `LocalTransform` 对它们进行确定性排序
+- 预生成 Ghost 必须放在主 Scene Section，也就是 Section 0
+- 预生成 Ghost 上的 `GhostAuthoringComponent` 不能采用不同于来源 Prefab 的配置，因为这些数据按 Ghost 类型而不是按 Scene 实例处理，所以 Inspector 中会显示为只读。其他 Authoring 数据仍可正常修改
+
+<a id="how-pre-spawned-ghosts-work"></a>
+
+### 预生成 Ghost 的工作原理
+
+在[烘焙阶段](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/baking-overview.html)，每个 SubScene 会为其中的 Ghost 分配 [`PreSpawnedGhostIndex`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSpawnedGhostIndex.html)，作为该 SubScene 内 Ghost 的唯一 ID
+
+系统按确定性哈希对 Ghost 排序。哈希会根据 Ghost 类型或 Prefab ID，以及 Scene Section 的 [`SceneGUID`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SceneSectionData.SceneGUID.html) 区分对象。如果同一 SubScene Section 中存在两个或更多相同类型的 Ghost，系统还会把实体的 `Position` 和 `Rotation` 加入 ID 来保证唯一性。这就是为什么不支持在同一位置预生成两个或更多相同类型的 Ghost
+
+之所以需要这套流程，是因为烘焙或构建时无法为预生成 Ghost 分配全局唯一且确定的 Ghost ID
+
+每个 SubScene 最终会得到一个组合哈希，其中包含所有 Ghost 的计算哈希。系统提取该值并用于：
+
+- 为 Scene 中所有 Ghost 添加 [`SubSceneGhostComponentHash`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SubSceneGhostComponentHash.html) 共享组件，按 SubScene 对预生成 Ghost 分组
+- 为 SubScene 的第一个 [`SceneSection`](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/api/Unity.Entities.SceneSection.html) 添加 [`SubSceneWithPrespawnGhosts`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SubSceneWithPrespawnGhosts.html)，运行时通过该组件处理包含预生成 Ghost 的 SubScene
+
+> [!NOTE]
+> 出于安全考虑，每个预生成 Ghost 在烘焙时还会获得 `Disabled` 组件，在运行时完成重新初始化之前对用户系统隐藏。重新初始化包括 Scene 加载和序列化基线计算
+
+运行时加载 SubScene 后，客户端和服务器都会处理它：
+
+- 为每个预生成 Ghost 提取预生成基线，在第一次发送该 Ghost 组件时用于 Delta 压缩，节省带宽
+- 服务器为每个 SubScene 分配唯一的 Ghost ID 范围，再结合 [`PreSpawnedGhostIndex`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.PreSpawnedGhostIndex.html)，为新实例化的预生成 Ghost 分配不同 ID
+- 服务器使用内部 Ghost 实体 `PrespawnSceneList`，复制每个 SubScene 分配到的 ID 范围。SubScene 由 `SubSceneWithPrespawnGhosts` 上的哈希标识
+- 客户端加载 SubScene 并收到 Ghost ID 范围后
+  - 为每个预生成 Ghost 分配服务器权威 Ghost ID
+  - 通过 [RPC](rpcs.md) 告知服务器，它已准备好流式接收这些预生成 Ghost
+
+客户端和服务器处理完 SubScene 并分配 Ghost ID 后，会在主 `SceneSection` 上添加内部组件 `PrespawnsSceneInitialized`
+
+客户端会自动追踪包含预生成 Ghost 的 SubScene 何时加载或卸载，并通知服务器停止向它流式发送已卸载 SubScene 对应的预生成 Ghost
+
+上述预生成 Ghost ID 配置完全自动完成，无需执行额外操作来维持客户端与服务器之间的同步
+
+> [!NOTE]
+> 如果预生成 Ghost 在进入游戏前，或在基线正确计算前被移动，数据可能无法正确复制，因为快照 Delta 压缩会失败
+>
+> 服务器和客户端都会计算基线的循环冗余校验（CRC），并在客户端连接时验证该哈希。不匹配会导致断开连接。这也是 Scene 加载时 Ghost 带有 `Disabled` 的原因
+
+<a id="dynamically-loading-subscenes-with-pre-spawned-ghosts"></a>
+
+#### 动态加载包含预生成 Ghost 的 SubScene
+
+进入游戏后仍可在运行时加载包含预生成 Ghost 的 SubScene，这些 Ghost 会自动处理和同步。也可以按需卸载此类 SubScene，Netcode for Entities 会自动停止向客户端报告其已卸载 Section 中的预生成 Ghost
+
+## 其他资源
+
+- [Ghost 与快照](ghost-snapshots.md)
+- [使用 `GhostFieldAttribute` 序列化和同步](ghostfield-synchronize.md)
+- [`GhostSpawnSystem` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostSpawnSystem.html)
+- [预测简介](intro-to-prediction.md)
+- [`ClientPopulatePrespawnedGhostsSystem` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientPopulatePrespawnedGhostsSystem.html)
+- [`ClientTrackLoadedPrespawnSections` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ClientTrackLoadedPrespawnSections.html)
+- [`ServerPopulatePrespawnedGhostsSystem` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ServerPopulatePrespawnedGhostsSystem.html)
+- [`ServerTrackLoadedPrespawnSections` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest/index.html?subfolder=/api/Unity.NetCode.ServerTrackLoadedPrespawnSections.html)

@@ -1,12 +1,12 @@
-# Host migration
+# 主机迁移
 
-Use host migration in your project to allow a client hosted networking experience to continue after the loss of the host.
+在项目中使用主机迁移，使客户端托管的网络会话在失去当前主机后仍能继续
 
-You can use host migration to manage a variety of voluntary and involuntary interruptions, including network disconnections, power failures, or the host exiting the application.
+主机迁移可用于处理各种主动或意外中断，包括网络断开、电源故障或主机退出应用
 
-| **Topic**                       | **Description**                  |
+| **主题**                        | **说明**                         |
 | :------------------------------ | :------------------------------- |
-| **[Introduction to host migration](host-migration-intro.md)** | Understand the basics of host migration in Netcode for Entities and whether it might be suitable for your project. |
-| **[Host migration API and components](host-migration-api.md)** | Understand the host migration API, components, and component options. |
-| **[Add host migration to your project](add-host-migration.md)**  | Understand the requirements, systems, and integrations involved in adding host migration to your project. |
-| **[Limitations and known issues](host-migration-limitations.md)** | Understand the limitations and known issues with host migration to implement it most effectively in your project. |
+| **[主机迁移简介](host-migration-intro.md)** | 了解 Netcode for Entities 中主机迁移的基础知识，以及它是否适合当前项目 |
+| **[主机迁移 API 与组件](host-migration-api.md)** | 了解主机迁移 API、组件和组件选项 |
+| **[为项目添加主机迁移](add-host-migration.md)** | 了解为项目添加主机迁移所涉及的要求、系统和集成 |
+| **[限制与已知问题](host-migration-limitations.md)** | 了解主机迁移的限制与已知问题，以便在项目中有效实现该功能 |

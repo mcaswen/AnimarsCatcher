@@ -1,289 +1,339 @@
-# Ghost type templates
+# Ghost 类型模板
 
-Netcode for Entities has default templates that define how ghost component types are handled during [baking](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/baking-overview.html) and serialization. You can also [create your own templates](#defining-additional-templates) to register additional types.
+Netcode for Entities 提供默认模板，用于定义 Ghost 组件类型在[烘焙](https://docs.unity3d.com/Packages/com.unity.entities@latest?subfolder=/manual/baking-overview.html)和序列化期间的处理方式。还可以[创建自定义模板](#defining-additional-templates)，注册其他类型
 
-## Supported types
+<a id="supported-types"></a>
 
-By default, Netcode for Entities has serialization templates for the following types:
+## 支持的类型
 
-* `bool`
-* `Entity`
-* `FixedString32Bytes`
-* `FixedString64Bytes`
-* `FixedString128Bytes`
-* `FixedString512Bytes`
-* `FixedString4096Bytes`
-* `float`
-* `float2`
-* `float3`
-* `float4`
-* `byte`
-* `sbyte`
-* `short`
-* `ushort`
-* `int`
-* `uint`
-* `long`
-* `ulong`
-* `enums` (only for `int`/`uint` underlying type)
-* `quaternion`
-* `double`
-* `NetworkEndpoint`
-* FixedList32Bytes<T> (where T can be any supported unmanaged replicated type)
-* FixedList64Bytes<T> (where T can be any supported unmanaged replicated type)
-* FixedList128Bytes<T> (where T can be any supported unmanaged replicated type)
-* FixedList512Bytes<T> (where T can be any supported unmanaged replicated type)
-* FixedList4096Bytes<T> (where T can be any supported unmanaged replicated type)
-* fixed-size unsafe buffers (require unsafe code to be enabled for the assembly)
-* unions ([with caveats](#how-to-support-unions))
+Netcode for Entities 默认为以下类型提供序列化模板：
 
-### Types that support reporting of prediction errors
+- `bool`
+- `Entity`
+- `FixedString32Bytes`
+- `FixedString64Bytes`
+- `FixedString128Bytes`
+- `FixedString512Bytes`
+- `FixedString4096Bytes`
+- `float`
+- `float2`
+- `float3`
+- `float4`
+- `byte`
+- `sbyte`
+- `short`
+- `ushort`
+- `int`
+- `uint`
+- `long`
+- `ulong`
+- 枚举，仅支持 `int` 或 `uint` 底层类型
+- `quaternion`
+- `double`
+- `NetworkEndpoint`
+- `FixedList32Bytes<T>`，其中 `T` 可以是任意受支持的非托管复制类型
+- `FixedList64Bytes<T>`
+- `FixedList128Bytes<T>`
+- `FixedList512Bytes<T>`
+- `FixedList4096Bytes<T>`
+- 固定大小的 Unsafe Buffer，需要为程序集启用 Unsafe Code
+- Union，但存在[额外限制](#how-to-support-unions)
 
-* bool
-* int
-* uint
-* short
-* ushort
-* long
-* ulong
-* byte
-* sbyte
-* bool
-* float
-* double
-* float2
-* float3
-* float4
-* quaternion
-* NetworkTick
-* NetworkEndPoint
+<a id="types-that-support-reporting-of-prediction-errors"></a>
 
-### Types that don't support reporting of prediction errors
+### 支持报告预测误差的类型
 
-* Entity
-* All FixedString
-* All FixedList
-* All fixed buffers
-* Dynamic Buffers
-* unions
+- `bool`
+- `int`
+- `uint`
+- `short`
+- `ushort`
+- `long`
+- `ulong`
+- `byte`
+- `sbyte`
+- `float`
+- `double`
+- `float2`
+- `float3`
+- `float4`
+- `quaternion`
+- `NetworkTick`
+- `NetworkEndpoint`
 
-### Types with multiple templates
+<a id="types-that-dont-support-reporting-of-prediction-errors"></a>
 
-Some types have multiple templates that provide alternative ways to serialize the type. Types with multiple templates are:
+### 不支持报告预测误差的类型
 
-* `float`
-* `float2`
-* `float3`
-* `float4`
-* `quaternion`
-* `double`
+- `Entity`
+- 所有 `FixedString`
+- 所有 `FixedList`
+- 所有固定 Buffer
+- Dynamic Buffer
+- Union
 
-For types with multiple templates, the available options are as follows:
+<a id="types-with-multiple-templates"></a>
 
-| Setting | Options | Description |
+### 拥有多个模板的类型
+
+以下类型提供多种模板，可以选择不同的序列化方式：
+
+- `float`
+- `float2`
+- `float3`
+- `float4`
+- `quaternion`
+- `double`
+
+这些类型提供以下选项：
+
+| 设置 | 选项 | 说明 |
 |---|---|---|
-| Quantization | Quantized or unquantized  | Quantization involves limiting the precision of data for the sake of reducing the number of bits required to send and receive that data. For example, a float value `12.456789` with a quantization factor of `1000` is sent as `int 12345`. Unquantized means the float is sent with full precision. Refer to [quantization](compression.md#quantization) for more details. |
-| Smoothing method | `Clamp`, `Interpolate`, or `InterpolateAndExtrapolate` | Smoothing method specifies how a new value is applied on the client when a snapshot is received. Refer to the [`SmoothingAction` API documentation](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html) for more details. |
+| Quantization | Quantized 或 Unquantized | 量化通过限制数据精度减少收发所需位数。例如，量化因子为 `1000` 时，浮点数 `12.456789` 会作为整数 `12345` 发送。Unquantized 表示以完整精度发送浮点数，详情参阅[量化](compression.md#quantization) |
+| Smoothing Method | `Clamp`、`Interpolate` 或 `InterpolateAndExtrapolate` | 平滑方法指定客户端收到快照后如何应用新值，详情参阅 [`SmoothingAction` API 文档](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.SmoothingAction.html) |
 
-Each of these options changes how the original value is serialized, deserialized, and applied on the client, and each template uses different, named regions to handle these cases. The code generator chooses the appropriate regions to generate, and bakes your user-defined serialization settings for fields on your types directly into the serializer for your type. You can explore these generated types in the projects' `Temp/NetCodeGenerated` folder (note that they're deleted when Unity is closed).
+每个选项都会改变原始值在客户端上的序列化、反序列化和应用方式。模板使用不同的命名 Region 处理这些情况。代码生成器会选择适当 Region 生成代码，并把用户为类型字段定义的序列化设置直接烘焙到对应序列化器中
 
-### Fixed size list capacity/length limitations
+可以在项目的 `Temp/NetCodeGenerated` 文件夹查看这些生成类型。Unity 关闭后，该目录会被删除
 
-When fixed-size list are serialized in RPC/Command or as a field in replicated component, a limit to the list length (and therefore capacity) is enforced.
+<a id="fixed-size-list-capacitylength-limitations"></a>
 
-| Primitive           | Length cap |
-|---------------------|------------|
-| IRpcCommand         | 1024       |
-| ComponentData       | 64         |
-| BufferElementData   | 64         |
-| ICommand            | 64         |
-| IInputComponentData | 64         |
+### 固定大小 List 的容量与长度限制
 
-When fixed-size list fields are replicated in RPCs the maximum allowed capacity (and thus length) for any fixed size list field element is limited to 1024 elements.
-> Remark: Notice that becase sending RPC larger than 1MTU is not currently supported, the packet size induce an instrisict limitation on the maximunumber of serializable elements that can be way lower than 1024.
+当固定大小 List 作为 RPC、Command 或复制组件的字段进行序列化时，系统会限制其长度和容量
 
-When fixed-size list fields are replicated in `IComponentData`, `IBufferElementData`, `ICommandData` and `IInputComponentData` the maximum allowed fixed-list capacity is capped to 64 elements.
+| 数据类型 | 最大元素数 |
+|---|---:|
+| `IRpcCommand` | 1024 |
+| `IComponentData` | 64 |
+| `IBufferElementData` | 64 |
+| `ICommandData` | 64 |
+| `IInputComponentData` | 64 |
 
-Because there is no way to enforce a lower capacity for a fixed list of the give byte size (the size implicitly define the capacity) it is permitted to use larger list with exceeding capacity, but sufficient then to hold the number of element that you require.
-When this necessity arise, it is mandatory to use the [`GhostFixedListCapacity`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFixedListCapacityAttribute.html) attribute to declare what it is the expected capacity of the list.
+固定大小 List 字段通过 RPC 复制时，允许的最大容量，也就是最大长度，为 1024 个元素
+
+> [!NOTE]
+> 当前不支持发送大于一个 MTU 的 RPC，因此数据包大小本身还会形成内在限制。实际可序列化元素数可能远低于 1024
+
+固定大小 List 字段通过 `IComponentData`、`IBufferElementData`、`ICommandData` 或 `IInputComponentData` 复制时，最大容量为 64 个元素
+
+固定字节大小隐式决定 `FixedList` 容量，无法直接强制更小容量。因此可以使用字节容量更大的 List，但只允许它保存实际需要的元素数。出现这种需求时，必须使用 [`GhostFixedListCapacity`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFixedListCapacityAttribute.html) 声明预期容量
 
 ```csharp
 struct MyRpc : IRpcCommand
 {
-    //limit the list replicated elements to 32. The limit is enforced
-    [GhostFixedListCapacity(Capacity=32)]
-    public FixedList4096<float> floats;
+    // 将复制元素数限制为 32，系统会强制执行该限制
+    [GhostFixedListCapacity(Capacity = 32)]
+    public FixedList4096Bytes<float> Floats;
 }
 
 struct MyComponent : IComponentData
 {
-    //limit the list replicated elements to 32. The limit is enforced
-    [GhostFixedListCapacity(Capacity=32)]
-    public FixedList4096<float> floats;
+    // 将复制元素数限制为 32，系统会强制执行该限制
+    [GhostFixedListCapacity(Capacity = 32)]
+    public FixedList4096Bytes<float> Floats;
 }
 ```
 
-A compile time error is reported to inform what fields that are exceeding the maximum capacity and that required the attribute to be present.
+如果字段容量超过上限且没有添加该特性，系统会报告编译错误
 
-The fixed-size list length will be implicitly clamped (when serialized or stored in the snapshot buffer) to the maximum allowed internal capacity if the list length exceed that threshold. Errors are reported in developer build or in general when the `NETDEBUG` define is set when then list length exceed the
-maximum allowed capacity for the list.
+序列化或写入快照缓冲区时，如果固定大小 List 的长度超过内部允许上限，会自动截断到最大容量。Development Build 或定义了 `NETDEBUG` 时，List 长度超过上限还会报告错误
 
-#### Why we enforce the 64 element restriction
-The idea behind supporting Fixed Lists as `[GhostField]`s is that they can be used to replicate small lists of gameplay data. They are not designed to store/replicate large amounts of data, as the higher the number of elements, the larger the number of bits needed to represent both the changeMask, and the delta-compressed changes themselves.
-The cap (of 64) is intentional; it is a good compromise between flexibility (as 64 elements is quite enough for most use cases), and easier (thus faster) replication code. It also helps prevent the sending of partial snapshots (i.e. snapshots only containing a subset of a chunks entities), which is an additional benefit. _Note: We'll consider lifting this restriction in the future._
+<a id="why-we-enforce-the-64-element-restriction"></a>
 
-For Inputs (commands) the common use case we are optimizing for is that input should be in general small. So we preferred to enforce the rule to constrain input size. Further, because inputs can be replicated for other players (via the presence of the `[GhostField]` attribute - and associated `GhostComponent` flags), we would had a very strange and non-uniform behaviour in such case.
+#### 为什么强制限制为 64 个元素
 
-#### Why don't RPCs have a larger maximum allowed capacity ?
-The main reasons are:
-- RPCs are meant to be sent unfrequently
-- They our most flexible and unique tool for message passing.
-- They don't have any particular needs for complex change mask generation that justify applying the limit either.
+支持把 `FixedList` 用作 `[GhostField]`，目的是复制少量玩法数据，而不是存储或复制大量数据。元素越多，表示 Change Mask 和 Delta 压缩变更所需的位数就越多
 
-## How types are serialized
+64 个元素是刻意选择的上限。它在灵活性与简单、快速的复制代码之间取得平衡，对大多数用途也足够。它还有助于避免发送部分快照，也就是只包含某个 Chunk 部分实体的快照。未来可能重新评估该限制
 
-Netcode for Entities serialize the supported types over the network by using either bit-packing (packed format) or the
-"un-packed" (full bits) format.
+针对 Input 或 Command，主要优化目标是让输入通常保持很小，因此包会主动约束其大小。另外，输入也可能通过 `[GhostField]` 以及对应 `GhostComponent` 标志复制给其他玩家；如果不统一限制，这种场景会产生异常且不一致的行为
 
-#### packed vs unpacked format
-| Type           | unpacked          | packed                                                                        |
-|----------------|-------------------|-------------------------------------------------------------------------------|
-| sbyte          | 32 bit            | zig-zag encoded, 4 bits + variable size payload (huffman/golomb bucket)       |
-| short          | 16 bit            | zig-zag encoded, 4 bits + variable size payload (huffman/golomb bucket)       |
-| int            | 32 bit            | zig-zag encoded, 4 bits + variable size payload (huffman/golomb bucket)       |
-| long           | 64 bit            | zig-zag encoded, 2 x (4 bits + variable size payload (huffman/golomb bucket)) |
-| byte           | 32 bit            | 4 bits + variable size payload (huffman/golomb bucket)                        |
-| uint           | 32 bit            | 4 bits + variable size payload (huffman/golomb bucket)                        |
-| ushort         | 16 bit            | 4 bits + variable size payload (huffman/golomb bucket)                        |
-| ulong          | 64 bit            | 2 x (4 bits + variable size payload (huffman/golomb bucket))                  |
-| float          | 32 bit            | 0: 1bit otherwise 32 bits                                                     |
-| double         | 64 bit            | 0: 1bit otherwise 64 bits                                                     |
-| FixedStringXXX | 8bit + len * 8bits | 4 bits + varialbe size payload (len) + len * (4 bits + varialbe size payload) |
-| float2         | 2 * 32bits        | 2 * packed float size                                                         |
-| float3         | 3 * 32bits        | 3 * packed float size                                                         |
-| float4         | 4 * 32bits        | 4 * packed float size                                                         |
-| quaternion     | 4 * 32bits        | 4 * packed float size                                                         |
+<a id="why-dont-rpcs-have-a-larger-maximum-allowed-capacity"></a>
 
-### How to support unions
-The `[GhostField]` attribute enables two netcode sub-systems; serialization, and client prediction (backup & restoring).
-C# unions (i.e. combining `[StructLayout(LayoutKind.Explicit)]` and `[FieldOffset(0)]`) are partially supported via `[GhostField]`,
-with the following limitations.
+#### 为什么 RPC 允许更大的最大容量
 
-* `SmoothingAction` must be `Clamp`, as we cannot interpolate, nor extrapolate (as netcode cannot infer which values should be).
-* `Quantization` must be `0 i.e. OFF`.
-* Prediction error reporting will not work.
-* `[GhostField] Entity` replication & patching (e.g. for `EntityCommandBuffer`) will not work.
-* As all union members share the same underlying memory, only enable replication of the **largest** union member.
-* `Composite = true` is optional.
-* Delta-compression will technically work, but won't be efficient if the underlying data changes significantly when
-different states are written to.
+主要原因如下：
 
-Example that works with input commands, RPCs, components, and buffers:
+- RPC 设计为低频发送
+- RPC 是最灵活、用途最独立的消息传递工具
+- RPC 不需要复杂的 Change Mask 生成，因此没有必要应用相同的 64 元素限制
+
+<a id="how-types-are-serialized"></a>
+
+## 类型的序列化方式
+
+Netcode for Entities 使用位打包的 Packed 格式，或使用完整位宽的 Unpacked 格式，在网络上传输受支持类型
+
+<a id="packed-vs-unpacked-format"></a>
+
+#### Packed 与 Unpacked 格式
+
+| 类型 | Unpacked | Packed |
+|---|---|---|
+| `sbyte` | 32 bit | ZigZag 编码，4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `short` | 16 bit | ZigZag 编码，4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `int` | 32 bit | ZigZag 编码，4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `long` | 64 bit | 两组“4 bit 加 Huffman/Golomb Bucket 可变长度负载” |
+| `byte` | 32 bit | 4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `uint` | 32 bit | 4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `ushort` | 16 bit | 4 bit 加 Huffman/Golomb Bucket 可变长度负载 |
+| `ulong` | 64 bit | 两组“4 bit 加 Huffman/Golomb Bucket 可变长度负载” |
+| `float` | 32 bit | 0 使用 1 bit，其他值使用 32 bit |
+| `double` | 64 bit | 0 使用 1 bit，其他值使用 64 bit |
+| `FixedStringXXX` | 8 bit 加 `length * 8 bit` | 4 bit 加长度的可变负载，再加每个字符的“4 bit 加可变负载” |
+| `float2` | `2 * 32 bit` | 两个 Packed Float |
+| `float3` | `3 * 32 bit` | 三个 Packed Float |
+| `float4` | `4 * 32 bit` | 四个 Packed Float |
+| `quaternion` | `4 * 32 bit` | 四个 Packed Float |
+
+<a id="how-to-support-unions"></a>
+
+### 如何支持 Union
+
+`[GhostField]` 会启用两个 Netcode 子系统：序列化，以及客户端预测的备份与恢复
+
+C# Union，也就是组合使用 `[StructLayout(LayoutKind.Explicit)]` 和 `[FieldOffset(0)]`，可以有限度地配合 `[GhostField]` 使用，但有以下限制：
+
+- `SmoothingAction` 必须为 `Clamp`，因为 Netcode 无法推断应使用哪个值，不能执行插值或外推
+- `Quantization` 必须为 `0`，也就是关闭
+- 预测误差报告不可用
+- `[GhostField] Entity` 的复制和修补不可用，例如供 `EntityCommandBuffer` 使用的修补
+- 所有 Union 成员共享同一底层内存，只能为尺寸最大的成员启用复制
+- `Composite = true` 是可选项
+- Delta 压缩在技术上可以工作，但不同状态写入后底层数据发生大幅变化时效率很低
+
+以下示例可用于输入命令、RPC、组件和 Buffer：
+
 ```csharp
-    [StructLayout(LayoutKind.Explicit)]
-    public struct Union
+[StructLayout(LayoutKind.Explicit)]
+public struct Union
+{
+    [FieldOffset(0)]
+    [GhostField(SendData = false)]
+    public StructA State1;
+
+    [FieldOffset(0)]
+    [GhostField(Quantization = 0, Smoothing = SmoothingAction.Clamp, Composite = true)]
+    public StructB State2;
+
+    [FieldOffset(0)]
+    [GhostField(SendData = false)]
+    public StructC State3;
+
+    public struct StructA
     {
-        [FieldOffset(0)] [GhostField(SendData = false)] public StructA State1;
-        [FieldOffset(0)] [GhostField(Quantization = 0, Smoothing = SmoothingAction.Clamp, Composite = true)] public StructB State2;
-        [FieldOffset(0)] [GhostField(SendData = false)] public StructC State3;
-        public struct StructA
-        {
-            public int A, B;
-            public float C;
-        }
-        public struct StructB
-        {
-            public ulong A, B, C, D;
-        }
-        public struct StructC
-        {
-            public double A, B;
-        }
-        public static void Assertions()
-        {
-            UnityEngine.Debug.Assert(UnsafeUtility.SizeOf<StructB>() >= UnsafeUtility.SizeOf<StructA>());
-            UnityEngine.Debug.Assert(UnsafeUtility.SizeOf<StructB>() >= UnsafeUtility.SizeOf<StructC>());
-        }
+        public int A, B;
+        public float C;
     }
+
+    public struct StructB
+    {
+        public ulong A, B, C, D;
+    }
+
+    public struct StructC
+    {
+        public double A, B;
+    }
+
+    public static void Assertions()
+    {
+        UnityEngine.Debug.Assert(
+            UnsafeUtility.SizeOf<StructB>() >= UnsafeUtility.SizeOf<StructA>());
+        UnityEngine.Debug.Assert(
+            UnsafeUtility.SizeOf<StructB>() >= UnsafeUtility.SizeOf<StructC>());
+    }
+}
 ```
 
-> Netcode for Entities doesn't perform any checks to verify that the union member struct you marked as replicated is the one with the largest size, nor that you used `SendData = false` on the others. You must verify this yourself.
-> It's recommend that you write a [serializer template](#defining-additional-templates) for your unions, which may allow you to circumvent most of the above limitations.
+> Netcode for Entities 不会验证被标记为复制的 Union 成员是否尺寸最大，也不会检查其他成员是否使用了 `SendData = false`，必须自行确保这些条件成立
+>
+> 建议为 Union 编写[序列化器模板](#defining-additional-templates)，这样可能绕过上述大部分限制
 
-### Serialization in snapshot
+<a id="serialization-in-snapshot"></a>
 
-The replicated entity data (ghost snapshot) is composed by two part: an array of bits, the components fields `changemask`, and
-the component data`payload` itself.
+### 快照中的序列化
 
-Both payload and changemask are delta-encoded/delta-compressed against up-to 3 previously acked state received by the client
-(for that entity) or, if no ack has been received, against the zero-baseline (all zeroes).
+复制实体数据，也就是 Ghost Snapshot，由两部分组成：组件字段的 Change Mask 位数组，以及组件数据 Payload 本身
 
-**Change Mask Bits**
+Payload 和 Change Mask 都会相对客户端此前确认的最多三份状态进行 Delta 编码和压缩。如果该实体尚无已确认状态，则相对全零的 Zero Baseline 处理
 
-| Type               | bits              | aggregate | notes                                                                                                                                                                 |
-|--------------------|-------------------|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| primitive          | 1 bit             | yes       |
-| fixed-size list    | 2 bits            | no        |
-| fixed-size buffers | 1 bit per element | yes       |
-| float2             | 1 bit             | yes       |
-| float3             | 1 bit             | yes       |
-| float4             | 1 bit             | yes       |
-| quaternion         | 1 bit             | yes       |
-| FixedString XXX    | 1 bit             | yes       |
+**Change Mask 位数**
 
-Any struct are recursively visited and by default each members consume the corresponding number of change mask bits. If the `GhostField.Composite` flag is set, the struct aggregate in 1 bit all fields that support mask aggregation.
-The only field that can't be aggregate are fixed-size list, that always consume 2 bits of mask.
+| 类型 | 位数 | 可聚合 | 说明 |
+|---|---:|---|---|
+| Primitive | 1 bit | 是 | |
+| 固定大小 List | 2 bit | 否 | |
+| 固定大小 Buffer | 每个元素 1 bit | 是 | |
+| `float2` | 1 bit | 是 | |
+| `float3` | 1 bit | 是 | |
+| `float4` | 1 bit | 是 | |
+| `quaternion` | 1 bit | 是 | |
+| `FixedStringXXX` | 1 bit | 是 | |
 
-The change-mask bits for a given entity are stored as an array of integers and delta-compressed against
-the last state change-mask acked by the client (for the given entity).
+系统会递归访问结构体。默认情况下，每个成员消耗其类型对应的 Change Mask 位数。如果设置 `GhostField.Composite`，结构体内所有支持 Mask 聚合的字段会合并为 1 bit。固定大小 List 始终消耗 2 bit，无法聚合
 
-**Component data**
+给定实体的 Change Mask 位保存在整数数组中，并相对客户端最后确认的该实体状态 Change Mask 进行 Delta 压缩
 
-The component data is always delta compressed, either against the "zero" baseline or up to 3 acked snapshot packet by the client.
-That means all fields are going to be `packed` using the `StreamCompressionModel` (so huffman/golomb compressed). Netcode for Entities uses a predictive-delta compression
-using up to 3 baseline to predict the next value and compute delta encode the field value against that.
+**组件数据**
 
-The change masks are used to explicitly skip fields was value were identical to the current baseline;
-The delta itself is encoded as specified in the [packed vs unpacked](#packed-vs-unpacked-format) table.
+组件数据始终进行 Delta 压缩，可以相对 Zero Baseline，也可以相对客户端确认的最多三份快照包。因此，所有字段都会使用 `StreamCompressionModel` 以 Packed 格式编码，也就是采用 Huffman/Golomb 压缩
 
-#### Some extra details about how fixed list are serialized
+Netcode for Entities 使用预测式 Delta 压缩：根据最多三份 Baseline 预测下一个值，再对字段值与预测结果之间的差值编码
 
-Fixed-size list types always use 2 bits of change-mask and a "dynamic" element mask,
-    1. 1st bit denote if the length is changed in respect to the given baseline
-    2. 2nd bit denote if any of the elements has changed in respect to the given baseline
+Change Mask 用于明确跳过与当前 Baseline 值相同的字段；Delta 本身按 [Packed 与 Unpacked](#packed-vs-unpacked-format)表中的格式编码
 
-Every list element is delta-compressed against the baseline element at same index and the changemask aggregated to use 1 bit per element. Thus, given the the 64 element limitation, a variable length (up to 64 bit) changemak is generated when the type is serialized.
-If none of the elements different in respect the baseline, a `0` is set int the 2nd bit of the fixed-size changemask and no further data are transmitted. Otherwise, a `1` is set as 2nd bit and both the variable length element mask and the changed element data are serialized over the network.
+<a id="some-extra-details-about-how-fixed-list-are-serialized"></a>
 
-## Changing how a type is serialized using variants
+#### 固定大小 List 的序列化细节
 
-You can use [`GhostComponentVariationAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html) to create [variants](ghost-variants.md) that allow you to overwrite the default serializer at compile time. Variants can also be applied on a per-ghost, per-component basis, using [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html)
+固定大小 List 始终使用 2 bit Change Mask，以及一份动态元素 Mask：
 
-Refer to [Creating replication schemas with `GhostComponentVariationAttribute`](ghost-variants.md) for more information.
+1. 第 1 bit 表示长度相对给定 Baseline 是否变化
+2. 第 2 bit 表示是否有任何元素相对给定 Baseline 发生变化
 
-### Changing how a type is serialized using the `SubType` property
+每个 List 元素都会与 Baseline 中相同索引的元素进行 Delta 压缩，并聚合为每个元素 1 bit 的 Change Mask。由于最多包含 64 个元素，序列化时会生成长度可变、最多 64 bit 的元素 Change Mask
 
-You can also have multiple templates defined and available for a given type. For example, having a 2D and a 3D template for `float3` values. The [`SubType` property](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType) of `GhostFieldAttribute` allows you to choose which one to use, on a per-`[GhostField]` basis. Refer to the [Defining SubType templates section](#defining-subtype-templates) for more details.
+如果所有元素都与 Baseline 相同，固定 List Change Mask 的第 2 bit 写入 0，不再发送其他数据。否则第 2 bit 写入 1，并在网络上传输可变长度的元素 Mask 和发生变化的元素数据
 
-## Defining additional templates
+<a id="changing-how-a-type-is-serialized-using-variants"></a>
 
-You can also create your own templates to register additional types (those not supported [by default](#supported-types)) so that they can be replicated correctly with the `[GhostField]` annotation.
+## 使用 Variant 改变类型的序列化方式
+
+可以使用 [`GhostComponentVariationAttribute`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostComponentVariationAttribute.html) 创建 [Variant](ghost-variants.md)，在编译期覆盖默认序列化器。还可以通过 [`GhostAuthoringInspectionComponent`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostAuthoringInspectionComponent.html)，按 Ghost、按组件应用 Variant
+
+更多信息请参阅[使用 `GhostComponentVariationAttribute` 创建复制 Schema](ghost-variants.md)
+
+<a id="changing-how-a-type-is-serialized-using-the-subtype-property"></a>
+
+### 使用 `SubType` 属性改变序列化方式
+
+同一类型可以定义多个可用模板，例如同时为 `float3` 提供 2D 和 3D 模板。`GhostFieldAttribute` 的 [`SubType` 属性](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldAttribute.html#Unity_NetCode_GhostFieldAttribute_SubType)允许逐个 `[GhostField]` 选择使用哪个模板。详情请参阅[定义 SubType 模板](#defining-subtype-templates)
+
+<a id="defining-additional-templates"></a>
+
+## 定义其他模板
+
+可以创建自定义模板，注册[默认不支持](#supported-types)的其他类型，使它们能通过 `[GhostField]` 正确复制
 
 > [!NOTE]
-> Creating templates for serialization is non-trivial. If it's possible to replicate a type by adding `[GhostField]`, it's often easier to just do so. If you don't have access to a type, you can create a [variant](ghost-variants.md) instead.
+> 创建序列化模板并不简单。如果某个类型可以直接添加 `[GhostField]` 复制，通常这样做更容易。如果无法修改目标类型，可以改为创建 [Variant](ghost-variants.md)
 
-### Writing a template
+<a id="writing-a-template"></a>
 
-Template files can be added to any package or folder in the project, but must meet the following requirements:
+### 编写模板
 
-- The template file must have a `NetCodeSourceGenerator.additionalfile` extension (for example, `MyCustomType.NetCodeSourceGenerator.additionalfile`).
-- The first line  of the template file must contain a`#templateid: XXX` line. This assigns the template a globally unique user-defined ID.
+模板文件可以放在项目任意包或文件夹中，但必须满足以下要求：
 
-You will experience errors if you create a `UserDefinedTemplate` with no associated template file, or if you create a template file with no associated `UserDefinedTemplate`. Code generation errors when building templates can also cause compiler errors.
+- 文件扩展名必须为 `.NetCodeSourceGenerator.additionalfile`，例如 `MyCustomType.NetCodeSourceGenerator.additionalfile`
+- 文件第一行必须是 `#templateid: XXX`，用于为模板分配用户定义的全局唯一 ID
 
-When creating your new template, you may find it easier to build on one of the existing default template files. The following code is an example copied from the default `float` template, where the `float` is quantized and stored in an `int` field.
+如果创建了没有对应模板文件的 `UserDefinedTemplate`，或创建了没有对应 `UserDefinedTemplate` 的模板文件，都会产生错误。构建模板时的代码生成错误也可能引发编译错误
 
-```c#
+创建模板时，可以在现有默认模板基础上修改。以下代码复制自默认 `float` 模板，其中 `float` 会量化并保存到 `int` 字段：
+
+```csharp
 #templateid: MyCustomNamespace.MyCustomTypeTemplate
 #region __GHOST_IMPORTS__
 #endregion
@@ -298,86 +348,117 @@ namespace Generated
             #endregion
         }
 
-        public void PredictDelta(uint tick, ref GhostSnapshotData baseline1, ref GhostSnapshotData baseline2)
+        public void PredictDelta(uint tick, ref GhostSnapshotData baseline1,
+            ref GhostSnapshotData baseline2)
         {
-            var predictor = new GhostDeltaPredictor(tick, this.tick, baseline1.tick, baseline2.tick);
+            var predictor = new GhostDeltaPredictor(
+                tick, this.tick, baseline1.tick, baseline2.tick);
             #region __GHOST_PREDICT__
-            snapshot.__GHOST_FIELD_NAME__ = predictor.PredictInt(snapshot.__GHOST_FIELD_NAME__, baseline1.__GHOST_FIELD_NAME__, baseline2.__GHOST_FIELD_NAME__);
+            snapshot.__GHOST_FIELD_NAME__ = predictor.PredictInt(
+                snapshot.__GHOST_FIELD_NAME__, baseline1.__GHOST_FIELD_NAME__,
+                baseline2.__GHOST_FIELD_NAME__);
             #endregion
         }
 
-        public void Serialize(int networkId, ref GhostSnapshotData baseline, ref DataStreamWriter writer, StreamCompressionModel compressionModel)
+        public void Serialize(int networkId, ref GhostSnapshotData baseline,
+            ref DataStreamWriter writer, StreamCompressionModel compressionModel)
         {
             #region __GHOST_WRITE__
             if ((changeMask & (1 << __GHOST_MASK_INDEX__)) != 0)
-                writer.WritePackedIntDelta(snapshot.__GHOST_FIELD_NAME__, baseline.__GHOST_FIELD_NAME__, compressionModel);
+                writer.WritePackedIntDelta(snapshot.__GHOST_FIELD_NAME__,
+                    baseline.__GHOST_FIELD_NAME__, compressionModel);
             #endregion
         }
 
-        public void Deserialize(uint tick, ref GhostSnapshotData baseline, ref DataStreamReader reader,
-            StreamCompressionModel compressionModel)
+        public void Deserialize(uint tick, ref GhostSnapshotData baseline,
+            ref DataStreamReader reader, StreamCompressionModel compressionModel)
         {
             #region __GHOST_READ__
             if ((changeMask & (1 << __GHOST_MASK_INDEX__)) != 0)
-                snapshot.__GHOST_FIELD_NAME__ = reader.ReadPackedIntDelta(baseline.__GHOST_FIELD_NAME__, compressionModel);
+                snapshot.__GHOST_FIELD_NAME__ = reader.ReadPackedIntDelta(
+                    baseline.__GHOST_FIELD_NAME__, compressionModel);
             else
                 snapshot.__GHOST_FIELD_NAME__ = baseline.__GHOST_FIELD_NAME__;
             #endregion
         }
 
-        public unsafe void CopyToSnapshot(ref Snapshot snapshot, ref IComponentData component)
+        public unsafe void CopyToSnapshot(ref Snapshot snapshot,
+            ref IComponentData component)
         {
             if (true)
             {
                 #region __GHOST_COPY_TO_SNAPSHOT__
-                snapshot.__GHOST_FIELD_NAME__ = (int) math.round(component.__GHOST_FIELD_REFERENCE__ * __GHOST_QUANTIZE_SCALE__);
+                snapshot.__GHOST_FIELD_NAME__ = (int)math.round(
+                    component.__GHOST_FIELD_REFERENCE__ * __GHOST_QUANTIZE_SCALE__);
                 #endregion
             }
         }
-        public unsafe void CopyFromSnapshot(ref Snapshot snapshot, ref IComponentData component)
+
+        public unsafe void CopyFromSnapshot(ref Snapshot snapshot,
+            ref IComponentData component)
         {
             if (true)
             {
                 #region __GHOST_COPY_FROM_SNAPSHOT__
-                component.__GHOST_FIELD_REFERENCE__ = snapshotBefore.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
+                component.__GHOST_FIELD_REFERENCE__ =
+                    snapshotBefore.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
                 #endregion
 
                 #region __GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_SETUP__
-                var __GHOST_FIELD_NAME___Before = snapshotBefore.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
-                var __GHOST_FIELD_NAME___After = snapshotAfter.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
+                var __GHOST_FIELD_NAME___Before =
+                    snapshotBefore.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
+                var __GHOST_FIELD_NAME___After =
+                    snapshotAfter.__GHOST_FIELD_NAME__ * __GHOST_DEQUANTIZE_SCALE__;
                 #endregion
                 #region __GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_DISTSQ__
-                var __GHOST_FIELD_NAME___DistSq = math.distancesq(__GHOST_FIELD_NAME___Before, __GHOST_FIELD_NAME___After);
+                var __GHOST_FIELD_NAME___DistSq = math.distancesq(
+                    __GHOST_FIELD_NAME___Before, __GHOST_FIELD_NAME___After);
                 #endregion
                 #region __GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE__
-                component.__GHOST_FIELD_REFERENCE__ = math.lerp(__GHOST_FIELD_NAME___Before, __GHOST_FIELD_NAME___After, snapshotInterpolationFactor);
+                component.__GHOST_FIELD_REFERENCE__ = math.lerp(
+                    __GHOST_FIELD_NAME___Before, __GHOST_FIELD_NAME___After,
+                    snapshotInterpolationFactor);
                 #endregion
             }
         }
-        public unsafe void RestoreFromBackup(ref IComponentData component, in IComponentData backup)
+
+        public unsafe void RestoreFromBackup(ref IComponentData component,
+            in IComponentData backup)
         {
             #region __GHOST_RESTORE_FROM_BACKUP__
             component.__GHOST_FIELD_REFERENCE__ = backup.__GHOST_FIELD_REFERENCE__;
             #endregion
         }
-        public void CalculateChangeMask(ref Snapshot snapshot, ref Snapshot baseline, uint changeMask)
+
+        public void CalculateChangeMask(ref Snapshot snapshot,
+            ref Snapshot baseline, uint changeMask)
         {
             #region __GHOST_CALCULATE_CHANGE_MASK_ZERO__
-            changeMask = (snapshot.__GHOST_FIELD_NAME__ != baseline.__GHOST_FIELD_NAME__) ? 1u : 0;
+            changeMask = snapshot.__GHOST_FIELD_NAME__ != baseline.__GHOST_FIELD_NAME__
+                ? 1u
+                : 0;
             #endregion
             #region __GHOST_CALCULATE_CHANGE_MASK__
-            changeMask |= (snapshot.__GHOST_FIELD_NAME__ != baseline.__GHOST_FIELD_NAME__) ? (1u<<__GHOST_MASK_INDEX__) : 0;
+            changeMask |= snapshot.__GHOST_FIELD_NAME__ != baseline.__GHOST_FIELD_NAME__
+                ? (1u << __GHOST_MASK_INDEX__)
+                : 0;
             #endregion
         }
+
         #if UNITY_EDITOR || NETCODE_DEBUG
-        private static void ReportPredictionErrors(ref IComponentData component, in IComponentData backup, ref UnsafeList<float> errors, ref int errorIndex)
+        private static void ReportPredictionErrors(ref IComponentData component,
+            in IComponentData backup, ref UnsafeList<float> errors, ref int errorIndex)
         {
             #region __GHOST_REPORT_PREDICTION_ERROR__
-            errors[errorIndex] = math.max(errors[errorIndex], math.abs(component.__GHOST_FIELD_REFERENCE__ - backup.__GHOST_FIELD_REFERENCE__));
+            errors[errorIndex] = math.max(errors[errorIndex],
+                math.abs(component.__GHOST_FIELD_REFERENCE__ -
+                    backup.__GHOST_FIELD_REFERENCE__));
             ++errorIndex;
             #endregion
         }
-        private static int GetPredictionErrorNames(ref FixedString512Bytes names, ref int nameCount)
+
+        private static int GetPredictionErrorNames(ref FixedString512Bytes names,
+            ref int nameCount)
         {
             #region __GHOST_GET_PREDICTION_ERROR_NAME__
             if (nameCount != 0)
@@ -391,52 +472,57 @@ namespace Generated
 }
 ```
 
-The recommended pattern for assigning the `#templateid` is `CustomNamespace.CustomTemplateFileName`. All default Netcode for Entities templates use an internal ID (not present in the template) with the format `NetCode.GhostSnapshotValueXXX.cs`.
+推荐使用 `CustomNamespace.CustomTemplateFileName` 格式分配 `#templateid`。Netcode for Entities 的所有默认模板都使用格式为 `NetCode.GhostSnapshotValueXXX.cs` 的内部 ID，该 ID 不会出现在模板内
 
-For more information about template formatting, refer to the documentation in the `SourceGenerator/Documentation` folder, or reference other template files in `Editor/Templates/DefaultTypes`.
+有关模板格式的更多信息，请参阅 `SourceGenerator/Documentation` 文件夹中的文档，或参考 `Editor/Templates/DefaultTypes` 中的其他模板文件
 
 > [!NOTE]
-> The [supported default types](#supported-types) use a slightly different approach to custom templates and are embedded in the generator DLLs. The template contains a set of C#-like regions, `#region __GHOST_XXX__`, that are processed by the code generator, which uses them to extract the code inside the region to create the serializer. The template uses the `__GHOST_XXX__` as a reserved keyword which is substituted at generation time with the corresponding variable names and/or values.
+> [默认支持类型](#supported-types)采用与自定义模板略有不同的方式，并嵌入生成器 DLL。模板包含一组类似 C# 的 `#region __GHOST_XXX__` 区域，代码生成器提取 Region 内部代码来创建序列化器。`__GHOST_XXX__` 是模板保留关键字，生成时会替换为对应变量名或值
 
-#### Defining `SubType` templates
+<a id="defining-subtype-templates"></a>
 
-You can use `SubType`s to define multiple templates for a given type. Use them by specifying them in the `GhostField` attribute.
+#### 定义 `SubType` 模板
 
-```c#
+`SubType` 可以为同一类型定义多个模板，在 `GhostField` 特性中指定即可使用：
+
+```csharp
 using Unity.NetCode;
 
 public struct MyComponent : Unity.Entities.IComponentData
 {
-    [GhostField(SubType=GhostFieldSubType.MySubType)] // <- This field uses the SubType `MySubType`.
-    public float value;
-    [GhostField] // <- This filed uses the default serializer Template for unquantized floats.
-    public float value;
-}
+    [GhostField(SubType = GhostFieldSubType.MySubType)]
+    public float ValueWithSubType;
 
+    [GhostField]
+    public float ValueWithDefaultUnquantizedSerializer;
+}
 ```
 
-`SubType`s are added to projects by implementing a partial class, [`GhostFieldSubTypes`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldSubType.html), and then injecting it into the `Unity.Netcode` package using an [Assembly Definition Reference](https://docs.unity3d.com/Documentation/Manual/class-AssemblyDefinitionReferenceImporter.html). This adds new constant string literals to that class and which are then available to all your packages that already reference the `Unity.Netcode` assembly.
+要向项目添加 `SubType`，需实现部分类 [`GhostFieldSubTypes`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.GhostFieldSubType.html)，再使用 [Assembly Definition Reference](https://docs.unity3d.com/Documentation/Manual/class-AssemblyDefinitionReferenceImporter.html) 将其注入 `Unity.NetCode` 程序集。这会向该类添加新的字符串常量，使所有已引用 `Unity.NetCode` 程序集的包都能使用它
 
-```c#
+```csharp
 namespace Unity.NetCode
 {
-    static public partial class GhostFieldSubType
+    public static partial class GhostFieldSubType
     {
         public const int MySubType = 1;
     }
 }
 ```
 
-Templates for `SubType`s are handled identically to other `UserDefinedTemplates`, but need to set the `SubType` field index. Refer to the [Writing a template section](#writing-a-template) for details, and note that the only difference is: `SubType = GhostFieldSubType.MySubType,`.
+`SubType` 模板的处理方式与其他 `UserDefinedTemplate` 相同，但需要设置 `SubType` 字段索引。详情请参阅[编写模板](#writing-a-template)，唯一差异是需要设置 `SubType = GhostFieldSubType.MySubType`
 
-```c#
+```csharp
 namespace Unity.NetCode.Generators
 {
     public static partial class UserDefinedTemplates
     {
-        static partial void RegisterTemplates(System.Collections.Generic.List<TypeRegistryEntry> templates, string defaultRootPath)
+        static partial void RegisterTemplates(
+            System.Collections.Generic.List<TypeRegistryEntry> templates,
+            string defaultRootPath)
         {
-            templates.AddRange(new[]{
+            templates.AddRange(new[]
+            {
                 new TypeRegistryEntry
                 {
                     Type = "System.Single",
@@ -449,25 +535,30 @@ namespace Unity.NetCode.Generators
 }
 ```
 
-As when using any template registration like this, you need to be careful to specify the correct parameters when defining the `GhostField` to exactly match it. The important properties are `SubType`, in addition to `Quantized` and `Smoothing`, as these can affect how the serializer code is generated from the template.
+与其他模板注册一样，定义 `GhostField` 时必须准确指定与模板匹配的参数。除 `Quantized` 和 `Smoothing` 外，`SubType` 也很重要，因为这些值都会影响如何从模板生成序列化器代码
 
 > [!NOTE]
-> The `Composite` parameter should always be false with subtypes because it's implicitly assumed that the template given is the one in use for the whole type.
+> `SubType` 的 `Composite` 参数应始终为 `false`，因为系统隐式假设指定模板用于整个类型
 
-### Registering a template
+<a id="registering-a-template"></a>
 
-You can register a template with Netcode for Entities by implementing a partial class, [`UserDefinedTemplates`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.Generators.UserDefinedTemplates.html), and then injecting it into the `Unity.Netcode` package using an [Assembly Definition Reference](https://docs.unity3d.com/Documentation/Manual/class-AssemblyDefinitionReferenceImporter.html).
+### 注册模板
 
-The partial implementation must define the method `RegisterTemplates` and add a new `TypeRegistry` entry (or entries). The class must also exist inside the `Unity.NetCode.Generators` namespace. Refer to the following example.
+要向 Netcode for Entities 注册模板，实现部分类 [`UserDefinedTemplates`](https://docs.unity3d.com/Packages/com.unity.netcode@latest?subfolder=/api/Unity.NetCode.Generators.UserDefinedTemplates.html)，再使用 [Assembly Definition Reference](https://docs.unity3d.com/Documentation/Manual/class-AssemblyDefinitionReferenceImporter.html) 将其注入 `Unity.NetCode` 程序集
 
-```c#
+该部分实现必须定义 `RegisterTemplates` 方法，添加一个或多个 `TypeRegistry` 条目，并位于 `Unity.NetCode.Generators` 命名空间。例如：
+
+```csharp
 namespace Unity.NetCode.Generators
 {
     public static partial class UserDefinedTemplates
     {
-        static partial void RegisterTemplates(System.Collections.Generic.List<TypeRegistryEntry> templates, string defaultRootPath)
+        static partial void RegisterTemplates(
+            System.Collections.Generic.List<TypeRegistryEntry> templates,
+            string defaultRootPath)
         {
-            templates.AddRange(new[]{
+            templates.AddRange(new[]
+            {
                 new TypeRegistryEntry
                 {
                     Type = "MyCustomNamespace.MyCustomType",
@@ -484,28 +575,31 @@ namespace Unity.NetCode.Generators
 }
 ```
 
->[!NOTE]
-> This example only registers `MyCustomType` when the `[GhostField]` is defined as follows `[GhostField(Quantization=100, Smoothing=SmoothingAction.InterpolateAndExtrapolate, Composite=false)]`.
-> You must register all exact combinations you want to support (and register them exactly as used).
+> [!NOTE]
+> 该示例只会在 `[GhostField]` 定义为 `[GhostField(Quantization = 100, Smoothing = SmoothingAction.InterpolateAndExtrapolate, Composite = false)]` 时注册 `MyCustomType`
+>
+> 所有需要支持的精确组合都必须分别注册，并与实际用法完全一致
 
-### Template definition requirements
+<a id="template-definition-requirements"></a>
 
-There are a number of additional requirements for creating templates that must be adhered to.
+### 模板定义要求
 
-- For `Serialize`, `Deserialize`, `__COMMAND_WRITE_PACKED__` and `__COMMAND_READ_PACKED__`, only `Packed` and `RawBits` (example: use `WriteRawBits(123, 8)` instead of `WriteByte(123)`) methods can be used from `DataStreamWriter` and `DataStreamReader`. Because Netcode does its own packing after a template's serialization, the write and read streams won't have the same byte alignment on both ends. This restriction does not apply to unpacked RPCs.
-- When `Quantized` is set to true, the `__GHOST_QUANTIZE_SCALE__` variable must be present in the template. The quantization scale must also be specified when using the type in a `GhostField`.
-- `Smoothing` is also important because it changes how serialization is done in the `CopyFromSnapshot` function. In particular:
-    - When smoothing is set to `Clamp`, only the `__GHOST_COPY_FROM_SNAPSHOT__` is required.
-    - When smoothing is set to `Interpolate` or `InterpolateAndExtrapolate`, the regions `__GHOST_COPY_FROM_SNAPSHOT__`, `__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE__`, `GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_SETUP`, `__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_DISTSQ__`, and `GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_CLAMP_MAX` must be present and filled in.
-- The `SupportCommand` denotes if the type can be used inside `Commands` and/or `Rpc`.
-- The `Template` value is mandatory, and must point to the `#templateid` defined in the target template file.
-- `TemplateOverride` is optional (can be null or empty). `TemplateOverride` is used when you want to re-use an existing template, but only override a specific section of it.
-    - This works well when using `Composite` types because you can point `Template` to the basic type (like the `float` template), and then point to the `TemplateOverride` only for the sections which need to be customized.
-    - For example, `float2` only defines `CopyFromSnapshot`, `ReportPredictionErrors`, and `GetPredictionErrorNames`, the rest uses the basic `float` template as a composite of the 2 values `float2` contains. The assigned value must be the `#templateid` of the base template, as declared inside the other template file.
-- The `Composite` flag should be `true` when declaring templates for 'container-like' types, such as types that contain multiple fields of the same type (like `float3`, `float4`, and so on). When this is set, the `Template` and `TemplateOverride` are applied to the field types, and not to the containing type.
-- If you need your template to define additional fields in the snapshot (for example, to map correctly on the server), you must define `__GHOST_CALCULATE_CHANGE_MASK_NO_COMMAND__` and `__GHOST_CALCULATE_CHANGE_MASK_ZERO_NO_COMMAND__` in the changemask calculation method, as commands point to the type directly (but components have snapshots that can store additional data). These changemasks can then be correctly found for any/all additional field(s). Refer to the `GhostSnapshotValueEntity` template for an example.
+创建模板还必须遵守以下要求：
 
-You must fill in all sections.
+- 对于 `Serialize`、`Deserialize`、`__COMMAND_WRITE_PACKED__` 和 `__COMMAND_READ_PACKED__`，只能使用 `DataStreamWriter` 与 `DataStreamReader` 的 Packed 和 RawBits 方法。例如，应使用 `WriteRawBits(123, 8)`，不能使用 `WriteByte(123)`。Netcode 会在模板序列化后自行打包数据，因此收发两端的数据流不会具有相同的字节对齐。该限制不适用于未打包 RPC
+- `Quantized` 为 `true` 时，模板中必须存在 `__GHOST_QUANTIZE_SCALE__` 变量。通过 `GhostField` 使用该类型时也必须指定量化比例
+- `Smoothing` 会改变 `CopyFromSnapshot` 中的序列化处理
+  - 设为 `Clamp` 时，只要求 `__GHOST_COPY_FROM_SNAPSHOT__`
+  - 设为 `Interpolate` 或 `InterpolateAndExtrapolate` 时，必须实现 `__GHOST_COPY_FROM_SNAPSHOT__`、`__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE__`、`__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_SETUP__`、`__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_DISTSQ__` 和 `__GHOST_COPY_FROM_SNAPSHOT_INTERPOLATE_CLAMP_MAX__`
+- `SupportCommand` 表示该类型能否用于 Command 或 RPC
+- `Template` 是必填项，必须指向目标模板文件中定义的 `#templateid`
+- `TemplateOverride` 是可选项，可以为 `null` 或空字符串。需要复用现有模板、只覆盖其中某个 Region 时使用
+  - 它很适合 `Composite` 类型：`Template` 可以指向基础类型，例如 `float` 模板，`TemplateOverride` 只指向需要自定义的 Region
+  - 例如，`float2` 只定义 `CopyFromSnapshot`、`ReportPredictionErrors` 和 `GetPredictionErrorNames`，其他部分复用基础 `float` 模板，以组合其中两个 `float` 值。指定值必须是另一个模板文件中声明的基础模板 `#templateid`
+- 为包含多个相同类型字段的容器类型定义模板时，例如 `float3`、`float4`，`Composite` 应设为 `true`。此时 `Template` 和 `TemplateOverride` 会应用到字段类型，而不是容器类型本身
+- 如果模板需要在快照中定义额外字段，例如用于在服务器上正确映射，必须在 Change Mask 计算方法中定义 `__GHOST_CALCULATE_CHANGE_MASK_NO_COMMAND__` 和 `__GHOST_CALCULATE_CHANGE_MASK_ZERO_NO_COMMAND__`。Command 直接指向目标类型，而组件快照可以保存额外数据，这些 Region 能让系统正确找到所有附加字段的 Change Mask。示例请参阅 `GhostSnapshotValueEntity` 模板
+
+所有必需 Region 都必须填写完整
 
 > [!NOTE]
-> When making changes to templates, you need to use the **Multiplayer** > **Force Code Generation** menu to force a new code compilation (which will then use the updated templates).
+> 修改模板后，需要使用 **Multiplayer** > **Force Code Generation** 菜单强制重新编译代码，使更新后的模板生效
