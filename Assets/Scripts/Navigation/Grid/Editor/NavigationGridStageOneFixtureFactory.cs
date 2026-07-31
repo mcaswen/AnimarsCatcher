@@ -103,7 +103,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return authoring;
         }
 
-        // 地面夹具覆盖平地 斜坡 台阶和窄平台等基础采样情况
+        // 地面夹具覆盖平地、斜坡、台阶和窄平台等基础采样情况
         // 所有几何使用固定尺寸和 Transform 保证 Hash 可重复
         private static void CreateGroundGeometry(Transform parent, int layer)
         {
@@ -148,7 +148,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 parent);
         }
 
-        // 障碍夹具覆盖独立阻挡 角点和通道 Clearance
+        // 障碍夹具覆盖独立阻挡、角点和通道 Clearance
         // Layer 与地面分离以验证配置筛选和体积查询
         private static void CreateObstacleGeometry(Transform parent, int layer)
         {
@@ -185,7 +185,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 parent);
         }
 
-        // 固定光照只服务人工查看 不参与 Navigation 采样和 Hash
+        // 固定光照只服务人工查看，不参与 Navigation 采样和 Hash
         private static void CreateLighting(Transform parent)
         {
             var lightObject = new GameObject("Directional Light");
@@ -207,7 +207,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Transform parent)
         {
             // Cube Primitive 自带 BoxCollider 可直接参与正式采样链路
-            // 删除 MeshRenderer 会改变人工可见性 因而保留默认可视网格
+            // 删除 MeshRenderer 会改变人工可见性，因而保留默认可视网格
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             gameObject.name = name;
             gameObject.layer = layer;

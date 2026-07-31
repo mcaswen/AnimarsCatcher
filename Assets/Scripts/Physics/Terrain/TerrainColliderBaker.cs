@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Physics.Authoring
                 terrainData.size.y,
                 terrainData.size.z / (resolution - 1));
 
-            // Unity 返回的数据按行列组织 转成碰撞体要求的一维高度数组
+            // Unity 返回的数据按行列组织，转成碰撞体要求的一维高度数组
             var source = terrainData.GetHeights(0, 0, resolution, resolution);
             var colliderHeights = new NativeArray<float>(resolution * resolution, Allocator.Temp);
             for (int z = 0; z < resolution; z++)
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Physics.Authoring
                 }
             }
 
-            // 沿用项目物理模板 保持碰撞层和表面属性一致
+            // 沿用项目物理模板，保持碰撞层和表面属性一致
             var template = authoring.PhysicsMaterialTemplate;
             var filter = new CollisionFilter
             {

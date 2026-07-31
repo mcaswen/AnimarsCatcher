@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Gameplay
                     AttackMode = authoring._attackMode,
                 });
 
-                // 可启用标签预先烘焙后只切换状态 避免运行时增删结构组件
+            // 可启用标签预先烘焙后只切换状态，避免运行时增删结构组件
                 AddComponent<AniSelectedTag>(entity);
                 SetComponentEnabled<AniSelectedTag>(entity, false);
 

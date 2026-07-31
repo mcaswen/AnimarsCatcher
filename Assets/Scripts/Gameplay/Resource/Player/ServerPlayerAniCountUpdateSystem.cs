@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Gameplay
     {
         public void OnUpdate(ref SystemState state)
         {
-            // 先收集玩家资源快照 统一在统计完成后回写
+            // 先收集玩家资源快照，统一在统计完成后回写
             var resourceQuery = SystemAPI.QueryBuilder()
                 .WithAll<PlayerResourceTag, PlayerResourceState, GhostOwner>()
                 .Build();
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Gameplay
                 idToIndex.TryAdd(resourceOwners[i].NetworkId, i);
             }
 
-            // 统计值来自实体现状 每帧必须从零重建
+                // 统计值来自实体现状，每帧必须从零重建
             for (int i = 0; i < resourceStates.Length; i++)
             {
                 var resourceState = resourceStates[i];

@@ -6,7 +6,7 @@ namespace AnimarsCatcher.Editor
 {
     /// <summary>
     /// 清理当前已加载对象上的丢失脚本引用
-    /// 该工具直接修改序列化组件列表 使用前应确认场景和 Prefab 已备份
+    /// 该工具直接修改序列化组件列表，使用前应确认场景和 Prefab 已备份
     /// </summary>
     public class ScriptReferenceFixer : MonoBehaviour
     {
@@ -27,7 +27,7 @@ namespace AnimarsCatcher.Editor
                             var element = prop.GetArrayElementAtIndex(i);
                             if (element.objectReferenceValue == null)
                             {
-                                // 对象引用数组第一次删除会先清空引用 第二次才移除槽位
+                // 对象引用数组第一次删除会先清空引用，第二次才移除槽位
                                 prop.DeleteArrayElementAtIndex(i);
                                 prop.DeleteArrayElementAtIndex(i);
                                 so.ApplyModifiedProperties();

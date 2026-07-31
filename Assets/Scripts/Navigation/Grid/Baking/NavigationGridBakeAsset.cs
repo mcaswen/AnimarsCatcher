@@ -40,7 +40,7 @@ namespace AnimarsCatcher.Navigation.Grid
         [SerializeField] private int _regionCount;
         [SerializeField] private NavigationGridCellData[] _cells = Array.Empty<NavigationGridCellData>();
 
-        // 以下属性提供只读检查入口 资产内容只能由完整烘焙结果整体替换
+        // 以下属性提供只读检查入口，资产内容只能由完整烘焙结果整体替换
         /// <summary>
         /// 获取来源场景的稳定 GUID
         /// </summary>

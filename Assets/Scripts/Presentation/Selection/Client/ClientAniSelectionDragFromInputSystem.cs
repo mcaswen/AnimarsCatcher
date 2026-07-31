@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Presentation.Selection
                 break;
             }
 
-            // 释放标记只保持一帧 由结束分支重新置位
+                // 释放标记只保持一帧，由结束分支重新置位
             drag.ValueRW.IsReleased = 0;
 
             bool previousHeld = drag.ValueRO.PreviousRightHeld == 1;

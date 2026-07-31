@@ -600,6 +600,10 @@ function Read-CSharpFile {
             Add-Violation $relativePath ($lineIndex + 1) "language" $normalizedText
         }
 
+        if ($prose -match '[\u3400-\u9FFF][ \t]+[\u3400-\u9FFF]') {
+            Add-Violation $relativePath ($lineIndex + 1) "punctuation-spacing" $normalizedText
+        }
+
         if ($prose -match '(\u3002|\.)\s*$') {
             Add-Violation $relativePath ($lineIndex + 1) "period" $normalizedText
         }

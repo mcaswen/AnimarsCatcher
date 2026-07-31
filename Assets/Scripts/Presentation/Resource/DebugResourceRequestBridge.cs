@@ -21,7 +21,7 @@ namespace AnimarsCatcher.Presentation.Resource
 
         private void OnAdjustmentRequested(ResourceAdjustmentRequest data)
         {
-            // 客户端只发送请求 最终 PlayerResourceState 由服务端修改
+            // 客户端只发送请求，最终 PlayerResourceState 由服务端修改
             ClientDebugResourceRequestSender.RequestAdjustment(data.Kind, data.Amount);
         }
     }

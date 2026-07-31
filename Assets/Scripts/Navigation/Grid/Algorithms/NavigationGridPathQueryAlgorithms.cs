@@ -4,7 +4,7 @@ namespace AnimarsCatcher.Navigation.Grid
 {
     public static partial class NavigationGridPathAlgorithms
     {
-        // 本文件只承载坐标查询 端点投影和离散直线检查
+        // 本文件只承载坐标查询、端点投影和离散直线检查
         // A 星搜索与 Open Set 分离到同一 partial 类型的其他文件
 
         /// <summary>
@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float2 localPosition = new float2(
                 worldPosition.x - grid.BoundsMinimum.x,
                 worldPosition.z - grid.BoundsMinimum.z);
-            // Bounds 使用左闭右开区间 防止最大边界被映射为 Width 或 Height
+            // Bounds 使用左闭右开区间，防止最大边界被映射为 Width 或 Height
             if (localPosition.x < 0f || localPosition.y < 0f ||
                 localPosition.x >= grid.Width * grid.CellSize ||
                 localPosition.y >= grid.Height * grid.CellSize)
@@ -132,7 +132,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int minimumZ = math.max(0, rawZ - maximumRadiusInCells);
             int maximumZ = math.min(grid.Height - 1, rawZ + maximumRadiusInCells);
 
-            // 候选使用字典序比较 不依赖循环提前退出或容器遍历顺序
+            // 候选使用字典序比较，不依赖循环提前退出或容器遍历顺序
             // 距离相同优先低 Terrain Cost
             // 地形成本相同优先高 Clearance
             // 所有连续值都相同时优先更小 Cell Index
@@ -141,8 +141,8 @@ namespace AnimarsCatcher.Navigation.Grid
             float bestTerrainCost = float.PositiveInfinity;
             float bestClearance = float.NegativeInfinity;
 
-            // 扫描完整候选方形后统一比较 避免只取首个搜索环导致角点候选错误胜出
-            // 第一关键字是到原世界坐标的平方距离 第二关键字才是地形和 Clearance
+            // 扫描完整候选方形后统一比较，避免只取首个搜索环导致角点候选错误胜出
+            // 第一关键字是到原世界坐标的平方距离，第二关键字才是地形和 Clearance
             for (int z = minimumZ; z <= maximumZ; z++)
             {
                 for (int x = minimumX; x <= maximumX; x++)
@@ -206,7 +206,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int diagonalSteps = math.min(deltaX, deltaZ);
             int straightSteps = math.max(deltaX, deltaZ) - diagonalSteps;
             // Terrain Cost 运行时下限也是 MinimumTerrainCost 因此该估价不会高估真实成本
-            // Clearance 惩罚始终非负 不加入启发函数仍保持可采纳性
+            // Clearance 惩罚始终非负，不加入启发函数仍保持可采纳性
             return grid.CellSize * MinimumTerrainCost *
                    (diagonalSteps * SquareRootTwo + straightSteps);
         }
@@ -247,7 +247,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int currentZ = fromCellIndex / grid.Width;
             int targetX = toCellIndex % grid.Width;
             int targetZ = toCellIndex / grid.Width;
-            // 误差累加器在整数域工作 相同端点不会受浮点舍入和平台差异影响
+            // 误差累加器在整数域工作，相同端点不会受浮点舍入和平台差异影响
             // 每次迭代最多同时推进 X 和 Z
             // 同时推进表示一次合法对角边
             // 单轴推进表示一次正交边
@@ -263,7 +263,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 clearanceMargin);
 
             // Bresenham 每轮只产生一个相邻 Cell 对角步仍由烘焙邻接和体型 Clearance 共同约束
-            // 这里验证的是平滑后可直接连接的离散通道 不是物理层最终 Capsule Cast
+            // 这里验证的是平滑后可直接连接的离散通道，不是物理层最终 Capsule Cast
             while (currentX != targetX || currentZ != targetZ)
             {
                 int deltaX = 0;
@@ -297,7 +297,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 int nextIndex = nextX + nextZ * grid.Width;
-                // 直线成本复用 A 星步进成本 保证平滑前后能够按同一尺度比较
+                // 直线成本复用 A 星步进成本，保证平滑前后能够按同一尺度比较
                 lineCost += CalculateStepCost(
                     ref grid,
                     currentIndex,

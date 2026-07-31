@@ -13,7 +13,7 @@ public struct ResourceCarryAssignment : IComponentData
     public int AssignedCarrierAniCount; // 已分配的搬运 Ani 数量
     public int ReadyCarrierAniCount;    // 已到达站位槽的 Ani 数量
 
-    public int IsCarryStarted;          // 零表示 Ani 正在就位 非零表示资源已开始移动
+        public int IsCarryStarted;          // 零表示 Ani 正在就位，非零表示资源已开始移动
 }
 
 /// <summary>
@@ -26,7 +26,7 @@ public struct AniCarryResourceOrder : IComponentData
 }
 
 /// <summary>
-/// 可启用标签 用于搬运期间阻止 Ani 接收其他命令
+    /// 可启用标签，用于搬运期间阻止 Ani 接收其他命令
 /// </summary>
 [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
 [GhostEnabledBit]

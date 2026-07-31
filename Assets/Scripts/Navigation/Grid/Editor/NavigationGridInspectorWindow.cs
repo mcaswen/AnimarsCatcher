@@ -11,7 +11,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private NavigationGridAuthoring _authoring;
         private NavigationGridBakeAsset _bakeAsset;
 
-        // 滚动和 Cell 坐标属于窗口交互状态 不写回任何项目资产
+        // 滚动和 Cell 坐标属于窗口交互状态，不写回任何项目资产
         private Vector2 _scrollPosition;
         private Vector2Int _cellCoordinate;
         private float _agentRadius = 0.35f;
@@ -49,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             window.Focus();
         }
 
-        // 窗口按选择 命令 摘要 统计和 Cell 检查顺序组织
+        // 窗口按选择、命令、摘要、统计和 Cell 检查顺序组织
         // 数据无效时只显示诊断入口不访问 Cell 数组
         private void OnGUI()
         {
@@ -145,11 +145,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 摘要显示来源 版本 Hash 和尺寸等不可变资产身份
+        // 摘要显示来源、版本、Hash 和尺寸等不可变资产身份
         // 长 Hash 保持可复制以便比较构建与本地结果
         private void DrawAssetSummary()
         {
-            // 摘要只读取持久化元数据 不触发重新 Hash 或物理查询
+            // 摘要只读取持久化元数据，不触发重新 Hash 或物理查询
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("资产信息", EditorStyles.boldLabel);
             EditorGUILayout.LabelField("来源场景", EmptyAsDash(_bakeAsset.SourceScenePath));
@@ -205,11 +205,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // Cell 索引同时显示二维坐标 世界位置和全部派生字段
+        // Cell 索引同时显示二维坐标、世界位置和全部派生字段
         // 输入范围受资产 CellCount 限制防止检查窗口越界
         private void DrawCellInspector()
         {
-            // Agent 半径与边距只用于即时占用检查 不修改 Authoring 配置
+            // Agent 半径与边距只用于即时占用检查，不修改 Authoring 配置
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Cell 检查", EditorStyles.boldLabel);
 
@@ -233,7 +233,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 0f,
                 EditorGUILayout.FloatField("安全边距", _agentMargin));
 
-            // 坐标在滑块阶段已经钳制 因而行主序索引必定位于资产范围
+            // 坐标在滑块阶段已经钳制，因而行主序索引必定位于资产范围
             int cellIndex = _cellCoordinate.x + _cellCoordinate.y * _bakeAsset.Width;
             NavigationGridCellData cell = _bakeAsset.GetCell(cellIndex);
             Vector3 center = NavigationGridBakeUtility.GetCellCenter(_bakeAsset, cellIndex);
@@ -285,7 +285,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 校验只读当前资产 不会自动修补或触发隐式烘焙
+        // 校验只读当前资产，不会自动修补或触发隐式烘焙
         // 结果通过通知显示并保留详细 Console 异常
         private void ValidateSelectedAuthoring()
         {
@@ -376,7 +376,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 statistics.MinimumSlope = 0f;
             }
 
-            // 完整遍历结束后一次性发布缓存 防止 OnGUI 读取半成品
+            // 完整遍历结束后一次性发布缓存，防止 OnGUI 读取半成品
             _statistics = statistics;
             _statisticsAssetId = assetId;
             _statisticsDataHash = _bakeAsset.DataHash;

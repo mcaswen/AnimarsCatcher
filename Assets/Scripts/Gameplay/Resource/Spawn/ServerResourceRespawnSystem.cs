@@ -8,7 +8,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在服务端按区域上限 波次配置和阻挡检测刷新资源
+    /// 在服务端按区域上限、波次配置和阻挡检测刷新资源
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]

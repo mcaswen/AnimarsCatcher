@@ -40,7 +40,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 HasPath = 0
             });
 
-            // 即使没有初始路径点也创建缓冲区 便于运行时直接写入规划结果
+            // 即使没有初始路径点也创建缓冲区，便于运行时直接写入规划结果
             var buf = AddBuffer<NavWaypoint>(entity);
 
             if (authoring.InitialWaypoints != null && authoring.InitialWaypoints.Length > 0)

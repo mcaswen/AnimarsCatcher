@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Player
                     return;
                 }
 
-                // 碰撞查询使用半尺寸 因此烘焙时统一完成换算
+            // 碰撞查询使用半尺寸，因此烘焙时统一完成换算
                 Vector3 size = box.size;
 
                 AddComponent(entity, new CharacterBoxGeometry

@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Editor
 
             Color[] colors = new Color[256];
 
-            // 将亮度区间离散为暗部 中间调和亮部三个台阶
+            // 将亮度区间离散为暗部、中间调和亮部三个台阶
             for (int i = 0; i < 256; i++)
             {
                 if (i < 85)

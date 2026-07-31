@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
             entityManager.AddComponent<AniSelectionUIAttachedTag>(dragStateEntity);
 
-            // 框选矩形只负责显示 不参与 UI 射线检测
+            // 框选矩形只负责显示，不参与 UI 射线检测
             if (bootstrap.SelectionRect)
             {
                 var image = bootstrap.SelectionRect.GetComponent<UnityEngine.UI.Image>();

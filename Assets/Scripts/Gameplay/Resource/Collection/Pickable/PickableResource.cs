@@ -6,7 +6,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 可搬运资源的价值 人数门槛和移动参数
+    /// 可搬运资源的价值、人数门槛和移动参数
     /// </summary>
     [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
     public struct PickableResource : IComponentData

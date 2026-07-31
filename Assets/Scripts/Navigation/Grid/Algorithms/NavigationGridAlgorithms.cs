@@ -28,7 +28,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ValidateShape(cells, width, height);
             maximumStepHeight = Mathf.Max(0f, maximumStepHeight);
 
-            // 先清空旧邻接结果 使重复烘焙和参数变化后的重算不依赖调用前状态
+            // 先清空旧邻接结果，使重复烘焙和参数变化后的重算不依赖调用前状态
             for (int i = 0; i < cells.Length; i++)
             {
                 NavigationGridCellData cell = cells[i];
@@ -92,7 +92,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 throw new ArgumentOutOfRangeException(nameof(cellSize));
             }
 
-            // 外围补一圈阻挡 将越出 Grid 的空间统一纳入距离场而不在变换阶段增加边界分支
+            // 外围补一圈阻挡，将越出 Grid 的空间统一纳入距离场而不在变换阶段增加边界分支
             int paddedWidth = width + 2;
             int paddedHeight = height + 2;
             double[] source = new double[paddedWidth * paddedHeight];
@@ -110,19 +110,19 @@ namespace AnimarsCatcher.Navigation.Grid
                         z - 1,
                         width,
                         height);
-                    // 0 表示距离源 +∞ 表示非源点 变换结果是到所有距离源的最小平方距离
+                    // 0 表示距离源，+∞ 表示非源点；变换结果是到所有距离源的最小平方距离
                     source[x + z * paddedWidth] = blocked ? 0d : InfiniteDistance;
                 }
             }
 
-            // 一维工作区按最长轴复用 避免为每一行和每一列重复分配数组
+            // 一维工作区按最长轴复用，避免为每一行和每一列重复分配数组
             int maximumLength = Math.Max(paddedWidth, paddedHeight);
             double[] lineSource = new double[maximumLength];
             double[] lineResult = new double[maximumLength];
             int[] envelopeIndices = new int[maximumLength];
             double[] envelopeLimits = new double[maximumLength + 1];
 
-            // 平方欧氏距离可分离为 Z 和 X 两次一维变换 总复杂度保持 O(width * height)
+            // 平方欧氏距离可分离为 Z 和 X 两次一维变换，总复杂度保持 O(width * height)
             for (int x = 0; x < paddedWidth; x++)
             {
                 for (int z = 0; z < paddedHeight; z++)
@@ -178,7 +178,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     {
                         double centerDistance = Math.Sqrt(
                             distanceSquared[(x + 1) + (z + 1) * paddedWidth]);
-                        // 从中心距离减去阻挡 Cell 半对角线 保证任何方向都不会高估可用空间
+                        // 从中心距离减去阻挡 Cell 半对角线，保证任何方向都不会高估可用空间
                         cell.Clearance = Mathf.Max(
                             0f,
                             (float)centerDistance * cellSize - obstacleHalfDiagonal);
@@ -198,13 +198,13 @@ namespace AnimarsCatcher.Navigation.Grid
         /// <returns>静态连通区域数量</returns>
         public static int AssignRegions(NavigationGridCellData[] cells, int width, int height)
         {
-            // Region 只表达静态拓扑连通性 不包含运行时体型或动态障碍
+            // Region 只表达静态拓扑连通性，不包含运行时体型或动态障碍
             // 标识稳定性依赖种子顺序和邻居顺序都保持固定
             ValidateShape(cells, width, height);
             int[] queue = new int[cells.Length];
             int regionCount = 0;
 
-            // RegionId 的零值同时作为未访问标记 因此有效区域从一开始编号
+            // RegionId 的零值同时作为未访问标记，因此有效区域从一开始编号
             for (int i = 0; i < cells.Length; i++)
             {
                 NavigationGridCellData cell = cells[i];
@@ -219,7 +219,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // 种子按行主序选择 邻居按固定方向展开 保证相同输入得到稳定的区域编号
+                // 种子按行主序选择，邻居按固定方向展开，保证相同输入得到稳定的区域编号
                 regionCount++;
                 int queueStart = 0;
                 int queueEnd = 0;
@@ -279,7 +279,7 @@ namespace AnimarsCatcher.Navigation.Grid
             clusterSizeInCells = Math.Max(1, clusterSizeInCells);
             int clusterWidth = (width + clusterSizeInCells - 1) / clusterSizeInCells;
 
-            // Cluster 只表达稳定的空间分块 与可行走状态无关 后续可在其上构建分层寻路数据
+            // Cluster 只表达稳定的空间分块，与可行走状态无关，后续可在其上构建分层寻路数据
             for (int z = 0; z < height; z++)
             {
                 for (int x = 0; x < width; x++)
@@ -308,7 +308,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float bakedAgentRadius,
             float margin = 0f)
         {
-            // 基础采样已经为 bakedAgentRadius 收缩过可行走面 此处只补足额外半径以避免重复扣减
+            // 基础采样已经为 bakedAgentRadius 收缩过可行走面，此处只补足额外半径以避免重复扣减
             float requiredClearance =
                 Mathf.Max(0f, agentRadius - bakedAgentRadius) +
                 Mathf.Max(0f, margin);
@@ -374,8 +374,8 @@ namespace AnimarsCatcher.Navigation.Grid
             int deltaZ,
             float maximumStepHeight)
         {
-            // 邻接成立必须同时满足边界 可行走 高度和穿角约束
-            // 此方法是 NeighborMask 的唯一生成入口 修改条件会同步改变连通域和寻路结果
+            // 邻接成立必须同时满足边界、可行走、高度和穿角约束
+            // 此方法是 NeighborMask 的唯一生成入口，修改条件会同步改变连通域和寻路结果
             int targetX = sourceX + deltaX;
             int targetZ = sourceZ + deltaZ;
             if (!IsInside(targetX, targetZ, width, height))
@@ -398,7 +398,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int sideXIndex = targetX + sourceZ * width;
             int sideZIndex = sourceX + targetZ * width;
 
-            // 对角边同时验证四条正交边 避免障碍角点和高度断层被斜向跨越
+            // 对角边同时验证四条正交边，避免障碍角点和高度断层被斜向跨越
             return
                 CanConnectHeight(cells, sourceIndex, sideXIndex, maximumStepHeight) &&
                 CanConnectHeight(cells, sourceIndex, sideZIndex, maximumStepHeight) &&
@@ -493,7 +493,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationNeighborMask directionMask)
         {
             // 只检查仍可站立但没有对应连接的相邻 Cell
-            // 普通阻挡已经由源点标记覆盖 此处专门捕获台阶和断崖边界
+            // 普通阻挡已经由源点标记覆盖，此处专门捕获台阶和断崖边界
             int neighborX = x + deltaX;
             int neighborZ = z + deltaZ;
             if (!IsInside(neighborX, neighborZ, width, height))
@@ -528,8 +528,8 @@ namespace AnimarsCatcher.Navigation.Grid
             double[] envelopeLimits)
         {
             // 使用一维平方距离变换构造抛物线下包络
-            // 每个有限源点最多入栈和出栈一次 因此单轴计算保持线性复杂度
-            // source 的有限值表示距离源 无穷值表示等待其他源点传播
+            // 每个有限源点最多入栈和出栈一次，因此单轴计算保持线性复杂度
+            // source 的有限值表示距离源，无穷值表示等待其他源点传播
             int envelopeCount = -1;
 
             // 每个有限源点 q 都定义一条 source[q] + (x - q)^2 抛物线
@@ -555,7 +555,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         break;
                     }
 
-                    // 新抛物线在旧抛物线生效前已经更优时 旧抛物线不可能贡献最小距离
+                    // 新抛物线在旧抛物线生效前已经更优时，旧抛物线不可能贡献最小距离
                     envelopeCount--;
                 }
 
@@ -576,7 +576,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // 查询位置单调递增时 最优抛物线也只会向后切换 因而评估阶段是线性复杂度
+            // 查询位置单调递增时，最优抛物线也只会向后切换，因而评估阶段是线性复杂度
             int activeEnvelope = 0;
             for (int position = 0; position < length; position++)
             {

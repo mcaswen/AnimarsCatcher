@@ -25,7 +25,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             var failures = new List<string>();
             EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
 
-            // 关闭场景和空路径不会进入 Player 构建 因而跳过校验
+            // 关闭场景和空路径不会进入 Player 构建，因而跳过校验
             for (int i = 0; i < buildScenes.Length; i++)
             {
                 EditorBuildSettingsScene buildScene = buildScenes[i];
@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             try
             {
-                // 已加载场景直接复用 未加载场景临时 Additive 打开
+                // 已加载场景直接复用，未加载场景临时 Additive 打开
                 if (openedForValidation)
                 {
                     scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
@@ -87,7 +87,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
             finally
             {
-                // 只关闭由校验器打开的场景 不改变用户原有编辑会话
+                // 只关闭由校验器打开的场景，不改变用户原有编辑会话
                 if (openedForValidation && scene.IsValid() && scene.isLoaded)
                 {
                     EditorSceneManager.CloseScene(scene, true);

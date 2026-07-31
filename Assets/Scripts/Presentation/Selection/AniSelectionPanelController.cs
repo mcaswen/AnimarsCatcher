@@ -44,7 +44,7 @@ namespace AnimarsCatcher.Presentation.Selection
         [FormerlySerializedAs("SelectionPanel")]
         [SerializeField] private GameObject _selectionPanel;
 
-        // 当前面板中的临时选择值 确认前不会提交到服务端
+        // 当前面板中的临时选择值，确认前不会提交到服务端
         private int _spawningBlasterAniCount = 0;
         private int _spawningPickerAniCount = 0;
         [SerializeField] private int _pickerAniFoodCostCount = 2;

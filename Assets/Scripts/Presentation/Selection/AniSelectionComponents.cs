@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Presentation.Selection
     /// </summary>
     public struct AniSelectionRequestRpc : IRpcCommand
     {
-        public byte Append; // 零表示替换现有选择 非零表示追加选择
+        public byte Append; // 零表示替换现有选择，非零表示追加选择
         public FixedList512Bytes<int> GhostIds; // 本次请求包含的 GhostId 列表
     }
 

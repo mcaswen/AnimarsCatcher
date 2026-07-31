@@ -9,7 +9,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 {
     /// <summary>
     /// 将同步后的导航目标转换为角色移动意图
-    /// 客户端负责平滑跟随 服务端额外负责推进路径点
+    /// 客户端负责平滑跟随，服务端额外负责推进路径点
     /// </summary>
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     [UpdateBefore(typeof(GameplayPostMovementSystemGroup))]
@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                              RefRW<AniMoveIntent>>()
                          .WithEntityAccess())
             {
-                // 每帧先清空意图 防止失效路径沿用上一帧速度
+            // 每帧先清空意图，防止失效路径沿用上一帧速度
                 moveIntent.ValueRW.DesiredVelocity = float3.zero;
 
                 if (navSteering.ValueRO.HasPath == 0)
@@ -54,14 +54,14 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 {
                     float3 direction = toTarget / distance;
 
-                    // 根据帧时长限制最大步长 避免低帧率下越过目标
+                // 根据帧时长限制最大步长，避免低帧率下越过目标
                     float maxStepDistance = navAgent.ValueRO.Speed * deltaTime;
 
                     float3 desiredVelocity;
 
                     if (distance <= maxStepDistance)
                     {
-                        // 用剩余位移反推速度 使本帧恰好停在目标点
+                    // 用剩余位移反推速度，使本帧恰好停在目标点
                         desiredVelocity = toTarget / deltaTime;
                     }
                     else
@@ -72,7 +72,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     moveIntent.ValueRW.DesiredVelocity = desiredVelocity;
                 }
 
-                // 路径点索引属于权威状态 仅由服务端推进
+                        // 路径点索引属于权威状态，仅由服务端推进
 
                 if (!isServer)
                     continue;

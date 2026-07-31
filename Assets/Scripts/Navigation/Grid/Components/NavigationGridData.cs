@@ -54,7 +54,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public float Clearance;
 
         /// <summary>
-        /// 静态连通区域标识 阻挡 Cell 使用零
+        /// 静态连通区域标识，阻挡 Cell 使用零
         /// </summary>
         public int RegionId;
 

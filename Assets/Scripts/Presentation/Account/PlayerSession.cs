@@ -3,7 +3,7 @@ namespace AnimarsCatcher.Presentation.Account
 {
     /// <summary>
     /// 保存当前进程内已登录玩家的会话身份
-    /// 该状态不会写入磁盘 场景切换期间由静态生命周期保留
+    /// 该状态不会写入磁盘，场景切换期间由静态生命周期保留
     /// </summary>
     public static class PlayerSession
     {

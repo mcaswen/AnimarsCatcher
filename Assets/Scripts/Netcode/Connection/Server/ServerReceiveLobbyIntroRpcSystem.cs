@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Networking
 
                 Debug.Log($"[ServerReceiveLobbyIntroRpcSystem] Received lobby intro from connection {networkId}: '{rpc.ValueRO.PlayerName}'");
 
-                // 发布网络生命周期通知 由上层表现桥接决定如何呈现
+                // 发布网络生命周期通知，由上层表现桥接决定如何呈现
                 Entity notificationEntity = entityCommandBuffer.CreateEntity();
                 entityCommandBuffer.AddComponent(
                     notificationEntity,

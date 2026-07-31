@@ -6,7 +6,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 配置服务端资源刷新区域 阻挡检测和波次上限
+    /// 配置服务端资源刷新区域、阻挡检测和波次上限
     /// </summary>
     [DisallowMultipleComponent]
     public class ResourceSpawnAreaAuthoring : MonoBehaviour

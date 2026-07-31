@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Networking
                     authoring._cameraPrefab,
                     Unity.Entities.TransformUsageFlags.Dynamic);
 
-                // 两个引用挂在同一注册实体上 供服务器生成系统以单例方式读取
+            // 两个引用挂在同一注册实体上，供服务器生成系统以单例方式读取
                 AddComponent(registryEntity, new CharacterGhostPrefabReference { Value = characterEntity });
                 AddComponent(registryEntity, new CameraGhostPrefabReference { Value = cameraEntity });
             }

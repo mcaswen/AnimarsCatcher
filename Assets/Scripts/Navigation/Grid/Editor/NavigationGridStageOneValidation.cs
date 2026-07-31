@@ -55,7 +55,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         // 每项测试只依赖固定输入并在失败时抛出明确原因
         private static void RunAllInternal()
         {
-            // 纯算法测试先运行 固定场景测试随后验证完整编辑器链路
+            // 纯算法测试先运行，固定场景测试随后验证完整编辑器链路
             // 排序让基础拓扑失败不会被后续资产错误掩盖
             TestCornerCutting();
             TestStepHeightAndRegions();
@@ -181,7 +181,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(sampleCount <= maximumCells, "覆盖层二维抽样数量不得超过显示上限");
         }
 
-        // 固定场景同时包含平地 障碍 斜坡 窄边和高度断层
+        // 固定场景同时包含平地、障碍、斜坡、窄边和高度断层
         // 对烘焙资产执行结构 Hash 区域和代表 Cell 的综合断言
         private static void TestFixtureData(NavigationGridAuthoring authoring)
         {
@@ -396,7 +396,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 优先打开已提交夹具 保证本地和批处理使用同一输入
+        // 优先打开已提交夹具，保证本地和批处理使用同一输入
         // 缺失时重新生成使验证入口具备可恢复性
         private static NavigationGridAuthoring OpenOrCreateFixture()
         {
@@ -428,7 +428,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         // 构造无障碍规则数组作为纯算法测试的最小基线
-        // 每个 Cell 使用相同法线 高度和地形成本消除无关变量
+        // 每个 Cell 使用相同法线、高度和地形成本，消除无关变量
         private static NavigationGridCellData[] CreateWalkableCells(int width, int height)
         {
             // 默认 Clearance 足够大使拓扑测试不受体型过滤影响

@@ -90,7 +90,7 @@ namespace AnimarsCatcher.Presentation.Selection
                     }
                 }
 
-                // RPC 是一次性命令 处理完成后销毁实体
+                // RPC 是一次性命令，处理完成后销毁实体
                 entityCommandBuffer.DestroyEntity(requestedEntity);
             }
 

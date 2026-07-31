@@ -9,7 +9,7 @@ namespace AnimarsCatcher.Presentation.Resource
 {
     /// <summary>
     /// 从 NetCode 世界读取玩家资源和全局资源快照
-    /// 所有查询均为即时只读 查询失败时返回 false
+    /// 所有查询均为即时只读，查询失败时返回 false
     /// </summary>
     public static class ResourceStateReader
     {

@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
     [CustomEditor(typeof(NavigationGridAuthoring))]
     internal sealed class NavigationGridAuthoringEditor : UnityEditor.Editor
     {
-        // 状态区只显示最近一次按钮操作结果 不跟随每次 Inspector 重绘重新校验
+        // 状态区只显示最近一次按钮操作结果，不跟随每次 Inspector 重绘重新校验
         private MessageType _statusType = MessageType.None;
         private string _statusMessage = string.Empty;
 
@@ -24,7 +24,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridVisualizationRenderer.DrawLegend(authoring.GizmoMode);
 
             EditorGUILayout.Space();
-            // 修改资产的烘焙在 PlayMode 切换期间禁用 只读校验和检查仍可使用
+            // 修改资产的烘焙在 PlayMode 切换期间禁用，只读校验和检查仍可使用
             using (new EditorGUILayout.HorizontalScope())
             {
                 using (new EditorGUI.DisabledScope(

@@ -44,7 +44,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 bool navStop = blackboard.GetBool(AniMovementBlackboardKeys.NavStop);
                 int requestVersion = blackboard.GetInt(AniMovementBlackboardKeys.NavRequestVersion);
 
-                // 请求版本未变化时复用现有路径 避免每帧重复计算
+                // 请求版本未变化时复用现有路径，避免每帧重复计算
                 if (requestVersion == navAgent.ValueRO.LastHandledNavRequestVersion)
                     continue;
 
@@ -62,20 +62,20 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 float3 targetPosition = blackboard.GetFloat3(AniMovementBlackboardKeys.NavTargetPosition);
                 float3 startPosition = transform.ValueRO.Position;
 
-                // UnityEngine.AI API 只能在主线程执行 此处保持同步规划
+                // UnityEngine.AI API 只能在主线程执行，此处保持同步规划
                 var path = new NavMeshPath();
                 bool hasPath = CheckPathOnNavMesh(startPosition, targetPosition, ref path);
 
                 if (!hasPath || path.corners == null || path.corners.Length == 0)
                 {
-                    // 不可达时递增版本并回写停止状态 防止持续重试
+                    // 不可达时递增版本并回写停止状态，防止持续重试
                     blackboard.SetBool(AniMovementBlackboardKeys.NavStop, true);
                     blackboard.SetInt(AniMovementBlackboardKeys.NavRequestVersion, requestVersion + 1);
                     navSteering.ValueRW.HasPath = 0;
                     continue;
                 }
 
-                // 覆盖路径缓冲区 保证索引与本次规划结果对应
+                // 覆盖路径缓冲区，保证索引与本次规划结果对应
                 DynamicBuffer<NavWaypoint> waypoints;
                 if (!state.EntityManager.HasBuffer<NavWaypoint>(entity))
                     waypoints = state.EntityManager.AddBuffer<NavWaypoint>(entity);
@@ -88,7 +88,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     waypoints.Add(new NavWaypoint { Position = path.corners[i] });
                 }
 
-                // 第零个角点通常是当前位置 优先从后续角点开始移动
+                // 第零个角点通常是当前位置，优先从后续角点开始移动
                 navAgent.ValueRW.CurrentWaypointIndex = math.min(1, waypoints.Length - 1);
                 float3 steeringTarget = waypoints[navAgent.ValueRO.CurrentWaypointIndex].Position;
 

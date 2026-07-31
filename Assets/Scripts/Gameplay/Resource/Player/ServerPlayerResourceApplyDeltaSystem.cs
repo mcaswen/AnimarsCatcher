@@ -24,7 +24,7 @@ namespace AnimarsCatcher.Gameplay
             var resourceStates = resourceQuery.ToComponentDataArray<PlayerResourceState>(Allocator.Temp);
             var owners = resourceQuery.ToComponentDataArray<GhostOwner>(Allocator.Temp);
 
-            // 建立 NetworkId 到快照索引的映射 避免每条事件扫描全部玩家
+            // 建立 NetworkId 到快照索引的映射，避免每条事件扫描全部玩家
             var idToIndex = new NativeHashMap<int, int>(resourceEntities.Length, Allocator.Temp);
             for (int i = 0; i < resourceEntities.Length; i++)
             {

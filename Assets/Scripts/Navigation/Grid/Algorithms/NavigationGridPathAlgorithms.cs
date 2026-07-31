@@ -24,11 +24,11 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
-            // 单次请求依次执行参数校验 端点投影 区域预拒绝 A 星搜索和平滑写回
+            // 单次请求依次执行参数校验、端点投影、区域预拒绝、A 星搜索和平滑写回
             // 所有失败路径返回完整状态且不向共享 PathCells 追加部分结果
-            // Scratch 数组通过 generation 隔离请求 避免按 Grid 大小逐次清零
+            // Scratch 数组通过 generation 隔离请求，避免按 Grid 大小逐次清零
             NavigationPathRequest request = jobRequest.Request;
-            // 先构造完整失败结果 后续每个提前返回只覆盖确定的失败原因
+            // 先构造完整失败结果，后续每个提前返回只覆盖确定的失败原因
             NavigationPathJobResult result = CreateFailureResult(
                 jobRequest.Entity,
                 request.Version,
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // 端点投影把任意世界坐标收敛到搜索图中的合法节点
             // 起点和终点分别记录失败原因便于上层决定重试策略
-            // 起点投影失败时终点尚未参与计算 保持结果字段的阶段性含义
+            // 起点投影失败时终点尚未参与计算，保持结果字段的阶段性含义
             if (!TryProjectToNearestCell(
                     ref grid,
                     request.StartPosition,
@@ -75,8 +75,8 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             result.ProjectedEndCellIndex = endCellIndex;
-            // 静态 Region 不同必然无路 可以在分配 Open Set 前立即拒绝
-            // RegionId 只表达静态 Blob 连通性 动态 Overlay 将在后续阶段增加二次判定
+            // 静态 Region 不同必然无路，可以在分配 Open Set 前立即拒绝
+            // RegionId 只表达静态 Blob 连通性，动态 Overlay 将在后续阶段增加二次判定
             if (grid.Cells[startCellIndex].RegionId <= 0 ||
                 grid.Cells[startCellIndex].RegionId != grid.Cells[endCellIndex].RegionId)
             {
@@ -88,7 +88,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int pathOffset = pathCells.Length;
             if (startCellIndex == endCellIndex)
             {
-                // 同 Cell 请求仍返回一个路径点 让下游不需要处理空成功路径
+                // 同 Cell 请求仍返回一个路径点，让下游不需要处理空成功路径
                 pathCells.Add(startCellIndex);
                 result.Status = NavigationPathStatus.Succeeded;
                 result.FailureReason = NavigationPathFailureReason.None;
@@ -97,7 +97,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 当前 generation 首次触碰节点时才初始化 避免每个请求清空所有 Cell
+            // 当前 generation 首次触碰节点时才初始化，避免每个请求清空所有 Cell
             // GCosts 保存起点到节点的最小已知成本
             // Parents 保存稳定重建链
             // HeapPositions 非负表示节点仍位于 Open Set
@@ -127,10 +127,10 @@ namespace AnimarsCatcher.Navigation.Grid
             bool found = false;
             int expandedNodeCount = 0;
 
-            // Pop 后 HeapPosition 被置为负数 同时承担 Closed Set 标记
+            // Pop 后 HeapPosition 被置为负数，同时承担 Closed Set 标记
             // ExpandedNodeCount 只统计真正从 Open Set 展开的节点
             // Region 预拒绝和投影失败不会增加展开数
-            // 找到终点后立即结束 不继续扫描其余等价节点
+            // 找到终点后立即结束，不继续扫描其余等价节点
             // 每轮展开当前 F Cost 最小节点并对固定顺序邻居执行松弛
             // 一致启发函数保证节点进入 Closed 后不需要重新打开
             while (heapCount > 0)
@@ -152,7 +152,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int currentX = currentIndex % grid.Width;
                 int currentZ = currentIndex / grid.Width;
                 byte neighborMask = grid.Cells[currentIndex].NeighborMask;
-                // 固定从北方向开始顺时针展开 相同输入保持稳定访问次序
+                // 固定从北方向开始顺时针展开，相同输入保持稳定访问次序
                 for (int directionIndex = 0; directionIndex < 8; directionIndex++)
                 {
                     if ((neighborMask & (1 << directionIndex)) == 0)
@@ -181,7 +181,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
 
-                    // generation 不匹配表示数组槽位仍属于更早请求 其中数据不可读取
+                    // generation 不匹配表示数组槽位仍属于更早请求，其中数据不可读取
                     bool unseen = nodeGenerations[neighborIndex] != generation;
                     if (unseen)
                     {
@@ -315,7 +315,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int rawPathLength = 0;
             int currentIndex = endCellIndex;
             // Parent 链从终点逆向写入 reconstruction 不额外分配临时 NativeList
-            // Parent 链长度不能超过 Cell 数 超出说明链损坏或形成循环
+            // Parent 链长度不能超过 Cell 数，超出说明链损坏或形成循环
             while (currentIndex >= 0 && rawPathLength < reconstruction.Length)
             {
                 reconstruction[rawPathLength++] = currentIndex;
@@ -337,7 +337,7 @@ namespace AnimarsCatcher.Navigation.Grid
             pathCells.Add(startCellIndex);
             int anchorOrderedIndex = 0;
 
-            // 贪心选择最远可见节点 但直接线段成本不能超过原 A 星路径允许的容差
+            // 贪心选择最远可见节点，但直接线段成本不能超过原 A 星路径允许的容差
             // 从最远候选向近处扫描可在保持确定性的同时尽量减少路径点
             // 可见性只解决几何和 Clearance 合法性
             // 成本约束阻止平滑线切过高 Terrain Cost 区域
@@ -359,7 +359,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         reconstruction,
                         rawPathLength,
                         candidateOrderedIndex);
-                    // A 星 Parent 链上的 G Cost 单调递增 差值就是原路径分段成本
+                    // A 星 Parent 链上的 G Cost 单调递增，差值就是原路径分段成本
                     float rawSegmentCost = math.max(
                         0f,
                         gCosts[candidateCellIndex] - gCosts[anchorCellIndex]);
@@ -396,7 +396,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float clearanceMargin)
         {
             // 烘焙阶段已经按基础体型收缩可行走区域
-            // 运行时只增加更大体型和安全边距 避免基础半径被重复扣减
+            // 运行时只增加更大体型和安全边距，避免基础半径被重复扣减
             // 烘焙占用已经包含 BaseAgentRadius 这里只计算运行时增量
             return math.max(0f, agentRadius - grid.BaseAgentRadius) +
                    math.max(0f, clearanceMargin);
@@ -409,7 +409,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float requiredClearance,
             float clearancePenaltyWeight)
         {
-            // 边成本由几何距离 地形权重和低 Clearance 惩罚组成
+            // 边成本由几何距离、地形权重和低 Clearance 惩罚组成
             // 所有项保持非负是启发函数可采纳和 G Cost 单调增长的前提
             int fromX = fromCellIndex % grid.Width;
             int fromZ = fromCellIndex / grid.Width;
@@ -417,10 +417,10 @@ namespace AnimarsCatcher.Navigation.Grid
             int toZ = toCellIndex / grid.Width;
             bool diagonal = fromX != toX && fromZ != toZ;
             float distance = grid.CellSize * (diagonal ? SquareRootTwo : 1f);
-            // 使用目标 Cell 成本使每条有向边只采样一次 并与 A 星和直线检查保持一致
+            // 使用目标 Cell 成本使每条有向边只采样一次，并与 A 星和直线检查保持一致
             NavigationGridCell targetCell = grid.Cells[toCellIndex];
             float extraClearance = math.max(0f, targetCell.Clearance - requiredClearance);
-            // 通道越宽比例越接近零 惩罚连续衰减而不会形成新的硬阻挡
+            // 通道越宽比例越接近零，惩罚连续衰减而不会形成新的硬阻挡
             float clearanceRatio = grid.CellSize / (grid.CellSize + extraClearance);
             float weightedTerrainCost =
                 math.max(MinimumTerrainCost, targetCell.TerrainCost) +
@@ -453,7 +453,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return true;
             }
 
-            // 大体型对角移动还要占用两个正交侧边 防止从低 Clearance 角点挤过
+            // 大体型对角移动还要占用两个正交侧边，防止从低 Clearance 角点挤过
             int fromX = fromCellIndex % grid.Width;
             int fromZ = fromCellIndex / grid.Width;
             int sideXCellIndex = fromX + deltaX + fromZ * grid.Width;
@@ -480,9 +480,9 @@ namespace AnimarsCatcher.Navigation.Grid
             float bestClearance,
             int bestCellIndex)
         {
-            // 投影候选按距离 地形成本 Clearance 和 Cell Index 形成稳定字典序
+            // 投影候选按距离、地形成本、Clearance 和 Cell Index 形成稳定字典序
             // 新增比较键时必须同步更新投影契约和确定性验收
-            // 比较顺序必须与投影契约一致 距离优先于地形和 Clearance
+            // 比较顺序必须与投影契约一致，距离优先于地形和 Clearance
             if (bestCellIndex < 0 || distanceSquared < bestDistanceSquared - CostEpsilon)
             {
                 return true;
@@ -563,7 +563,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             // reconstruction 保存顺序与最终路径相反
             // 统一在此翻转下标避免平滑循环重复实现逆序逻辑
-            // reconstruction 逆序保存 Parent 链 此方法暴露起点到终点的正序视图
+            // reconstruction 逆序保存 Parent 链，此方法暴露起点到终点的正序视图
             return reconstruction[rawPathLength - 1 - orderedIndex];
         }
 

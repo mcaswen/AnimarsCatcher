@@ -8,7 +8,7 @@ using AnimarsCatcher.Presentation.Account;
 namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
-    /// 管理登录 注册和主菜单面板之间的认证流程
+    /// 管理登录、注册和主菜单面板之间的认证流程
     /// 输入校验和账号持久化委托给 UserAccountStorage
     /// </summary>
     public class AuthPanelController : MonoBehaviour
@@ -120,7 +120,7 @@ namespace AnimarsCatcher.Presentation.UI
             }
         }
 
-        // 验证凭据 成功后建立进程内玩家会话
+            // 验证凭据，成功后建立进程内玩家会话
         private void OnLoginClicked()
         {
             string userName = _loginUserNameInput != null ? _loginUserNameInput.text : string.Empty;

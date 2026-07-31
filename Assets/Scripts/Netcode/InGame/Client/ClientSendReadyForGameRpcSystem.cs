@@ -88,7 +88,7 @@ namespace AnimarsCatcher.Networking
                 Debug.Log("[ClientSendReadyForGameRpcSystem] Extra 2s passed, mark InGame and send ClientReadyForGameRpc.");
             }
 
-            // 此时客户端已具备运行对局的全部网络状态 可通知表现层退出等待界面
+                // 此时客户端已具备运行对局的全部网络状态，可通知表现层退出等待界面
             Entity notificationEntity = entityCommandBuffer.CreateEntity();
             entityCommandBuffer.AddComponent(
                 notificationEntity,

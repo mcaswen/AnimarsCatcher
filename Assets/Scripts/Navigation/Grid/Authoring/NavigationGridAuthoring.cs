@@ -128,7 +128,7 @@ namespace AnimarsCatcher.Navigation.Grid
         [Min(64)]
         [SerializeField] private int _maximumGizmoCells = 4096;
 
-        // 以下属性只暴露烘焙输入 不允许外部绕过 Inspector 修改序列化状态
+        // 以下属性只暴露烘焙输入，不允许外部绕过 Inspector 修改序列化状态
         /// <summary>
         /// 获取按完整 Cell 向下对齐后的有效世界包围盒
         /// </summary>

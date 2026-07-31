@@ -36,24 +36,24 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationPathRequest : IComponentData
     {
-        // 起终点保留世界坐标 由路径服务统一执行 Bounds 检查和端点投影
+        // 起终点保留世界坐标，由路径服务统一执行 Bounds 检查和端点投影
         public float3 StartPosition;
         public float3 EndPosition;
 
-        // BaseAgentRadius 已在烘焙时参与占用采样 运行时只额外扣除超出部分
+        // BaseAgentRadius 已在烘焙时参与占用采样，运行时只额外扣除超出部分
         public float AgentRadius;
         public float ClearanceMargin;
 
-        // ClearancePenaltyWeight 只改变偏好 不会把不可占用 Cell 变为可用
+        // ClearancePenaltyWeight 只改变偏好，不会把不可占用 Cell 变为可用
         public float ClearancePenaltyWeight;
 
         // 平滑只能在此比例内增加原始 A 星分段成本
         public float SmoothingCostTolerance;
 
-        // 投影半径以 Cell 为单位 零表示只接受位置直接对应的 Cell
+        // 投影半径以 Cell 为单位，零表示只接受位置直接对应的 Cell
         public int MaximumProjectionRadiusInCells;
 
-        // 调用方每次替换请求时递增版本 用于拒绝异步返回的旧结果
+        // 调用方每次替换请求时递增版本，用于拒绝异步返回的旧结果
         public uint Version;
 
         /// <summary>
@@ -103,14 +103,14 @@ namespace AnimarsCatcher.Navigation.Grid
         public NavigationPathStatus Status;
         public NavigationPathFailureReason FailureReason;
 
-        // RequestVersion 记录当前状态对应的请求 避免只比较 Component 当前值
+        // RequestVersion 记录当前状态对应的请求，避免只比较 Component 当前值
         public uint RequestVersion;
 
         // 投影索引便于调试调用方输入和 Region 预拒绝结果
         public int ProjectedStartCellIndex;
         public int ProjectedEndCellIndex;
 
-        // WaypointCount 与 Buffer 长度保持一致 便于只读查询和统计
+        // WaypointCount 与 Buffer 长度保持一致，便于只读查询和统计
         public int WaypointCount;
 
         // ExpandedNodeCount 和 TotalCost 用于正确性对照与后续性能基线

@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     public struct NavSteering : IComponentData
     {
         [GhostField] public float3 SteeringTarget;
-        [GhostField] public int PathVersion; // 与导航请求版本对齐 供客户端识别新路径
+        [GhostField] public int PathVersion; // 与导航请求版本对齐，供客户端识别新路径
         [GhostField] public byte HasPath;
     }
 }

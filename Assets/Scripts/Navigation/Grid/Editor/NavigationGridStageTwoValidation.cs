@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         /// </summary>
         public static void RunAll()
         {
-            // 查询契约和失败路径先运行 随后验证成本与异步 System
+            // 查询契约和失败路径先运行，随后验证成本与异步 System
             // 每项使用独立 Blob 和 NativeContainer 防止状态串扰
             TestCoordinateConversionAndProjection();
             TestRegionRejection();
@@ -74,7 +74,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "Client World 不应自动注册 ServerNavigationGridPathfindingSystem");
         }
 
-        // 系统列表可能包含不同程序集中的同名类型 因而按 Type 身份比较
+        // 系统列表可能包含不同程序集中的同名类型，因而按 Type 身份比较
         private static bool ContainsSystem(IReadOnlyList<Type> systems, Type targetType)
         {
             for (int i = 0; i < systems.Count; i++)
@@ -220,7 +220,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         // 该测试证明运行时 Clearance 约束没有被静态 Region 替代
         private static void TestClearanceChangesRoute()
         {
-            // 双通道地图让小体型走短路 大体型选择宽路
+            // 双通道地图让小体型走短路，大体型选择宽路
             // 两次请求共用同一 Blob 证明差异来自运行时半径
             NavigationGridCellData[] cells = CreateWalkableCells(5, 3);
             for (int x = 1; x <= 3; x++)
@@ -365,7 +365,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 pathState.Status == NavigationPathStatus.Searching,
                 "路径系统首帧只能调度后台任务不能同步写回结果");
 
-            // 主动刷新批处理队列只用于缩短编辑器验收等待 不改变运行时 System 逻辑
+            // 主动刷新批处理队列只用于缩短编辑器验收等待，不改变运行时 System 逻辑
             JobHandle.ScheduleBatchedJobs();
             for (int updateIndex = 0;
                  updateIndex < 10000 && pathState.Status == NavigationPathStatus.Searching;
@@ -376,7 +376,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 pathState = entityManager.GetComponentData<NavigationPathState>(requestEntity);
             }
 
-            // 终态同时校验状态 版本和端点 Buffer
+            // 终态同时校验状态、版本和端点 Buffer
             DynamicBuffer<NavigationPathWaypoint> waypoints =
                 entityManager.GetBuffer<NavigationPathWaypoint>(requestEntity);
             Assert(pathState.Status == NavigationPathStatus.Succeeded, "异步路径系统未完成请求");
@@ -553,7 +553,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return result;
         }
 
-        // RegionId 从一开始连续编号 最大值即当前静态区域数量
+        // RegionId 从一开始连续编号，最大值即当前静态区域数量
         private static int CountRegions(NavigationGridCellData[] cells)
         {
             int maximumRegion = 0;

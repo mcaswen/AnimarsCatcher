@@ -15,7 +15,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     /// </summary>
     public struct AniNavFindArrivalTracker : IComponentData
     {
-        public byte PreviousHasPath; // 零表示无路径 非零表示仍在寻路
+        public byte PreviousHasPath; // 零表示无路径，非零表示仍在寻路
     }
 
     /// <summary>
@@ -217,7 +217,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             entityCommandBuffer.Playback(state.EntityManager);
         }
 
-        // 给资源算一条从资源当前位置 -> 玩家机器人 的 NavMesh 路径
+                // 给资源计算一条从当前位置到玩家机器人的 NavMesh 路径
         private void TryPlanNavPathForResource(
             ref SystemState state,
             ref EntityCommandBuffer entityCommandBuffer,

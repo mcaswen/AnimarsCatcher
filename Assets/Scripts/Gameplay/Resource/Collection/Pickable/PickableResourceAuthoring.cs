@@ -33,7 +33,7 @@ namespace AnimarsCatcher.Gameplay
         [FormerlySerializedAs("CarryMoveSpeed")]
         [SerializeField] private float _carryMoveSpeed = 3.0f;
 
-        // 搬运 Ani 相对资源中心的局部站位列表 为空时使用中心槽位
+        // 搬运 Ani 相对资源中心的局部站位列表，为空时使用中心槽位
         [FormerlySerializedAs("CarrierSlotLocalOffsets")]
         [SerializeField] private Vector3[] _carrierSlotLocalOffsets;
 
@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Gameplay
                 DynamicBuffer<PickableResourceCarrierSlot> slotBuffer =
                     AddBuffer<PickableResourceCarrierSlot>(entity);
 
-                // 自定义槽位按配置顺序写入 该顺序同时作为分配索引
+            // 自定义槽位按配置顺序写入，该顺序同时作为分配索引
                 if (authoring._carrierSlotLocalOffsets != null &&
                     authoring._carrierSlotLocalOffsets.Length > 0)
                 {

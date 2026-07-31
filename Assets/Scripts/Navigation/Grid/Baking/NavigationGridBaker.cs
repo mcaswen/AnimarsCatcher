@@ -75,7 +75,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 builder.CreateBlobAssetReference<NavigationGridBlob>(Allocator.Persistent);
             builder.Dispose();
 
-            // 交给 Baker 按完整 Blob 内容去重 同时正确释放重复构建的临时实例
+            // 交给 Baker 按完整 Blob 内容去重，同时正确释放重复构建的临时实例
             AddBlobAsset(ref blobReference, out _);
 
             Entity entity = GetEntity(TransformUsageFlags.None);

@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Presentation.UI
             ref CameraState state,
             float deltaTime)
         {
-            // 仅在 Aim 阶段覆盖方向 避免影响位置和镜头参数计算
+            // 仅在 Aim 阶段覆盖方向，避免影响位置和镜头参数计算
             if (stage != CinemachineCore.Stage.Aim)
                 return;
 
