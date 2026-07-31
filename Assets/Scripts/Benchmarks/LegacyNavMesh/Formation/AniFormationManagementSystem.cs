@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -15,6 +16,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     {
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate(SystemAPI.QueryBuilder()
                 .WithAny<AniFormationJoinRequest, AniFormationLeaveRequest>()
                 .Build());

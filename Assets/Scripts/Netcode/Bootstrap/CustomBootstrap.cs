@@ -1,5 +1,7 @@
 namespace AnimarsCatcher.Networking
 {
+    using AnimarsCatcher.Gameplay.Contracts;
+    using Unity.Entities;
     using Unity.NetCode;
     using Unity.Networking.Transport;
 
@@ -31,18 +33,18 @@ namespace AnimarsCatcher.Networking
             switch (NetworkPlayModeConfiguration.PlayType)
             {
                 case PlayType.ClientAndServer:
-                    CreateServerWorld("Server World");
-                    CreateClientWorld("Client World");
+                    CreateConfiguredServerWorld("Server World");
+                    CreateConfiguredClientWorld("Client World");
                     CreateThinClientWorlds();
                     return true;
 
                 case PlayType.Client:
-                    CreateClientWorld("Client World");
+                    CreateConfiguredClientWorld("Client World");
                     CreateThinClientWorlds();
                     return true;
 
                 case PlayType.Server:
-                    CreateServerWorld("Server World");
+                    CreateConfiguredServerWorld("Server World");
                     return true;
 
                 default:
@@ -54,7 +56,8 @@ namespace AnimarsCatcher.Networking
         {
             for (int i = 0; i < NetworkPlayModeConfiguration.ThinClientCount; i++)
             {
-                CreateThinClientWorld();
+                World world = CreateThinClientWorld();
+                ConfigureMovementBackend(world);
             }
         }
 
@@ -63,21 +66,42 @@ namespace AnimarsCatcher.Networking
             switch (NetworkRuntimeRole.Current)
             {
                 case NetworkRunRole.Host:
-                    CreateServerWorld("Server World");
-                    CreateClientWorld("Client World");
+                    CreateConfiguredServerWorld("Server World");
+                    CreateConfiguredClientWorld("Client World");
                     return true;
 
                 case NetworkRunRole.Client:
-                    CreateClientWorld("Client World");
+                    CreateConfiguredClientWorld("Client World");
                     return true;
 
                 case NetworkRunRole.DedicatedServer:
-                    CreateServerWorld("Server World");
+                    CreateConfiguredServerWorld("Server World");
                     return true;
 
                 default:
                     return false;
             }
+        }
+
+        private static World CreateConfiguredServerWorld(string name)
+        {
+            World world = CreateServerWorld(name);
+            ConfigureMovementBackend(world);
+            return world;
+        }
+
+        private static World CreateConfiguredClientWorld(string name)
+        {
+            World world = CreateClientWorld(name);
+            ConfigureMovementBackend(world);
+            return world;
+        }
+
+        private static void ConfigureMovementBackend(World world)
+        {
+            AniMovementBackendWorldUtility.ConfigureWorld(
+                world,
+                AniMovementBackendLaunchConfiguration.Current);
         }
     }
 }

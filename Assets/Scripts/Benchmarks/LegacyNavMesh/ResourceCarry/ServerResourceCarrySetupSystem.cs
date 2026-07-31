@@ -1,4 +1,5 @@
 using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Gameplay;
 using Unity.Burst;
@@ -30,6 +31,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate(
                 SystemAPI.QueryBuilder()
                     .WithAll<PickableResource, ResourceCarryAssignment, LocalTransform>()
@@ -41,6 +43,11 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
         public void OnUpdate(ref SystemState state)
         {
+            if (SystemAPI.HasSingleton<LegacyNavigationBenchmarkConfig>())
+            {
+                return;
+            }
+
             _arrivalTrackerLookup.Update(ref state);
 
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

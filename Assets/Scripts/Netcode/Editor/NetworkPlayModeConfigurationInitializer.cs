@@ -1,7 +1,9 @@
 namespace AnimarsCatcher.Networking.Editor
 {
+    using System;
     using Unity.NetCode;
     using UnityEditor;
+    using UnityEngine;
 
     /// <summary>
     /// 将 NetCode 编辑器播放模式同步到运行时配置桥接层
@@ -22,9 +24,29 @@ namespace AnimarsCatcher.Networking.Editor
 
         private static void Refresh()
         {
+            if (Application.isBatchMode && IsBenchmarkServerOnlyRequested())
+            {
+                NetworkPlayModeConfiguration.ConfigureEditorPlayMode(
+                    ClientServerBootstrap.PlayType.Server,
+                    0);
+                return;
+            }
+
             NetworkPlayModeConfiguration.ConfigureEditorPlayMode(
                 ClientServerBootstrap.RequestedPlayType,
                 ClientServerBootstrap.RequestedNumThinClients);
+        }
+
+        private static bool IsBenchmarkServerOnlyRequested()
+        {
+            string[] arguments = Environment.GetCommandLineArgs();
+            return Array.Exists(
+                arguments,
+                argument =>
+                    string.Equals(
+                        argument,
+                        "-benchmark-server-only",
+                        StringComparison.OrdinalIgnoreCase));
         }
     }
 }

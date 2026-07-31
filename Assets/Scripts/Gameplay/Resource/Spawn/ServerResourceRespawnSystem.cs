@@ -27,6 +27,8 @@ namespace AnimarsCatcher.Gameplay
 
         public void OnUpdate(ref SystemState state)
         {
+            if (SystemAPI.HasSingleton<NavigationBenchmarkEnabled>()) return;
+
             float deltaTime = SystemAPI.Time.DeltaTime;
 
             EntityCommandBuffer entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);

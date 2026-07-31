@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -18,6 +19,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     {
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate(
                 SystemAPI.QueryBuilder()
                     .WithAll<NavAgent, NavSteering, LocalTransform, AniMoveIntent>()

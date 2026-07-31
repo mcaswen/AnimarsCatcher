@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -18,6 +19,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate<PhysicsWorldSingleton>();
             state.RequireForUpdate(
                 SystemAPI.QueryBuilder()

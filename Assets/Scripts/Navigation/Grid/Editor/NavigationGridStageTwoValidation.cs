@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -332,6 +333,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, 8, 8);
             using var world = new World("Navigation Grid Stage Two Validation", WorldFlags.Game);
+            AniMovementBackendWorldUtility.ConfigureWorld(
+                world,
+                AniMovementBackend.ClearanceGrid);
             EntityManager entityManager = world.EntityManager;
             Entity gridEntity = entityManager.CreateEntity(typeof(NavigationGridReference));
             entityManager.SetComponentData(gridEntity, new NavigationGridReference

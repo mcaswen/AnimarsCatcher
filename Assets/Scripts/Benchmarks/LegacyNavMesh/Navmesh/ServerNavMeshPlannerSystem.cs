@@ -1,4 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
+using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -20,6 +22,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate(SystemAPI.QueryBuilder()
                 .WithAll<NavAgent, LocalTransform>()
                 .Build());
@@ -56,7 +59,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     if (state.EntityManager.HasBuffer<NavWaypoint>(entity))
                         state.EntityManager.GetBuffer<NavWaypoint>(entity).Clear();
                     navSteering.ValueRW.HasPath = 0;
-                    return;
+                    continue;
                 }
 
                 float3 targetPosition = blackboard.GetFloat3(AniMovementBlackboardKeys.NavTargetPosition);
@@ -65,6 +68,18 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 // UnityEngine.AI API 只能在主线程执行，此处保持同步规划
                 var path = new NavMeshPath();
                 bool hasPath = CheckPathOnNavMesh(startPosition, targetPosition, ref path);
+                if (SystemAPI.TryGetSingletonRW<LegacyNavigationBenchmarkCounters>(out var counters))
+                {
+                    counters.ValueRW.PathRequestCount++;
+                    if (hasPath && path.corners != null && path.corners.Length > 0)
+                    {
+                        counters.ValueRW.PathSuccessCount++;
+                    }
+                    else
+                    {
+                        counters.ValueRW.PathFailureCount++;
+                    }
+                }
 
                 if (!hasPath || path.corners == null || path.corners.Length == 0)
                 {

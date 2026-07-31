@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Player;
 using Unity.Burst;
 using Unity.Collections;
@@ -23,6 +24,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
             _ghostOwnerLookup = state.GetComponentLookup<GhostOwner>(isReadOnly: true);
 

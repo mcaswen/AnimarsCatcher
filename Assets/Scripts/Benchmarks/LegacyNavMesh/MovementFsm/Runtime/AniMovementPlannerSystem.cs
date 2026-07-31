@@ -26,6 +26,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
             _pickerLookup = state.GetComponentLookup<PickerAniTag>(isReadOnly: true);
             _blasterLookup = state.GetComponentLookup<BlasterAniTag>(isReadOnly: true);
@@ -145,13 +146,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                             leaderEntity == Entity.Null ||
                             !SystemAPI.HasComponent<LocalTransform>(leaderEntity))
                         {
-                            UnityEngine.Debug.LogWarning($"[AniMovementPlannerSystem] Ani Entity={entity.Index} has no valid leader or leader transform.");
-
                             HandleIdle(ref blackboard);
                             break;
                         }
-
-                        UnityEngine.Debug.Log($"[AniMovementPlannerSystem] Handling MoveTo command for Ani Entity={entity.Index}");
 
                         var leaderTransform = SystemAPI.GetComponent<LocalTransform>(leaderEntity);
 

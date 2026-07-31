@@ -5,6 +5,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Physics;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Gameplay.Contracts;
 
 namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 {
@@ -24,6 +25,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             state.RequireForUpdate<PhysicsWorldSingleton>();
             state.RequireForUpdate(
                 SystemAPI.QueryBuilder()

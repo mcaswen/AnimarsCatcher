@@ -23,6 +23,12 @@ namespace AnimarsCatcher.Networking
         public static int ThinClientCount { get; private set; }
 
         /// <summary>
+        /// 获取编辑器是否只请求创建 Server World
+        /// </summary>
+        public static bool IsServerOnly =>
+            HasEditorOverride && PlayType == ClientServerBootstrap.PlayType.Server;
+
+        /// <summary>
         /// 写入当前编辑器联机播放模式
         /// </summary>
         /// <param name="playType">需要创建的网络 World 组合</param>

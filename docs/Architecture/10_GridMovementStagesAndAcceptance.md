@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：阶段一 Grid 烘焙基础和阶段二普通 A* 路径服务已实现并通过自动验收，阶段零性能基线仍需独立补齐
+> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务已实现并通过自动验收；阶段零实机基线需持续采集
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -21,6 +21,20 @@
 8. 未完成的实验代码只能进入开发或 Benchmark 场景
 
 ## 2. 阶段零：冻结 Legacy 基线
+
+### 当前实现
+
+- `AniMovementBackendConfig`、`GridMovementBackendEnabled` 和 `LegacyNavMeshBackendEnabled` 已进入共享 Contracts
+- `CustomBootstrap` 在创建 Server、Client 和 Thin Client World 后立即写入唯一后端配置，支持 `-movement-backend=grid|legacy`
+- `AniMovementBackendGuardSystem` 会拒绝配置缺失、重复、错配和双 Tag，并停止冲突 World 的后续更新
+- 所有 Legacy 移动、命令、阵型、物理和搬运 System 等待 Legacy Tag；Grid 路径服务等待 Grid Tag
+- `NormalizedLegacy-v1` 已修复 NavMesh Planner 提前退出，并移除 MoveTo 逐 Ani 日志
+- 共享回放 SO 使用固定种子和 Tick 命令格式，Harness 直接回放已验证命令，不经过 RPC FixedList
+- 32、64 和 128 Ani 固定场景已创建，使用相同地图 Hash 与回放 Hash
+- Harness 自动记录 Server Tick P50/P95/P99、主线程分配、路径次数和最终空间指标，并导出含环境元数据和原始样本的 JSON
+- `LegacyNavigationBenchmarkStageZeroValidation.RunFromCommandLine` 已覆盖启动参数、Tag 互斥、冲突拒绝、128 Ani 确定性生成和三个场景的输入一致性
+
+阶段零的结构和自动化链路已经完成。不同机器和构建配置下的 Raw Legacy 与 Normalized Legacy 样本属于持续采集数据，不把单次编辑器运行结果写成固定性能阈值。
 
 ### 交付物
 

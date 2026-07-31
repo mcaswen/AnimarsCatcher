@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 
-> 状态：Legacy 程序集隔离已完成，Harness 尚未实现
+> 状态：阶段零 Harness、后端互斥和固定场景已实现，Normalized Legacy 实机基线待持续采集
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -49,6 +49,13 @@ Legacy 现阶段仍是活动实现。独立 asmdef 只提供编译隔离，不�
 
 Bootstrap 必须断言两个 Tag 不会同时存在。每个后端 System Group 使用 `RequireForUpdate` 等待自己的 Tag。
 
+当前启动参数为：
+
+- `-movement-backend=legacy`：启用 Legacy NavMesh
+- `-movement-backend=grid`：启用 Clearance Grid
+
+正式切换前未指定参数时默认使用 Legacy，避免 Grid 尚未接管 Transform 时让现有玩法失去移动能力。`AniMovementBackendGuardSystem` 在每个模拟 World 的 Initialization 阶段验证配置单例和 Tag；配置缺失、重复、错配或两个 Tag 同时存在时会记录 Error，并设置 `World.QuitUpdate` 停止后续模拟。
+
 公共输入收敛为已通过服务器权限校验的 `AniCommandRpc`，公共输出收敛为权威 Transform 和表现速度。新旧入口不能同时消费同一个 RPC，也不能同时写 Transform。
 
 ## 3. 相同输入
@@ -69,6 +76,14 @@ Benchmark 不让两个后端在同一局同时运行。命令先记录为可回�
 
 128 Ani 测试由 Harness 直接回放已校验命令，不能受旧客户端 `FixedList128Bytes<int>` 容量限制。
 
+当前回放资产位于：
+
+```text
+Assets/SO/Benchmarks/LegacyNavigation/SO_LegacyNavigation_DefaultReplay.asset
+```
+
+回放格式由固定随机种子和按 Tick 严格递增的相对目标组成。Harness 在 Server World 内直接将整组命令写入 Ani 移动黑板，不创建 RPC，也不序列化选择列表；因此 32、64 和 128 Ani 使用完全相同的命令 Hash，且 128 Ani 不受 `AniCommandRpc.SelectedAniGhostIds` 容量影响。
+
 ## 4. 基线归一化
 
 当前 Legacy 有几项会让结果失真：
@@ -87,6 +102,13 @@ Benchmark 不让两个后端在同一局同时运行。命令先记录为可回�
 5. 保留 Raw Legacy 与 Normalized Legacy 的版本标识
 
 归一化只修复正确性和测量噪声，不能顺便优化 Legacy 算法。
+
+当前归一化版本为 `NormalizedLegacy-v1`，只包含两项修正：
+
+- `ServerNavMeshPlannerSystem` 的停止分支由提前结束整个 System 改为继续处理下一个 Ani
+- `AniMovementPlannerSystem` 删除逐 Ani 的 MoveTo 日志和无效队长警告
+
+Benchmark 运行期间资源搬运、资源刷新和网络连接探针主动让出更新，防止资源路径请求、后台实例化和调试日志混入 Ani 专项样本。
 
 ## 5. 采集指标
 
@@ -107,6 +129,32 @@ Benchmark 不让两个后端在同一局同时运行。命令先记录为可回�
 
 每项测试完成预热后重复运行多次，比较中位数和 P95。不能只比较单次平均帧率。
 
+固定场景为：
+
+```text
+Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_32.unity
+Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_64.unity
+Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_128.unity
+```
+
+三者复用 `SCN_GameLevel` 的静态地图、SubScene 和 NavMesh，只改变 Ani 数量。每次运行预热 120 Tick，采样 720 Tick，并在采样期第 0、180、360 和 540 Tick 回放相同目标。
+
+无人值守运行入口为：
+
+```text
+AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run32FromCommandLine
+AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run64FromCommandLine
+AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run128FromCommandLine
+```
+
+批处理必须同时传入 `-benchmark-server-only` 和 `-movement-backend=legacy`，确保只创建 Server World，避免客户端输入、渲染和网络探针进入样本。该参数只切换项目内的 NetCode World，不会触发 Unity 原生 Dedicated Server 编辑器模式。以 32 Ani 为例：
+
+```powershell
+Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movement-backend=legacy `
+  -executeMethod AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run32FromCommandLine `
+  -benchmark-git-commit=<提交哈希> -logFile <日志路径>
+```
+
 ## 6. 结果管理
 
 每份结果需要记录：
@@ -121,3 +169,5 @@ Benchmark 不让两个后端在同一局同时运行。命令先记录为可回�
 - 原始数据路径和汇总结论
 
 缺少这些元数据的结果不能作为架构决策依据。对比完成后，Legacy 继续保留为回归基线，但不得重新成为正式依赖。
+
+Harness 将汇总和逐 Tick 原始样本写入 `BenchmarkResults/LegacyNavigation`。JSON 包含 P50、P95、P99、主线程分配量、路径成功与失败次数、到达率、最小单位间距、平均阵型误差、Commit、Unity/Entities 版本、硬件、地图 Hash 和命令脚本 Hash。当前墙钟时间覆盖完整 Server Simulation Group；Worker Job 分配和 Ghost 快照带宽仍需通过 Profiler 与 NetCode Statistics 补充。

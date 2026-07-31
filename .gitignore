@@ -13,8 +13,12 @@
 # Unity-generated scene dependency cache
 /[Aa]ssets/SceneDependencyCache/
 
+# Local navigation benchmark output
+/BenchmarkResults/
+
 # Asset meta data should only be ignored when the corresponding asset is also ignored
 !/[Aa]ssets/**/*.meta
+/[Aa]ssets/SceneDependencyCache.meta
 
 # Uncomment this line if you wish to ignore the asset store tools plugin
 # /[Aa]ssets/AssetStoreTools*

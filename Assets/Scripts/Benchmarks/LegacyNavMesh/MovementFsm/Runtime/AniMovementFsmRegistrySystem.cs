@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Entities;
 
@@ -13,15 +14,22 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     /// <summary>
     /// 为旧 NavMesh 移动状态机注册条件和动作函数指针
     /// </summary>
-    [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
     public partial struct AniMovementFsmRegistrySystem : ISystem
     {
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
             if (SystemAPI.HasSingleton<AniMovementRegistryInitialized>())
+            {
+                state.Enabled = false;
                 return;
+            }
 
             state.EntityManager.CreateEntity(typeof(AniMovementRegistryInitialized));
 
@@ -61,7 +69,5 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
             state.Enabled = false; // 注册完毕后关闭系统
         }
-
-        public void OnUpdate(ref SystemState state) {}
     }
 }

@@ -1,5 +1,6 @@
 namespace AnimarsCatcher.Networking
 {
+    using AnimarsCatcher.Gameplay.Contracts;
     using Unity.Burst;
     using Unity.Entities;
     using Unity.NetCode;
@@ -16,6 +17,7 @@ namespace AnimarsCatcher.Networking
 
         public void OnUpdate(ref SystemState state)
         {
+            if (SystemAPI.HasSingleton<NavigationBenchmarkEnabled>()) return;
             if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;
             _nextLogTime = SystemAPI.Time.ElapsedTime + 1;
 

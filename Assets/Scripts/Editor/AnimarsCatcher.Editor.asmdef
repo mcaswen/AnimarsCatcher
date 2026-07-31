@@ -2,6 +2,10 @@
   "name": "AnimarsCatcher.Editor",
   "rootNamespace": "AnimarsCatcher.Editor",
   "references": [
+    "GUID:e48f3384d761f244ab49193ce9b063de",
+    "GUID:734d92eba21c94caba915361bd5ac177",
+    "GUID:d8b63aba1907145bea998dd612889d6b",
+    "GUID:e0cd26848372d4e5c891c569017e11f1",
     "GUID:fa16307da46fd914dbbf094824885beb",
     "GUID:95e6f2eeefa140e4a565f2a3fdadcf00",
     "GUID:396db97842e549ccb67d7029e581210d",

@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -44,6 +45,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<GridMovementBackendEnabled>();
             _gridQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>());
             _requestQuery = state.GetEntityQuery(

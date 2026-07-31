@@ -26,6 +26,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
         public void OnCreate(ref SystemState state)
         {
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
             _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
         }
