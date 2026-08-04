@@ -1,6 +1,7 @@
 #if UNITY_EDITOR
 using System;
 using System.Collections.Generic;
+using System.IO;
 using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Networking;
@@ -14,12 +15,14 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Editor
 {
     /// <summary>
-    /// 验证阶段零后端互斥、确定性回放和三个固定规模场景
+    /// 验证阶段零后端互斥、确定性回放和单场景参数加载
     /// </summary>
     public static class LegacyNavigationBenchmarkStageZeroValidation
     {
         private const string SceneDirectory =
             "Assets/Scenes/Benchmarks/LegacyNavigation";
+        private const string ScenePath =
+            SceneDirectory + "/SCN_LegacyNavigationBenchmark.unity";
 
         [MenuItem("Tools/Animars Catcher/Navigation/Run Legacy Benchmark Stage Zero Validation")]
         private static void RunFromMenu()
@@ -44,7 +47,7 @@ namespace AnimarsCatcher.Editor
             TestBackendTagsAreExclusive();
             TestConflictingTagsAreRejected();
             TestDeterministicSpawnFor128Anis();
-            TestBenchmarkScenes();
+            TestBenchmarkSceneLoader();
             Debug.Log("Legacy Navigation 阶段零自动验收通过");
         }
 
@@ -132,39 +135,35 @@ namespace AnimarsCatcher.Editor
             }
         }
 
-        private static void TestBenchmarkScenes()
+        private static void TestBenchmarkSceneLoader()
         {
             SceneSetup[] previousSetup = EditorSceneManager.GetSceneManagerSetup();
             try
             {
+                Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+                Assert(scene.IsValid(), $"无法打开 Benchmark Scene：{ScenePath}");
+
+                LegacyNavigationBenchmarkController sceneLoader =
+                    UnityEngine.Object.FindFirstObjectByType<LegacyNavigationBenchmarkController>();
+                Assert(sceneLoader != null, $"{ScenePath} 缺少测试场景加载器");
+                Assert(sceneLoader.ReplayScript != null, $"{ScenePath} 缺少回放资产");
+                Assert(!string.IsNullOrWhiteSpace(sceneLoader.MapSceneHash), $"{ScenePath} 缺少地图 Hash");
+
                 int[] expectedCounts = { 32, 64, 128 };
-                string replayHash = null;
-                string mapHash = null;
                 for (int i = 0; i < expectedCounts.Length; i++)
                 {
                     int expectedCount = expectedCounts[i];
-                    string scenePath =
-                        $"{SceneDirectory}/SCN_LegacyNavigationBenchmark_{expectedCount}.unity";
-                    Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-                    Assert(scene.IsValid(), $"无法打开 Benchmark Scene：{scenePath}");
+                    sceneLoader.ConfigureRun(expectedCount);
+                    Assert(sceneLoader.AgentCount == expectedCount, $"场景加载器未应用 {expectedCount} Ani 参数");
+                }
 
-                    LegacyNavigationBenchmarkController controller =
-                        UnityEngine.Object.FindFirstObjectByType<LegacyNavigationBenchmarkController>();
-                    Assert(controller != null, $"{scenePath} 缺少 Benchmark Controller");
+                for (int i = 0; i < expectedCounts.Length; i++)
+                {
+                    string legacyScenePath =
+                        $"{SceneDirectory}/SCN_LegacyNavigationBenchmark_{expectedCounts[i]}.unity";
                     Assert(
-                        controller.AgentCount == expectedCount,
-                        $"{scenePath} 的 Ani 数量配置错误");
-                    Assert(controller.ReplayScript != null, $"{scenePath} 缺少回放资产");
-
-                    string currentReplayHash = controller.ReplayScript.ComputeHash();
-                    replayHash ??= currentReplayHash;
-                    mapHash ??= controller.MapSceneHash;
-                    Assert(
-                        currentReplayHash == replayHash,
-                        "三个规模场景必须使用同一命令脚本 Hash");
-                    Assert(
-                        controller.MapSceneHash == mapHash,
-                        "三个规模场景必须使用同一地图 Scene Hash");
+                        !File.Exists(Path.GetFullPath(legacyScenePath)),
+                        $"不应继续保留按规模复制的 Benchmark Scene：{legacyScenePath}");
                 }
             }
             finally

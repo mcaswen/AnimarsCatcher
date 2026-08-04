@@ -132,12 +132,10 @@ Benchmark 运行期间资源搬运、资源刷新和网络连接探针主动让�
 固定场景为：
 
 ```text
-Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_32.unity
-Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_64.unity
-Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark_128.unity
+Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark.unity
 ```
 
-三者复用 `SCN_GameLevel` 的静态地图、SubScene 和 NavMesh，只改变 Ani 数量。每次运行预热 120 Tick，采样 720 Tick，并在采样期第 0、180、360 和 540 Tick 回放相同目标。
+场景中的 `LegacyNavigationBenchmarkController` 作为测试场景加载器，持有共享地图、SubScene、NavMesh、回放和默认测试参数。32、64 和 128 Ani 运行入口打开同一场景，并在进入 Play Mode 前向加载器注入本次 Ani 数量，不再复制按规模命名的场景资产。每次运行预热 120 Tick，采样 720 Tick，并在采样期第 0、180、360 和 540 Tick 回放相同目标。
 
 无人值守运行入口为：
 

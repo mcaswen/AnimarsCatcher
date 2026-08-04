@@ -10,7 +10,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 {
     /// <summary>
-    /// 把 Benchmark Scene 的固定配置注册到 Server World
+    /// 从唯一 Benchmark Scene 加载测试参数并注册到 Server World
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class LegacyNavigationBenchmarkController : MonoBehaviour
@@ -36,6 +36,14 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         public string MapSceneHash => _mapSceneHash;
         public LegacyNavigationBenchmarkReplayScript ReplayScript => _replayScript;
 
+        /// <summary>
+        /// 判断 Ani 数量是否属于阶段零固定测试规模
+        /// </summary>
+        public static bool IsSupportedAgentCount(int agentCount)
+        {
+            return agentCount == 32 || agentCount == 64 || agentCount == 128;
+        }
+
         private IEnumerator Start()
         {
             if (!ValidateConfiguration())
@@ -57,25 +65,39 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         }
 
         /// <summary>
-        /// 写入由固定夹具生成器维护的场景参数
+        /// 写入由固定夹具生成器维护的共享场景参数
         /// </summary>
-        /// <param name="agentCount">场景 Ani 数量</param>
         /// <param name="mapSceneHash">共享地图 Scene 的 SHA256</param>
-        /// <param name="replayScript">三个规模场景共用的回放资产</param>
+        /// <param name="replayScript">所有测试规模共用的回放资产</param>
         public void ConfigureFixture(
-            int agentCount,
             string mapSceneHash,
             LegacyNavigationBenchmarkReplayScript replayScript)
         {
-            _agentCount = agentCount;
-            _scenarioName = $"LegacyNavigation_{agentCount}";
+            ConfigureRun(32);
             _mapSceneHash = mapSceneHash;
             _replayScript = replayScript;
         }
 
+        /// <summary>
+        /// 在进入 Play Mode 前向当前场景加载器注入本次测试规模
+        /// </summary>
+        public void ConfigureRun(int agentCount)
+        {
+            if (!IsSupportedAgentCount(agentCount))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(agentCount),
+                    agentCount,
+                    "Legacy Navigation Benchmark 仅支持 32、64 或 128 Ani");
+            }
+
+            _agentCount = agentCount;
+            _scenarioName = $"LegacyNavigation_{agentCount}";
+        }
+
         private bool ValidateConfiguration()
         {
-            if (_agentCount != 32 && _agentCount != 64 && _agentCount != 128)
+            if (!IsSupportedAgentCount(_agentCount))
             {
                 Debug.LogError($"[LegacyNavigationBenchmark] Ani 数量必须为 32、64 或 128，当前为 {_agentCount}");
                 return false;

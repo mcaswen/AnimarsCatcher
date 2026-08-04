@@ -12,7 +12,7 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Editor
 {
     /// <summary>
-    /// 创建阶段零 Legacy 导航回放资产和固定规模 Benchmark Scene
+    /// 创建阶段零 Legacy 导航回放资产和共享 Benchmark Scene
     /// </summary>
     public static class LegacyNavigationBenchmarkFixtureFactory
     {
@@ -20,12 +20,19 @@ namespace AnimarsCatcher.Editor
             "Assets/Scenes/Gameplay/SCN_GameLevel.unity";
         private const string SceneDirectory =
             "Assets/Scenes/Benchmarks/LegacyNavigation";
+        private const string ScenePath =
+            SceneDirectory + "/SCN_LegacyNavigationBenchmark.unity";
         private const string ReplayDirectory =
             "Assets/SO/Benchmarks/LegacyNavigation";
         private const string ReplayAssetPath =
             ReplayDirectory + "/SO_LegacyNavigation_DefaultReplay.asset";
 
-        private static readonly int[] AgentCounts = { 32, 64, 128 };
+        private static readonly string[] LegacyScaleScenePaths =
+        {
+            SceneDirectory + "/SCN_LegacyNavigationBenchmark_32.unity",
+            SceneDirectory + "/SCN_LegacyNavigationBenchmark_64.unity",
+            SceneDirectory + "/SCN_LegacyNavigationBenchmark_128.unity"
+        };
 
         [MenuItem("Tools/Animars Catcher/Navigation/Create Legacy Benchmark Fixtures")]
         private static void CreateFromMenu()
@@ -42,7 +49,7 @@ namespace AnimarsCatcher.Editor
         }
 
         /// <summary>
-        /// 创建共享回放资产并保证三个规模场景包含正确 Harness 配置
+        /// 创建共享回放资产并保证唯一场景包含正确测试加载器配置
         /// </summary>
         public static void CreateAll()
         {
@@ -55,13 +62,8 @@ namespace AnimarsCatcher.Editor
 
             try
             {
-                for (int i = 0; i < AgentCounts.Length; i++)
-                {
-                    CreateOrUpdateScene(
-                        AgentCounts[i],
-                        sourceSceneHash,
-                        replayScript);
-                }
+                CreateOrUpdateScene(sourceSceneHash, replayScript);
+                RemoveLegacyScaleScenes();
             }
             finally
             {
@@ -97,31 +99,40 @@ namespace AnimarsCatcher.Editor
         }
 
         private static void CreateOrUpdateScene(
-            int agentCount,
             string sourceSceneHash,
             LegacyNavigationBenchmarkReplayScript replayScript)
         {
-            string scenePath =
-                $"{SceneDirectory}/SCN_LegacyNavigationBenchmark_{agentCount}.unity";
-            if (!File.Exists(Path.GetFullPath(scenePath)) &&
-                !AssetDatabase.CopyAsset(SourceScenePath, scenePath))
+            if (!File.Exists(Path.GetFullPath(ScenePath)) &&
+                !AssetDatabase.CopyAsset(SourceScenePath, ScenePath))
             {
-                throw new InvalidOperationException($"无法复制 Benchmark Scene：{scenePath}");
+                throw new InvalidOperationException($"无法复制 Benchmark Scene：{ScenePath}");
             }
 
-            Scene scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-            LegacyNavigationBenchmarkController controller =
+            Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            LegacyNavigationBenchmarkController sceneLoader =
                 UnityEngine.Object.FindFirstObjectByType<LegacyNavigationBenchmarkController>();
-            if (controller == null)
+            if (sceneLoader == null)
             {
-                var controllerObject = new GameObject("Legacy Navigation Benchmark Harness");
-                controller = controllerObject.AddComponent<LegacyNavigationBenchmarkController>();
+                var loaderObject = new GameObject("Legacy Navigation Benchmark Scene Loader");
+                sceneLoader = loaderObject.AddComponent<LegacyNavigationBenchmarkController>();
             }
 
-            controller.ConfigureFixture(agentCount, sourceSceneHash, replayScript);
-            EditorUtility.SetDirty(controller);
+            sceneLoader.gameObject.name = "Legacy Navigation Benchmark Scene Loader";
+            sceneLoader.ConfigureFixture(sourceSceneHash, replayScript);
+            EditorUtility.SetDirty(sceneLoader);
             EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, scenePath);
+            EditorSceneManager.SaveScene(scene, ScenePath);
+        }
+
+        private static void RemoveLegacyScaleScenes()
+        {
+            for (int i = 0; i < LegacyScaleScenePaths.Length; i++)
+            {
+                if (AssetDatabase.LoadAssetAtPath<SceneAsset>(LegacyScaleScenePaths[i]) != null)
+                {
+                    AssetDatabase.DeleteAsset(LegacyScaleScenePaths[i]);
+                }
+            }
         }
 
         private static string ComputeFileHash(string assetPath)

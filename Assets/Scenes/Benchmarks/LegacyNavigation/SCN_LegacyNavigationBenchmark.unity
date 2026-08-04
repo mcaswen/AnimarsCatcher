@@ -1613,6 +1613,63 @@ MonoBehaviour:
   m_IgnoreFromBuild: 0
   m_ApplyToChildren: 1
   m_AffectedAgents: ffffffff
+--- !u!1 &183088068
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 183088070}
+  - component: {fileID: 183088069}
+  m_Layer: 0
+  m_Name: Legacy Navigation Benchmark Scene Loader
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &183088069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 183088068}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 00dd3a5c26ce8374f92f3f0d90ed06b4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AnimarsCatcher.Benchmarks.LegacyNavigation::AnimarsCatcher.Benchmarks.LegacyNavigation.Harness.LegacyNavigationBenchmarkController
+  _agentCount: 32
+  _warmupTicks: 120
+  _sampleTicks: 720
+  _spawnColumnCount: 16
+  _spawnSpacing: 1.25
+  _spawnOrigin: {x: 105, y: 0.57, z: 44.43}
+  _baselineVariant: 1
+  _baselineVersion: NormalizedLegacy-v1
+  _scenarioName: LegacyNavigation_32
+  _mapSceneHash: b14adf5dd8494058a3c2b236b10f4ea94dec75802a55e549f182d193ff9886e4
+  _resultDirectory: BenchmarkResults/LegacyNavigation
+  _autoQuitInBatchMode: 1
+  _replayScript: {fileID: 11400000, guid: cace775326e4ba340af5c028203af6de, type: 2}
+--- !u!4 &183088070
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 183088068}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &184195005
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25146,63 +25203,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e29b1a8efbd4b44bb3f3716e73f07ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Button
---- !u!1 &2107854547
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 2107854549}
-  - component: {fileID: 2107854548}
-  m_Layer: 0
-  m_Name: Legacy Navigation Benchmark Harness
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &2107854548
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2107854547}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 00dd3a5c26ce8374f92f3f0d90ed06b4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: AnimarsCatcher.Benchmarks.LegacyNavigation::AnimarsCatcher.Benchmarks.LegacyNavigation.Harness.LegacyNavigationBenchmarkController
-  _agentCount: 64
-  _warmupTicks: 120
-  _sampleTicks: 720
-  _spawnColumnCount: 16
-  _spawnSpacing: 1.25
-  _spawnOrigin: {x: 105, y: 0.57, z: 44.43}
-  _baselineVariant: 1
-  _baselineVersion: NormalizedLegacy-v1
-  _scenarioName: LegacyNavigation_64
-  _mapSceneHash: b14adf5dd8494058a3c2b236b10f4ea94dec75802a55e549f182d193ff9886e4
-  _resultDirectory: BenchmarkResults/LegacyNavigation
-  _autoQuitInBatchMode: 1
-  _replayScript: {fileID: 11400000, guid: cace775326e4ba340af5c028203af6de, type: 2}
---- !u!4 &2107854549
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2107854547}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2113097906
 GameObject:
   m_ObjectHideFlags: 0
@@ -25581,4 +25581,4 @@ SceneRoots:
   - {fileID: 513688872}
   - {fileID: 1911990543}
   - {fileID: 1932230613}
-  - {fileID: 2107854549}
+  - {fileID: 183088070}

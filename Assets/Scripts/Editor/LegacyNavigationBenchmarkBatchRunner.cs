@@ -2,6 +2,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
 using AnimarsCatcher.Networking;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -15,6 +16,8 @@ namespace AnimarsCatcher.Editor
     [InitializeOnLoad]
     public static class LegacyNavigationBenchmarkBatchRunner
     {
+        private const string ScenePath =
+            "Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark.unity";
         private const string ActiveKey = "AnimarsCatcher.LegacyBenchmark.Active";
         private const string AgentCountKey = "AnimarsCatcher.LegacyBenchmark.AgentCount";
         private const string StartTimeKey = "AnimarsCatcher.LegacyBenchmark.StartTime";
@@ -63,20 +66,34 @@ namespace AnimarsCatcher.Editor
                     "批处理 Legacy Benchmark 必须使用 -benchmark-server-only 启动参数");
             }
 
-            string scenePath =
-                $"Assets/Scenes/Benchmarks/LegacyNavigation/" +
-                $"SCN_LegacyNavigationBenchmark_{agentCount}.unity";
-            if (!File.Exists(Path.GetFullPath(scenePath)))
+            if (!LegacyNavigationBenchmarkController.IsSupportedAgentCount(agentCount))
             {
-                throw new FileNotFoundException("Benchmark Scene 不存在", scenePath);
+                throw new ArgumentOutOfRangeException(
+                    nameof(agentCount),
+                    agentCount,
+                    "Legacy Navigation Benchmark 仅支持 32、64 或 128 Ani");
             }
 
+            if (!File.Exists(Path.GetFullPath(ScenePath)))
+            {
+                throw new FileNotFoundException("Benchmark Scene 不存在", ScenePath);
+            }
+
+            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            LegacyNavigationBenchmarkController sceneLoader =
+                UnityEngine.Object.FindFirstObjectByType<LegacyNavigationBenchmarkController>();
+            if (sceneLoader == null)
+            {
+                throw new InvalidOperationException("Benchmark Scene 缺少测试场景加载器");
+            }
+
+            sceneLoader.ConfigureRun(agentCount);
+            EditorUtility.SetDirty(sceneLoader);
             SessionState.SetBool(ActiveKey, true);
             SessionState.SetInt(AgentCountKey, agentCount);
             SessionState.SetString(
                 StartTimeKey,
                 DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
-            EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             ResumeIfActive();
             EditorApplication.EnterPlaymode();
         }
