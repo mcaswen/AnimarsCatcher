@@ -154,6 +154,7 @@
 - Corridor 内 Integration Cost
 - 局部 Flow Direction
 - Corridor 与 Field 缓存和版本管理
+- Grid 路径与 Field Benchmark 适配层：复用单个 Benchmark 场景加载器和确定性回放，只产生路径、Corridor 与 Field 工作负载，不生成速度或写入 Ani Transform
 
 ### 验证项
 
@@ -163,18 +164,22 @@
 - 目标、Corridor 或关联版本不变时复用缓存
 - Field 方向不会指向不可行走 Cell
 - 方向平滑后仍保持下降到目标的 Integration Cost
+- 32、64 和 128 Ani 参数可以在同一场景中生成对应规模的 Grid 路径与 Field 工作负载
+- 路径与 Field Benchmark 运行期间不存在 Ani Transform 写入
 
 ### 退出条件
 
 - 大范围路径访问的 Cell 数明显低于普通全图 A*
 - 路径质量满足配置允许的次优范围
-- 相同目标的 Squad 可以复用合适的静态数据
+- 相同目标的请求组可以复用合适的静态数据，阶段四的 Squad 直接消费该缓存
 - 64 和 128 Ani 场景没有主线程路径尖峰
 
 ## 6. 阶段四：Squad、Anchor 与基础阵型
 
 ### 交付物
 
+- `ServerAniOrderIngressSystem`：正式玩法消费已校验 `AniCommandRpc`，Benchmark 回放适配层绕过 RPC 容量限制后写入相同 `AniSquadOrder` 契约
+- `AniSquadLifecycleSystem`：根据有效命令创建、更新和拆除 Squad 上下文
 - Squad Entity 和成员 Buffer
 - Squad Order、Path State 和 Anchor
 - 单个 Ani 的 Membership、Movement Config 和 Slot Target
@@ -182,6 +187,10 @@
 - 基础纵队与紧凑矩形布局
 - 中心对称槽位生成
 - 简单稳定槽位分配
+- 基础 `AniPreferredVelocitySystem`：在开阔地根据 Anchor 和 Slot Target 生成受最大速度、最大加速度约束的期望速度
+- 基础 `AniMovementCommitSystem`：提交开阔地位移并成为 Grid 后端唯一 Ani Transform 写入者；本阶段不包含 ORCA 或 Capsule Cast
+- 基础 `AniMovementProgressSystem`：提供到达判定和命令完成状态
+- Grid 群体移动 Benchmark 适配层：同一场景加载器支持 32、64 和 128 Ani，并把确定性回放送入 Grid 命令契约
 
 ### 验证项
 
@@ -190,6 +199,9 @@
 - Anchor 不绑定具体 Ani，队长状态变化不会造成瞬移
 - 32、64、128 Ani 的槽位不重复且保持中心对称
 - Planner、Anchor 和 Commit 的 System 顺序固定
+- `-movement-backend=grid` 时只有 Grid Harness 和 Grid 移动 System 运行，Legacy Harness 与 Legacy Transform 写入保持禁用
+- 同一回放 Hash 在 32、64 和 128 Ani 参数下都能驱动 Grid 开阔地移动
+- 只有基础 `AniMovementCommitSystem` 写入权威 Transform
 
 ### 退出条件
 
@@ -197,6 +209,8 @@
 - 开阔地 MoveTo、Follow 和 Find 能完成到达
 - 成员追踪槽位时没有大规模路径交叉
 - 客户端只通过 Ghost 插值观察移动结果
+
+阶段四只建立可验证的最小完整移动链路，正确性范围限定为开阔地和静态 Grid 引导。局部避碰、硬世界碰撞、受阻恢复和拥挤场景门禁属于阶段六；阶段六扩展现有 Commit 输入，不得创建第二个 Transform 写入 System。
 
 ## 7. 阶段五：自适应阵型与动态 Overlay
 
@@ -235,8 +249,8 @@
 - 二维 ORCA 思路的速度约束求解
 - 侧向偏好、优先级和无解降级
 - Capsule Cast、Skin Width 和 Slide
-- 唯一 `AniMovementCommitSystem`
-- 到达、受阻和重新规划状态
+- `AniWorldCollisionSystem` 输出安全位移，由阶段四已有的唯一 `AniMovementCommitSystem` 提交
+- 受阻、碰撞失败和重新规划状态，并扩展阶段四的基础到达判定
 
 ### 验证项
 
@@ -247,6 +261,7 @@
 - 正面墙、斜墙和内角不会穿透
 - CollisionWorld 更新顺序在 Host 和 Dedicated 上一致
 - 只有 Commit System 写入权威 Transform
+- ORCA 和世界碰撞接入后仍沿用阶段四建立的 Commit 所有权，不新增旁路 Transform 写入
 
 ### 退出条件
 

@@ -409,6 +409,16 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 
 路径与 Field 计算使用 Job 和 NativeContainer。运行时主线程只负责准备请求、调度 Job 和提交已完成结果，不执行同步路径搜索。
 
+### 8.1 分阶段落地边界
+
+- 阶段三实现 HPA*、Corridor、局部 Field 及其 Benchmark 适配层。适配层复用同一测试场景和确定性回放，只构造路径与 Field 工作负载，不生成速度或写入 Ani Transform。
+- 阶段四实现 `ServerAniOrderIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。正式 RPC 输入与 Benchmark 回放必须汇入相同 `AniSquadOrder` 契约。
+- 阶段五加入动态 Overlay 和自适应阵型，不改变 Transform 写入所有权。
+- 阶段六加入空间哈希、ORCA 和世界碰撞，并扩展受阻与重新规划状态。`AniWorldCollisionSystem` 只输出安全位移，最终仍由阶段四建立的唯一 `AniMovementCommitSystem` 写入 Transform。
+- 阶段七迁移资源搬运和正式 Prefab、Scene 配置，完成正式后端切换。
+
+阶段四的基础 Commit 不承诺拥挤避碰或硬碰撞安全，只用于开阔地端到端验收。阶段六是在同一写入边界前增加安全速度与世界碰撞约束，不是替换或并行新增 Commit System。
+
 ## 9. 资源搬运迁移
 
 当前资源搬运系统也直接调用 `NavMesh.SamplePosition` 和 `NavMesh.CalculatePath`。若目标是正式运行时零 NavMesh，这部分必须纳入重构。
