@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务已实现并通过自动验收；阶段零实机基线需持续采集
+> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field 已实现；阶段零和阶段三实机性能基线仍需持续采集
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -144,6 +144,17 @@
 - 运行时主线程不执行同步搜索
 
 ## 5. 阶段三：HPA* 与局部 Flow Field
+
+### 当前实现
+
+- Bake Asset 与 Blob 数据版本已升级到 v3，保存 Cluster、Portal、双端 Portal Node、抽象边和 Cluster 到 Portal Node 的稳定索引
+- `NavigationGridHierarchyBuilder` 在烘焙期生成连续 Portal 区间、最小 Clearance、跨 Portal 成本和 Cluster 内静态成本
+- `NavigationGridFlowFieldAlgorithms` 执行端点投影、HPA* Corridor、Corridor 内 Integration Cost 和下降方向生成；失败请求会回滚本次输出切片
+- `NavigationGridFlowFieldJob` 与 `ServerNavigationGridFlowFieldSystem` 异步处理请求，每批最多 16 个，主线程只在 Job 已完成后写回结果
+- Field 缓存以 Grid Data Hash、目标 Cell、体型 Clearance、代价参数和 Corridor Hash 为边界，并通过 Cache Version 暴露复用结果
+- 统一 Benchmark 场景加载器按 `-movement-backend=grid` 注册 32、64 或 128 个纯路径请求；场景没有烘焙 Grid 时，由 `ServerNavigationGridBenchmarkGridSystem` 提供覆盖固定回放坐标的 Benchmark 专用静态 Grid
+- Benchmark 专用 Grid 只衡量路径、Corridor 与 Field 工作负载，不代表正式地图碰撞数据，也不创建或写入 Ani Transform
+- `NavigationGridStageThreeValidation` 覆盖层级数据确定性、普通 A* 可达性对照、25% 路径质量上限、Portal Clearance、局部 Field、缓存、World 过滤、异步写回和三种请求规模
 
 ### 交付物
 

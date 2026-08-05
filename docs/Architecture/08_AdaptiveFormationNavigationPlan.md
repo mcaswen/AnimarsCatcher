@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一 Grid 烘焙基础和阶段二普通 A* 路径服务已实现，阶段三及后续能力尚未实现
+> 状态：阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务和阶段三 HPA* 与局部 Flow Field 已实现；阶段四及后续能力尚未实现
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -133,7 +133,7 @@ Clearance 使用到阻挡 Cell 方形边界的保守距离，不允许因为对�
 
 RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大范围规划，避免每次都在完整 Cell 集合上执行 A*。
 
-阶段一已经生成稳定 `RegionId` 和规则分块 `ClusterId`。Portal、Portal 最小 Clearance 和 Portal 间静态成本属于阶段三，当前 Blob 不伪造占位结果。
+阶段一生成稳定 `RegionId` 和规则分块 `ClusterId`。阶段三已将 Portal、Portal 最小 Clearance、Portal 双端节点、Cluster 内静态成本和抽象边加入 Bake Asset 与运行时 Blob，不再使用占位结果。
 
 ### 3.5 烘焙资产与有效性
 
@@ -244,6 +244,8 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 宏观路径以 Squad 为单位计算，不为每个成员重复搜索。
 
+当前阶段三实现已经提供抽象图搜索、Cluster/Portal Corridor 和路径质量/可达性对照。现阶段 Benchmark 直接为每个测试请求生成 Corridor 与 Field；阶段四接入 Squad 后改为按 Squad 共享请求，不为成员重复规划。
+
 ### 5.4 局部 Integration 与 Flow Field
 
 在当前 Corridor 内从目标方向反向计算 Integration Cost，再为 Cell 生成局部 Flow Direction。
@@ -256,6 +258,8 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 - 给单体移动的资源搬运对象提供共享导航能力
 
 它不是全地图 Flow Field，只覆盖当前 Corridor。只有目标、Corridor 或相关 Overlay 版本变化时才重建。
+
+当前缓存键包含 Grid Data Hash、目标 Cell、体型 Clearance、代价参数和 Corridor Hash。动态 Overlay 与局部 Cluster 版本失效仍属于阶段五，当前阶段只处理静态 Grid 版本。
 
 ## 6. Squad 与自适应阵型
 

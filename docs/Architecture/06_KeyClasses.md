@@ -73,7 +73,7 @@ FSM 和阵型数据最终汇入移动规划：
 
 修改某个阶段时，应先确认上游写入的数据和下游读取时机，不要只在单个 System 内补临时状态。
 
-新的 Grid 后端目前完成阶段一烘焙基础和阶段二普通 A* 路径服务，还没有接收移动命令或写入 Ani Transform。关键类型如下：
+新的 Grid 后端目前完成阶段一烘焙基础、阶段二普通 A* 路径服务和阶段三 HPA* 与局部 Flow Field，还没有接收正式移动命令或写入 Ani Transform。关键类型如下：
 
 - `NavigationGridAuthoring` 配置世界 Bounds、Cell Size、地面与障碍 Layer、坡度、台阶和基准 Agent 尺寸
 - `NavigationGridBakeUtility` 在编辑器中同步 Physics 后采样中心地面、基础 Agent 环形支撑和静态占用，再生成邻接、Clearance、Region 和三个稳定 Hash
@@ -87,8 +87,14 @@ FSM 和阵型数据最终汇入移动规划：
 - `NavigationGridPathfindingJob` 在单个 Burst Job 内处理一个稳定排序后的请求批次，多个请求顺序复用 G Cost、Parent、Heap 和 Generation 数组
 - `ServerNavigationGridPathfindingSystem` 只在 Server 或 Local World 运行。主线程负责收集请求和提交已完成结果，搜索期间不调用 `Complete`，下一 Tick 只在 Handle 已完成时写回 Buffer
 - `NavigationGridStageTwoValidation` 使用合成 Grid 验证投影、Region、穿角、Clearance、Terrain Cost、确定性、失败状态和异步 ECS 写回
+- `NavigationGridHierarchyBuilder` 在烘焙期生成 Cluster、Portal、Portal Node 与抽象边，并保存最小 Clearance 和静态成本
+- `NavigationGridFlowFieldAlgorithms` 与 `NavigationGridFlowFieldJob` 生成 HPA* Corridor、局部 Integration Cost、下降方向和可复用 Field 缓存
+- `ServerNavigationGridFlowFieldSystem` 在 Server 或 Local World 异步处理阶段三请求，主线程不执行同步搜索
+- `ServerNavigationGridBenchmarkSystem` 复用统一场景参数生成 32、64 或 128 个路径与 Field 请求，不创建或写入 Ani Transform
+- `ServerNavigationGridBenchmarkGridSystem` 只在统一 Benchmark 场景缺少烘焙 Grid 时提供确定性静态工作负载数据，正式场景已有 Grid 时不介入
+- `NavigationGridStageThreeValidation` 对照普通 A* 验证可达性与路径质量，并覆盖 Portal Clearance、局部 Field、缓存、异步系统和三种请求规模
 
-固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二算法验收使用运行时相同 Blob 和 Job 构造合成地图，不依赖场景对象。当前路径服务仍是独立基础设施，接入正式命令和移动前必须先实现后端互斥，防止 Grid 与 Legacy 同时写 Transform。
+固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二和阶段三算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥已经由启动配置与 Guard 保证；路径服务仍是独立基础设施，正式命令消费和唯一 Transform 写入从阶段四开始实现。
 
 ## 5. 战斗和生命值
 

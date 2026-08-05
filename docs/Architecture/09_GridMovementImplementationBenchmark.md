@@ -145,13 +145,15 @@ AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run64FromCommandLine
 AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run128FromCommandLine
 ```
 
-批处理必须同时传入 `-benchmark-server-only` 和 `-movement-backend=legacy`，确保只创建 Server World，避免客户端输入、渲染和网络探针进入样本。该参数只切换项目内的 NetCode World，不会触发 Unity 原生 Dedicated Server 编辑器模式。以 32 Ani 为例：
+批处理必须同时传入 `-benchmark-server-only` 和唯一的 `-movement-backend=legacy|grid`，确保只创建 Server World，避免客户端输入、渲染和网络探针进入样本。同一组三个入口会按后端等待对应结果目录，不复制场景。该参数只切换项目内的 NetCode World，不会触发 Unity 原生 Dedicated Server 编辑器模式。以 32 Ani 为例：
 
 ```powershell
 Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movement-backend=legacy `
   -executeMethod AnimarsCatcher.Editor.LegacyNavigationBenchmarkBatchRunner.Run32FromCommandLine `
   -benchmark-git-commit=<提交哈希> -logFile <日志路径>
 ```
+
+阶段三 Grid 路径与 Field 工作负载使用相同命令，只把后端改为 `grid`。结果写入 `BenchmarkResults/GridNavigation`，记录请求成功/失败、缓存命中、Field 构建次数、抽象节点访问量、Integration Cell 访问量和 Grid Data Hash。该阶段不生成速度、不驱动 Ani，也不与 Legacy 的到达时间或阵型指标直接比较。
 
 ## 6. 结果管理
 
