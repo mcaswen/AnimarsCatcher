@@ -72,7 +72,8 @@ namespace AnimarsCatcher.Gameplay
                     });
                 }
 
-                break; // 首个被摧毁的大基地已经确定唯一结果
+                // 首个被摧毁的大基地已经确定唯一结果
+                break;
             }
 
             entityCommandBuffer.Playback(entityManager);

@@ -44,8 +44,10 @@ public partial class ClientPlayerInputLockFromUISystem : SystemBase
         var state = EntityManager.GetComponentData<PlayerInputLockState>(_lockStateEntity);
 
         state.LockCount += data.Value;
+
+        // 防御未配对的释放请求，避免锁计数变为负数
         if (state.LockCount < 0)
-            state.LockCount = 0; // 防御未配对的释放请求，避免锁计数变为负数
+            state.LockCount = 0;
 
         EntityManager.SetComponentData(_lockStateEntity, state);
     }

@@ -93,7 +93,9 @@ namespace AnimarsCatcher.Gameplay
         {
             var fp = _conditions[(int)id];
             if (fp.IsCreated) return fp.Invoke(entity, context);
-            return false; // 未注册条件不能触发状态迁移
+
+            // 未注册条件不能触发状态迁移
+            return false;
         }
 
         /// <summary>

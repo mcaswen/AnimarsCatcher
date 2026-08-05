@@ -23,6 +23,7 @@ namespace AnimarsCatcher.Physics.Authoring
 
             var terrain = authoring.Terrain;
 
+            // 高度图或尺寸变化时让 Baker 自动失效并重新生成 Collider Blob
             DependsOn(terrain.terrainData);
             var terrainData = terrain.terrainData;
 
@@ -35,7 +36,7 @@ namespace AnimarsCatcher.Physics.Authoring
                 terrainData.size.y,
                 terrainData.size.z / (resolution - 1));
 
-            // Unity 返回的数据按行列组织，转成碰撞体要求的一维高度数组
+            // GetHeights 返回零到一的归一化高度，Y 轴 Scale 在 Collider 中恢复实际高度
             var source = terrainData.GetHeights(0, 0, resolution, resolution);
             var colliderHeights = new NativeArray<float>(resolution * resolution, Allocator.Temp);
             for (int z = 0; z < resolution; z++)
@@ -67,6 +68,7 @@ namespace AnimarsCatcher.Physics.Authoring
             };
 
             const TerrainCollider.CollisionMethod collisionMethod = TerrainCollider.CollisionMethod.Triangles;
+            // Create 在返回前复制高度数据，临时数组可在本次 Bake 末尾释放
             var collider = new PhysicsCollider
             {
                 Value = TerrainCollider.Create(colliderHeights, size, scale, collisionMethod, filter, material)
@@ -75,8 +77,10 @@ namespace AnimarsCatcher.Physics.Authoring
             // 注册 Blob 资产以便烘焙缓存和实体间复用
             AddBlobAsset(ref collider.Value, out _);
 
+            // Dynamic Transform 保留场景 Terrain 的位置变换，不代表碰撞体会参与动力学
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent(entity, collider);
+            // 显式加入默认 Physics World 并建立复合碰撞键到实体的映射缓冲
             AddSharedComponent(entity, new PhysicsWorldIndex());
             AddBuffer<PhysicsColliderKeyEntityPair>(entity);
 

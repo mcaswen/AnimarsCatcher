@@ -33,6 +33,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 SystemAPI.GetSingletonRW<LegacyNavigationBenchmarkState>();
             bool shouldRecord = benchmarkState.ValueRO.Phase ==
                                 LegacyNavigationBenchmarkPhase.Sampling;
+            // 将本 Tick 的采样决定传到组末，避免 Harness 在中途切换阶段改变测量边界
             benchmarkState.ValueRW.RecordCurrentTick = (byte)(shouldRecord ? 1 : 0);
 
             if (!shouldRecord)
@@ -41,6 +42,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             }
 
             benchmarkState.ValueRW.FrameStartTimestamp = Stopwatch.GetTimestamp();
+            // 使用当前主线程累计值，组末做差后不会包含 Worker 线程分配
             benchmarkState.ValueRW.FrameStartAllocatedBytes =
                 GC.GetAllocatedBytesForCurrentThread();
         }
@@ -65,6 +67,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 SystemAPI.GetSingletonRW<LegacyNavigationBenchmarkState>();
             if (benchmarkState.ValueRO.RecordCurrentTick != 0)
             {
+                // 组首标记过的 Tick 必须在状态完成切换后仍记录到同一采样窗口
                 RecordSample(ref state, benchmarkState);
             }
 
@@ -79,6 +82,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 return;
             }
 
+            // 导出标记在成功写盘后设置，防止后续 Tick 生成重复结果
             ExportResult(ref state, config, benchmarkState.ValueRO, samples);
             benchmarkState.ValueRW.ResultExported = 1;
 
@@ -103,6 +107,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 GC.GetAllocatedBytesForCurrentThread() -
                 benchmarkState.ValueRO.FrameStartAllocatedBytes);
 
+            // 原始样本保留完整顺序，百分位排序只发生在导出副本上
             DynamicBuffer<LegacyNavigationBenchmarkSampleElement> samples =
                 SystemAPI.GetSingletonBuffer<LegacyNavigationBenchmarkSampleElement>();
             samples.Add(new LegacyNavigationBenchmarkSampleElement
@@ -123,6 +128,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             long[] allocatedBytes = new long[samples.Length];
             double[] sortedTickMilliseconds = new double[samples.Length];
             double[] sortedAllocatedBytes = new double[samples.Length];
+            // 同时保留原始时间序列和排序副本，结果文件既可画时序图也可复算百分位
             for (int i = 0; i < samples.Length; i++)
             {
                 tickMilliseconds[i] = samples[i].ServerSimulationMilliseconds;
@@ -134,6 +140,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             Array.Sort(sortedTickMilliseconds);
             Array.Sort(sortedAllocatedBytes);
 
+            // 空间质量在采样结束后的同一最终快照上统一计算
             CalculateFinalSpatialMetrics(
                 ref state,
                 benchmarkState,

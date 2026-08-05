@@ -33,6 +33,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 
             if (phase == LegacyNavigationBenchmarkPhase.WaitingForScene)
             {
+                // 等待场景烘焙的 Prefab 和 FSM 上下文就绪，避免把加载时间计入预热
                 if (!SystemAPI.TryGetSingleton<AniGhostPrefabRegistry>(out var prefabRegistry) ||
                     !SystemAPI.HasSingleton<FsmContext>())
                 {
@@ -76,6 +77,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 SystemAPI.GetSingleton<LegacyNavigationBenchmarkConfig>();
             EntityManager entityManager = state.EntityManager;
 
+            // 合成队长只提供所有权和阵型锚点，不参与导航负载
             Entity leaderEntity = entityManager.CreateEntity(
                 typeof(CharacterTag),
                 typeof(LocalTransform),
@@ -89,6 +91,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             for (int index = 0; index < config.AgentCount; index++)
             {
                 Entity aniEntity = entityManager.Instantiate(prefabRegistry.PickerAniPrefabEntity);
+                // 固定索引、规模和种子共同决定生成位置，重复运行保持完全一致
                 float3 spawnPosition = LegacyNavigationBenchmarkAlgorithms.CalculateSpawnPosition(
                     index,
                     config.AgentCount,
@@ -108,6 +111,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 });
                 entityManager.AddComponent<LegacyNavigationBenchmarkAniTag>(aniEntity);
 
+                // 在预热前验证被测 Prefab 契约，缺失组件不能降级为较轻负载
                 if (!entityManager.HasBuffer<FsmVar>(aniEntity) ||
                     !entityManager.HasComponent<NavAgent>(aniEntity) ||
                     !entityManager.HasComponent<NavSteering>(aniEntity) ||
@@ -123,6 +127,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             }
 
             benchmarkState.LeaderEntity = leaderEntity;
+            // 零预热配置直接进入采样，避免额外消耗一个状态切换 Tick
             benchmarkState.Phase = config.WarmupTicks > 0
                 ? LegacyNavigationBenchmarkPhase.Warmup
                 : LegacyNavigationBenchmarkPhase.Sampling;
@@ -145,6 +150,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 return;
             }
 
+            // 采样从独立的零基 Tick 开始，使回放命令时间不受预热长度影响
             benchmarkState.ValueRW.Phase = LegacyNavigationBenchmarkPhase.Sampling;
             benchmarkState.ValueRW.PhaseTick = 0;
             Debug.Log(
@@ -162,6 +168,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             int commandIndex = benchmarkState.ValueRO.NextCommandIndex;
             int phaseTick = benchmarkState.ValueRO.PhaseTick;
 
+            // 同一 Tick 可包含多条命令，必须全部提交后再推进回放游标
             while (commandIndex < commands.Length && commands[commandIndex].Tick == phaseTick)
             {
                 ApplyCommand(
@@ -189,6 +196,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             float3 targetPosition = config.SpawnOrigin + command.TargetOffset;
             float3 forward = targetPosition - config.SpawnOrigin;
             forward.y = 0f;
+            // 目标与原点重合时使用固定前向，避免阵型旋转出现无效四元数
             forward = math.normalizesafe(forward, new float3(0f, 0f, 1f));
             quaternion formationRotation = quaternion.LookRotationSafe(forward, math.up());
 
@@ -229,6 +237,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             }
 
             benchmarkState.ValueRW.AppliedCommandCount++;
+            // 最终空间指标按最后一次命令的阵型姿态计算
             benchmarkState.ValueRW.LastFormationCenter = targetPosition;
             benchmarkState.ValueRW.LastFormationRotation = formationRotation;
         }
@@ -259,6 +268,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             entityManager.SetComponentData(benchmarkEntity, benchmarkState);
             Debug.LogError($"[LegacyNavigationBenchmark] {reason}");
 
+            // 批处理失败必须传播非零退出码，交互模式则保留现场供检查
             if (Application.isBatchMode)
             {
                 Application.Quit(1);

@@ -44,7 +44,8 @@ namespace AnimarsCatcher.Networking
 
             if (isThinClient) return "[ThinClient]";
 
-            return "[Client & Server]"; // 本地模拟世界同时具备客户端和服务器标志
+            // 本地模拟 World 同时具备客户端和服务器标志
+            return "[Client & Server]";
         }
 
         /// <summary>

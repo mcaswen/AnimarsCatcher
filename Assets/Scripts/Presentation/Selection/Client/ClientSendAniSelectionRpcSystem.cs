@@ -38,7 +38,7 @@ namespace AnimarsCatcher.Presentation.Selection
             var drag = SystemAPI.GetSingletonRW<AniSelectionDragState>();
             if (drag.ValueRO.IsReleased == 0) return;
 
-                // 立即消费释放标记，保证一次拖拽最多发送一个 RPC
+            // 立即消费释放标记，保证一次拖拽最多发送一个 RPC
             drag.ValueRW.IsReleased = 0;
 
             // 将任意拖拽方向归一化为屏幕空间包围盒
@@ -64,7 +64,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-                // 将符合类型、所有权和屏幕范围的 Ani 写入 RPC
+            // 将符合类型、所有权和屏幕范围的 Ani 写入 RPC
             foreach (var (localToWorld, ghostInstance, ghostOwner, aniEntity) in SystemAPI
                     .Query<RefRO<LocalToWorld>, RefRO<GhostInstance>, RefRO<GhostOwner>>()
                     .WithAll<AniAttributes>()
@@ -101,7 +101,8 @@ namespace AnimarsCatcher.Presentation.Selection
 
                 if (!inside) continue;
 
-                if (rpcData.GhostIds.Length < 128) // FixedList 容量限制为 128 个标识
+                // 达到协议容量后停止追加选择项
+                if (rpcData.GhostIds.Length < 128)
                 {
                     rpcData.GhostIds.Add(ghostInstance.ValueRO.ghostId);
                 }
@@ -113,7 +114,7 @@ namespace AnimarsCatcher.Presentation.Selection
                 return;
             }
 
-                // 创建无指定目标的 RPC 请求，由当前服务器连接接收
+            // 创建无指定目标的 RPC 请求，由当前服务器连接接收
             var rpcEntity = entityCommandBuffer.CreateEntity();
             entityCommandBuffer.AddComponent(rpcEntity, rpcData);
             entityCommandBuffer.AddComponent<SendRpcCommandRequest>(rpcEntity);

@@ -14,9 +14,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public struct LobbyIntroRequestRpc : IRpcCommand
     {
-        /// <summary>
-        /// 客户端提交的大厅显示名称
-        /// </summary>
         public FixedString64Bytes PlayerName;
     }
 
@@ -25,9 +22,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public struct StartMatchRequestRpc : IRpcCommand
     {
-        /// <summary>
-        /// Host 请求开始的目标场景
-        /// </summary>
         public FixedString64Bytes SceneName;
     }
 
@@ -36,9 +30,6 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public struct StartMatchNotificationRpc : IRpcCommand
     {
-        /// <summary>
-        /// 服务器确认的权威目标场景
-        /// </summary>
         public FixedString64Bytes SceneName;
     }
 
@@ -54,9 +45,7 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public struct ClientMatchStartState : IComponentData
     {
-        /// <summary>
-        /// 客户端是否已进入开局场景加载阶段
-        /// </summary>
+        // 0 表示尚未开始，非零表示已进入场景加载流程
         public byte Active;
     }
 }

@@ -32,7 +32,9 @@ namespace AnimarsCatcher.Gameplay
             foreach (var (fsm, entity) in SystemAPI.Query<RefRW<Fsm>>().WithEntityAccess())
             {
                 ref var fsmData = ref fsm.ValueRW;
-                if (fsmData.HasPending == 0) continue; // 只有评估阶段选中的迁移才能进入应用阶段
+
+                // 只有评估系统选中的迁移才能进入应用流程
+                if (fsmData.HasPending == 0) continue;
 
                 // 退出动作仍在旧状态上下文中执行
                 FsmRegistry.InvokeAction(fsmData.PendingExit, in entity, ref fsmData, context);

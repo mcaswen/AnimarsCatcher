@@ -20,8 +20,8 @@ namespace AnimarsCatcher.Player
         /// <param name="newPitchAngle">输出更新后的俯仰角</param>
         public static void BuildCameraBasis(
             float3 up,
-            in OrbitCamera camera,            // 上一帧相机状态
-            in float2 lookDeltaDegrees,    // 本帧输入增量
+            in OrbitCamera camera,
+            in float2 lookDeltaDegrees,
             out quaternion cameraRotation,
             out float3 forwardOnUpPlane,
             out float3 right,

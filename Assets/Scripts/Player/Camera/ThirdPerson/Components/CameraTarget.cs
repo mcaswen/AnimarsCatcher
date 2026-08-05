@@ -12,9 +12,6 @@ namespace AnimarsCatcher.Player
     [Serializable]
     public struct CameraTarget : IComponentData
     {
-        /// <summary>
-        /// 角色层级中作为相机观察点的实体
-        /// </summary>
         [GhostField]
         public Entity TargetEntity;
     }

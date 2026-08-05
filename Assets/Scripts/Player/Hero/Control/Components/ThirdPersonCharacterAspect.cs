@@ -22,8 +22,6 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public struct ThirdPersonCharacterUpdateContext
     {
-        // Lookup、单例或原生容器应集中放在此处，供同一帧的角色回调复用
-
         public uint DebugTick;
 
         /// <summary>
@@ -65,7 +63,7 @@ namespace AnimarsCatcher.Player
             ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
             ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
 
-            // 第一阶段先处理父实体位移和接地，以便后续速度计算使用当前地面状态
+            // 更新父实体位移和接地，使速度计算读取当前地面状态
             CharacterAspect.Update_Initialize(in this, ref context, ref baseContext, ref characterBody, baseContext.Time.DeltaTime);
             CharacterAspect.Update_ParentMovement(in this, ref context, ref baseContext, ref characterBody, ref characterPosition, characterBody.WasGroundedBeforeCharacterUpdate);
             CharacterAspect.Update_Grounding(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
@@ -73,7 +71,7 @@ namespace AnimarsCatcher.Player
             // 接地完成后更新期望速度，后续推挤和碰撞阶段依赖该结果
             HandleVelocityControl(ref context, ref baseContext);
 
-            // 第二阶段处理斜坡限制、地面推挤、位移解穿透和移动平台动量
+            // 处理斜坡限制、地面推挤、位移解穿透和移动平台动量
             CharacterAspect.Update_PreventGroundingFromFutureSlopeChange(in this, ref context, ref baseContext, ref characterBody, in characterComponent.StepAndSlopeHandling);
             CharacterAspect.Update_GroundPushing(in this, ref context, ref baseContext, characterComponent.Gravity);
             CharacterAspect.Update_MovementAndDecollisions(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);

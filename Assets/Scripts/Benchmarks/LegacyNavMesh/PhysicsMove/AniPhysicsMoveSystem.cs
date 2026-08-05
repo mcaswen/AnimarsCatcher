@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                 // 分离方向只参与速度合成，不能直接改位置以免绕过碰撞截断
                 float3 separationDirection = float3.zero;
-                float  maxWeight     = 0f; // 分离权重
+                float  maxWeight     = 0f;
                 {
                     const float SeparationRadius = 0.8f;
 
@@ -122,7 +122,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 const float SeparationStrength = 2.0f;
 
                 bool isMoving            = baseSpeedSq > 1e-4f;
-                bool hasStrongSeparation = maxWeight > 0.4f;  // 静止时只处理明显重叠，避免轻微接触持续抖动
+
+                // 静止时只处理明显重叠，避免轻微接触持续抖动
+                bool hasStrongSeparation = maxWeight > 0.4f;
 
                 float3 finalVelocity;
 

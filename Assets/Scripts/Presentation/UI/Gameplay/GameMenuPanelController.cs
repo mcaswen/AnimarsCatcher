@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Presentation.UI
         [FormerlySerializedAs("_panelAnimDuration")]
         [SerializeField] private float _panelAnimationDuration = 0.25f;
 
-            // 绑定返回游戏、音量设置和退出命令
+        // 绑定返回游戏、音量设置和退出命令
         void Start()
         {
             _returnGameButton.onClick.AddListener(() =>

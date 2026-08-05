@@ -27,10 +27,11 @@ namespace AnimarsCatcher.Core.Fsm
     public struct FsmVar : IBufferElementData
     {
         [GhostField]
-        public uint Key;    // 数据标识符
+        public uint Key;
 
         [GhostField]
-        public FsmVarType Type;   // 类型标签
+        // 同一结构体复用多种存储槽，读取时必须先匹配此标签
+        public FsmVarType Type;
 
         [GhostField]
         public int Int;

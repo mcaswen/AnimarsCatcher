@@ -20,7 +20,7 @@ namespace AnimarsCatcher.Player
         {
             state.RequireForUpdate(
                 SystemAPI.QueryBuilder()
-                    .WithAll<FixedCamera, FixedCameraControl, LocalTransform>() // 相机实体要有 LocalTransform
+                    .WithAll<FixedCamera, FixedCameraControl, LocalTransform>()
                     .Build());
         }
 

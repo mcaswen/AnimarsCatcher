@@ -52,6 +52,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
             }
 
+            // 查询期间延迟结构变更，避免队伍标签和 RPC 销毁使迭代失效
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
             // 玩家主角映射用于校验连接归属并计算整队移动朝向
@@ -75,6 +76,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                 if (!SystemAPI.HasComponent<NetworkId>(connection))
                 {
+                    // 来源连接已经失效的 RPC 也必须消费，不能留到下一帧重试
                     entityCommandBuffer.DestroyEntity(rpcEntity);
                     continue;
                 }
@@ -130,6 +132,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 {
                     int aniGhostId = selectedAniGhostIds[i];
 
+                    // 选择快照允许部分 Ghost 已销毁，其余有效 Ani 仍继续执行命令
                     if (!_aniByGhostId.TryGetValue(aniGhostId, out Entity aniEntity))
                         continue;
 
@@ -141,6 +144,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     if (aniOwner.NetworkId != networkId)
                         continue;
 
+                    // 尚未完成 FSM 初始化的 Ani 暂不接受行为命令
                     if (!_blackboardLookup.HasBuffer(aniEntity))
                         continue;
 
@@ -197,6 +201,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                                 AniMovementBlackboardKeys.MoveFormationForward,
                                 forward);
 
+                            // 地面点命令交由独立编队移动处理，不再保持跟随队伍状态
                             if (SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                                 entityCommandBuffer.RemoveComponent<AniInTeamTag>(aniEntity);
                             break;
@@ -205,6 +210,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         case WorldCommandTargetKind.Ani:
                         {
                             var targetOwner = SystemAPI.GetComponent<GhostOwner>(targetEntity);
+                            // 同一玩家的 Ani 不互相追逐，避免把编队成员当作交互目标
                             if (targetOwner.NetworkId == networkId)
                                 break;
 
@@ -261,6 +267,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                                 AniMovementBlackboardKeys.PlayerEntity,
                                 targetEntity);
 
+                            // 跟随玩家命令恢复队伍成员身份，由跟随 FSM 接管移动
                             if (!SystemAPI.HasComponent<AniInTeamTag>(aniEntity))
                                 entityCommandBuffer.AddComponent<AniInTeamTag>(aniEntity);
                             break;
@@ -272,6 +279,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     }
                 }
 
+                // 一个 RPC 只处理一次，即使其中所有 Ani 都因校验失败被跳过
                 entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 

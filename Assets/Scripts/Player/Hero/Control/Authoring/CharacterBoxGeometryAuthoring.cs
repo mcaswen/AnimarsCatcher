@@ -11,8 +11,9 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public struct CharacterBoxGeometry : IComponentData
     {
-        public float3 Center; // 相对实体原点的本地偏移
-        public float3 HalfExtents; // 盒体在三个轴向上的半尺寸
+        // 相对实体原点的本地偏移
+        public float3 Center;
+        public float3 HalfExtents;
     }
 
     /// <summary>
@@ -41,7 +42,7 @@ namespace AnimarsCatcher.Player
                     return;
                 }
 
-            // 碰撞查询使用半尺寸，因此烘焙时统一完成换算
+                // 碰撞查询使用半尺寸，因此烘焙时统一完成换算
                 Vector3 size = box.size;
 
                 AddComponent(entity, new CharacterBoxGeometry

@@ -56,7 +56,7 @@ namespace AnimarsCatcher.Gameplay
                 var owner = SystemAPI.GetComponent<GhostOwner>(pickupRequest.ValueRO.PlayerRobotEntity);
                 int ownerNetworkId = owner.NetworkId;
 
-                // 从当前选中的 Picker Ani 里挑
+                // 只分配请求玩家当前选中且未被其他命令占用的 Picker
                 foreach (var (pickerTag, selectedTag, ghostOwner, aniEntity) in
                          SystemAPI.Query<RefRO<PickerAniTag>, RefRO<AniSelectedTag>, RefRO<GhostOwner>>()
                              .WithEntityAccess())
@@ -79,7 +79,7 @@ namespace AnimarsCatcher.Gameplay
                         SlotIndex      = assignedCount
                     });
 
-                    // 搬运中就先把选中状态关掉，避免玩家误操作
+                    // 搬运任务接管控制权后取消选择，避免客户端继续下令
                     entityCommandBuffer.SetComponentEnabled<AniSelectedTag>(aniEntity, false);
 
                     assignedCount++;
@@ -102,7 +102,7 @@ namespace AnimarsCatcher.Gameplay
                 UnityEngine.Debug.Log(
                     $"[ServerAssignSelectedAniToResourceSystem] Assigned {assignedCount}/{maxCarrier} Picker Ani to carry Resource Entity {resourceEntity.Index} for PlayerRobot Entity {pickupRequest.ValueRO.PlayerRobotEntity.Index}.");
 
-                // 处理完请求就删掉
+                // 请求只消费一次
                 entityCommandBuffer.RemoveComponent<ResourcePickupRequest>(resourceEntity);
             }
 

@@ -9,8 +9,12 @@ namespace AnimarsCatcher.Gameplay.Contracts
     [GhostComponent(PrefabType = GhostPrefabType.All, SendTypeOptimization = GhostSendType.AllClients)]
     public struct GameResult : IComponentData
     {
-        [GhostField] public byte IsGameOver; // 0=未结束，1=结束
-        [GhostField] public CampType Winner; // 胜利阵营
+        // 0 表示进行中，1 表示已经结束
+        [GhostField]
+        public byte IsGameOver;
+
+        [GhostField]
+        public CampType Winner;
     }
 
     /// <summary>

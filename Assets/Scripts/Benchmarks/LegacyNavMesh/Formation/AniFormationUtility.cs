@@ -44,7 +44,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             int column = slotIndex % columnCount;
 
             float x = (column - (columnCount - 1) * 0.5f) * horizontalSpacing;
-            float z = -row * backwardSpacing; // 后续行沿阵型后方向排列
+
+            // 后续行沿阵型后方向排列
+            float z = -row * backwardSpacing;
 
             return new float3(x, 0f, z);
         }

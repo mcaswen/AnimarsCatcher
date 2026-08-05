@@ -36,6 +36,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (benchmarkState.Initialized == 0)
             {
+                // 首条命令同时承担 Warmup 目标，空回放无法建立可比工作负载
                 if (commands.IsEmpty)
                 {
                     FailBenchmark(ref state, benchmarkEntity, "Grid Benchmark 命令回放为空");
@@ -48,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 benchmarkState.NextCommandIndex = 0;
             }
 
-            // 先统计上一批终态，避免和本 Tick 新提交的版本混淆
+            // 先统计上一批终态，避免新版本写入覆盖刚完成的状态
             CountCompletedRequests(ref state, ref benchmarkState);
 
             // Warmup 结束后将采样 Tick 从零开始计数
@@ -57,6 +58,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 NavigationGridBenchmarkCommand command = commands[benchmarkState.NextCommandIndex];
                 // 只在命令指定的采样 Tick 广播新目标
+                // 配置校验保证 Tick 严格递增，因此每帧最多消费一条
                 if (command.Tick == sampleTick)
                 {
                     SubmitCommand(ref state, config, command, ref benchmarkState);

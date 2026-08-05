@@ -15,8 +15,10 @@ namespace AnimarsCatcher.Presentation.Selection
         public float2 StartScreen;
         public float2 EndScreen;
         public byte IsDragging;
-        public byte IsReleased;  // 仅在释放发生的帧为一
-        public byte PreviousRightHeld; // 上一帧右键状态用于检测输入边沿
+        // 仅在释放发生的帧为一
+        public byte IsReleased;
+        // 用于检测输入边沿的上一帧右键状态
+        public byte PreviousRightHeld;
     }
 
     /// <summary>
@@ -67,8 +69,9 @@ namespace AnimarsCatcher.Presentation.Selection
     /// </summary>
     public struct AniSelectionRequestRpc : IRpcCommand
     {
-        public byte Append; // 零表示替换现有选择，非零表示追加选择
-        public FixedList512Bytes<int> GhostIds; // 本次请求包含的 GhostId 列表
+        // 零表示替换现有选择，非零表示追加选择
+        public byte Append;
+        public FixedList512Bytes<int> GhostIds;
     }
 
 

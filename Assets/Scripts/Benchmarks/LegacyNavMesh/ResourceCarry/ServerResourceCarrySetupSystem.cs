@@ -16,7 +16,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     /// </summary>
     public struct AniNavFindArrivalTracker : IComponentData
     {
-        public byte PreviousHasPath; // 零表示无路径，非零表示仍在寻路
+        // 零表示无路径，非零表示仍在寻路
+        public byte PreviousHasPath;
     }
 
     /// <summary>
@@ -58,7 +59,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             {
                 var assignment = assignmentRef.ValueRO;
 
-                // 已经在搬运了就不用再处理
+                // 搬运已启动的资源由移动系统接管
                 if (assignment.IsCarryStarted != 0)
                     continue;
 
@@ -69,7 +70,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                 int readyCount = 0;
 
-                // —— 统计当前这个资源的 Ani，就位就吸附 + 上锁
+                // 统计分配给当前资源的 Ani，并将已到位成员吸附到槽位
                 foreach (var (aniTransform, carryOrder, navSteering, aniEntity) in
                         SystemAPI.Query<RefRO<LocalTransform>,
                                         RefRO<AniCarryResourceOrder>,
@@ -96,14 +97,12 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                     if (!hasTracker)
                     {
-                        // 第一次看到这个 Ani：我们还没有历史状态，
-                        // 约定 previousHasPath = currentHasPath
+                        // 首次观察时以当前值建立基线，避免把无历史状态误判为刚到达
                         tracker = new AniNavFindArrivalTracker
                         {
                             PreviousHasPath = (byte)(currentHasPath ? 1 : 0)
                         };
 
-                        // 在 ECB 里添加组件（真正加到实体上要等 Playback）
                         entityCommandBuffer.AddComponent(aniEntity, tracker);
                     }
                     else
@@ -114,18 +113,15 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     bool previousHasPath  = hasTracker && (tracker.PreviousHasPath != 0);
                     bool justFinishedPath = previousHasPath && !currentHasPath;
 
-                    // ---------- 更新后的状态：通过 ECB 写回，而不是写 Lookup ----------
-
+                    // Lookup 在遍历期间只读，跟踪状态通过 ECB 延迟写回
                     tracker.PreviousHasPath = (byte)(currentHasPath ? 1 : 0);
 
                     if (hasTracker)
                     {
-                        // 已经有这个组件了，用 SetComponent 更新它
                         entityCommandBuffer.SetComponent(aniEntity, tracker);
                     }
 
-                    // ---------------- Find 到终点判定：只认 1 -> 0 这一瞬间 ----------------
-
+                    // Find 到达只认 HasPath 从一变为零的瞬间
                     bool isFindArrived = false;
 
                     if (SystemAPI.HasBuffer<FsmVar>(aniEntity))
@@ -136,7 +132,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                             ref blackboard,
                             AniMovementBlackboardKeys.CommandMode);
 
-                        // 处于 Find 状态，并且刚刚完成了一条 Nav 路径（从有路到没路）
                         if (commandMode == (int)AniMovementCommandMode.Find &&
                             justFinishedPath)
                         {
@@ -144,13 +139,11 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         }
                     }
 
-                    // ------------ 旧逻辑 + 新逻辑合并在一起 ------------
-
                     if (isFindArrived || distance <= pickable.ValueRO.StartCarryDistance)
                     {
                         readyCount++;
 
-                        // 吸附到槽位
+                        // 吸附到资源槽位，并锁定新的玩家命令
                         entityCommandBuffer.SetComponent(aniEntity, new LocalTransform
                         {
                             Position = slotWorldPosition,
@@ -158,7 +151,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                             Scale    = aniTransform.ValueRO.Scale
                         });
 
-                        // 锁命令 Tag：没有就加，有就 Enable
                         if (!SystemAPI.HasComponent<AniCommandLockedTag>(aniEntity))
                         {
                             entityCommandBuffer.AddComponent<AniCommandLockedTag>(aniEntity);
@@ -169,17 +161,15 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         {
                             var blackboard = SystemAPI.GetBuffer<FsmVar>(aniEntity);
 
-                    // 切换到 Idle 命令模式
+                            // 搬运期间切换到 Idle 并清除导航目标
                             Blackboard.SetInt(ref blackboard,
                                 AniMovementBlackboardKeys.CommandMode,
                                 (int)AniMovementCommandMode.Idle);
 
-                            // 清掉目标
                             Blackboard.SetEntity(ref blackboard,
                                 AniMovementBlackboardKeys.TargetEntity,
                                 Entity.Null);
 
-                            // 通知 Nav 停止
                             Blackboard.SetBool(ref blackboard,
                                 AniMovementBlackboardKeys.NavStop,
                                 true);
@@ -195,7 +185,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                 assignment.ReadyCarrierAniCount = readyCount;
 
-                // 所有分配的 Ani 都就位 → 开始搬运
+                // 全部分配成员就位后移交资源给搬运移动系统
                 if (readyCount >= assignment.AssignedCarrierAniCount)
                 {
                     assignment.IsCarryStarted = 1;
@@ -203,7 +193,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     entityCommandBuffer.SetComponent(resourceEntity, assignment);
                     entityCommandBuffer.AddComponent<ResourceCarryingTag>(resourceEntity);
 
-                    // 在这里给资源规划 NavMesh 路径（如果资源身上有 Nav 组件）
+                    // 资源具备导航组件时预先规划到玩家的路径
                     TryPlanNavPathForResource(
                         ref state,
                         ref entityCommandBuffer,
@@ -216,7 +206,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 }
                 else
                 {
-                    // 还没满员，但有人到位了，就先刷新 Ready 数量
+                    // 尚未满员时只刷新就位数量
                     entityCommandBuffer.SetComponent(resourceEntity, assignment);
                 }
             }
@@ -224,7 +214,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             entityCommandBuffer.Playback(state.EntityManager);
         }
 
-                // 给资源计算一条从当前位置到玩家机器人的 NavMesh 路径
+        // 为资源规划从当前位置到玩家主角的 NavMesh 路径
         private void TryPlanNavPathForResource(
             ref SystemState state,
             ref EntityCommandBuffer entityCommandBuffer,
@@ -232,7 +222,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             float3 resourcePosition,
             Entity playerRobotEntity)
         {
-            // 必须有 NavAgent + NavSteering 才算 NavMesh 路径
+            // 缺少导航组件时保留直线移动回退
             if (!SystemAPI.HasComponent<NavAgent>(resourceEntity) ||
                 !SystemAPI.HasComponent<NavSteering>(resourceEntity))
             {
@@ -247,15 +237,14 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             var path = new NavMeshPath();
             if (!CheckPathOnNavMesh(resourcePosition, playerTransform.Position, ref path))
             {
-                // 找不到路径，就退回直线 MoveTowards，那边会处理
+                // 路径失败时由资源移动系统执行直线回退
                 return;
             }
 
-            // 读当前的 NavAgent / NavSteering 值
             var navAgent   = SystemAPI.GetComponent<NavAgent>(resourceEntity);
             var navSteering = SystemAPI.GetComponent<NavSteering>(resourceEntity);
 
-            // 用 ECB 写 NavWaypoint Buffer（SetBuffer 会保证有这个 Buffer）
+            // SetBuffer 覆盖上一条路径并保证后续索引只引用本次结果
             var waypoints = entityCommandBuffer.SetBuffer<NavWaypoint>(resourceEntity);
             waypoints.Clear();
 
@@ -274,7 +263,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 return;
             }
 
-            // 像 Ani 一样，从第 1 个点开始走，避免往回走到起点
+            // 第零个拐点通常是当前位置，从后续拐点开始可避免回走
             int startIndex = math.min(1, waypoints.Length - 1);
             navAgent.CurrentWaypointIndex = startIndex;
             navSteering.SteeringTarget    = waypoints[startIndex].Position;
@@ -285,7 +274,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             entityCommandBuffer.SetComponent(resourceEntity, navSteering);
         }
 
-        // 直接复制你 Nav 系统里的这个函数即可
+        // 端点投影后只接受完整 NavMesh 路径
         private static bool CheckPathOnNavMesh(float3 start, float3 end, ref NavMeshPath path)
         {
             if (!NavMesh.SamplePosition(start, out var startHit, 2.0f, NavMesh.AllAreas))

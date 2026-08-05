@@ -58,17 +58,17 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 LocalTransform playerTransform =
                     transformLookup[assignment.PlayerRobotEntity];
 
-                // ☆ 移动前的位置，后面用来算朝向
+                // 保存移动前位置，用于根据本帧位移更新朝向
                 float3 previousPosition = resourceTransform.Position;
 
                 float3 currentPosition = resourceTransform.Position;
                 float3 targetPosition  = playerTransform.Position;
 
-                // ---------- 计算人数缩放后的搬运速度 ----------
+                // 搬运速度按有效人数占最大人数的比例缩放
                 int assignedCarrierCount = assignment.AssignedCarrierAniCount;
                 if (assignedCarrierCount <= 0)
                 {
-                    // 理论上不会出现，没有 Ani 搬就直接跳过
+                    // 分配状态异常时等待上游修复，不移动无人搬运的资源
                     continue;
                 }
 
@@ -82,14 +82,12 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 if (moveSpeed <= 0f)
                     continue;
 
-                // ---------- 先尝试用 NavMesh 路径移动 ----------
+                // 优先沿 NavMesh 路径移动，失败时再走直线回退
                 bool movedByNavMesh = false;
 
-                // 只有距离足够远才动
                 float distanceToPlayer = math.distance(currentPosition, targetPosition);
                 if (distanceToPlayer > 0.0001f)
                 {
-                    // 在 NavMesh 上采样起点和终点
                     if (NavMesh.SamplePosition(currentPosition, out var startHit, 2.0f, NavMesh.AllAreas) &&
                         NavMesh.SamplePosition(targetPosition, out var endHit, 2.0f, NavMesh.AllAreas))
                     {
@@ -99,7 +97,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                             path.corners != null &&
                             path.corners.Length > 1)
                         {
-                            // corner[0] 基本是当前点，沿 corner[1] 的方向走
+                            // corner[0] 通常是当前位置，本帧朝下一个拐点推进
                             float3 navTarget = (float3)path.corners[1];
                             float3 toCorner  = navTarget - currentPosition;
                             float  distToCorner = math.length(toCorner);
@@ -124,7 +122,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     }
                 }
 
-                // ---------- NavMesh 不可用时，退回原来的直线移动 ----------
+                // NavMesh 不可用时仍以相同搬运速度直线接近玩家
                 if (!movedByNavMesh)
                 {
                     float3 toTarget = targetPosition - currentPosition;
@@ -133,7 +131,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     if (distance > 0.0001f)
                     {
                         float3 direction = toTarget / distance;
-                        float  step      = moveSpeed * deltaTime;   // ★ 用 moveSpeed，而不是 CarryMoveSpeed
+                        float  step      = moveSpeed * deltaTime;
 
                         if (step >= distance)
                         {
@@ -146,7 +144,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     }
                 }
 
-                // 面朝移动方向（仅在本帧有实际位移时更新）
+                // 仅在本帧产生实际位移时更新朝向
                 {
                     float3 moveDelta   = currentPosition - previousPosition;
                     float3 moveDeltaXZ = new float3(moveDelta.x, 0f, moveDelta.z);
@@ -193,22 +191,20 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     }
                 }
 
-                // 检查是否到达玩家机器人附近（这里仍然用 DeliveryArrivalRadius）
+                // DeliveryArrivalRadius 是交付完成的唯一距离阈值
                 float remainingDistance =
                     math.distance(resourceTransform.Position, playerTransform.Position);
 
                 if (remainingDistance <= pickable.ValueRO.DeliveryArrivalRadius)
                 {
-                    // 资源送到了：给玩家加资源
+                    // 交付完成后依次结算、释放搬运者并销毁资源
                     GrantPlayerResource(
                         ref state,
                         pickable.ValueRO,
                         assignment);
 
-                    // 释放所有搬运这个资源的 Ani
                     ReleaseCarrierAnis(ref state, ref entityCommandBuffer, resourceEntity, assignment);
 
-                    // 销毁资源实体
                     entityCommandBuffer.DestroyEntity(resourceEntity);
                 }
             }
@@ -272,21 +268,19 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 if (carryOrder.ValueRO.ResourceEntity != resourceEntity)
                     continue;
 
-                // 去掉搬运指令
+                // 移除搬运指令并解除命令锁
                 entityCommandBuffer.RemoveComponent<AniCarryResourceOrder>(aniEntity);
 
-                // 解锁命令：如果有 AniCommandLockedTag 就关掉
                 if (SystemAPI.HasComponent<AniCommandLockedTag>(aniEntity))
                 {
                     entityCommandBuffer.SetComponentEnabled<AniCommandLockedTag>(aniEntity, false);
                 }
 
-                // 搬运结束：切回跟随玩家
+                // 搬运结束后恢复跟随玩家
                 if (SystemAPI.HasBuffer<FsmVar>(aniEntity))
                 {
                     var blackboard = SystemAPI.GetBuffer<FsmVar>(aniEntity);
 
-                        // 切换到 Follow 命令模式
                     if (assignment.PlayerRobotEntity != Entity.Null)
                     {
                         Blackboard.SetInt(ref blackboard,

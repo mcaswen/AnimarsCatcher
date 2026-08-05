@@ -10,10 +10,10 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationPathJobRequest
     {
-        // Entity 只作为结果归属标识 Job 内不访问 EntityManager
+        // Entity 只作为结果归属标识，Job 内不访问 EntityManager
         public Entity Entity;
 
-        // 请求在调度前复制，后续 ECS 修改不会改变活动批次输入
+        // 请求在调度前复制，后续 ECS 修改不会影响活动批次
         public NavigationPathRequest Request;
     }
 
@@ -26,13 +26,13 @@ namespace AnimarsCatcher.Navigation.Grid
         public Entity Entity;
         public uint RequestVersion;
 
-        // 失败结果也保留已成功投影的端点，便于定位不可达原因
+        // 失败结果也保留已投影的端点，便于定位不可达原因
         public NavigationPathStatus Status;
         public NavigationPathFailureReason FailureReason;
         public int ProjectedStartCellIndex;
         public int ProjectedEndCellIndex;
 
-        // 全批次路径连续写入 PathCells 每个结果只保存自己的切片
+        // 全批次路径连续写入 PathCells，每个结果只保存自己的切片
         public int PathOffset;
         public int PathLength;
 
@@ -55,13 +55,13 @@ namespace AnimarsCatcher.Navigation.Grid
         public NativeArray<NavigationPathJobResult> Results;
         public NativeList<int> PathCells;
 
-        // 以下数组覆盖整张 Grid 但批次内所有请求顺序复用同一份内存
+        // Scratch 数组覆盖整张 Grid，批次内请求顺序复用同一份内存
         public NativeArray<float> GCosts;
         public NativeArray<int> Parents;
         public NativeArray<int> Heap;
         public NativeArray<int> HeapPositions;
 
-        // NodeGenerations 区分数组槽位是否属于当前请求，避免每次搜索全量清零
+        // Generation 标记数组槽位归属，避免每次搜索全量清零
         public NativeArray<int> NodeGenerations;
         public int GenerationStart;
 

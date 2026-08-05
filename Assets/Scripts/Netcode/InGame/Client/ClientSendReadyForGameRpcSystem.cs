@@ -14,9 +14,9 @@ namespace AnimarsCatcher.Networking
     [UpdateInGroup(typeof(SimulationSystemGroup))]
     public partial struct ClientSendReadyForGameRpcSystem : ISystem
     {
-        private bool   _hasSent;          // 是否已经发送 ClientReadyForGameRpc
-        private bool   _sceneReadyOnce;   // Ghost 资源是否至少完整过一次
-        private double _sceneReadyTime;   // 首次资源完整的时间戳
+        private bool _hasSent;
+        private bool _sceneReadyOnce;
+        private double _sceneReadyTime;
 
 
         public void OnCreate(ref SystemState state)
@@ -88,7 +88,7 @@ namespace AnimarsCatcher.Networking
                 Debug.Log("[ClientSendReadyForGameRpcSystem] Extra 2s passed, mark InGame and send ClientReadyForGameRpc.");
             }
 
-                // 此时客户端已具备运行对局的全部网络状态，可通知表现层退出等待界面
+            // 此时客户端已具备运行对局的全部网络状态，可通知表现层退出等待界面
             Entity notificationEntity = entityCommandBuffer.CreateEntity();
             entityCommandBuffer.AddComponent(
                 notificationEntity,

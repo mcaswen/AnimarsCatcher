@@ -16,7 +16,8 @@ namespace AnimarsCatcher.Gameplay
     {
         public void OnCreate(ref SystemState state)
         {
-            state.EntityManager.CreateSingleton(new FsmContext()); // 供运行时系统注入时间和黑板查询
+            // 运行时系统通过此 Singleton 共享时间和黑板查询
+            state.EntityManager.CreateSingleton(new FsmContext());
             FsmRegistry.Initialize();
         }
 

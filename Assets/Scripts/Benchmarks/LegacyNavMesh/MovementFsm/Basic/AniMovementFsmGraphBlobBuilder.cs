@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         public static void BuildIdleState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
         {
             states[AniMovementFsmIds.IdleStateId].State = (StateId)AniMovementFsmIds.IdleStateId;
-            var transitions = builder.Allocate(ref states[AniMovementFsmIds.IdleStateId].Transitions, 3); // 共 3 条边
+            var transitions = builder.Allocate(ref states[AniMovementFsmIds.IdleStateId].Transitions, 3);
 
             // 从 Idle 转到 Follow
             transitions[0] = new FsmTransition
@@ -72,7 +72,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         public static void BuildFollowState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
         {
             states[AniMovementFsmIds.FollowStateId].State = (StateId)AniMovementFsmIds.FollowStateId;
-            var transitions = builder.Allocate(ref states[AniMovementFsmIds.FollowStateId].Transitions, 2); // 共 2 条边
+            var transitions = builder.Allocate(ref states[AniMovementFsmIds.FollowStateId].Transitions, 2);
 
             // 从 Follow 转到 Find
             transitions[0] = new FsmTransition
@@ -101,7 +101,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         public static void BuildFindState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
         {
             states[AniMovementFsmIds.FindStateId].State = (StateId)AniMovementFsmIds.FindStateId;
-            var transitions = builder.Allocate(ref states[AniMovementFsmIds.FindStateId].Transitions, 3); // 共 3 条边
+            var transitions = builder.Allocate(ref states[AniMovementFsmIds.FindStateId].Transitions, 3);
 
             // 收到 CommandFollow 时从 Find 转到 Follow
             transitions[0] = new FsmTransition
@@ -139,7 +139,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         public static void BuildMoveToState(ref BlobBuilder builder, ref BlobBuilderArray<FsmStateNode> states)
         {
             states[AniMovementFsmIds.MoveToStateId].State = (StateId)AniMovementFsmIds.MoveToStateId;
-            var transitions = builder.Allocate(ref states[AniMovementFsmIds.MoveToStateId].Transitions, 3); // 共 3 条边
+            var transitions = builder.Allocate(ref states[AniMovementFsmIds.MoveToStateId].Transitions, 3);
 
             // 到达目标时从 MoveTo 转到 Idle
             transitions[0] = new FsmTransition

@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Presentation.Selection
             AniSelectionEvents.ModeChanged.RemoveListener(OnSelectionModeChanged);
         }
 
-            // 事件回调仅写入托管上下文，由 ECS 更新阶段正式提交
+        // 事件回调仅写入托管上下文，由 ECS 更新阶段正式提交
         private void OnSelectionModeChanged(AniSelectionModeChangedEvent eventData)
         {
             AniSelectionModeSyncContext.CurrentMode = eventData.Mode;

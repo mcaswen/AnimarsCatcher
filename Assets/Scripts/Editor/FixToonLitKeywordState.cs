@@ -16,11 +16,13 @@ namespace AnimarsCatcher.Editor
             var shader = Shader.Find("Custom/ToonLitURP");
             if (!shader) { Debug.LogError("Shader not found"); return; }
 
+            // 全项目材质都要检查，避免遗漏不在当前场景引用链上的资产
             foreach (var guid in AssetDatabase.FindAssets("t:Material")) {
 
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
 
+                // 只修改目标 Shader 的材质，其他本地关键字状态保持原样
                 if (mat && mat.shader == shader) {
 
                     // 临时切换 Shader 以强制 Unity 重建材质的本地关键字缓存
@@ -33,10 +35,12 @@ namespace AnimarsCatcher.Editor
                     foreach (var kw in shader.keywordSpace.keywords)
                         mat.SetKeyword(kw, false);
 
+                    // 标脏后由末尾 SaveAssets 统一持久化，减少逐材质磁盘写入
                     EditorUtility.SetDirty(mat);
                 }
             }
 
+            // 所有材质完成重建后一次保存并刷新导入状态
             AssetDatabase.SaveAssets(); AssetDatabase.Refresh();
             Debug.Log("Resync done.");
         }

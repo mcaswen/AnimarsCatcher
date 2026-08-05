@@ -62,7 +62,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 if (hasFormationMember)
                 {
                     var member = SystemAPI.GetComponent<AniFormationMember>(entity);
-                    leaderEntity = member.leader; // 队长是拥有并控制该 Ani 的玩家实体
+
+                    // 队长是拥有并控制该 Ani 的玩家实体
+                    leaderEntity = member.leader;
                     slotIndex   = member.slotIndex;
                 }
 
@@ -249,7 +251,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             quaternion rotation  = leaderTransform.Rotation;
             float3 forward       = math.mul(rotation, new float3(0, 0, 1));
 
-            // 从玩家脚下沿反前向偏移，保持 Ani 位于玩家后方
             float3 targetPoint = leaderPos;
 
             float backOffset = 0f;
@@ -262,6 +263,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 backOffset = attackRange * AniFormationUtility.BlasterFollowBackFactor;
             }
 
+            // 从玩家脚下沿反前向偏移，使 Ani 保持在玩家后方
             float3 formationCenter = targetPoint - forward * backOffset;
             quaternion formationRotation = rotation;
 
@@ -297,7 +299,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
             float3 forward = math.mul(formationRotation, new float3(0, 0, 1));
 
-            // 从敌人位置沿反前向偏移，避免远程单位贴近目标
             float3 targetPoint = targetPos;
 
             float backOffset = 0f;
@@ -306,6 +307,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 backOffset = aniAttributes.AttackRange * AniFormationUtility.BlasterFindBackFactor;
             }
 
+            // 从敌人位置沿反前向偏移，避免远程单位贴近目标
             float3 formationCenter = targetPoint - forward * backOffset;
 
             float arrivalRadius = aniAttributes.AttackRange * 0.7f;
@@ -321,9 +323,10 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         }
 
         // 定点移动使用命令接收时冻结的阵型锚点和前向
+        // leaderTransform 只在缓存前向无效时提供兜底朝向
         private static void HandleMoveTo(
         in LocalTransform aniTransform,
-        in LocalTransform leaderTransform, // 缓存前向无效时作为稳定兜底朝向
+        in LocalTransform leaderTransform,
         int slotIndex,
         bool isPicker,
         bool isBlaster,
@@ -410,7 +413,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 return;
 
             // 每个 Tick 更新请求版本，使移动目标变化能立即传给导航系统
-
             Blackboard.SetFloat3(
                 ref blackboard,
                 AniMovementBlackboardKeys.NavTargetPosition,

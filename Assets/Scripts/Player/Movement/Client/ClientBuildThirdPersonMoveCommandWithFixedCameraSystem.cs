@@ -86,8 +86,8 @@ namespace AnimarsCatcher.Player
             command.Tick = tick;
 
             command.Move = worldMove;
-            command.Look = float2.zero;   // 固定镜头，不再驱动可变视角
-            command.Zoom = 0f;            // 固定镜头，不做缩放
+            command.Look = float2.zero;
+            command.Zoom = 0f;
 
             command.Buttons = buttons;
 

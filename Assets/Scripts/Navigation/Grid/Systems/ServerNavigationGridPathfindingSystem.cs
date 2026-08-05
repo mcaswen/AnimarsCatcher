@@ -117,9 +117,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DisposeScratch();
         }
 
-        // 主线程只收集请求，冻结输入并调度一个批次
-        // 请求按 Entity 稳定排序使预算不足时仍有可重复的服务顺序
-        // Persistent 容器保持到 Job 完成后的结果写回阶段
+        // 冻结并稳定排序请求，Persistent 容器保留到 Job 结果写回结束
         private void SchedulePendingRequests(
             ref SystemState state,
             BlobAssetReference<NavigationGridBlob> grid)
@@ -130,10 +128,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 requestEntities.Length,
                 Allocator.Temp);
 
-            // Query 同时包含终态实体，这里只收集明确由调用方提交的 Pending 请求
-            // Succeeded 和 Failed 会保留到调用方发起下一版本请求
-            // Cancelled 不会被系统自动改回 Pending
-            // 调用方必须同时更新 Request 和 State 才能重新排队
+            // 终态和 Cancelled 都保留到调用方同时提交新的 Request 与 Pending State
             for (int entityIndex = 0; entityIndex < requestEntities.Length; entityIndex++)
             {
                 Entity entity = requestEntities[entityIndex];
@@ -215,9 +210,7 @@ namespace AnimarsCatcher.Navigation.Grid
             _activeJobScheduled = true;
         }
 
-        // Job 完成后再次核对 Entity 存活、状态和版本
-        // 过期结果直接丢弃不能覆盖搜索期间提交的新请求
-        // 路径 Cell 在主线程转换为世界坐标并写入 DynamicBuffer
+        // 写回前复核实体和版本，再把路径 Cell 转为世界坐标
         private void ApplyActiveResults(ref SystemState state)
         {
             for (int resultIndex = 0; resultIndex < _activeResults.Length; resultIndex++)
@@ -236,11 +229,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     state.EntityManager.GetComponentData<NavigationPathRequest>(entity);
                 NavigationPathState pathState =
                     state.EntityManager.GetComponentData<NavigationPathState>(entity);
-                // Entity 存活不代表结果仍有效，状态和两个版本必须同时匹配
-                // 状态变化覆盖显式取消
-                // State 版本变化覆盖重新排队
-                // Request 版本变化覆盖调用方替换输入但尚未更新状态的短暂窗口
-                // 任一条件不满足都只丢弃结果，不改写调用方的新状态
+                // 状态与两个版本共同覆盖取消、重新排队和输入替换窗口
                 if (pathState.Status != NavigationPathStatus.Searching ||
                     pathState.RequestVersion != result.RequestVersion ||
                     currentRequest.Version != result.RequestVersion)
@@ -362,10 +351,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // Generation 即将溢出时执行一次罕见全量清零，恢复零值未访问语义
-            // 清零只会在没有活动 Job 时发生
-            // batchCount 已预留在上界判断中
-            // 重置后下一批从一开始编号
+            // 即将溢出时清零未被 Job 使用的标记，并从一重新编号
             for (int cellIndex = 0; cellIndex < _nodeGenerations.Length; cellIndex++)
             {
                 _nodeGenerations[cellIndex] = 0;

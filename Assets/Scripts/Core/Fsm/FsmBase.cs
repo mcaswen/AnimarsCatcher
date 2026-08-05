@@ -28,7 +28,8 @@ namespace AnimarsCatcher.Core.Fsm
         public StateId Current;
         public StateId Next;
 
-        public float TimeInState;   // 秒
+        // 当前状态累计时间，单位为秒
+        public float TimeInState;
         public byte HasPending;
 
         public ActionId PendingExit;

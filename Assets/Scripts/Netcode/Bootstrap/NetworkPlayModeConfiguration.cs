@@ -7,24 +7,12 @@ namespace AnimarsCatcher.Networking
     /// </summary>
     public static class NetworkPlayModeConfiguration
     {
-        /// <summary>
-        /// 获取编辑器是否已经写入播放模式配置
-        /// </summary>
         public static bool HasEditorOverride { get; private set; }
 
-        /// <summary>
-        /// 获取编辑器请求创建的网络 World 组合
-        /// </summary>
         public static ClientServerBootstrap.PlayType PlayType { get; private set; }
 
-        /// <summary>
-        /// 获取编辑器请求创建的 Thin Client 数量
-        /// </summary>
         public static int ThinClientCount { get; private set; }
 
-        /// <summary>
-        /// 获取编辑器是否只请求创建 Server World
-        /// </summary>
         public static bool IsServerOnly =>
             HasEditorOverride && PlayType == ClientServerBootstrap.PlayType.Server;
 

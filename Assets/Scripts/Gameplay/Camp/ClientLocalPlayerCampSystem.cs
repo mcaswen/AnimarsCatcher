@@ -44,7 +44,8 @@ namespace AnimarsCatcher.Gameplay
                 }
 
                 _localPlayerIsSet = true;
-                break; // 本地拥有的主角色唯一，找到后即可停止扫描
+                // 本地拥有的主角色唯一，找到后即可停止扫描
+                break;
             }
 
             if (_localPlayerIsSet)

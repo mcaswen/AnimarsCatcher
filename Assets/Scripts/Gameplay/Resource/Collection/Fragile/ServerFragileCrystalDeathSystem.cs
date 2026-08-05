@@ -68,7 +68,6 @@ namespace AnimarsCatcher.Gameplay
 
                     float3 spawnPos = origin + offset;
 
-                    // 设置小矿的位置
                     entityCommandBuffer.SetComponent(piece, new LocalTransform
                     {
                         Position = spawnPos,

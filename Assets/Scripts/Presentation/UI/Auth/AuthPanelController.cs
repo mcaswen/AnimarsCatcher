@@ -120,7 +120,7 @@ namespace AnimarsCatcher.Presentation.UI
             }
         }
 
-            // 验证凭据，成功后建立进程内玩家会话
+        // 验证凭据，成功后建立进程内玩家会话
         private void OnLoginClicked()
         {
             string userName = _loginUserNameInput != null ? _loginUserNameInput.text : string.Empty;

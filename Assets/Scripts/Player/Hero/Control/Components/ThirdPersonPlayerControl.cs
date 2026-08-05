@@ -12,15 +12,9 @@ namespace AnimarsCatcher.Player
     [GhostComponent]
     public struct ThirdPersonPlayerControl : IComponentData
     {
-        /// <summary>
-        /// 当前接收玩家输入的角色实体
-        /// </summary>
         [GhostField]
         public Entity ControlledCharacter;
 
-        /// <summary>
-        /// 当前由玩家输入驱动的相机实体
-        /// </summary>
         [GhostField]
         public Entity ControlledCamera;
     }

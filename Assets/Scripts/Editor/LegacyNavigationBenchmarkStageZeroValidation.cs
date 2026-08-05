@@ -43,6 +43,7 @@ namespace AnimarsCatcher.Editor
         /// </summary>
         public static void RunAll()
         {
+            // 验收顺序先覆盖纯配置，再打开并检查共享场景夹具
             TestLaunchArgumentParsing();
             TestBackendTagsAreExclusive();
             TestConflictingTagsAreRejected();
@@ -67,6 +68,7 @@ namespace AnimarsCatcher.Editor
 
         private static void TestBackendTagsAreExclusive()
         {
+            // 独立临时 World 避免测试 Tag 污染当前 Editor World
             using var world = new World("Backend Exclusivity Validation", WorldFlags.GameServer);
             Entity configEntity = AniMovementBackendWorldUtility.ConfigureWorld(
                 world,
@@ -114,6 +116,7 @@ namespace AnimarsCatcher.Editor
             var firstRun = new HashSet<int2>();
             for (int index = 0; index < Count; index++)
             {
+                // 同一输入重复计算必须逐分量完全一致
                 float3 first = LegacyNavigationBenchmarkAlgorithms.CalculateSpawnPosition(
                     index,
                     Count,
@@ -130,6 +133,7 @@ namespace AnimarsCatcher.Editor
                     104729);
                 Assert(math.all(first == second), "相同种子必须生成完全相同的 Ani 位置");
 
+                // 量化到万分之一米后检查出生点仍不重叠
                 int2 quantized = (int2)math.round(first.xz * 10000f);
                 Assert(firstRun.Add(quantized), "128 Ani 生成位置不能重复");
             }
@@ -137,6 +141,7 @@ namespace AnimarsCatcher.Editor
 
         private static void TestBenchmarkSceneLoader()
         {
+            // 保存用户当前多场景布局，验收结束后无条件恢复
             SceneSetup[] previousSetup = EditorSceneManager.GetSceneManagerSetup();
             try
             {
@@ -150,6 +155,7 @@ namespace AnimarsCatcher.Editor
                 Assert(!string.IsNullOrWhiteSpace(sceneLoader.MapSceneHash), $"{ScenePath} 缺少地图 Hash");
 
                 int[] expectedCounts = { 32, 64, 128 };
+                // 三种规模都通过同一个场景加载器注入，不复制 Scene
                 for (int i = 0; i < expectedCounts.Length; i++)
                 {
                     int expectedCount = expectedCounts[i];
@@ -168,6 +174,7 @@ namespace AnimarsCatcher.Editor
             }
             finally
             {
+                // 即使中途断言失败也不能把 Editor 留在 Benchmark Scene
                 if (previousSetup != null &&
                     Array.Exists(previousSetup, setup => setup.isLoaded))
                 {

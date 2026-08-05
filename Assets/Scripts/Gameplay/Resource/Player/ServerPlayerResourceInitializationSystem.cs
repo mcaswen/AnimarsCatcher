@@ -49,7 +49,6 @@ namespace AnimarsCatcher.Gameplay
                 if (hasResource)
                     continue;
 
-                // 新建资源实体
                 var resourceEntity = entityCommandBuffer.Instantiate(prefab);
 
                 entityCommandBuffer.SetComponent(resourceEntity, new GhostOwner { NetworkId = id });

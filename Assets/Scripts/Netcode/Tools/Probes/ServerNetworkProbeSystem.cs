@@ -17,6 +17,7 @@ namespace AnimarsCatcher.Networking
 
         public void OnUpdate(ref SystemState state)
         {
+            // 基准期间关闭周期日志，避免采样开销污染结果
             if (SystemAPI.HasSingleton<NavigationBenchmarkEnabled>()) return;
             if (SystemAPI.Time.ElapsedTime < _nextLogTime) return;
             _nextLogTime = SystemAPI.Time.ElapsedTime + 1;

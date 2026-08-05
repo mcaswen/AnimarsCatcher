@@ -33,7 +33,9 @@ namespace AnimarsCatcher.Gameplay
                      .WithEntityAccess())
             {
                 ref var fsmData = ref fsm.ValueRW;
-                if (fsmData.HasPending == 1) continue; // 待应用迁移尚未消费时不能再次评估
+
+                // 待应用迁移尚未消费时不能再次评估
+                if (fsmData.HasPending == 1) continue;
 
                 ref var graph = ref graphRef.ValueRO.Value.Value;
                 ref var node = ref graph.States[(int)fsmData.Current];

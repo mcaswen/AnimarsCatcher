@@ -60,11 +60,12 @@ namespace AnimarsCatcher.Presentation.Anis
         private int _shootTriggerHash;
         private int _isShootingBoolHash;
 
-        private uint _lastConsumedShotId;      // 已经驱动过动画的 ShotId
-        private uint _lastFiredVisualShotId;   // 已经真正开过激光特效的 ShotId
+        // 分别阻止动画请求和激光事件重复消费同一 ShotId
+        private uint _lastConsumedShotId;
+        private uint _lastFiredVisualShotId;
         private bool _bound;
         private World _boundWorld;
-        private bool _isShooting;         // 控制 OnAnimatorIK 是否生效
+        private bool _isShooting;
 
         private void Awake()
         {
@@ -73,6 +74,7 @@ namespace AnimarsCatcher.Presentation.Anis
                 _animator = GetComponentInChildren<Animator>();
             }
 
+            // 可选参数只在初始化时转为 Hash，零值表示对应动画通道未配置
             if (!string.IsNullOrEmpty(_shootTriggerName))
                 _shootTriggerHash = Animator.StringToHash(_shootTriggerName);
             if (!string.IsNullOrEmpty(_isShootingBoolName))
@@ -86,6 +88,7 @@ namespace AnimarsCatcher.Presentation.Anis
         /// <param name="entityManager">实体所属世界的管理器</param>
         public void Bind(Entity entity, EntityManager entityManager)
         {
+            // EntityManager 与 World 成对保存，场景切换后先验证 World 生命周期
             _targetEntity = entity;
             _boundEntityManager = entityManager;
             _boundWorld = entityManager.World;
@@ -103,6 +106,7 @@ namespace AnimarsCatcher.Presentation.Anis
             if (!_boundEntityManager.HasComponent<AniAttackFireRequest>(_targetEntity))
                 return;
 
+            // 请求组件由 ECS 保留，视图通过单调 ShotId 判断是否出现新攻击
             var fireRequest = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
 
             // ShotId 同时承担新事件检测和重复消费保护
@@ -121,6 +125,7 @@ namespace AnimarsCatcher.Presentation.Anis
 
             if (_shootTriggerHash != 0)
             {
+                // 先复位可让相邻 Shot 在 Trigger 尚未自动清除时仍重新触发
                 _animator.ResetTrigger(_shootTriggerHash);
                 _animator.SetTrigger(_shootTriggerHash);
             }
@@ -231,6 +236,7 @@ namespace AnimarsCatcher.Presentation.Anis
                 _laserHitMask,
                 QueryTriggerInteraction.Collide);
 
+            // 未命中仍绘制到最大射程，保证开火反馈完整
             Vector3 endPosition = hit ? hitInfo.point : origin + direction * maximumDistance;
 
             if (_beamPrefab != null)
@@ -244,13 +250,15 @@ namespace AnimarsCatcher.Presentation.Anis
 
             if (hit)
             {
+                // Proxy 把场景碰撞体桥接回当前 World 的 Ghost 实体
                 var selectableProxy = hitInfo.collider.GetComponentInParent<WorldCommandTargetProxy>();
                 if (selectableProxy != null)
                 {
-                    hitTargetEntity = selectableProxy.Entity;  // 桥接到当前世界中的 Ghost 实体
+                    hitTargetEntity = selectableProxy.Entity;
                 }
             }
 
+            // 表现层只提交候选命中，服务器会再次验证 ShotId、目标和伤害资格
             var hitResult = new AniHitResultData
             {
                 Attacker = _targetEntity,

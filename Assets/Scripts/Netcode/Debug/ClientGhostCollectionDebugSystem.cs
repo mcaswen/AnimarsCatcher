@@ -36,7 +36,7 @@ namespace AnimarsCatcher.Networking
             for (int i = 0; i < prefabs.Length; i++)
             {
                 var entry        = prefabs[i];
-                var prefabEntity = entry.GhostPrefab; // 读取 Ghost 集合登记的预制体实体
+                var prefabEntity = entry.GhostPrefab;
 
                 bool exists = entityManager.Exists(prefabEntity);
                 string name = exists ? entityManager.GetName(prefabEntity) : "<MISSING>";

@@ -67,7 +67,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             FsmRegistry.RegisterAction((ActionId)AniMovementFsmIds.EnterMoveToActionId, enterMovePtr);
             FsmRegistry.RegisterAction((ActionId)AniMovementFsmIds.ExitMoveToActionId,  exitMovePtr);
 
-            state.Enabled = false; // 注册完毕后关闭系统
+            // 注册表只需初始化一次
+            state.Enabled = false;
         }
     }
 }

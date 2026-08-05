@@ -23,11 +23,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             RunAll();
         }
 
+        /// <summary>
+        /// 供 Unity 批处理执行阶段三完整验收
+        /// </summary>
         public static void RunFromCommandLine()
         {
             RunAll();
         }
 
+        /// <summary>
+        /// 执行分层烘焙、路径、缓存和异步接线验证
+        /// </summary>
         public static void RunAll()
         {
             // 先验证纯算法，再验证 World 接线和异步生命周期
@@ -133,6 +139,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
 
             var integrationCosts = new Dictionary<int, float>();
+            // 建立 Cell 到 Integration Cost 的索引，供方向下降断言随机访问邻居
             for (int index = 0; index < flow.Results[0].FieldCount; index++)
             {
                 NavigationFlowFieldCell fieldCell = flow.FlowCells[
@@ -159,6 +166,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridAlgorithms.BuildConnectivity(cells, Width, Height, 0.5f);
             NavigationGridAlgorithms.AssignClusters(cells, Width, Height, 4);
             NavigationGridAlgorithms.AssignRegions(cells, Width, Height);
+            // Connectivity 固定后手工覆盖 Clearance，隔离 Portal 分桶这一项行为
             for (int index = 0; index < cells.Length; index++)
             {
                 NavigationGridCellData cell = cells[index];
@@ -200,6 +208,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private static void TestWorldFilterRegistration()
         {
             // 分别读取三类 World 的默认系统注册表
+            // 注册表来自系统特性解析，可验证过滤声明而不启动完整游戏 World
             IReadOnlyList<Type> serverSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ServerSimulation);
             IReadOnlyList<Type> localSystems = DefaultWorldInitialization.GetAllSystems(
@@ -273,6 +282,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             for (int countIndex = 0; countIndex < counts.Length; countIndex++)
             {
                 int count = counts[countIndex];
+                // 每档规模使用独立 World，避免前一档实体和系统状态进入计数
                 using var world = new World($"Stage Three Benchmark {count}", WorldFlags.Game);
                 AniMovementBackendWorldUtility.ConfigureWorld(world, AniMovementBackend.ClearanceGrid);
                 EntityManager entityManager = world.EntityManager;
@@ -351,6 +361,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
                 int deltaX = (int)math.round(fieldCell.Direction.x);
                 int deltaZ = (int)math.round(fieldCell.Direction.y);
+                // 平滑方向最终仍应归属八邻域中的一个离散 Cell
                 int x = fieldCell.CellIndex % grid.Width + deltaX;
                 int z = fieldCell.CellIndex / grid.Width + deltaZ;
                 // 非零方向必须映射到 Grid 内的离散邻居
@@ -520,6 +531,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
             finally
             {
+                // 普通路径基线与 Flow 辅助器保持相同的异常释放保证
                 generations.Dispose();
                 heapPositions.Dispose();
                 heap.Dispose();
@@ -544,6 +556,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 height,
                 clusterSize,
                 1f);
+            // Temp Builder 只承载构造过程，返回的 Blob 使用独立 Persistent 分配
             var builder = new BlobBuilder(Allocator.Temp);
             ref NavigationGridBlob root = ref builder.ConstructRoot<NavigationGridBlob>();
             root.BoundsMinimum = new float3(0f, -1f, 0f);
@@ -580,7 +593,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // Cluster 切片直接复制构建结果
+            // Cluster 的 Portal Node 偏移和数量必须保持构建器生成的连续切片契约
             BlobBuilderArray<NavigationGridCluster> blobClusters =
                 builder.Allocate(ref root.Clusters, hierarchy.Clusters.Length);
             for (int index = 0; index < hierarchy.Clusters.Length; index++)
@@ -680,6 +693,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             entityManager.AddBuffer<NavigationHierarchicalWaypoint>(entity);
             entityManager.AddBuffer<NavigationFlowFieldCell>(entity);
             entityManager.SetComponentData(entity, request);
+            // State 捕获相同版本，运行时写回会同时比对请求与状态版本
             entityManager.SetComponentData(
                 entity,
                 NavigationFlowFieldState.CreatePending(request.PathRequest.Version));
@@ -767,6 +781,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private static int CountRegions(NavigationGridCellData[] cells)
         {
             int maximum = 0;
+            // RegionId 从一连续编号，因此最大值就是有效 Region 数量
             for (int index = 0; index < cells.Length; index++)
             {
                 maximum = math.max(maximum, cells[index].RegionId);

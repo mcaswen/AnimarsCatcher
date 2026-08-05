@@ -11,9 +11,6 @@ namespace AnimarsCatcher.Presentation.Cameras
     [MovedFrom(true, "AnimarsCatcher.Presentation", "AnimarsCatcher.Presentation", "MinimapCameraFollower")]
     public class MinimapCameraFollower : MonoBehaviour
     {
-        /// <summary>
-        /// 场景里唯一的小地图相机跟随器实例
-        /// </summary>
         public static MinimapCameraFollower Instance { get; private set; }
 
         [Header("跟随目标")]
@@ -42,7 +39,7 @@ namespace AnimarsCatcher.Presentation.Cameras
             Instance = this;
         }
 
-            // 在目标完成移动后更新相机，减少画面抖动
+        // 在目标完成移动后更新相机，减少画面抖动
         private void LateUpdate()
         {
             // 显式绑定优先 Tag 查询仅作为旧场景兼容路径

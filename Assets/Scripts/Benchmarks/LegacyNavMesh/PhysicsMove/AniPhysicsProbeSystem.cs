@@ -53,7 +53,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     if (physicsWorld.CastRay(input, out RaycastHit hit))
                     {
                         float dist = config.ValueRO.GroundRayLength * hit.Fraction;
-                        probe.ValueRW.IsGrounded     = dist < 0.2f; // 小阈值允许模型脚底与碰撞面存在轻微偏差
+
+                        // 小阈值允许模型脚底与碰撞面存在轻微偏差
+                        probe.ValueRW.IsGrounded     = dist < 0.2f;
                         probe.ValueRW.GroundDistance = dist;
                         probe.ValueRW.GroundNormal   = hit.SurfaceNormal;
                     }

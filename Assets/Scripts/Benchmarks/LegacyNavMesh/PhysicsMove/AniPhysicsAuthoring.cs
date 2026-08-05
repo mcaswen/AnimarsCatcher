@@ -12,9 +12,14 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     public class AniPhysicsAuthoring : MonoBehaviour
     {
         [Header("Raycast 设置")]
-        public float GroundRayLength  = 2.0f;               // 地面检测长度
-        public float ForwardRayLength = 1.5f;               // 前向障碍检测长度
-        public Vector3 ProbeOffset = new Vector3(0, 0.5f, 0); // 从角色 pivot 往上多少作为起点
+        // 地面检测长度
+        public float GroundRayLength  = 2.0f;
+
+        // 前向障碍检测长度
+        public float ForwardRayLength = 1.5f;
+
+        // 相对角色 Pivot 的探测起点偏移
+        public Vector3 ProbeOffset = new Vector3(0, 0.5f, 0);
 
         [Header("碰撞过滤")]
         [Tooltip("探测查询所属类别的位掩码")]

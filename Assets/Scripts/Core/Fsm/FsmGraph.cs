@@ -12,8 +12,9 @@ namespace AnimarsCatcher.Core.Fsm
     {
         public StateId To;
         public ConditionId Condition;
-        public ActionId OnExit; // 从当前状态离开、沿这条边跳转时要做的退出动作
-        public ActionId OnEnter; // 抵达目标状态、沿这条边进入时要做的进入动作
+        // 仅在采用这条迁移边时执行
+        public ActionId OnExit;
+        public ActionId OnEnter;
     }
 
     /// <summary>
@@ -31,7 +32,8 @@ namespace AnimarsCatcher.Core.Fsm
     /// </summary>
     public struct FsmGraph
     {
-        public BlobArray<FsmStateNode> States; // 这里按 StateId 索引
+        // 数组下标与 StateId 数值一一对应
+        public BlobArray<FsmStateNode> States;
     }
 
     /// <summary>

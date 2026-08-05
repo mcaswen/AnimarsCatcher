@@ -46,11 +46,9 @@ namespace AnimarsCatcher.Player
                 }
 
                 var control = controlRW.ValueRO;
-                control.MoveVector = command.Move;  // 在 ThirdPersonMoveCommand 的计算与绑定中已是世界平面向量
+                // 命令构建阶段已转换为世界平面向量，速度与碰撞由后续 KCC 计算
+                control.MoveVector = command.Move;
                 controlRW.ValueRW = control;
-
-                // 此系统只绑定输入，速度和碰撞由后续 KCC 系统计算
-
             }
         }
 

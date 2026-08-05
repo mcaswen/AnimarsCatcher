@@ -68,8 +68,9 @@ namespace AnimarsCatcher.Networking
                 {
                     index = math.abs(connectionAspect.Id) % pointsRO.Length;
                 }
-                else // 轮询模式从状态记录的下一索引开始选择
+                else
                 {
+                    // 轮询模式从状态记录的下一索引开始选择
                     var currentIndex = stateRW.NextIndex;
                     index = (currentIndex >= 0 ? currentIndex : 0) % pointsRO.Length;
                     stateRW.NextIndex = (index + 1) % pointsRO.Length;

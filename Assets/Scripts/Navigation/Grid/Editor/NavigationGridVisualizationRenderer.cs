@@ -214,9 +214,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return replacement;
         }
 
-        // 将采样后的 Cell 合并为按颜色分桶的网格
-        // 每个桶单独绘制可以控制 Draw Call 数且保留语义颜色
-        // 缓存同时记录哪些 Cell 有几何供邻接线绘制过滤
+        // 将 Cell 合并为颜色分桶网格，并记录实际包含几何的桶
+        // 分桶同时限制 Draw Call 并保留语义颜色
         private static CacheEntry BuildCache(
             NavigationGridAuthoring authoring,
             NavigationGridBakeAsset bakeAsset)
@@ -633,9 +632,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 NavigationGridAuthoring authoring,
                 NavigationGridBakeAsset bakeAsset)
             {
-                // Asset 实例不同即使 Hash 相同也重新构建避免引用生命周期交叉
-                // Mathf.Approximately 过滤 Inspector 浮点序列化的无意义尾差
-                // DataHash 已覆盖 Bounds、尺寸和全部 Cell 内容，显示参数只补充缓存特有条件
+                // Asset 实例不同即使 Hash 相同也重建，避免引用生命周期交叉
+                // DataHash 覆盖数据内容，显示参数补充缓存特有条件
                 return _bakeAssetId == bakeAsset.GetInstanceID() &&
                        string.Equals(_dataHash, bakeAsset.DataHash, StringComparison.Ordinal) &&
                        _mode == authoring.GizmoMode &&

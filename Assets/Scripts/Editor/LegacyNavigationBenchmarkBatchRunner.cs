@@ -60,6 +60,7 @@ namespace AnimarsCatcher.Editor
 
         private static void BeginRun(int agentCount)
         {
+            // 批处理只创建 Server World，避免客户端表现系统污染基准负载
             if (Application.isBatchMode &&
                 !NetworkPlayModeConfiguration.IsServerOnly)
             {
@@ -90,6 +91,7 @@ namespace AnimarsCatcher.Editor
 
             sceneLoader.ConfigureRun(agentCount);
             EditorUtility.SetDirty(sceneLoader);
+            // SessionState 跨越 Play Mode 域重载保存无人值守运行进度
             SessionState.SetBool(ActiveKey, true);
             SessionState.SetInt(AgentCountKey, agentCount);
             SessionState.SetString(
@@ -106,6 +108,7 @@ namespace AnimarsCatcher.Editor
                 return;
             }
 
+            // 先移除旧回调，保证域重载恢复后仍只有一个轮询器
             _pollStartTime = EditorApplication.timeSinceStartup;
             EditorApplication.update -= Poll;
             EditorApplication.update += Poll;
@@ -113,6 +116,7 @@ namespace AnimarsCatcher.Editor
 
         private static void ExitIfPending()
         {
+            // 必须退出 Play Mode 后再退出 Editor，否则批处理可能丢失最终日志和文件刷新
             int exitCode = SessionState.GetInt(PendingExitCodeKey, NoPendingExitCode);
             if (exitCode == NoPendingExitCode)
             {
@@ -159,6 +163,7 @@ namespace AnimarsCatcher.Editor
             string[] files = Directory.GetFiles(outputDirectory, prefix + "*.json");
             for (int i = 0; i < files.Length; i++)
             {
+                // 启动前残留的同规模结果不能被误认为本次运行完成
                 if (File.GetLastWriteTimeUtc(files[i]) < startTime)
                 {
                     continue;
@@ -187,6 +192,7 @@ namespace AnimarsCatcher.Editor
             {
                 if (EditorApplication.isPlaying)
                 {
+                    // 暂存退出码，由回到 Edit Mode 后的 delayCall 完成进程退出
                     SessionState.SetInt(PendingExitCodeKey, exitCode);
                     EditorApplication.ExitPlaymode();
                     return;

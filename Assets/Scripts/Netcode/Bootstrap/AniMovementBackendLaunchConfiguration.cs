@@ -10,9 +10,6 @@ namespace AnimarsCatcher.Networking
     {
         private const string ArgumentName = "-movement-backend";
 
-        /// <summary>
-        /// 获取当前进程请求的唯一移动后端
-        /// </summary>
         public static AniMovementBackend Current => Parse(Environment.GetCommandLineArgs());
 
         /// <summary>

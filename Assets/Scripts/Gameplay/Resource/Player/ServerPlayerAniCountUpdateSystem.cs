@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Gameplay
                 idToIndex.TryAdd(resourceOwners[i].NetworkId, i);
             }
 
-                // 统计值来自实体现状，每帧必须从零重建
+            // 统计值来自实体现状，每帧必须从零重建
             for (int i = 0; i < resourceStates.Length; i++)
             {
                 var resourceState = resourceStates[i];
@@ -121,7 +121,6 @@ namespace AnimarsCatcher.Gameplay
                 resourceStates[idx] = resourceState;
             }
 
-            // 写回组件
             for (int i = 0; i < resourceEntities.Length; i++)
             {
                 state.EntityManager.SetComponentData(resourceEntities[i], resourceStates[i]);

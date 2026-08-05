@@ -12,8 +12,10 @@ namespace AnimarsCatcher.Gameplay
         Ground = 1,
         Player = 2,
         Ani = 3,
-        Resource = 4,   // 可拾取资源
-        Base = 5,       // 可攻击基地
+        // 可拾取资源
+        Resource = 4,
+        // 可攻击基地
+        Base = 5,
     }
 
     /// <summary>

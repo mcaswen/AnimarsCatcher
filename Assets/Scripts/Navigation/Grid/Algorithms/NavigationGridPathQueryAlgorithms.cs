@@ -122,7 +122,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return false;
             }
 
-            // raw 坐标故意不先 Clamp 使 Grid 外位置仍受最大投影半径约束
+            // raw 坐标故意不先 Clamp，使 Grid 外位置仍受最大投影半径约束
             int rawX = (int)math.floor(
                 (worldPosition.x - grid.BoundsMinimum.x) / grid.CellSize);
             int rawZ = (int)math.floor(
@@ -132,17 +132,12 @@ namespace AnimarsCatcher.Navigation.Grid
             int minimumZ = math.max(0, rawZ - maximumRadiusInCells);
             int maximumZ = math.min(grid.Height - 1, rawZ + maximumRadiusInCells);
 
-            // 候选使用字典序比较，不依赖循环提前退出或容器遍历顺序
-            // 距离相同优先低 Terrain Cost
-            // 地形成本相同优先高 Clearance
-            // 所有连续值都相同时优先更小 Cell Index
-            // 这套规则同时覆盖 Grid 内阻挡端点和 Grid 外近边界端点
+            // 候选依次比较距离、地形成本、Clearance 和 Cell Index，不依赖遍历顺序
             float bestDistanceSquared = float.PositiveInfinity;
             float bestTerrainCost = float.PositiveInfinity;
             float bestClearance = float.NegativeInfinity;
 
-            // 扫描完整候选方形后统一比较，避免只取首个搜索环导致角点候选错误胜出
-            // 第一关键字是到原世界坐标的平方距离，第二关键字才是地形和 Clearance
+            // 扫描完整候选方形，避免首个搜索环让角点候选错误胜出
             for (int z = minimumZ; z <= maximumZ; z++)
             {
                 for (int x = minimumX; x <= maximumX; x++)
@@ -205,7 +200,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int deltaZ = math.abs(toZ - fromZ);
             int diagonalSteps = math.min(deltaX, deltaZ);
             int straightSteps = math.max(deltaX, deltaZ) - diagonalSteps;
-            // Terrain Cost 运行时下限也是 MinimumTerrainCost 因此该估价不会高估真实成本
+            // Terrain Cost 下限同为 MinimumTerrainCost，因此该估价不会高估真实成本
             // Clearance 惩罚始终非负，不加入启发函数仍保持可采纳性
             return grid.CellSize * MinimumTerrainCost *
                    (diagonalSteps * SquareRootTwo + straightSteps);
@@ -247,11 +242,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int currentZ = fromCellIndex / grid.Width;
             int targetX = toCellIndex % grid.Width;
             int targetZ = toCellIndex / grid.Width;
-            // 误差累加器在整数域工作，相同端点不会受浮点舍入和平台差异影响
-            // 每次迭代最多同时推进 X 和 Z
-            // 同时推进表示一次合法对角边
-            // 单轴推进表示一次正交边
-            // 因此生成的离散序列始终能由 NeighborMask 验证
+            // 整数误差累加使相同端点不受浮点舍入和平台差异影响
             int absoluteDeltaX = math.abs(targetX - currentX);
             int absoluteDeltaZ = math.abs(targetZ - currentZ);
             int stepX = currentX < targetX ? 1 : -1;
@@ -262,7 +253,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 agentRadius,
                 clearanceMargin);
 
-            // Bresenham 每轮只产生一个相邻 Cell 对角步仍由烘焙邻接和体型 Clearance 共同约束
+            // 每轮只产生一个正交或对角相邻步，再由 NeighborMask 和 Clearance 验证
             // 这里验证的是平滑后可直接连接的离散通道，不是物理层最终 Capsule Cast
             while (currentX != targetX || currentZ != targetZ)
             {

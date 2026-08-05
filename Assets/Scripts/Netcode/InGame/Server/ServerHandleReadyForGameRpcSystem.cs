@@ -15,7 +15,8 @@ namespace AnimarsCatcher.Networking
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ServerStartMatchSystem))] // 在发完 StartMatchNotificationRpc 之后
+    // 角色创建必须等开局通知完成广播
+    [UpdateAfter(typeof(ServerStartMatchSystem))]
     public partial struct ServerHandleReadyForGameRpcSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

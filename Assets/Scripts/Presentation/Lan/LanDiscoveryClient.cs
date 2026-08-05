@@ -66,7 +66,8 @@ namespace AnimarsCatcher.Presentation.Lan
             {
                 _udpClient = new UdpClient(_discoveryPort);
                 _udpClient.EnableBroadcast = true;
-                _udpClient.Client.Blocking = false; // 避免 Receive 阻塞主线程
+                // 避免 Receive 阻塞主线程
+                _udpClient.Client.Blocking = false;
 
                 _isListening = true;
 

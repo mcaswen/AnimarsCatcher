@@ -24,11 +24,9 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
-            // 单次请求依次执行参数校验、端点投影、区域预拒绝、A 星搜索和平滑写回
-            // 所有失败路径返回完整状态且不向共享 PathCells 追加部分结果
-            // Scratch 数组通过 generation 隔离请求，避免按 Grid 大小逐次清零
             NavigationPathRequest request = jobRequest.Request;
-            // 先构造完整失败结果，后续每个提前返回只覆盖确定的失败原因
+
+            // 先构造完整失败结果，提前返回只需覆盖已确定的原因
             NavigationPathJobResult result = CreateFailureResult(
                 jobRequest.Entity,
                 request.Version,
@@ -46,9 +44,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 端点投影把任意世界坐标收敛到搜索图中的合法节点
-            // 起点和终点分别记录失败原因便于上层决定重试策略
-            // 起点投影失败时终点尚未参与计算，保持结果字段的阶段性含义
+            // 端点分别投影到合法节点，让上层能区分两端的输入问题
             if (!TryProjectToNearestCell(
                     ref grid,
                     request.StartPosition,
@@ -97,11 +93,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 当前 generation 首次触碰节点时才初始化，避免每个请求清空所有 Cell
-            // GCosts 保存起点到节点的最小已知成本
-            // Parents 保存稳定重建链
-            // HeapPositions 非负表示节点仍位于 Open Set
-            // NodeGenerations 决定以上三个数组槽位是否属于本次请求
+            // 首次触碰节点时按 generation 初始化，避免每次请求清空整张 Grid
             InitializeNode(
                 startCellIndex,
                 generation,
@@ -127,12 +119,8 @@ namespace AnimarsCatcher.Navigation.Grid
             bool found = false;
             int expandedNodeCount = 0;
 
-            // Pop 后 HeapPosition 被置为负数，同时承担 Closed Set 标记
-            // ExpandedNodeCount 只统计真正从 Open Set 展开的节点
-            // Region 预拒绝和投影失败不会增加展开数
-            // 找到终点后立即结束，不继续扫描其余等价节点
-            // 每轮展开当前 F Cost 最小节点并对固定顺序邻居执行松弛
-            // 一致启发函数保证节点进入 Closed 后不需要重新打开
+            // 每轮展开最小 F Cost 节点，一致启发函数保证 Closed 节点无需重开
+            // ExpandedNodeCount 只统计真正从 Open Set 弹出的节点
             while (heapCount > 0)
             {
                 int currentIndex = PopHeap(
@@ -245,12 +233,8 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             result.ExpandedNodeCount = expandedNodeCount;
-            // 搜索完成后 Heap 数组不再承载 Open Set 可以安全复用为反向重建缓冲区
-            // 复用只发生在 found 之后
-            // 重建失败不会留下部分成功结果
-            // PathOffset 始终指向本请求写入前的共享数组长度
-            // 失败请求不会向共享 PathCells 追加任何 Cell
-            // 后续结果因此不会被前一个失败请求改变切片起点
+
+            // 搜索结束后复用 Heap 重建父链，失败时不向共享路径追加部分结果
             if (!found || !AppendSmoothedPath(
                     ref grid,
                     request,
@@ -308,9 +292,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> reconstruction,
             out int pathLength)
         {
-            // Parent 链先恢复为从起点到终点的稳定顺序
-            // 平滑只删除能够安全直连且成本不超预算的中间节点
-            // 任一重建异常都会让调用方丢弃本请求的路径切片
+            // 父链先恢复稳定顺序，重建异常时调用方会丢弃本请求切片
             pathLength = 0;
             int rawPathLength = 0;
             int currentIndex = endCellIndex;
@@ -337,12 +319,8 @@ namespace AnimarsCatcher.Navigation.Grid
             pathCells.Add(startCellIndex);
             int anchorOrderedIndex = 0;
 
-            // 贪心选择最远可见节点，但直接线段成本不能超过原 A 星路径允许的容差
-            // 从最远候选向近处扫描可在保持确定性的同时尽量减少路径点
-            // 可见性只解决几何和 Clearance 合法性
-            // 成本约束阻止平滑线切过高 Terrain Cost 区域
-            // 容差为零时直线不得比原 A 星分段更贵
-            // 容差为正时允许用少量成本换取更少路径点
+            // 从最远候选向近处扫描，直连还必须满足原路径的成本容差
+            // 几何可见性不能单独放行穿过高 Terrain Cost 区域的平滑线
             while (anchorOrderedIndex < rawPathLength - 1)
             {
                 int anchorCellIndex = GetOrderedRawPathCell(
@@ -395,9 +373,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float agentRadius,
             float clearanceMargin)
         {
-            // 烘焙阶段已经按基础体型收缩可行走区域
-            // 运行时只增加更大体型和安全边距，避免基础半径被重复扣减
-            // 烘焙占用已经包含 BaseAgentRadius 这里只计算运行时增量
+            // 烘焙已包含 BaseAgentRadius，运行时只计算更大体型和安全边距的增量
             return math.max(0f, agentRadius - grid.BaseAgentRadius) +
                    math.max(0f, clearanceMargin);
         }
@@ -437,10 +413,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float agentRadius,
             float clearanceMargin)
         {
-            // 烘焙 NeighborMask 决定静态几何是否允许通过
-            // 当前 Agent Clearance 再对端点和对角侧边做体型约束
-            // 两层判定分离后同一 Grid 可以服务多种运行时半径
-            // NeighborMask 负责静态可行走和高度规则 CanAgentOccupy 负责当前体型
+            // NeighborMask 约束静态几何，CanAgentOccupy 再应用当前体型
             if (!TryGetDirectionIndex(deltaX, deltaZ, out int directionIndex) ||
                 (grid.Cells[fromCellIndex].NeighborMask & (1 << directionIndex)) == 0 ||
                 !CanAgentOccupy(ref grid, toCellIndex, agentRadius, clearanceMargin))
@@ -480,9 +453,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float bestClearance,
             int bestCellIndex)
         {
-            // 投影候选按距离、地形成本、Clearance 和 Cell Index 形成稳定字典序
-            // 新增比较键时必须同步更新投影契约和确定性验收
-            // 比较顺序必须与投影契约一致，距离优先于地形和 Clearance
+            // 候选依次比较距离、地形成本、Clearance 和 Cell Index
             if (bestCellIndex < 0 || distanceSquared < bestDistanceSquared - CostEpsilon)
             {
                 return true;
@@ -547,9 +518,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
-            // generation 先写入使其余 Scratch 槽位从此刻起属于当前请求
-            // 未发现节点使用无穷成本和无 Parent 表达初始状态
-            // 初始化顺序先写 generation 后续读取方才能把其余槽位视为当前请求数据
+            // Generation 标记槽位归属，其余值恢复为未发现节点状态
             nodeGenerations[cellIndex] = generation;
             gCosts[cellIndex] = float.PositiveInfinity;
             parents[cellIndex] = -1;
@@ -561,9 +530,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int rawPathLength,
             int orderedIndex)
         {
-            // reconstruction 保存顺序与最终路径相反
-            // 统一在此翻转下标避免平滑循环重复实现逆序逻辑
-            // reconstruction 逆序保存 Parent 链，此方法暴露起点到终点的正序视图
+            // reconstruction 逆序保存父链，此处统一暴露起点到终点的正序视图
             return reconstruction[rawPathLength - 1 - orderedIndex];
         }
 

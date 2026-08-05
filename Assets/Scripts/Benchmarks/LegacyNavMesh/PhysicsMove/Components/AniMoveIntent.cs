@@ -11,6 +11,6 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     public struct AniMoveIntent : IComponentData
     {
         [GhostField]
-        public float3 DesiredVelocity; // 世界空间期望速度
+        public float3 DesiredVelocity;
     }
 }

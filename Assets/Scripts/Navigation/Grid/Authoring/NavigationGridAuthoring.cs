@@ -29,7 +29,6 @@ namespace AnimarsCatcher.Navigation.Grid
         [Min(0.01f)]
         [SerializeField] private float _cost;
 
-        // 以下成员向编辑器烘焙流程公开只读成本规则
         /// <summary>
         /// 创建一个地面 Layer 成本规则
         /// </summary>
@@ -41,14 +40,10 @@ namespace AnimarsCatcher.Navigation.Grid
             _cost = Mathf.Max(0.01f, cost);
         }
 
-        /// <summary>
-        /// 获取参与匹配的地面 Layer
-        /// </summary>
+        // 参与匹配的地面 Layer
         public LayerMask GroundLayers => _groundLayers;
 
-        /// <summary>
-        /// 获取匹配后的基础地形成本
-        /// </summary>
+        // 匹配后的基础地形成本
         public float Cost => Mathf.Max(0.01f, _cost);
 
         /// <summary>
@@ -128,10 +123,7 @@ namespace AnimarsCatcher.Navigation.Grid
         [Min(64)]
         [SerializeField] private int _maximumGizmoCells = 4096;
 
-        // 以下属性只暴露烘焙输入，不允许外部绕过 Inspector 修改序列化状态
-        /// <summary>
-        /// 获取按完整 Cell 向下对齐后的有效世界包围盒
-        /// </summary>
+        // 按完整 Cell 向下对齐后的有效世界包围盒
         public Bounds WorldBounds
         {
             get
@@ -145,104 +137,64 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        /// <summary>
-        /// 获取 Inspector 中尚未对齐的原始配置包围盒
-        /// </summary>
+        // Inspector 中尚未对齐的原始配置包围盒
         public Bounds ConfiguredWorldBounds => _worldBounds;
 
-        /// <summary>
-        /// 获取单个 Cell 的世界边长
-        /// </summary>
+        // 单个 Cell 的世界边长
         public float CellSize => _cellSize;
 
-        /// <summary>
-        /// 获取允许作为地面的 Layer
-        /// </summary>
+        // 允许作为地面的 Layer
         public LayerMask GroundLayers => _groundLayers;
 
-        /// <summary>
-        /// 获取参与静态占用检测的 Layer
-        /// </summary>
+        // 参与静态占用检测的 Layer
         public LayerMask ObstacleLayers => _obstacleLayers;
 
-        /// <summary>
-        /// 获取允许行走的最大坡度角
-        /// </summary>
+        // 允许行走的最大坡度角
         public float MaximumSlopeDegrees => _maximumSlopeDegrees;
 
-        /// <summary>
-        /// 获取允许建立邻接的最大高度差
-        /// </summary>
+        // 允许建立邻接的最大高度差
         public float MaximumStepHeight => _maximumStepHeight;
 
-        /// <summary>
-        /// 获取静态占用采样使用的基准 Agent 半径
-        /// </summary>
+        // 静态占用采样使用的基准 Agent 半径
         public float BaseAgentRadius => _baseAgentRadius;
 
-        /// <summary>
-        /// 获取静态占用采样使用的基准 Agent 高度
-        /// </summary>
+        // 静态占用采样使用的基准 Agent 高度
         public float BaseAgentHeight => _baseAgentHeight;
 
-        /// <summary>
-        /// 获取每个 Cluster 的 Cell 边长
-        /// </summary>
+        // 每个 Cluster 的 Cell 边长
         public int ClusterSizeInCells => _clusterSizeInCells;
 
-        /// <summary>
-        /// 获取未匹配规则时使用的地形成本
-        /// </summary>
+        // 未匹配规则时使用的地形成本
         public float DefaultTerrainCost => _defaultTerrainCost;
 
-        /// <summary>
-        /// 获取有序地形成本规则数量
-        /// </summary>
+        // 有序地形成本规则数量
         public int TerrainCostRuleCount => _terrainCostRules?.Length ?? 0;
 
-        /// <summary>
-        /// 获取烘焙输出资产
-        /// </summary>
+        // 烘焙输出资产
         public NavigationGridBakeAsset BakeAsset => _bakeAsset;
 
-        /// <summary>
-        /// 获取 Scene 视图的 Grid 显示模式
-        /// </summary>
+        // Scene 视图的 Grid 显示模式
         public NavigationGridGizmoMode GizmoMode => _gizmoMode;
 
-        /// <summary>
-        /// 获取 Scene 视图覆盖层透明度
-        /// </summary>
+        // Scene 视图覆盖层透明度
         public float VisualizationOpacity => _visualizationOpacity;
 
-        /// <summary>
-        /// 获取是否在覆盖层中显示阻挡 Cell
-        /// </summary>
+        // 是否在覆盖层中显示阻挡 Cell
         public bool ShowBlockedCells => _showBlockedCells;
 
-        /// <summary>
-        /// 获取可占用性预览使用的 Agent 半径
-        /// </summary>
+        // 可占用性预览使用的 Agent 半径
         public float VisualizedAgentRadius => _visualizedAgentRadius;
 
-        /// <summary>
-        /// 获取可占用性预览使用的额外安全边距
-        /// </summary>
+        // 可占用性预览使用的额外安全边距
         public float VisualizedAgentMargin => _visualizedAgentMargin;
 
-        /// <summary>
-        /// 获取是否显示 Cell 邻接连线
-        /// </summary>
+        // 是否显示 Cell 邻接连线
         public bool ShowNeighborLinks => _showNeighborLinks;
 
-        /// <summary>
-        /// 获取 Scene 视图允许显示的最大 Cell 数量
-        /// </summary>
+        // Scene 视图允许显示的最大 Cell 数量
         public int MaximumGizmoCells => _maximumGizmoCells;
 
-        /// <summary>
-        /// 获取按 Cell Size 向下对齐后的 Grid 尺寸
-        /// </summary>
+        // 按 Cell Size 向下对齐后的 Grid 尺寸
         public int2 GridDimensions => new int2(
             Mathf.Max(1, Mathf.FloorToInt(_worldBounds.size.x / _cellSize)),
             Mathf.Max(1, Mathf.FloorToInt(_worldBounds.size.z / _cellSize)));

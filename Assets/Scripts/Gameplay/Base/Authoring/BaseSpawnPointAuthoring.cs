@@ -21,14 +21,13 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public struct BaseSpawnPoint : IComponentData
     {
-        // 要刷出的基地预制体（Ghost 或普通 Entity 都可以）
+        // 由服务器实例化的基地预制体
         public Entity BasePrefab;
 
-        // 元信息：在 Authoring 里硬编码，方便以后逻辑用
         public CampType CampKind;
         public BaseSizeKind SizeKind;
 
-        // 是否已经刷过（0 = 未刷，1 = 已刷）
+        // 0 表示尚未生成，1 表示已生成
         public byte HasSpawned;
 
         public int Health;
@@ -79,7 +78,7 @@ namespace AnimarsCatcher.Gameplay
                     Health     = authoring._health
                 });
 
-                // 刷新点本身的位置，用它当基地出生点
+                // 烘焙刷新点变换，生成时无需再访问场景对象
                 AddComponent(entity, new LocalTransform
                 {
                     Position = authoring.transform.position,

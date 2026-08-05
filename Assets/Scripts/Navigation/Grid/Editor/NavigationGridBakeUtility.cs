@@ -30,7 +30,6 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         /// <returns>创建或更新后的可检查资产</returns>
         public static NavigationGridBakeAsset Bake(NavigationGridAuthoring authoring)
         {
-            // 输出完全由已保存场景、配置和稳定排序后的 Collider 集合决定
             // 物理采样和几何 Hash 读取同一次同步后的 Transform 状态
             // 所有派生字段在内存中完成后再整体替换资产
             if (!TryValidateSettings(authoring, out string settingsError))
@@ -313,9 +312,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         /// <returns>三十二位十六进制 Hash</returns>
         public static string ComputeGeometryHash(NavigationGridAuthoring authoring)
         {
-            // Collider 先转换为稳定键再排序以消除 Unity 查找顺序影响
-            // 同时写入外部依赖摘要捕获 Mesh 和 TerrainData 变化
-            // Collider Bounds 由 Physics 世界维护 Hash 和实际采样必须读取同一份同步状态
+            // Collider 先按稳定键排序，再写入 Mesh 和 TerrainData 等外部依赖摘要
+            // Bounds 与物理采样读取同一次同步后的 Physics 状态
             Physics.SyncTransforms();
             List<Collider> colliders = CollectRelevantColliders(authoring);
             var records = new List<NavigationGridColliderRecord>(colliders.Count);
@@ -375,9 +373,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 bounds.min.z + (z + 0.5f) * bakeAsset.CellSize);
         }
 
-        // 每个 Cell 从包围盒顶部向下寻找稳定地面命中
-        // 地面支撑、坡度和角色体积阻挡共同决定基础 Walkable
-        // 此阶段不建立邻接和 Clearance 保持物理采样与拓扑推导分离
+        // 地面支撑、坡度和角色体积共同决定 Walkable，此处不派生邻接和 Clearance
         private static void SampleCells(
             NavigationGridAuthoring authoring,
             Dictionary<Collider, string> colliderKeys,
@@ -451,9 +447,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 使用无分配射线收集候选地面并按距离和稳定键选择唯一命中
-        // 只接受当前场景对象防止其他已加载场景污染烘焙结果
-        // 命中数量达到缓存上限时主动失败避免静默截断候选集合
+        // 候选地面按距离和稳定键选择，只接受当前场景对象
+        // 命中达到缓存上限时主动失败，避免静默截断集合
         private static bool TryFindGround(
             NavigationGridAuthoring authoring,
             Dictionary<Collider, string> colliderKeys,
@@ -509,8 +504,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return found;
         }
 
-        // 中心命中不足以证明完整脚底受支撑
-        // 圆周支撑采样保守拒绝窄边缘、悬空位置和断裂平台
+        // 圆周采样保守拒绝窄边缘、悬空和断裂平台
         // 支撑点必须与中心命中保持可接受的高度连续性
         private static bool HasBaseAgentGroundSupport(
             NavigationGridAuthoring authoring,
@@ -572,9 +566,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return true;
         }
 
-        // 用基础角色体积检查地面上方是否存在静态阻挡
-        // 采样体积略微离开支撑面避免把地面自身当成障碍
-        // Trigger 和不相关 Layer 不进入正式阻挡判断
+        // 基础角色体积略微离开支撑面，避免把地面自身当成障碍
+        // Trigger 和不相关 Layer 不参与阻挡判断
         private static bool HasStaticObstacle(
             NavigationGridAuthoring authoring,
             RaycastHit groundHit,
@@ -716,8 +709,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return result;
         }
 
-        // Unity 对象查找顺序不参与任何确定性结果
-        // 此处只筛选场景 Layer、Bounds 和启用状态，后续再按稳定键排序
+        // 此处只筛选场景、Layer、Bounds 和启用状态，后续再按稳定键排序
         // Trigger 与无效 Collider 不参与几何 Hash 或物理采样
         private static List<Collider> CollectRelevantColliders(
             NavigationGridAuthoring authoring)
@@ -1093,9 +1085,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
     internal sealed class NavigationGridHashWriter : IDisposable
     {
-        // 所有值按固定字段顺序写入内存流
-        // 字符串显式写入 UTF8 长度避免相邻值产生拼接歧义
-        // Finish 后禁止继续复用防止逻辑摘要包含额外字段
+        // 所有值按固定字段顺序写入，字符串带 UTF8 长度前缀
+        // Finish 后禁止复用，防止摘要意外包含额外字段
         private readonly MemoryStream _stream = new MemoryStream();
         private readonly BinaryWriter _writer;
         private bool _finished;

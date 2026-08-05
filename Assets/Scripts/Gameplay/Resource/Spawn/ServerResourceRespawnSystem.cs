@@ -27,6 +27,7 @@ namespace AnimarsCatcher.Gameplay
 
         public void OnUpdate(ref SystemState state)
         {
+            // 基准测试期间隔离动态生成造成的负载波动
             if (SystemAPI.HasSingleton<NavigationBenchmarkEnabled>()) return;
 
             float deltaTime = SystemAPI.Time.DeltaTime;
@@ -55,13 +56,11 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                // 冷却结束：从这一帧开始允许补货（可能持续多帧，直到区域满为止）
-
-                // 统计当前区域内 Food / Crystal 数量
+                // 保持超时状态，未补满的区域会在后续帧继续获得刷新机会
                 int currentFoodCount = 0;
                 int currentCrystalCount = 0;
 
-                // —— 只统计 Food 类型的 PickableResource ——
+                // 可拾取掉落物只按 Food 计入区域容量
                 foreach (var (pickable, transform) in
                         SystemAPI.Query<RefRO<PickableResource>, RefRO<LocalTransform>>())
                 {
@@ -76,7 +75,7 @@ namespace AnimarsCatcher.Gameplay
                     currentFoodCount++;
                 }
 
-                // —— 只统计“完整的矿石堆”（FragileCrystal），不管掉落物 ——
+                // 只统计完整水晶，破坏后的掉落物不占水晶上限
                 foreach (var (fragileCrystal, transform) in
                         SystemAPI.Query<RefRO<FragileCrystal>, RefRO<LocalTransform>>())
                 {
@@ -96,10 +95,10 @@ namespace AnimarsCatcher.Gameplay
                 int crystalSpawnBudget = math.min(area.CrystalPerWave,
                                                 area.MaxCrystalCount - currentCrystalCount);
 
-                // —— 区域已经满了：这次补货阶段结束，重新进入冷却 ——
+                // 区域达到容量后重新开始波次冷却
                 if (foodSpawnBudget <= 0 && crystalSpawnBudget <= 0)
                 {
-                    area.RespawnTimer = 0f;   // 重置计时器，开始下一轮冷却
+                    area.RespawnTimer = 0f;
                     areaRef.ValueRW   = area;
                     continue;
                 }
@@ -127,20 +126,20 @@ namespace AnimarsCatcher.Gameplay
 
                 if (foodSpawnBudget <= 0 && crystalSpawnBudget <= 0)
                 {
-                    // 虽然一开始有缺口，但没有可用预制体，当作满了处理，重置冷却
+                    // 缺口无法生成时重置冷却，避免每帧重复扫描
                     area.RespawnTimer = 0f;
                     areaRef.ValueRW   = area;
                     continue;
                 }
 
-                // 这个区域本帧最多能刷多少个（不能超过全局剩余额度）
+                // 单个区域不能超出当前全局剩余预算
                 int areaSpawnBudget = globalSpawnBudget;
 
-                // 每个区域本帧只 new 一次 Random，Food / Crystal 共享这个随机源
+                // 同一区域的两类资源共享随机序列，种子只在帧末写回一次
                 var random = new Unity.Mathematics.Random(
                     area.RandomSeed == 0 ? 1u : area.RandomSeed);
 
-                // 先刷 Food
+                // Food 优先占用本帧预算
                 if (foodSpawnBudget > 0 && areaSpawnBudget > 0)
                 {
                     int spawnNow = math.min(foodSpawnBudget, areaSpawnBudget);
@@ -154,8 +153,9 @@ namespace AnimarsCatcher.Gameplay
                             area,
                             foodPrefabs);
 
+                        // Food 无可用位置时保留预算给 Crystal
                         if (!success)
-                            break; // 找不到合适位置了，退出，让 Crystal 有机会用预算
+                            break;
 
                         globalSpawnBudget--;
                         areaSpawnBudget--;
@@ -165,7 +165,7 @@ namespace AnimarsCatcher.Gameplay
                     }
                 }
 
-                // 再刷 Crystal
+                // Crystal 使用 Food 剩余的预算
                 if (crystalSpawnBudget > 0 && areaSpawnBudget > 0 && globalSpawnBudget > 0)
                 {
                     int spawnNow = math.min(crystalSpawnBudget, areaSpawnBudget);

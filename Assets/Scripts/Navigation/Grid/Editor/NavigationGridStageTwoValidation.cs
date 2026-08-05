@@ -322,12 +322,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         // 同时覆盖版本匹配 Buffer 写回和 World 销毁时的 NativeContainer 释放
         private static void TestAsynchronousPathfindingSystem()
         {
-            // Grid 和请求 Entity 使用正式组件与 Buffer 结构
-            // World Dispose 同时验证 System 持久容器回收
-            // 该用例使用真实 World 和 ISystem 不直接调用内部写回方法
-            // 第一次 Update 只能把 Pending 转为 Searching 并调度 Job
-            // 后续 Update 在 Handle 完成后才能提交结果
-            // 这样可以同时防止意外同步 Complete 和 Buffer 写回遗漏
+            // 使用正式组件和真实 ISystem，World Dispose 同时覆盖持久容器回收
             NavigationGridCellData[] cells = CreateWalkableCells(8, 8);
             PrepareCells(cells, 8, 8, 0.5f);
 
@@ -482,8 +477,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return cells;
         }
 
-        // 依次生成邻接 Clearance Cluster 和 Region 以模拟正式烘焙拓扑阶段
-        // 测试不能手工伪造 NeighborMask 否则可能绕过真实约束
+        // 按生产顺序生成邻接、Cluster 和 Region，避免手工伪造 NeighborMask
         private static void PrepareCells(
             NavigationGridCellData[] cells,
             int width,

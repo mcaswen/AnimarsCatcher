@@ -12,14 +12,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
     /// </summary>
     public static class NavigationGridStageOneFixtureFactory
     {
-        /// <summary>
-        /// 阶段一固定验收场景路径
-        /// </summary>
+        // 阶段一固定验收场景路径
         public const string ScenePath = "Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity";
 
-        /// <summary>
-        /// 阶段一固定验收资产路径
-        /// </summary>
+        // 阶段一固定验收资产路径
         public const string BakeAssetPath =
             "Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset";
 

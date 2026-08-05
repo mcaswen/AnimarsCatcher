@@ -58,7 +58,7 @@ namespace AnimarsCatcher.Presentation.UI
 
         }
 
-            // 订阅创建房间、成员加入和对局开始事件
+        // 订阅创建房间、成员加入和对局开始事件
         private void Start()
         {
             _onCreateRoomHandler = data => OnCreateRoomRequested();
@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Presentation.UI
             NetworkPresentationEvents.MatchStarted.AddListener(OnMatchStarted);
         }
 
-            // 对称解除静态事件监听，防止场景切换后重复回调
+        // 对称解除静态事件监听，防止场景切换后重复回调
         private void OnDestroy()
         {
            PresentationEventBus.Instance?.Unsubscribe(_onCreateRoomHandler);
@@ -75,7 +75,7 @@ namespace AnimarsCatcher.Presentation.UI
            NetworkPresentationEvents.MatchStarted.RemoveListener(OnMatchStarted);
         }
 
-            // 启动服务端监听、本机客户端回连和局域网广播
+        // 启动服务端监听、本机客户端回连和局域网广播
         private void OnCreateRoomRequested()
         {
             // 先启动服务端监听再发起本机连接
@@ -110,6 +110,7 @@ namespace AnimarsCatcher.Presentation.UI
 
         private void OnStartGameClicked()
         {
+            // UI 只发送请求，场景切换由服务器权威流程统一广播
             HostStartMatchRequestSender.SendStartMatchRequest(_startGameSceneName);
         }
 
@@ -122,7 +123,7 @@ namespace AnimarsCatcher.Presentation.UI
             _lanDiscoveryHost?.StopBroadcast();
         }
 
-            // 只展示远端成员，本机 Host 客户端不占用访客槽位
+        // 只展示远端成员，本机 Host 客户端不占用访客槽位
         private void OnLobbyClientJoined(LobbyClientJoinedEvent eventData)
         {
             if (eventData.IsLocalPlayer)
@@ -152,6 +153,7 @@ namespace AnimarsCatcher.Presentation.UI
             try
             {
                 var host = Dns.GetHostEntry(Dns.GetHostName());
+                // 房间展示需要局域网可达的 IPv4，IPv6 和回环候选不替换默认值
                 foreach (var ip in host.AddressList)
                 {
                     if (ip.AddressFamily == AddressFamily.InterNetwork)

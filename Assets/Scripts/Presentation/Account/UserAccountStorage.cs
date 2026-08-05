@@ -61,7 +61,7 @@ namespace AnimarsCatcher.Presentation.Account
             _initialized = true;
         }
 
-            // 从持久化目录恢复账号索引，文件损坏时保留空索引
+        // 从持久化目录恢复账号索引，文件损坏时保留空索引
         private static void LoadFromDisk()
         {
             _accounts.Clear();
@@ -86,7 +86,7 @@ namespace AnimarsCatcher.Presentation.Account
                     return;
                 }
 
-            // 重建忽略大小写的内存索引，并跳过无用户名的损坏记录
+                // 重建忽略大小写的内存索引，并跳过无用户名的损坏记录
                 foreach (var record in collection.Accounts)
                 {
                     if (string.IsNullOrEmpty(record.UserName))

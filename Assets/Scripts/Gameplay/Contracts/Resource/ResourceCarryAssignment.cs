@@ -8,12 +8,14 @@ namespace AnimarsCatcher.Gameplay.Contracts
 /// </summary>
 public struct ResourceCarryAssignment : IComponentData
 {
-    public Entity PlayerRobotEntity; // 资源最终交付的玩家机器人
+    // 资源最终交付的玩家机器人
+    public Entity PlayerRobotEntity;
 
-    public int AssignedCarrierAniCount; // 已分配的搬运 Ani 数量
-    public int ReadyCarrierAniCount;    // 已到达站位槽的 Ani 数量
+    public int AssignedCarrierAniCount;
+    public int ReadyCarrierAniCount;
 
-        public int IsCarryStarted;          // 零表示 Ani 正在就位，非零表示资源已开始移动
+    // 零表示 Ani 正在就位，非零表示资源已开始移动
+    public int IsCarryStarted;
 }
 
 /// <summary>
@@ -21,12 +23,17 @@ public struct ResourceCarryAssignment : IComponentData
 /// </summary>
 public struct AniCarryResourceOrder : IComponentData
 {
-    [GhostField] public Entity ResourceEntity; // 需要协助搬运的资源实体
-    [GhostField] public int SlotIndex;          // 对应资源站位缓冲区索引
+    // 需要协助搬运的资源实体
+    [GhostField]
+    public Entity ResourceEntity;
+
+    // 对应资源站位缓冲区索引
+    [GhostField]
+    public int SlotIndex;
 }
 
 /// <summary>
-    /// 可启用标签，用于搬运期间阻止 Ani 接收其他命令
+/// 可启用标签，用于搬运期间阻止 Ani 接收其他命令
 /// </summary>
 [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
 [GhostEnabledBit]

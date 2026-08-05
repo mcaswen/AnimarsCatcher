@@ -9,9 +9,6 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public struct AvatarAnimationParameters : IComponentData
     {
-        /// <summary>
-        /// 角色表现层使用的移动速度
-        /// </summary>
         [GhostField]
         public float Speed;
     }

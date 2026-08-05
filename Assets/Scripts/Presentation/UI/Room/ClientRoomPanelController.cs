@@ -89,7 +89,7 @@ namespace AnimarsCatcher.Presentation.UI
             NetworkPresentationEvents.MatchStarted.RemoveListener(OnMatchStarted);
         }
 
-            // 清空一次连接尝试的计时器、状态标记和提示界面
+        // 清空一次连接尝试的计时器、状态标记和提示界面
         private void ResetState()
         {
             _isSearchingServer = false;
@@ -169,7 +169,7 @@ namespace AnimarsCatcher.Presentation.UI
             _mainMenuPanel?.SetActive(true);
         }
 
-            // 周期刷新房间列表，找到主机后立即发起连接
+        // 周期刷新房间列表，找到主机后立即发起连接
         private void UpdateDiscovery()
         {
             var now = Time.time;
@@ -265,7 +265,7 @@ namespace AnimarsCatcher.Presentation.UI
                 _connectionSucceeded = true;
                 Debug.Log("[ClientRoomPanel] Detected successful connection (NetworkId present).");
 
-            // 连接建立后再发送玩家身份，避免 RPC 早于连接可用
+                // 连接建立后再发送玩家身份，避免 RPC 早于连接可用
                 ClientLobbyIntroRpcSender.SendIntro(clientWorld, PlayerSession.CurrentUserName);
 
                 return;

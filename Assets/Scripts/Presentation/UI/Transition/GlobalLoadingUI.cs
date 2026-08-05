@@ -55,7 +55,7 @@ namespace AnimarsCatcher.Presentation.UI
             _loadingRoutine = StartCoroutine(LoadingSequence(sceneName));
         }
 
-            // 同时推进图片轮播和异步加载，达到最低遮罩时间后才允许激活场景
+        // 同时推进图片轮播和异步加载，达到最低遮罩时间后才允许激活场景
         private IEnumerator LoadingSequence(string sceneName)
         {
             if (!_loadingCanvas)
@@ -124,7 +124,7 @@ namespace AnimarsCatcher.Presentation.UI
             _loadingRoutine = null;
         }
 
-            // 隐藏所有轮播图，由加载循环激活第一张
+        // 隐藏所有轮播图，由加载循环激活第一张
         private void SetupSlidesInitialState()
         {
             if (_slideImages == null)

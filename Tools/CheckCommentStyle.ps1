@@ -574,7 +574,8 @@ function Read-CSharpFile {
                 $previousLineIndex--
             }
 
-            if ($previousLineIndex -ge 0 -and $lines[$previousLineIndex].TrimStart().StartsWith('[')) {
+            if ($previousLineIndex -ge 0 -and
+                $lines[$previousLineIndex].Trim() -match '^\[[^]]+\]\s*$') {
                 Add-Violation $relativePath ($lineIndex + 1) "xml-placement" "XML documentation must appear before attributes"
             }
         }

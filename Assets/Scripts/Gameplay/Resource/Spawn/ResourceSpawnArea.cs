@@ -8,25 +8,32 @@ namespace AnimarsCatcher.Gameplay
     /// </summary>
     public struct ResourceSpawnArea : IComponentData
     {
-        public float3 Center;          // 区域世界坐标中心
-        public float2 HalfExtentsXZ;   // XZ 平面的半尺寸
+        public float3 Center;
+        // XZ 平面的半尺寸
+        public float2 HalfExtentsXZ;
         public float  SpawnHeightOffset;
 
-        public int MaxFoodCount;       // 区域内食物实体上限
-        public int MaxCrystalCount;    // 区域内水晶实体上限
+        // 区域内两类资源各自的实体上限
+        public int MaxFoodCount;
+        public int MaxCrystalCount;
 
-        public int FoodPerWave;        // 单波最多生成的食物数量
-        public int CrystalPerWave;     // 单波最多生成的水晶数量
+        // 单个波次允许生成的数量
+        public int FoodPerWave;
+        public int CrystalPerWave;
 
-        public float RespawnInterval;  // 两次刷新波次之间的秒数
-        public float RespawnTimer;     // 当前波次累计时间
+        // 两次刷新波次之间的秒数
+        public float RespawnInterval;
+        public float RespawnTimer;
 
-        public float SpawnCheckRadius; // 候选点周围的阻挡检测半径
-        public int BlockerLayerMask; // 参与阻挡检测的层掩码
+        // 候选点周围的阻挡检测参数
+        public float SpawnCheckRadius;
+        public int BlockerLayerMask;
 
-        public int MaxSpawnAttemptsPerResource; // 单个资源允许重选候选点的次数
+        // 单个资源允许重选候选点的次数
+        public int MaxSpawnAttemptsPerResource;
 
-        public uint RandomSeed;        // 跨帧延续的确定性随机数种子
+        // 跨帧延续的确定性随机数种子
+        public uint RandomSeed;
     }
 
     /// <summary>

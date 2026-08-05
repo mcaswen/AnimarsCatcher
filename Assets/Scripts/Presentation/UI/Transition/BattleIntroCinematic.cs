@@ -45,7 +45,7 @@ namespace AnimarsCatcher.Presentation.UI
             StartCoroutine(RunCinematic());
         }
 
-            // 提升开场相机优先级并沿轨道推进，完成后恢复输入和 HUD
+        // 提升开场相机优先级并沿轨道推进，完成后恢复输入和 HUD
         private IEnumerator RunCinematic()
         {
             ClientCinematicState.IsRunning = true;
@@ -105,7 +105,7 @@ namespace AnimarsCatcher.Presentation.UI
             }
         }
 
-            // 通过共享 UI 输入锁桥接演出状态，避免直接依赖玩家输入系统
+        // 通过共享 UI 输入锁桥接演出状态，避免直接依赖玩家输入系统
         private void SetInputEnabled(bool enabled)
         {
             if (enabled)

@@ -34,7 +34,8 @@ namespace AnimarsCatcher.Gameplay
             _transformLookup.Update(ref state);
 
             float deltaTime = SystemAPI.Time.DeltaTime;
-            const float maxTurnSpeedDegreesPerSecond = 540f; // 限制急转速度以保持攻击表现连续
+            // 限制急转速度以保持攻击表现连续
+            const float maxTurnSpeedDegreesPerSecond = 540f;
 
             foreach (var (transform, attackTarget, entity) in
                      SystemAPI.Query<RefRW<LocalTransform>, RefRO<AniAttackTarget>>()
@@ -67,8 +68,9 @@ namespace AnimarsCatcher.Gameplay
                 float dot = math.clamp(math.dot(currentForward, desiredForward), -1f, 1f);
                 float angleDeg = math.degrees(math.acos(dot));
 
+                // 微小误差不再写回旋转，降低抖动
                 if (angleDeg < 0.1f)
-                    continue; // 微小误差不再写回旋转，降低抖动
+                    continue;
 
                 // 最大步进随帧时间缩放，保证不同帧率下角速度一致
                 float maxStepDeg = maxTurnSpeedDegreesPerSecond * deltaTime;

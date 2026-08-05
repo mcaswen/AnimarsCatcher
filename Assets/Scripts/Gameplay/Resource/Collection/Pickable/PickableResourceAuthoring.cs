@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Gameplay
                 DynamicBuffer<PickableResourceCarrierSlot> slotBuffer =
                     AddBuffer<PickableResourceCarrierSlot>(entity);
 
-            // 自定义槽位按配置顺序写入，该顺序同时作为分配索引
+                // 自定义槽位按配置顺序写入，该顺序同时作为分配索引
                 if (authoring._carrierSlotLocalOffsets != null &&
                     authoring._carrierSlotLocalOffsets.Length > 0)
                 {

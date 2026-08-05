@@ -40,7 +40,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public float3 StartPosition;
         public float3 EndPosition;
 
-        // BaseAgentRadius 已在烘焙时参与占用采样，运行时只额外扣除超出部分
+        // BaseAgentRadius 已参与烘焙占用采样，运行时只扣除超出的半径
         public float AgentRadius;
         public float ClearanceMargin;
 
@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public uint Version;
 
         /// <summary>
-        /// 使用阶段二推荐默认值创建路径请求
+        /// 使用 Grid 路径服务的推荐默认值创建路径请求
         /// </summary>
         /// <param name="startPosition">请求起点世界坐标</param>
         /// <param name="endPosition">请求终点世界坐标</param>
@@ -99,21 +99,21 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationPathState : IComponentData
     {
-        // Pending 由调用方提交 Searching 由路径系统独占 Succeeded 和 Failed 为终态
+        // Pending 由调用方提交，Searching 由路径系统独占，Succeeded 和 Failed 为终态
         public NavigationPathStatus Status;
         public NavigationPathFailureReason FailureReason;
 
-        // RequestVersion 记录当前状态对应的请求，避免只比较 Component 当前值
+        // 记录状态对应的请求版本，避免只比较组件当前值
         public uint RequestVersion;
 
-        // 投影索引便于调试调用方输入和 Region 预拒绝结果
+        // 投影索引用于定位输入问题和 Region 预拒绝结果
         public int ProjectedStartCellIndex;
         public int ProjectedEndCellIndex;
 
-        // WaypointCount 与 Buffer 长度保持一致，便于只读查询和统计
+        // 与 Buffer 长度保持一致，便于只读查询和统计
         public int WaypointCount;
 
-        // ExpandedNodeCount 和 TotalCost 用于正确性对照与后续性能基线
+        // 搜索统计只用于正确性对照和性能基线
         public int ExpandedNodeCount;
         public float TotalCost;
 
@@ -144,7 +144,7 @@ namespace AnimarsCatcher.Navigation.Grid
     [InternalBufferCapacity(16)]
     public struct NavigationPathWaypoint : IBufferElementData
     {
-        // CellIndex 是确定性结果 Position 是便于下游移动消费的烘焙表面坐标
+        // CellIndex 是确定性结果，Position 是供下游移动使用的烘焙表面坐标
         public int CellIndex;
         public float3 Position;
     }
