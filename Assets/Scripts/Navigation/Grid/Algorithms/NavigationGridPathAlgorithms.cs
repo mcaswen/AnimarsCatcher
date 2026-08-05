@@ -390,7 +390,7 @@ namespace AnimarsCatcher.Navigation.Grid
             return pathLength > 0;
         }
 
-        private static float CalculateRequiredClearance(
+        internal static float CalculateRequiredClearance(
             ref NavigationGridBlob grid,
             float agentRadius,
             float clearanceMargin)
@@ -402,7 +402,7 @@ namespace AnimarsCatcher.Navigation.Grid
                    math.max(0f, clearanceMargin);
         }
 
-        private static float CalculateStepCost(
+        internal static float CalculateStepCost(
             ref NavigationGridBlob grid,
             int fromCellIndex,
             int toCellIndex,
@@ -428,7 +428,7 @@ namespace AnimarsCatcher.Navigation.Grid
             return distance * weightedTerrainCost;
         }
 
-        private static bool CanAgentTraverseEdge(
+        internal static bool CanAgentTraverseEdge(
             ref NavigationGridBlob grid,
             int fromCellIndex,
             int toCellIndex,
@@ -512,7 +512,7 @@ namespace AnimarsCatcher.Navigation.Grid
                    cellIndex < bestCellIndex;
         }
 
-        private static bool IsRequestValid(NavigationPathRequest request)
+        internal static bool IsRequestValid(NavigationPathRequest request)
         {
             // 连续值必须有限且处于不会破坏成本模型的范围
             // 投影半径限制同时保护扫描成本和整数坐标运算
@@ -529,7 +529,7 @@ namespace AnimarsCatcher.Navigation.Grid
                    request.MaximumProjectionRadiusInCells >= 0;
         }
 
-        private static bool IsGridShapeValid(ref NavigationGridBlob grid)
+        internal static bool IsGridShapeValid(ref NavigationGridBlob grid)
         {
             // Blob 尺寸和 Cell 数必须完全一致
             // 非正 CellSize 会破坏距离成本和坐标转换
@@ -586,7 +586,7 @@ namespace AnimarsCatcher.Navigation.Grid
             return directionIndex >= 0;
         }
 
-        private static void GetDirection(int directionIndex, out int deltaX, out int deltaZ)
+        internal static void GetDirection(int directionIndex, out int deltaX, out int deltaZ)
         {
             // Burst 路径内使用固定分支表避免托管数组和静态初始化
             switch (directionIndex)
@@ -602,7 +602,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        private static bool IsInside(int x, int z, int width, int height)
+        internal static bool IsInside(int x, int z, int width, int height)
         {
             // 坐标边界在转换为行主序索引前统一验证
             return x >= 0 && x < width && z >= 0 && z < height;

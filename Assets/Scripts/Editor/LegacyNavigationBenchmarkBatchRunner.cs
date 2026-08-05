@@ -3,6 +3,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
+using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Networking;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -11,7 +12,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Editor
 {
     /// <summary>
-    /// 在批处理 Editor 中打开固定场景、进入 Play Mode 并等待基准结果
+    /// 在批处理 Editor 中打开固定场景、进入 Play Mode并等待当前导航后端的基准结果
     /// </summary>
     [InitializeOnLoad]
     public static class LegacyNavigationBenchmarkBatchRunner
@@ -63,7 +64,7 @@ namespace AnimarsCatcher.Editor
                 !NetworkPlayModeConfiguration.IsServerOnly)
             {
                 throw new InvalidOperationException(
-                    "批处理 Legacy Benchmark 必须使用 -benchmark-server-only 启动参数");
+                    "批处理 Navigation Benchmark 必须使用 -benchmark-server-only 启动参数");
             }
 
             if (!LegacyNavigationBenchmarkController.IsSupportedAgentCount(agentCount))
@@ -71,7 +72,7 @@ namespace AnimarsCatcher.Editor
                 throw new ArgumentOutOfRangeException(
                     nameof(agentCount),
                     agentCount,
-                    "Legacy Navigation Benchmark 仅支持 32、64 或 128 Ani");
+                    "Navigation Benchmark 仅支持 32、64 或 128 Ani");
             }
 
             if (!File.Exists(Path.GetFullPath(ScenePath)))
@@ -132,7 +133,7 @@ namespace AnimarsCatcher.Editor
 
             if (EditorApplication.timeSinceStartup - _pollStartTime > TimeoutSeconds)
             {
-                Finish(1, "等待 Legacy Benchmark 结果超时");
+                Finish(1, "等待 Navigation Benchmark 结果超时");
                 return;
             }
 
@@ -141,14 +142,20 @@ namespace AnimarsCatcher.Editor
                 SessionState.GetString(StartTimeKey, DateTime.UtcNow.ToString("O")),
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind);
+            bool gridBackend =
+                AniMovementBackendLaunchConfiguration.Current == AniMovementBackend.ClearanceGrid;
             string outputDirectory = Path.GetFullPath(
-                "BenchmarkResults/LegacyNavigation");
+                gridBackend
+                    ? "BenchmarkResults/GridNavigation"
+                    : "BenchmarkResults/LegacyNavigation");
             if (!Directory.Exists(outputDirectory))
             {
                 return;
             }
 
-            string prefix = $"LegacyNavigation_{agentCount}_";
+            string prefix = gridBackend
+                ? $"GridNavigation_{agentCount}_"
+                : $"LegacyNavigation_{agentCount}_";
             string[] files = Directory.GetFiles(outputDirectory, prefix + "*.json");
             for (int i = 0; i < files.Length; i++)
             {
@@ -157,7 +164,7 @@ namespace AnimarsCatcher.Editor
                     continue;
                 }
 
-                Finish(0, $"Legacy Benchmark 结果已生成：{files[i]}");
+                Finish(0, $"Navigation Benchmark 结果已生成：{files[i]}");
                 return;
             }
         }

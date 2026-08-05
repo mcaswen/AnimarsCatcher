@@ -67,6 +67,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             // 量化发生在 Hash 和资产写入前保证两者读取同一份数据
             QuantizeCells(cells);
+            NavigationGridHierarchyBuildResult hierarchy =
+                NavigationGridHierarchyBuilder.Build(
+                    cells,
+                    width,
+                    height,
+                    authoring.ClusterSizeInCells,
+                    authoring.CellSize);
             var result = new NavigationGridBakeResult
             {
                 SourceSceneGuid = sceneGuid,
@@ -82,8 +89,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Width = width,
                 Height = height,
                 ClusterSizeInCells = authoring.ClusterSizeInCells,
+                ClusterWidth = hierarchy.ClusterWidth,
+                ClusterHeight = hierarchy.ClusterHeight,
                 RegionCount = regionCount,
                 Cells = cells,
+                Clusters = hierarchy.Clusters,
+                Portals = hierarchy.Portals,
+                PortalNodes = hierarchy.PortalNodes,
+                AbstractEdges = hierarchy.AbstractEdges,
+                ClusterPortalNodeIndices = hierarchy.ClusterPortalNodeIndices,
             };
             result.DataHash = ComputeDataHash(result);
 
@@ -857,9 +871,28 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 result.Width,
                 result.Height,
                 result.ClusterSizeInCells,
+                result.ClusterWidth,
+                result.ClusterHeight,
                 result.RegionCount,
-                result.Cells.Length);
+                result.Cells.Length,
+                result.Clusters.Length,
+                result.Portals.Length,
+                result.PortalNodes.Length,
+                result.AbstractEdges.Length,
+                result.ClusterPortalNodeIndices.Length);
             AppendCells(writer, result.Cells.Length, index => result.Cells[index]);
+            AppendHierarchy(
+                writer,
+                result.Clusters.Length,
+                index => result.Clusters[index],
+                result.Portals.Length,
+                index => result.Portals[index],
+                result.PortalNodes.Length,
+                index => result.PortalNodes[index],
+                result.AbstractEdges.Length,
+                index => result.AbstractEdges[index],
+                result.ClusterPortalNodeIndices.Length,
+                index => result.ClusterPortalNodeIndices[index]);
             return writer.FinishHash128();
         }
 
@@ -882,9 +915,28 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 bakeAsset.Width,
                 bakeAsset.Height,
                 bakeAsset.ClusterSizeInCells,
+                bakeAsset.ClusterWidth,
+                bakeAsset.ClusterHeight,
                 bakeAsset.RegionCount,
-                bakeAsset.CellCount);
+                bakeAsset.CellCount,
+                bakeAsset.ClusterCount,
+                bakeAsset.PortalCount,
+                bakeAsset.PortalNodeCount,
+                bakeAsset.AbstractEdgeCount,
+                bakeAsset.ClusterPortalNodeIndexCount);
             AppendCells(writer, bakeAsset.CellCount, bakeAsset.GetCell);
+            AppendHierarchy(
+                writer,
+                bakeAsset.ClusterCount,
+                bakeAsset.GetCluster,
+                bakeAsset.PortalCount,
+                bakeAsset.GetPortal,
+                bakeAsset.PortalNodeCount,
+                bakeAsset.GetPortalNode,
+                bakeAsset.AbstractEdgeCount,
+                bakeAsset.GetAbstractEdge,
+                bakeAsset.ClusterPortalNodeIndexCount,
+                bakeAsset.GetClusterPortalNodeIndex);
             return writer.FinishHash128();
         }
 
@@ -904,8 +956,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             int width,
             int height,
             int clusterSizeInCells,
+            int clusterWidth,
+            int clusterHeight,
             int regionCount,
-            int cellCount)
+            int cellCount,
+            int clusterCount,
+            int portalCount,
+            int portalNodeCount,
+            int abstractEdgeCount,
+            int clusterPortalNodeIndexCount)
         {
             writer.Append(sceneGuid);
             writer.Append(geometryHash);
@@ -919,8 +978,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             writer.Append(width);
             writer.Append(height);
             writer.Append(clusterSizeInCells);
+            writer.Append(clusterWidth);
+            writer.Append(clusterHeight);
             writer.Append(regionCount);
             writer.Append(cellCount);
+            writer.Append(clusterCount);
+            writer.Append(portalCount);
+            writer.Append(portalNodeCount);
+            writer.Append(abstractEdgeCount);
+            writer.Append(clusterPortalNodeIndexCount);
         }
 
         // Cell 按行主序写入，任何重排都会产生不同 Data Hash
@@ -942,6 +1008,72 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 writer.Append(cell.ClusterId);
                 writer.Append((byte)cell.NeighborMask);
                 writer.Append(cell.Walkable);
+            }
+        }
+
+        private static void AppendHierarchy(
+            NavigationGridHashWriter writer,
+            int clusterCount,
+            Func<int, NavigationGridClusterData> getCluster,
+            int portalCount,
+            Func<int, NavigationGridPortalData> getPortal,
+            int portalNodeCount,
+            Func<int, NavigationGridPortalNodeData> getPortalNode,
+            int abstractEdgeCount,
+            Func<int, NavigationGridAbstractEdgeData> getAbstractEdge,
+            int clusterPortalNodeIndexCount,
+            Func<int, int> getClusterPortalNodeIndex)
+        {
+            for (int index = 0; index < clusterCount; index++)
+            {
+                NavigationGridClusterData cluster = getCluster(index);
+                writer.Append(cluster.MinimumX);
+                writer.Append(cluster.MinimumZ);
+                writer.Append(cluster.MaximumXExclusive);
+                writer.Append(cluster.MaximumZExclusive);
+                writer.Append(cluster.PortalNodeOffset);
+                writer.Append(cluster.PortalNodeCount);
+            }
+
+            for (int index = 0; index < portalCount; index++)
+            {
+                NavigationGridPortalData portal = getPortal(index);
+                writer.Append(portal.ClusterA);
+                writer.Append(portal.ClusterB);
+                writer.Append(portal.RegionId);
+                writer.Append(portal.FirstCellA);
+                writer.Append(portal.LastCellA);
+                writer.Append(portal.FirstCellB);
+                writer.Append(portal.LastCellB);
+                writer.Append(portal.RepresentativeCellA);
+                writer.Append(portal.RepresentativeCellB);
+                writer.Append(portal.MinimumClearance);
+                writer.Append(portal.StaticCostAtoB);
+                writer.Append(portal.StaticCostBtoA);
+            }
+
+            for (int index = 0; index < portalNodeCount; index++)
+            {
+                NavigationGridPortalNodeData node = getPortalNode(index);
+                writer.Append(node.PortalIndex);
+                writer.Append(node.ClusterId);
+                writer.Append(node.CellIndex);
+                writer.Append(node.EdgeOffset);
+                writer.Append(node.EdgeCount);
+            }
+
+            for (int index = 0; index < abstractEdgeCount; index++)
+            {
+                NavigationGridAbstractEdgeData edge = getAbstractEdge(index);
+                writer.Append(edge.ToNodeIndex);
+                writer.Append(edge.StaticCost);
+                writer.Append(edge.MinimumClearance);
+                writer.Append(edge.CrossesPortal);
+            }
+
+            for (int index = 0; index < clusterPortalNodeIndexCount; index++)
+            {
+                writer.Append(getClusterPortalNodeIndex(index));
             }
         }
 

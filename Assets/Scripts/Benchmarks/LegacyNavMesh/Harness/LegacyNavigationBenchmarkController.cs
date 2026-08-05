@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using AnimarsCatcher.Gameplay.Contracts;
+using AnimarsCatcher.Navigation.Grid;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -130,9 +131,31 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             EntityManager entityManager = serverWorld.EntityManager;
             using EntityQuery existingQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<LegacyNavigationBenchmarkConfig>());
-            if (!existingQuery.IsEmptyIgnoreFilter)
+            using EntityQuery existingGridQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NavigationGridBenchmarkConfig>());
+            if (!existingQuery.IsEmptyIgnoreFilter || !existingGridQuery.IsEmptyIgnoreFilter)
             {
                 Debug.LogError("[LegacyNavigationBenchmark] Server World 已存在 Benchmark 配置");
+                return;
+            }
+
+            using EntityQuery backendConfigQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AniMovementBackendConfig>());
+            if (backendConfigQuery.CalculateEntityCount() != 1)
+            {
+                Debug.LogError("[NavigationBenchmark] 当前 World 缺少唯一移动后端配置");
+                serverWorld.QuitUpdate = true;
+                return;
+            }
+
+            Entity backendEntity = backendConfigQuery.GetSingletonEntity();
+            if (entityManager.HasComponent<GridMovementBackendEnabled>(backendEntity))
+            {
+                RegisterGridWorkload(entityManager);
+                _registered = true;
+                Debug.Log(
+                    $"[NavigationBenchmark] 已注册 GridNavigation_{_agentCount}，" +
+                    $"Ani={_agentCount}，Replay={_replayScript.ComputeHash()}");
                 return;
             }
 
@@ -194,6 +217,40 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             Debug.Log(
                 $"[LegacyNavigationBenchmark] 已注册 {_scenarioName}，Ani={_agentCount}，" +
                 $"Replay={_replayScript.ComputeHash()}");
+        }
+
+        private void RegisterGridWorkload(EntityManager entityManager)
+        {
+            Entity configEntity = entityManager.CreateEntity(
+                typeof(NavigationGridBenchmarkConfig),
+                typeof(NavigationGridBenchmarkState),
+                typeof(NavigationBenchmarkEnabled));
+            entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
+            entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
+            {
+                AgentCount = _agentCount,
+                WarmupTicks = math.max(0, _warmupTicks),
+                SampleTicks = math.max(1, _sampleTicks),
+                SpawnColumnCount = math.max(1, _spawnColumnCount),
+                SpawnSpacing = math.max(0.1f, _spawnSpacing),
+                SpawnOrigin = _spawnOrigin,
+                AgentRadius = 0.35f,
+                GitCommit = new FixedString64Bytes(GetGitCommit()),
+                MapSceneHash = new FixedString128Bytes(_mapSceneHash),
+                ReplayScriptHash = new FixedString128Bytes(_replayScript.ComputeHash()),
+                AutoQuit = (byte)(_autoQuitInBatchMode ? 1 : 0),
+            });
+            DynamicBuffer<NavigationGridBenchmarkCommand> commands =
+                entityManager.GetBuffer<NavigationGridBenchmarkCommand>(configEntity);
+            for (int index = 0; index < _replayScript.Commands.Count; index++)
+            {
+                LegacyNavigationBenchmarkCommandDefinition command = _replayScript.Commands[index];
+                commands.Add(new NavigationGridBenchmarkCommand
+                {
+                    Tick = command.Tick,
+                    TargetOffset = command.TargetOffset,
+                });
+            }
         }
 
         private static string GetGitCommit()
