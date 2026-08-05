@@ -1325,7 +1325,7 @@ MonoBehaviour:
   _obstacleLayers:
     serializedVersion: 2
     m_Bits: 1
-  _maximumSlopeDegrees: 70.4
+  _maximumSlopeDegrees: 35
   _maximumStepHeight: 0.6
   _baseAgentRadius: 0.35
   _baseAgentHeight: 1.5
