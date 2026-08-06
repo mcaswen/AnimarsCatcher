@@ -307,9 +307,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Entity configEntity = entityManager.CreateEntity(
                     typeof(NavigationGridBenchmarkConfig),
                     typeof(NavigationGridBenchmarkState));
-                DynamicBuffer<NavigationGridBenchmarkCommand> commands =
-                    entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
+                entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
                 entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
+                DynamicBuffer<NavigationGridBenchmarkCommand> commands =
+                    entityManager.GetBuffer<NavigationGridBenchmarkCommand>(configEntity);
                 commands.Add(new NavigationGridBenchmarkCommand
                 {
                     Tick = 0,
