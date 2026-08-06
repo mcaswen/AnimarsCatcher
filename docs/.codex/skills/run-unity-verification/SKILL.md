@@ -172,6 +172,18 @@ if ($process.ExitCode -ne 0) {
 - Legacy：`BenchmarkResults/LegacyNavigation`
 - 日志：`Logs/navigation-<backend>-<count>.log`
 
+## 判定阶段三验收边界
+
+Grid 后端的 32、64、128 Ani 正确性和单后端工作负载结果，不能直接作为跨后端性能对比的完成标志。只有在同一验证基线下同时取得 Grid 与 Normalized Legacy 结果，才能关闭跨后端对照：
+
+- 两个后端使用相同的 Git 提交、Unity 版本、包版本、场景、烘焙网格哈希和回放脚本哈希。
+- 使用相同的 Ani 数量、预热时长、采样时长、采样频率和硬件；每个数量至少分别运行 `32`、`64`、`128`。
+- 同时记录 `BenchmarkResults` 中的路径请求终态、成功率、缓存命中情况，以及 Flow Field 主线程样本的 P50/P95/P99/最大值。
+- 不能把 `ServerNavigationGridFlowFieldSystem` 的主线程样本当成完整 Server Tick 成本。日志仍出现 `Server Tick Batching` 时，必须继续采集 Unity Profiler 和 NetCode Statistics，并与 Normalized Legacy 的同口径结果比较。
+- 报告中明确区分“阶段三功能/稳定性验收已完成”和“跨后端最终性能对比已完成”；缺少 Normalized Legacy 或完整 Server Tick 对照时，后者保持未完成。
+
+每组结果都要保留实际提交号和日志路径，不能只根据某一次本地运行的退出码或单个 P95 数值下结论。
+
 ## 运行 PlayMode Test
 
 项目存在目标 PlayMode 测试程序集时使用 Test Framework：
@@ -180,21 +192,29 @@ if ($process.ExitCode -ne 0) {
 $testResultPath = Join-Path $verifyRoot "Logs\playmode-results.xml"
 $testLogPath = Join-Path $verifyRoot "Logs\playmode-tests.log"
 
-& $unityExe `
-    -batchmode `
-    -nographics `
-    -projectPath $verifyRoot `
-    -runTests `
-    -testPlatform PlayMode `
-    -testResults $testResultPath `
-    -logFile $testLogPath
+$testArguments = @(
+    "-batchmode",
+    "-projectPath", $verifyRoot,
+    "-runTests",
+    "-testPlatform", "PlayMode",
+    "-testResults", $testResultPath,
+    "-logFile", $testLogPath
+)
 
-if ($LASTEXITCODE -ne 0) {
-    throw "Unity PlayMode Test 失败，退出码：$LASTEXITCODE；日志：$testLogPath"
+# Unity.exe 是 Windows GUI 子系统程序，使用 Start-Process 等待 Test Framework 真正结束
+$process = Start-Process `
+    -FilePath $unityExe `
+    -ArgumentList $testArguments `
+    -Wait `
+    -PassThru `
+    -NoNewWindow
+
+if ($process.ExitCode -ne 0) {
+    throw "Unity PlayMode Test 失败，退出码：$($process.ExitCode)；日志：$testLogPath"
 }
 ```
 
-不要添加 `-quit`，否则测试可能在完成前被终止。
+不要添加 `-quit` 或默认添加 `-nographics`。`Start-Process -Wait` 用于等待 Test Framework 的真实退出码；`-nographics` 只在测试明确不创建渲染上下文且已单独验证时使用，否则 URP/渲染初始化错误可能让进程无法正常收尾。
 
 ## 检查结果
 
