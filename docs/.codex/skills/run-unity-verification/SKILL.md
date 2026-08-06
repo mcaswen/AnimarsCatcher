@@ -106,7 +106,6 @@ $logPath = Join-Path $logDirectory "stage-three-validation.log"
 
 & $unityExe `
     -batchmode `
-    -nographics `
     -projectPath $verifyRoot `
     -executeMethod AnimarsCatcher.Navigation.Grid.Editor.NavigationGridStageThreeValidation.RunFromCommandLine `
     -logFile $logPath `
@@ -145,7 +144,6 @@ New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 
 $unityArguments = @(
     "-batchmode",
-    "-nographics",
     "-projectPath", $verifyRoot,
     "-benchmark-server-only",
     "-movement-backend=$backend",
@@ -154,13 +152,19 @@ $unityArguments = @(
     "-logFile", $logPath
 )
 
-& $unityExe @unityArguments
-if ($LASTEXITCODE -ne 0) {
-    throw "Unity Play Mode 验证失败，退出码：$LASTEXITCODE；日志：$logPath"
+# Unity.exe 是 Windows GUI 子系统程序，使用 Start-Process 确保调用方等待其真实退出码
+$process = Start-Process `
+    -FilePath $unityExe `
+    -ArgumentList $unityArguments `
+    -Wait `
+    -PassThru `
+    -NoNewWindow
+if ($process.ExitCode -ne 0) {
+    throw "Unity Play Mode 验证失败，退出码：$($process.ExitCode)；日志：$logPath"
 }
 ```
 
-不要给这条命令添加 `-quit`。Runner 会打开统一 Benchmark 场景、进入 Play Mode、等待结果、退出 Play Mode，再用正确的退出码结束 Editor。
+不要给这条命令添加 `-quit` 或 `-nographics`。Runner 会打开统一 Benchmark 场景、进入 Play Mode、等待结果、退出 Play Mode，再用正确的退出码结束 Editor；`-nographics` 可能让 URP 在 Null Device 下持续输出渲染错误并阻塞清理。
 
 结果位置：
 
@@ -203,6 +207,8 @@ git -C $verifyRoot status --short
 ```
 
 只把 `BenchmarkResults` 和 `Logs` 当作本地验证产物。若 `git status` 显示受版本控制文件变化，先检查 Unity 是否改写了项目设置，再决定如何处理。
+
+Unity 可能在验证目录生成目录名对应的 `.slnx`、`.vscode/settings.json`、部分 `ProjectSettings` 或渲染缓存资产。关闭 Unity 后确认这些是本次验证自动生成的内容，再恢复或移除；不要覆盖验证目录中的用户修改，也不要把它们提交回主项目。
 
 ## 移除 worktree
 

@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 
-> 状态：阶段零 Harness、后端互斥和固定场景已实现，Normalized Legacy 实机基线待持续采集
+> 状态：阶段零 Harness、后端互斥和固定场景已实现，Grid 阶段三 32/64/128 实机工作负载已采集；Normalized Legacy 实机基线和完整 Server Tick 对照仍待持续采集
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -153,7 +153,17 @@ Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movemen
   -benchmark-git-commit=<提交哈希> -logFile <日志路径>
 ```
 
-阶段三 Grid 路径与 Field 工作负载使用相同命令，只把后端改为 `grid`。结果写入 `BenchmarkResults/GridNavigation`，记录请求成功/失败、缓存命中、Field 构建次数、抽象节点访问量、Integration Cell 访问量和 Grid Data Hash。该阶段不生成速度、不驱动 Ani，也不与 Legacy 的到达时间或阵型指标直接比较。
+阶段三 Grid 路径与 Field 工作负载使用相同命令，只把后端改为 `grid`。结果写入 `BenchmarkResults/GridNavigation`，记录请求成功/失败、缓存命中、Field 构建次数、抽象节点访问量、Integration Cell 访问量、Grid Data Hash 和 Flow Field 系统主线程采样。该阶段不生成速度、不驱动 Ani，也不与 Legacy 的到达时间或阵型指标直接比较。
+
+2026-08-06 在提交 `997332a` 上完成三档 Grid 工作负载：32、64、128 Ani 均使用 720 个样本，所有请求成功，`TransformWriteCount=0`。Flow Field 主线程采样结果为：
+
+| Ani 数量 | P50 | P95 | P99 | 最大值 |
+|---:|---:|---:|---:|---:|
+| 32 | 0.0364 ms | 0.0572 ms | 0.4064 ms | 1.2181 ms |
+| 64 | 0.0547 ms | 0.0875 ms | 1.1145 ms | 1.2473 ms |
+| 128 | 0.0865 ms | 0.1603 ms | 1.2329 ms | 1.3509 ms |
+
+该采样只包围 `ServerNavigationGridFlowFieldSystem` 的主线程调度与结果写回，不包含 Worker Job 执行时间。64 和 128 Ani 日志仍出现 NetCode `Server Tick Batching`，因此这些结果可以证明寻路系统工作负载已完成，但不能单独证明完整 Server Simulation 满足最终性能门禁。
 
 ## 6. 结果管理
 

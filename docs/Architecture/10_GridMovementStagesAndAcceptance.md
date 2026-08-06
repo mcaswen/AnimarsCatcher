@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field 已实现；阶段零和阶段三实机性能基线仍需持续采集
+> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field 验收完成；完整 Server Simulation 与 Normalized Legacy 的横向性能对照仍需继续采集
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -155,6 +155,7 @@
 - 统一 Benchmark 场景加载器按 `-movement-backend=grid` 注册 32、64 或 128 个纯路径请求；场景没有烘焙 Grid 时，由 `ServerNavigationGridBenchmarkGridSystem` 提供覆盖固定回放坐标的 Benchmark 专用静态 Grid
 - Benchmark 专用 Grid 只衡量路径、Corridor 与 Field 工作负载，不代表正式地图碰撞数据，也不创建或写入 Ani Transform
 - `NavigationGridStageThreeValidation` 覆盖层级数据确定性、普通 A* 可达性对照、25% 路径质量上限、Portal Clearance、局部 Field、缓存、World 过滤、异步写回和三种请求规模
+- 2026-08-06 在提交 `997332a` 的独立验证 worktree 中完成阶段三 Editor 自动验收，入口返回码为 0；Grid 32、64、128 Ani 批处理均完成 720 个主线程样本，所有请求成功且 `TransformWriteCount=0`
 
 ### 交付物
 
@@ -183,7 +184,8 @@
 - 大范围路径访问的 Cell 数明显低于普通全图 A*
 - 路径质量满足配置允许的次优范围
 - 相同目标的请求组可以复用合适的静态数据，阶段四的 Squad 直接消费该缓存
-- 64 和 128 Ani 场景没有主线程路径尖峰
+- Flow Field 系统自身的主线程采样已量化：64 Ani 的 P50/P95/P99/最大值为 `0.0547/0.0875/1.1145/1.2473 ms`，128 Ani 为 `0.0865/0.1603/1.2329/1.3509 ms`；两档均无超过 `2 ms` 的样本
+- 完整 Server Simulation 日志仍出现 `Server Tick Batching`，该现象属于全组 Tick 调度，不等同于 Flow Field 系统自身的主线程路径尖峰；需要结合 Profiler 与 NetCode Statistics 完成与 Normalized Legacy 的横向对照
 
 ## 6. 阶段四：Squad、Anchor 与基础阵型
 
