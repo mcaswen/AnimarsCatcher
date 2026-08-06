@@ -246,6 +246,25 @@ namespace AnimarsCatcher.Navigation.Grid
 
         // 表示采样和全部请求写回是否已经结束
         public byte Completed;
+
+        // 表示 Benchmark 结果是否已经写入磁盘
+        public byte ResultExported;
+
+        // 保存 Flow Field 系统当前 Tick 的主线程计时起点
+        public long FlowFieldStartTimestamp;
+
+        // 表示当前 Tick 是否处于 Flow Field 主线程采样窗口
+        public byte RecordFlowFieldTiming;
+    }
+
+    /// <summary>
+    /// 保存单个 Grid Flow Field 主线程更新的墙钟样本
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridBenchmarkTimingSample : IBufferElementData
+    {
+        // 保存从 Flow Field 系统开始到结束的主线程耗时
+        public double FlowFieldMilliseconds;
     }
 
     /// <summary>

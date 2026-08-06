@@ -231,6 +231,24 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(
                 !ContainsSystem(clientSystems, typeof(ServerNavigationGridFlowFieldSystem)),
                 "Client World 不应注册阶段三 Field System");
+            Assert(
+                ContainsSystem(
+                    serverSystems,
+                    typeof(ServerNavigationGridBenchmarkTimingStartSystem)),
+                "Server World 缺少 Grid Benchmark 计时起点 System");
+            Assert(
+                ContainsSystem(
+                    serverSystems,
+                    typeof(ServerNavigationGridBenchmarkTimingEndSystem)),
+                "Server World 缺少 Grid Benchmark 计时终点 System");
+            Assert(
+                !ContainsSystem(
+                    clientSystems,
+                    typeof(ServerNavigationGridBenchmarkTimingStartSystem)) &&
+                !ContainsSystem(
+                    localSystems,
+                    typeof(ServerNavigationGridBenchmarkTimingStartSystem)),
+                "Grid Benchmark 计时 System 只能注册到 Server World");
         }
 
         private static void TestAsynchronousFlowFieldSystem()
@@ -291,6 +309,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     typeof(NavigationGridBenchmarkState));
                 DynamicBuffer<NavigationGridBenchmarkCommand> commands =
                     entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
+                entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
                 commands.Add(new NavigationGridBenchmarkCommand
                 {
                     Tick = 0,

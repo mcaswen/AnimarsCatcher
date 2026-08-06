@@ -34,6 +34,23 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
                 SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkCommand>(true);
 
+            if (benchmarkState.Completed != 0)
+            {
+                if (benchmarkState.ResultExported == 0)
+                {
+                    ExportResult(
+                        config,
+                        benchmarkState,
+                        SystemAPI.GetSingleton<NavigationGridReference>().Value.Value.DataHash.ToString(),
+                        SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkTimingSample>());
+                    benchmarkState.ResultExported = 1;
+                    state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
+                    state.Enabled = false;
+                }
+
+                return;
+            }
+
             if (benchmarkState.Initialized == 0)
             {
                 // 首条命令同时承担 Warmup 目标，空回放无法建立可比工作负载
@@ -72,15 +89,6 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 // 采样期结束后仍等待最后一个异步批次进入终态，避免导出缺失结果
                 benchmarkState.Completed = 1;
-                ExportResult(
-                    config,
-                    benchmarkState,
-                    SystemAPI.GetSingleton<NavigationGridReference>().Value.Value.DataHash.ToString());
-                state.Enabled = false;
-                if (Application.isBatchMode && config.AutoQuit != 0)
-                {
-                    Application.Quit(0);
-                }
             }
 
             state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
@@ -227,8 +235,22 @@ namespace AnimarsCatcher.Navigation.Grid
         private static void ExportResult(
             NavigationGridBenchmarkConfig config,
             NavigationGridBenchmarkState benchmarkState,
-            string gridBakeHash)
+            string gridBakeHash,
+            DynamicBuffer<NavigationGridBenchmarkTimingSample> timingSamples)
         {
+            double[] sortedTimingSamples = new double[timingSamples.Length];
+            // 排序副本用于百分位，原始副本保留逐 Tick 尖峰位置
+            for (int index = 0; index < timingSamples.Length; index++)
+            {
+                sortedTimingSamples[index] = timingSamples[index].FlowFieldMilliseconds;
+            }
+
+            Array.Sort(sortedTimingSamples);
+            double[] timingSamplesInTickOrder = new double[timingSamples.Length];
+            for (int index = 0; index < timingSamples.Length; index++)
+            {
+                timingSamplesInTickOrder[index] = timingSamples[index].FlowFieldMilliseconds;
+            }
             var report = new NavigationGridBenchmarkReport
             {
                 AgentCount = config.AgentCount,
@@ -245,6 +267,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     benchmarkState.TotalIntegrationExpandedCellCount,
                 // 本 Benchmark 只驱动路径请求，不创建或更新 Ani Transform
                 TransformWriteCount = 0,
+                FlowFieldMainThreadSampleCount = sortedTimingSamples.Length,
+                FlowFieldMainThreadP50Milliseconds = CalculatePercentile(sortedTimingSamples, 0.50),
+                FlowFieldMainThreadP95Milliseconds = CalculatePercentile(sortedTimingSamples, 0.95),
+                FlowFieldMainThreadP99Milliseconds = CalculatePercentile(sortedTimingSamples, 0.99),
+                FlowFieldMainThreadMaxMilliseconds =
+                    sortedTimingSamples.Length == 0 ? 0.0 : sortedTimingSamples[^1],
+                FlowFieldMainThreadMilliseconds = timingSamplesInTickOrder,
                 GitCommit = config.GitCommit.ToString(),
                 UnityVersion = Application.unityVersion,
                 EntitiesAssemblyVersion = typeof(Entity).Assembly.GetName().Version?.ToString(),
@@ -268,6 +297,20 @@ namespace AnimarsCatcher.Navigation.Grid
                 $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
             Debug.Log($"[NavigationBenchmark] Grid 路径与 Field 结果已生成：{path}");
+        }
+
+        private static double CalculatePercentile(double[] sortedSamples, double percentile)
+        {
+            if (sortedSamples.Length == 0)
+            {
+                return 0.0;
+            }
+
+            int index = math.clamp(
+                (int)math.ceil((float)(percentile * sortedSamples.Length)) - 1,
+                0,
+                sortedSamples.Length - 1);
+            return sortedSamples[index];
         }
 
         private static void FailBenchmark(
@@ -301,6 +344,12 @@ namespace AnimarsCatcher.Navigation.Grid
             public int TotalAbstractExpandedNodeCount;
             public int TotalIntegrationExpandedCellCount;
             public int TransformWriteCount;
+            public int FlowFieldMainThreadSampleCount;
+            public double FlowFieldMainThreadP50Milliseconds;
+            public double FlowFieldMainThreadP95Milliseconds;
+            public double FlowFieldMainThreadP99Milliseconds;
+            public double FlowFieldMainThreadMaxMilliseconds;
+            public double[] FlowFieldMainThreadMilliseconds;
             public string GitCommit;
             public string UnityVersion;
             public string EntitiesAssemblyVersion;

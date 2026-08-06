@@ -32,6 +32,15 @@ namespace AnimarsCatcher.Editor
         {
             EditorApplication.delayCall += ExitIfPending;
             EditorApplication.delayCall += ResumeIfActive;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.EnteredEditMode)
+            {
+                EditorApplication.delayCall += ExitIfPending;
+            }
         }
 
         /// <summary>
@@ -118,7 +127,7 @@ namespace AnimarsCatcher.Editor
         {
             // 必须退出 Play Mode 后再退出 Editor，否则批处理可能丢失最终日志和文件刷新
             int exitCode = SessionState.GetInt(PendingExitCodeKey, NoPendingExitCode);
-            if (exitCode == NoPendingExitCode)
+            if (exitCode == NoPendingExitCode || EditorApplication.isPlayingOrWillChangePlaymode)
             {
                 return;
             }

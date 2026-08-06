@@ -236,6 +236,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 typeof(NavigationGridBenchmarkState),
                 typeof(NavigationBenchmarkEnabled));
             entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
+            entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 AgentCount = _agentCount,
