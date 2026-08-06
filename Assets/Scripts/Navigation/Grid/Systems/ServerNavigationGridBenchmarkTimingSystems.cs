@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 
 namespace AnimarsCatcher.Navigation.Grid
