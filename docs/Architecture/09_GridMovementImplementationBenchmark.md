@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 
-> 状态：阶段零 Harness、后端互斥和固定场景已实现，Grid 阶段三 32/64/128 实机工作负载已采集；Normalized Legacy 实机基线和完整 Server Tick 对照仍待持续采集
+> 状态：阶段零 Harness、后端互斥和固定场景已实现，Grid 阶段三路径/Field 工作负载与阶段四 Squad 开阔地移动验收已实现；Normalized Legacy 实机基线和完整 Server Tick 对照仍待持续采集
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -154,6 +154,8 @@ Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movemen
 ```
 
 阶段三 Grid 路径与 Field 工作负载使用相同命令，只把后端改为 `grid`。结果写入 `BenchmarkResults/GridNavigation`，记录请求成功/失败、缓存命中、Field 构建次数、抽象节点访问量、Integration Cell 访问量、Grid Data Hash 和 Flow Field 系统主线程采样。该阶段不生成速度、不驱动 Ani，也不与 Legacy 的到达时间或阵型指标直接比较。
+
+阶段四群体移动使用同一场景加载器和回放资产，在启动参数中增加 `-grid-benchmark-workload=stage4`（默认即为阶段四）。该工作负载由 Grid 系统按 32、64 或 128 Ani 创建一支 Squad，将回放目标转换为一个 `AniSquadOrder`，并运行完整开阔地移动链路。结果仍写入 `BenchmarkResults/GridNavigation`，额外包含 `Workload=SquadMovement`、Squad 数、路径请求成功/失败、缓存命中、到达率、最小单位间距、平均阵型误差、唯一 Commit 写入次数、完整 Server Tick P50/P95/P99 和主线程分配样本。它与阶段三的纯路径/Field JSON 通过 `Workload` 区分，不能混作同一指标。
 
 2026-08-06 在提交 `997332a` 上完成三档 Grid 工作负载：32、64、128 Ani 均使用 720 个样本，所有请求成功，`TransformWriteCount=0`。Flow Field 主线程采样结果为：
 

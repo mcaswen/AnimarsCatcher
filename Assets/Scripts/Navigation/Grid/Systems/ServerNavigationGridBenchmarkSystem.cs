@@ -12,8 +12,7 @@ namespace AnimarsCatcher.Navigation.Grid
     /// 复用统一 Benchmark 场景参数生成纯路径、Corridor 和 Field 工作负载
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateBefore(typeof(ServerNavigationGridFlowFieldSystem))]
+    [UpdateInGroup(typeof(AniGridOrderIngressSystemGroup))]
     public partial struct ServerNavigationGridBenchmarkSystem : ISystem
     {
         public void OnCreate(ref SystemState state)
@@ -29,6 +28,11 @@ namespace AnimarsCatcher.Navigation.Grid
             Entity benchmarkEntity = SystemAPI.GetSingletonEntity<NavigationGridBenchmarkConfig>();
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
+            if (config.Workload != NavigationGridBenchmarkWorkload.PathAndField)
+            {
+                return;
+            }
+
             NavigationGridBenchmarkState benchmarkState =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkState>();
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
@@ -221,15 +225,13 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationGridBenchmarkConfig config,
             int agentIndex)
         {
-            // 列数至少为一，避免错误配置导致除零
-            int columns = math.max(1, config.SpawnColumnCount);
-            int x = agentIndex % columns;
-            int z = agentIndex / columns;
-            // AgentIndex 按 XZ 行主序映射到生成阵列
-            return config.SpawnOrigin + new float3(
-                x * config.SpawnSpacing,
-                0f,
-                z * config.SpawnSpacing);
+            return NavigationBenchmarkInputAlgorithms.CalculateSpawnPosition(
+                agentIndex,
+                config.AgentCount,
+                config.SpawnColumnCount,
+                config.SpawnSpacing,
+                config.SpawnOrigin,
+                config.RandomSeed);
         }
 
         private static void ExportResult(

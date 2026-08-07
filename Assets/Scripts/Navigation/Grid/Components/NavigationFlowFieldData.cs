@@ -5,6 +5,15 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
+    /// 区分阶段三纯路径工作负载和阶段四群体移动工作负载
+    /// </summary>
+    public enum NavigationGridBenchmarkWorkload : byte
+    {
+        SquadMovement,
+        PathAndField
+    }
+
+    /// <summary>
     /// 描述一次 HPA 星 Corridor 和局部 Flow Field 请求
     /// </summary>
     public struct NavigationFlowFieldRequest : IComponentData
@@ -175,8 +184,13 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationGridBenchmarkConfig : IComponentData
     {
+        public NavigationGridBenchmarkWorkload Workload;
+
         // 指定本次生成的独立路径与 Field 请求数量
         public int AgentCount;
+
+        // 固定生成位置和回放使用的随机种子
+        public int RandomSeed;
 
         // 指定回放采样前等待的 Server Tick 数量
         public int WarmupTicks;
@@ -255,6 +269,36 @@ namespace AnimarsCatcher.Navigation.Grid
 
         // 表示当前 Tick 是否处于 Flow Field 主线程采样窗口
         public byte RecordFlowFieldTiming;
+    }
+
+    /// <summary>
+    /// 保存阶段四群体移动 Benchmark 的回放进度和结果状态
+    /// </summary>
+    public struct NavigationGridMovementBenchmarkState : IComponentData
+    {
+        public int Tick;
+        public int NextCommandIndex;
+        public int AppliedCommandCount;
+        public int FinalArrivalCount;
+        public int FinalMemberCount;
+        public uint NextOrderSequence;
+        public long FrameStartTimestamp;
+        public long FrameStartAllocatedBytes;
+        public byte Initialized;
+        public byte Completed;
+        public byte ResultExported;
+        public byte RecordCurrentTick;
+        public byte Failed;
+    }
+
+    /// <summary>
+    /// 保存阶段四完整 Server Simulation Tick 样本
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridMovementBenchmarkTimingSample : IBufferElementData
+    {
+        public double ServerSimulationMilliseconds;
+        public long MainThreadAllocatedBytes;
     }
 
     /// <summary>

@@ -1,3 +1,4 @@
+using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Mathematics;
 
 namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
@@ -25,19 +26,13 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             float3 origin,
             int randomSeed)
         {
-            int safeColumnCount = math.max(1, columnCount);
-            int rowCount = math.max(1, (count + safeColumnCount - 1) / safeColumnCount);
-            int row = index / safeColumnCount;
-            int column = index % safeColumnCount;
-
-            float x = (column - (safeColumnCount - 1) * 0.5f) * spacing;
-            float z = (row - (rowCount - 1) * 0.5f) * spacing;
-
-            uint seed = math.hash(new uint2((uint)randomSeed, (uint)(index + 1)));
-            var random = new Random(seed == 0 ? 1u : seed);
-            float2 jitter = random.NextFloat2(-0.05f, 0.05f);
-
-            return origin + new float3(x + jitter.x, 0f, z + jitter.y);
+            return NavigationBenchmarkInputAlgorithms.CalculateSpawnPosition(
+                index,
+                count,
+                columnCount,
+                spacing,
+                origin,
+                randomSeed);
         }
 
         /// <summary>

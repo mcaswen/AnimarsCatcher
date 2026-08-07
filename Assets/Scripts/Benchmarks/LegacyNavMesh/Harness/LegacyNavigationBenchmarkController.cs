@@ -230,16 +230,21 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 
         private void RegisterGridWorkload(EntityManager entityManager)
         {
+            NavigationGridBenchmarkWorkload workload = GetGridWorkload();
             // Grid 与 Legacy 使用同一组规模、时长、出生布局和回放哈希以保证横向可比
             Entity configEntity = entityManager.CreateEntity(
                 typeof(NavigationGridBenchmarkConfig),
                 typeof(NavigationGridBenchmarkState),
+                typeof(NavigationGridMovementBenchmarkState),
                 typeof(NavigationBenchmarkEnabled));
             entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
             entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkTimingSample>(configEntity);
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
+                Workload = workload,
                 AgentCount = _agentCount,
+                RandomSeed = _replayScript.RandomSeed,
                 WarmupTicks = math.max(0, _warmupTicks),
                 SampleTicks = math.max(1, _sampleTicks),
                 SpawnColumnCount = math.max(1, _spawnColumnCount),
@@ -251,6 +256,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 ReplayScriptHash = new FixedString128Bytes(_replayScript.ComputeHash()),
                 AutoQuit = (byte)(_autoQuitInBatchMode ? 1 : 0),
             });
+            entityManager.SetComponentData(
+                configEntity,
+                new NavigationGridMovementBenchmarkState());
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
                 entityManager.GetBuffer<NavigationGridBenchmarkCommand>(configEntity);
             // 两种后端消费同一 Tick 序列，差异只来自寻路实现
@@ -263,6 +271,49 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                     TargetOffset = command.TargetOffset,
                 });
             }
+
+            Debug.Log(
+                $"[NavigationBenchmark] Grid workload={workload}，Ani={_agentCount}");
+        }
+
+        private static NavigationGridBenchmarkWorkload GetGridWorkload()
+        {
+            const string argumentName = "-grid-benchmark-workload";
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                string argument = arguments[index];
+                string value = null;
+                if (argument.StartsWith(argumentName + "=", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = argument[(argumentName.Length + 1)..];
+                }
+                else if (string.Equals(argument, argumentName, StringComparison.OrdinalIgnoreCase) &&
+                         index + 1 < arguments.Length)
+                {
+                    value = arguments[index + 1];
+                }
+
+                if (string.Equals(value, "stage3", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "path", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NavigationGridBenchmarkWorkload.PathAndField;
+                }
+
+                if (string.Equals(value, "stage4", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "movement", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NavigationGridBenchmarkWorkload.SquadMovement;
+                }
+
+                if (value != null)
+                {
+                    throw new ArgumentException(
+                        $"无法识别 Grid Benchmark workload“{value}”，可用值为 stage3 或 stage4");
+                }
+            }
+
+            return NavigationGridBenchmarkWorkload.SquadMovement;
         }
 
         private static string GetGitCommit()

@@ -8,8 +8,7 @@ namespace AnimarsCatcher.Navigation.Grid
     /// 在 Grid Benchmark 的采样窗口开始记录 Flow Field 系统计时
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
-    [UpdateAfter(typeof(ServerNavigationGridBenchmarkSystem))]
+    [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
     [UpdateBefore(typeof(ServerNavigationGridFlowFieldSystem))]
     public partial struct ServerNavigationGridBenchmarkTimingStartSystem : ISystem
     {
@@ -21,10 +20,15 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            RefRW<NavigationGridBenchmarkState> benchmarkState =
-                SystemAPI.GetSingletonRW<NavigationGridBenchmarkState>();
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
+            if (config.Workload != NavigationGridBenchmarkWorkload.PathAndField)
+            {
+                return;
+            }
+
+            RefRW<NavigationGridBenchmarkState> benchmarkState =
+                SystemAPI.GetSingletonRW<NavigationGridBenchmarkState>();
             // Benchmark System 已递增 Tick，因此开区间排除全部预热 Tick
             // 结果导出发生在下一 Tick，闭区间仍会保留最后一个采样 Tick
             bool shouldRecord =
@@ -45,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid
     /// 在 Flow Field 系统更新后保存主线程样本
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
     [UpdateAfter(typeof(ServerNavigationGridFlowFieldSystem))]
     public partial struct ServerNavigationGridBenchmarkTimingEndSystem : ISystem
     {
@@ -57,6 +61,12 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
+            if (SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>().Workload !=
+                NavigationGridBenchmarkWorkload.PathAndField)
+            {
+                return;
+            }
+
             RefRW<NavigationGridBenchmarkState> benchmarkState =
                 SystemAPI.GetSingletonRW<NavigationGridBenchmarkState>();
             if (benchmarkState.ValueRO.RecordFlowFieldTiming == 0)

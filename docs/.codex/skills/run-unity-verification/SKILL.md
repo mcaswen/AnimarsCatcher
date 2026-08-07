@@ -118,6 +118,29 @@ if ($LASTEXITCODE -ne 0) {
 
 Unity 会在调用 `-executeMethod` 前完成资源导入和脚本编译。首次运行需要创建完整的独立 `Library`，耗时会明显更长。
 
+## 运行阶段四 Editor 验收
+
+阶段四使用同一个同步 Editor 验收入口，覆盖纯算法和最小完整移动链路，不依赖主项目当前是否被 Unity 占用：
+
+```powershell
+$logDirectory = Join-Path $verifyRoot "Logs"
+New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
+$logPath = Join-Path $logDirectory "stage-four-validation.log"
+
+& $unityExe `
+    -batchmode `
+    -projectPath $verifyRoot `
+    -executeMethod AnimarsCatcher.Navigation.Grid.Editor.NavigationGridStageFourValidation.RunFromCommandLine `
+    -logFile $logPath `
+    -quit
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Unity 阶段四验收失败，退出码：$LASTEXITCODE；日志：$logPath"
+}
+```
+
+验收必须看到日志标记 `Navigation Grid 阶段四自动验收通过`。入口固定覆盖 32、64、128 Ani，并检查：槽位唯一和中心对称、Squad 成员生命周期、Anchor 不绑定具体 Ani、Server/Client World 过滤、Planner/Anchor/Commit 顺序、一次订单一个 Squad 路径上下文、开阔地 MoveTo 到达，以及只有 `AniMovementCommitSystem` 递增成员 Transform 提交计数。该入口是阶段四功能验收，不替代阶段三算法验收或跨后端性能对照。
+
 ## 运行 Play Mode 寻路验证
 
 只允许 `32`、`64` 或 `128` 个 Ani，并明确选择 `grid` 或 `legacy` 后端：

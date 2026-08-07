@@ -5,7 +5,7 @@
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 
-> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field 验收完成；完整 Server Simulation 与 Normalized Legacy 的横向性能对照仍需继续采集
+> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field、阶段四 Squad 开阔地移动验收完成；完整 Server Simulation 与 Normalized Legacy 的横向性能对照仍需继续采集
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -219,9 +219,17 @@
 ### 退出条件
 
 - 路径与 Field 重建次数随 Squad 数量增长，而不是随成员数量增长
-- 开阔地 MoveTo、Follow 和 Find 能完成到达
+- 开阔地 MoveTo 能完成到达；Follow/Find 的目标解析和动态重规划已接入，但需补充专项到达验收
 - 成员追踪槽位时没有大规模路径交叉
 - 客户端只通过 Ghost 插值观察移动结果
+
+### 当前实现与验收记录
+
+- `ServerAniOrderIngressSystem` 将正式 `AniCommandRpc` 的权限校验结果写入统一 `AniSquadOrder`；Benchmark 回放由 `ServerNavigationGridMovementBenchmarkSystem` 直接写入同一契约，不绕过 Squad 生命周期。
+- `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 维护一次订单对应一个 Squad 路径上下文，并处理成员加入、离队、失效和拆队。
+- `AniSquadAnchorAdvanceSystem`、`AniFormationLayoutSystem`、`AniFormationAssignmentSystem`、`AniSlotTargetSystem`、`AniPreferredVelocitySystem`、`AniMovementCommitSystem` 和 `AniMovementProgressSystem` 已形成固定的服务器更新链路。基础 Commit 是 Grid 后端唯一 Ani `LocalTransform` 写入者。
+- `NavigationGridStageFourValidation.RunFromCommandLine` 已覆盖 32、64、128 Ani 的槽位唯一/中心对称、World 过滤、System 顺序、成员生命周期和开阔地 MoveTo 到达；2026-08-07 验收通过。
+- 阶段四 Benchmark 结果写入 `BenchmarkResults/GridNavigation`，记录 Squad 数、路径请求终态、缓存命中、到达率、最小单位间距、阵型误差、Transform 提交次数和完整 Server Tick 样本。阶段四验收不包含 ORCA、动态 Overlay、世界碰撞或受阻恢复。
 
 阶段四只建立可验证的最小完整移动链路，正确性范围限定为开阔地和静态 Grid 引导。局部避碰、硬世界碰撞、受阻恢复和拥挤场景门禁属于阶段六；阶段六扩展现有 Commit 输入，不得创建第二个 Transform 写入 System。
 

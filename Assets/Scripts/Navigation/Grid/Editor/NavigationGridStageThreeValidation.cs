@@ -318,6 +318,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 });
                 entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
                 {
+                    Workload = NavigationGridBenchmarkWorkload.PathAndField,
                     AgentCount = count,
                     WarmupTicks = 1,
                     SampleTicks = 2,

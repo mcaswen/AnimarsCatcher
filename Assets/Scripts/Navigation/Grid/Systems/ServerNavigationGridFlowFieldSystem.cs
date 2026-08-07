@@ -12,7 +12,8 @@ namespace AnimarsCatcher.Navigation.Grid
     [WorldSystemFilter(
         WorldSystemFilterFlags.ServerSimulation |
         WorldSystemFilterFlags.LocalSimulation)]
-    [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
+    [UpdateAfter(typeof(AniSquadPathRequestSystem))]
     public partial struct ServerNavigationGridFlowFieldSystem : ISystem
     {
         private const int MaximumRequestsPerBatch = 16;

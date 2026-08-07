@@ -19,6 +19,8 @@ namespace AnimarsCatcher.Gameplay
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
+            // Grid 后端由 AniMovementCommitSystem 独占权威 Transform 写入
+            state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             _transformLookup = state.GetComponentLookup<LocalTransform>(isReadOnly: true);
 
             state.RequireForUpdate(
