@@ -1,5 +1,6 @@
 using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Benchmarks.LegacyNavigation;
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Player;
@@ -195,9 +196,10 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         {
             float3 targetPosition = config.SpawnOrigin + command.TargetOffset;
             float3 forward = targetPosition - config.SpawnOrigin;
-            forward.y = 0f;
             // 目标与原点重合时使用固定前向，避免阵型旋转出现无效四元数
-            forward = math.normalizesafe(forward, new float3(0f, 0f, 1f));
+            forward = PlanarMath.NormalizeXZOrDefault(
+                forward,
+                new float3(0f, 0f, 1f));
             quaternion formationRotation = quaternion.LookRotationSafe(forward, math.up());
 
             foreach (var (_, entity) in

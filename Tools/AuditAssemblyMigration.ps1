@@ -569,11 +569,6 @@ $navigationExternalDependencies = @(
             $_.Target -ne 'AnimarsCatcher.Navigation'
         }
 )
-foreach ($dependency in $navigationExternalDependencies)
-{
-    $criticalIssues.Add(
-        "Navigation depends on project assembly candidate: $($dependency.Target)")
-}
 
 $dependencyBoundaryViolations = @()
 foreach ($rule in $rules | Where-Object EnforceDependencyBoundary)

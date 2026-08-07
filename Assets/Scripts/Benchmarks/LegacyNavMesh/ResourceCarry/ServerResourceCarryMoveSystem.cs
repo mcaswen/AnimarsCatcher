@@ -2,6 +2,7 @@ using AnimarsCatcher.Core.Fsm;
 using AnimarsCatcher.Benchmarks.LegacyNavigation.Harness;
 using AnimarsCatcher.Gameplay.Contracts;
 using AnimarsCatcher.Gameplay;
+using AnimarsCatcher.Core;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -147,11 +148,13 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 // 仅在本帧产生实际位移时更新朝向
                 {
                     float3 moveDelta   = currentPosition - previousPosition;
-                    float3 moveDeltaXZ = new float3(moveDelta.x, 0f, moveDelta.z);
+                    float3 moveDeltaXZ = PlanarMath.FlattenY(moveDelta);
 
                     if (math.lengthsq(moveDeltaXZ) > 1e-6f)
                     {
-                        float3 forward = math.normalizesafe(moveDeltaXZ, new float3(0f, 0f, 1f));
+                        float3 forward = PlanarMath.NormalizeXZOrDefault(
+                            moveDeltaXZ,
+                            new float3(0f, 0f, 1f));
                         quaternion newRotation = quaternion.LookRotationSafe(forward, math.up());
 
                         resourceTransform.Rotation = newRotation;

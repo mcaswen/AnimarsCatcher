@@ -68,7 +68,7 @@ Runtime
 
 - `Core` 不依赖任何项目业务程序集
 - `Gameplay.Contracts` 只依赖 Core 和必要 Unity Package
-- Navigation、Gameplay、Player 和 Networking 可以依赖共享契约
+- Navigation、Gameplay、Player 和 Networking 可以依赖 Core 与共享契约
 - Presentation 可以依赖运行时业务模块，运行时业务模块不能反向依赖 Presentation
 - Editor 只能依赖对应 Runtime 或 Authoring 程序集
 - Tests 只能依赖被测试程序集和测试框架

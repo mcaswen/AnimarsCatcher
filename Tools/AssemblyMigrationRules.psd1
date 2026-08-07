@@ -1,5 +1,5 @@
 @{
-    Version = 10
+    Version = 11
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     ProjectAssembliesAutoReferenced = $false
@@ -57,7 +57,11 @@
             NamespacePrefixes = @('AnimarsCatcher.Navigation.Grid.Editor')
             RequireNamespace = $true
             EnforceDependencyBoundary = $true
-            AllowedProjectDependencies = @('AnimarsCatcher.Navigation')
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Navigation'
+            )
         }
         @{
             Path = 'Assets/Scripts/Navigation/Grid'
@@ -90,6 +94,7 @@
                 'AnimarsCatcher.Core',
                 'AnimarsCatcher.Gameplay',
                 'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Navigation',
                 'AnimarsCatcher.Player'
             )
         }
@@ -107,6 +112,7 @@
             AllowedProjectDependencies = @(
                 'AnimarsCatcher.Benchmarks.LegacyNavigation',
                 'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
                 'AnimarsCatcher.Navigation.Editor',
                 'AnimarsCatcher.Networking',
                 'AnimarsCatcher.Physics.Authoring',
@@ -181,7 +187,10 @@
             NamespacePrefixes = @('AnimarsCatcher.Player')
             RequireNamespace = $true
             EnforceDependencyBoundary = $true
-            AllowedProjectDependencies = @('AnimarsCatcher.Gameplay')
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Core',
+                'AnimarsCatcher.Gameplay'
+            )
         }
         @{
             Path = 'Assets/Scripts/Presentation'

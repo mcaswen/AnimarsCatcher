@@ -35,21 +35,5 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 randomSeed);
         }
 
-        /// <summary>
-        /// 从已排序样本计算最近秩百分位数
-        /// </summary>
-        /// <param name="sortedSamples">按升序排列且非空的样本</param>
-        /// <param name="percentile">零到一之间的百分位</param>
-        /// <returns>对应最近秩样本值</returns>
-        public static double CalculateNearestRankPercentile(
-            double[] sortedSamples,
-            double percentile)
-        {
-            int index = math.clamp(
-                (int)math.ceil((float)(percentile * sortedSamples.Length)) - 1,
-                0,
-                sortedSamples.Length - 1);
-            return sortedSamples[index];
-        }
     }
 }

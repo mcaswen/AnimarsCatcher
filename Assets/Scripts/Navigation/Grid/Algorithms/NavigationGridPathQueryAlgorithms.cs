@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using Unity.Mathematics;
 
 namespace AnimarsCatcher.Navigation.Grid
@@ -23,7 +24,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             coordinate = default;
             cellIndex = -1;
-            if (!IsGridShapeValid(ref grid) || !math.all(math.isfinite(worldPosition)))
+            if (!IsGridShapeValid(ref grid) || !VectorMath.IsFinite(worldPosition))
             {
                 return false;
             }
@@ -112,7 +113,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             projectedCellIndex = -1;
             if (!IsGridShapeValid(ref grid) ||
-                !math.all(math.isfinite(worldPosition)) ||
+                !VectorMath.IsFinite(worldPosition) ||
                 !math.isfinite(agentRadius) ||
                 !math.isfinite(clearanceMargin) ||
                 agentRadius < 0f ||

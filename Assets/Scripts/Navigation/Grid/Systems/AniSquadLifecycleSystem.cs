@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Entities;

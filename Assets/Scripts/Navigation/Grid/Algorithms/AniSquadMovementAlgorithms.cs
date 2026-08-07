@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -107,28 +108,6 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 按最大加速度限制向目标速度移动
-        /// </summary>
-        /// <param name="current">当前速度</param>
-        /// <param name="target">期望速度</param>
-        /// <param name="maximumDelta">本 Tick 允许的最大速度变化</param>
-        /// <returns>限制后的速度</returns>
-        public static float3 MoveTowards(
-            float3 current,
-            float3 target,
-            float maximumDelta)
-        {
-            float distance = math.distance(current, target);
-            if (distance <= maximumDelta || distance <= 1e-5f)
-            {
-                // 距离已落入本 Tick 可达范围时直接命中目标，避免归一化放大误差
-                return target;
-            }
-
-            return current + (target - current) * (maximumDelta / distance);
-        }
-
-        /// <summary>
         /// 按槽位误差、锚点前馈速度和成员速度上限计算成员期望速度
         /// </summary>
         /// <param name="currentPosition">成员当前位置</param>
@@ -143,7 +122,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float maximumSpeed)
         {
             float3 error = slotTarget - currentPosition;
-            error.y = 0f;
+            error = PlanarMath.FlattenY(error);
             float distance = math.length(error);
             float3 desired = anchorVelocity + error * 2.5f;
             float speed = math.length(desired);
@@ -173,7 +152,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float stoppingDistance)
         {
             float3 offset = targetPosition - currentPosition;
-            offset.y = 0f;
+            offset = PlanarMath.FlattenY(offset);
             float distance = math.length(offset);
             if (distance <= math.max(0f, stoppingDistance))
             {
@@ -188,7 +167,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 ? math.sqrt(math.max(0f, 2f * maximumAcceleration *
                                       (distance - stoppingDistance)))
                 : maximumSpeed;
-            return math.normalizesafe(offset) * math.min(maximumSpeed, speed);
+            return PlanarMath.NormalizeXZOrDefault(offset, float3.zero) *
+                   math.min(maximumSpeed, speed);
         }
 
         /// <summary>

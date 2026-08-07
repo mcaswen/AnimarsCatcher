@@ -2,6 +2,7 @@
   "name": "AnimarsCatcher.Player",
   "rootNamespace": "AnimarsCatcher.Player",
   "references": [
+    "GUID:6e511b275469ff94d90513168e5651c7",
     "GUID:fa16307da46fd914dbbf094824885beb",
     "GUID:2665a8d13d1b3f18800f46e256720795",
     "GUID:e0cd26848372d4e5c891c569017e11f1",

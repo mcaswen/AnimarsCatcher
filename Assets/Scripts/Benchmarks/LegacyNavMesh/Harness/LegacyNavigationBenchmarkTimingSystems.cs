@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Text;
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Benchmarks.LegacyNavigation;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
@@ -184,27 +185,27 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 MinimumUnitSpacing = minimumUnitSpacing,
                 AverageFormationError = averageFormationError,
                 ServerTickP50Milliseconds =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedTickMilliseconds,
                         0.50),
                 ServerTickP95Milliseconds =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedTickMilliseconds,
                         0.95),
                 ServerTickP99Milliseconds =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedTickMilliseconds,
                         0.99),
                 MainThreadAllocP50Bytes =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedAllocatedBytes,
                         0.50),
                 MainThreadAllocP95Bytes =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedAllocatedBytes,
                         0.95),
                 MainThreadAllocP99Bytes =
-                    LegacyNavigationBenchmarkAlgorithms.CalculateNearestRankPercentile(
+                    StatisticsMath.CalculateNearestRankPercentile(
                         sortedAllocatedBytes,
                         0.99),
                 GitCommit = config.GitCommit.ToString(),
@@ -279,23 +280,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 slotIndex++;
             }
 
-            minimumUnitSpacing = float.PositiveInfinity;
-            for (int firstIndex = 0; firstIndex < positions.Count; firstIndex++)
-            {
-                for (int secondIndex = firstIndex + 1;
-                     secondIndex < positions.Count;
-                     secondIndex++)
-                {
-                    minimumUnitSpacing = math.min(
-                        minimumUnitSpacing,
-                        math.distance(positions[firstIndex], positions[secondIndex]));
-                }
-            }
-
-            if (!math.isfinite(minimumUnitSpacing))
-            {
-                minimumUnitSpacing = 0f;
-            }
+            minimumUnitSpacing = StatisticsMath.CalculateMinimumPairwiseDistance(positions);
 
             averageFormationError = positions.Count == 0
                 ? 0f

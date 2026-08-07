@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AnimarsCatcher.Core;
 using UnityEngine;
 
 namespace AnimarsCatcher.Navigation.Grid
@@ -624,12 +625,12 @@ namespace AnimarsCatcher.Navigation.Grid
             Array.Fill(heapPositions, -1);
             int heapCount = 0;
             costs[sourceCellIndex] = 0f;
-            PushMin(sourceCellIndex, costs, heap, heapPositions, ref heapCount);
+            IndexedFloatHeap.PushMin(sourceCellIndex, costs, heap, heapPositions, ref heapCount);
 
             // 非负地形成本允许在当前 Cluster 内使用 Dijkstra
             while (heapCount > 0)
             {
-                int current = PopMin(costs, heap, heapPositions, ref heapCount);
+                int current = IndexedFloatHeap.PopMin(costs, heap, heapPositions, ref heapCount);
                 int currentX = current % width;
                 int currentZ = current / width;
                 NavigationNeighborMask mask = cells[current].NeighborMask;
@@ -661,7 +662,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     costs[neighbor] = candidate;
-                    PushMin(neighbor, costs, heap, heapPositions, ref heapCount);
+                    IndexedFloatHeap.PushMin(neighbor, costs, heap, heapPositions, ref heapCount);
                 }
             }
         }
@@ -681,12 +682,12 @@ namespace AnimarsCatcher.Navigation.Grid
             int heapCount = 0;
             // 源 Cell 以自身 Clearance 作为初始瓶颈
             widths[sourceCellIndex] = cells[sourceCellIndex].Clearance;
-            PushMax(sourceCellIndex, widths, heap, heapPositions, ref heapCount);
+            IndexedFloatHeap.PushMax(sourceCellIndex, widths, heap, heapPositions, ref heapCount);
 
             // 最大堆优先传播当前最宽的候选路径
             while (heapCount > 0)
             {
-                int current = PopMax(widths, heap, heapPositions, ref heapCount);
+                int current = IndexedFloatHeap.PopMax(widths, heap, heapPositions, ref heapCount);
                 int currentX = current % width;
                 int currentZ = current / width;
                 NavigationNeighborMask mask = cells[current].NeighborMask;
@@ -723,7 +724,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     widths[neighbor] = candidate;
-                    PushMax(neighbor, widths, heap, heapPositions, ref heapCount);
+                    IndexedFloatHeap.PushMax(neighbor, widths, heap, heapPositions, ref heapCount);
                 }
             }
         }
@@ -805,185 +806,5 @@ namespace AnimarsCatcher.Navigation.Grid
             return right.CrossesPortal.CompareTo(left.CrossesPortal);
         }
 
-        private static void PushMin(
-            int cell,
-            float[] values,
-            int[] heap,
-            int[] positions,
-            ref int count)
-        {
-            int position = positions[cell];
-            // 负位置表示 Cell 尚未进入最小堆
-            if (position < 0)
-            {
-                position = count++;
-                heap[position] = cell;
-                positions[cell] = position;
-            }
-
-            // 调用方只会降低成本，因此从当前位置向上恢复堆序
-            SiftUpMin(position, values, heap, positions);
-        }
-
-        private static int PopMin(float[] values, int[] heap, int[] positions, ref int count)
-        {
-            int result = heap[0];
-            // 弹出后用负位置标记 Cell 已离开开放堆
-            positions[result] = -1;
-            count--;
-            if (count > 0)
-            {
-                // 用末尾节点补根并向下恢复最小堆
-                heap[0] = heap[count];
-                positions[heap[0]] = 0;
-                SiftDownMin(0, count, values, heap, positions);
-            }
-
-            return result;
-        }
-
-        private static void PushMax(
-            int cell,
-            float[] values,
-            int[] heap,
-            int[] positions,
-            ref int count)
-        {
-            int position = positions[cell];
-            // 最大堆复用 positions，负位置同样表示尚未入堆
-            if (position < 0)
-            {
-                position = count++;
-                heap[position] = cell;
-                positions[cell] = position;
-            }
-
-            // 瓶颈值只会改善，因此从当前位置向上恢复堆序
-            SiftUpMax(position, values, heap, positions);
-        }
-
-        private static int PopMax(float[] values, int[] heap, int[] positions, ref int count)
-        {
-            int result = heap[0];
-            // 弹出后清除反向索引，允许后续改善时重新入堆
-            positions[result] = -1;
-            count--;
-            if (count > 0)
-            {
-                // 用末尾节点补根并向下恢复最大堆
-                heap[0] = heap[count];
-                positions[heap[0]] = 0;
-                SiftDownMax(0, count, values, heap, positions);
-            }
-
-            return result;
-        }
-
-        private static void SiftUpMin(int position, float[] values, int[] heap, int[] positions)
-        {
-            while (position > 0)
-            {
-                int parent = (position - 1) / 2;
-                if (!IsLower(heap[position], heap[parent], values))
-                {
-                    break;
-                }
-
-                Swap(position, parent, heap, positions);
-                position = parent;
-            }
-        }
-
-        private static void SiftDownMin(
-            int position,
-            int count,
-            float[] values,
-            int[] heap,
-            int[] positions)
-        {
-            while (true)
-            {
-                int left = position * 2 + 1;
-                if (left >= count)
-                {
-                    return;
-                }
-
-                int right = left + 1;
-                int best = right < count && IsLower(heap[right], heap[left], values) ? right : left;
-                if (!IsLower(heap[best], heap[position], values))
-                {
-                    return;
-                }
-
-                Swap(position, best, heap, positions);
-                position = best;
-            }
-        }
-
-        private static void SiftUpMax(int position, float[] values, int[] heap, int[] positions)
-        {
-            while (position > 0)
-            {
-                int parent = (position - 1) / 2;
-                if (!IsHigher(heap[position], heap[parent], values))
-                {
-                    break;
-                }
-
-                Swap(position, parent, heap, positions);
-                position = parent;
-            }
-        }
-
-        private static void SiftDownMax(
-            int position,
-            int count,
-            float[] values,
-            int[] heap,
-            int[] positions)
-        {
-            while (true)
-            {
-                int left = position * 2 + 1;
-                if (left >= count)
-                {
-                    return;
-                }
-
-                int right = left + 1;
-                int best = right < count && IsHigher(heap[right], heap[left], values) ? right : left;
-                if (!IsHigher(heap[best], heap[position], values))
-                {
-                    return;
-                }
-
-                Swap(position, best, heap, positions);
-                position = best;
-            }
-        }
-
-        private static bool IsLower(int left, int right, float[] values)
-        {
-            // 成本相同以 Cell 索引打破平局，保证最小堆弹出顺序稳定
-            return values[left] < values[right] - CostEpsilon ||
-                   (Math.Abs(values[left] - values[right]) <= CostEpsilon && left < right);
-        }
-
-        private static bool IsHigher(int left, int right, float[] values)
-        {
-            // 宽度相同仍选择更小 Cell 索引，保证最大堆弹出顺序稳定
-            return values[left] > values[right] + CostEpsilon ||
-                   (Math.Abs(values[left] - values[right]) <= CostEpsilon && left < right);
-        }
-
-        private static void Swap(int left, int right, int[] heap, int[] positions)
-        {
-            int value = heap[left];
-            heap[left] = heap[right];
-            heap[right] = value;
-            positions[heap[left]] = left;
-            positions[heap[right]] = right;
-        }
     }
 }

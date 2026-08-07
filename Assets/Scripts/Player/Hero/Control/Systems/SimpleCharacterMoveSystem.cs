@@ -1,5 +1,6 @@
 namespace AnimarsCatcher.Player
 {
+    using AnimarsCatcher.Core;
     using Unity.Burst;
     using Unity.Entities;
     using Unity.Mathematics;
@@ -59,7 +60,7 @@ namespace AnimarsCatcher.Player
             }
 
             // 简化角色只允许在水平面移动
-            moveDirection = math.normalizesafe(new float3(moveDirection.x, 0, moveDirection.z));
+            moveDirection = PlanarMath.NormalizeXZOrDefault(moveDirection, float3.zero);
             float3 delta = moveDirection * config.MoveSpeed * deltaTime;
 
             float3 startPosition = localTransform.Position;

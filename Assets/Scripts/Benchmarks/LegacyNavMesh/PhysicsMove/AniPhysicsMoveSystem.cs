@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -204,7 +205,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     currentPosition += finalDelta;
 
                     // 朝向仅使用水平分量，保持世界 Y 轴为上方向
-                    float3 flatDir = new float3(moveDirection.x, 0f, moveDirection.z);
+                    float3 flatDir = PlanarMath.FlattenY(moveDirection);
                     if (math.lengthsq(flatDir) > 1e-6f)
                     {
                         quaternion targetRot = quaternion.LookRotationSafe(flatDir, math.up());

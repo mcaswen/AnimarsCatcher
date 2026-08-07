@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -48,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 // Target Entity 也可能产生无效 Transform，不能让非有限值进入路径请求
-                if (!math.all(math.isfinite(targetPosition)))
+                if (!VectorMath.IsFinite(targetPosition))
                 {
                     pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
                     continue;

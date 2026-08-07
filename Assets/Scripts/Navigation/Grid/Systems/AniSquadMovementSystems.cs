@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Entities;
@@ -87,7 +88,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     math.max(0f, squad.ValueRO.MinimumMaxAcceleration) * deltaTime;
 
                 // Anchor 速度按加速度上限渐进，避免 Field 方向切换造成瞬时速度跳变
-                float3 velocity = AniSquadMovementAlgorithms.MoveTowards(
+                float3 velocity = VectorMath.MoveTowards(
                     anchor.ValueRO.Velocity,
                     targetVelocity,
                     maximumVelocityDelta);
@@ -111,7 +112,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 anchor.ValueRW.Position = position;
                 anchor.ValueRW.Velocity = velocity;
                 // Position 和 Velocity 必须来自同一积分结果，避免 Progress 看到混合帧
-                float3 flatVelocity = new(velocity.x, 0f, velocity.z);
+                float3 flatVelocity = PlanarMath.FlattenY(velocity);
                 if (math.lengthsq(flatVelocity) > 1e-5f)
                 {
                     // 有有效水平速度时朝运动方向转向，停止后保留订单指定朝向
@@ -180,7 +181,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 // 成员速度仍受自身加速度限制，阵型误差不会瞬移修正
                 // 缺少 Anchor 时 targetVelocity 保持零并自然减速
-                preferredVelocity.ValueRW.Value = AniSquadMovementAlgorithms.MoveTowards(
+                preferredVelocity.ValueRW.Value = VectorMath.MoveTowards(
                     preferredVelocity.ValueRO.Value,
                     targetVelocity,
                     config.ValueRO.MaxAcceleration * deltaTime);
@@ -221,7 +222,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 float3 velocity = preferredVelocity.ValueRO.Value;
 
                 // 移动模型只在水平面工作，保留 Transform 原有高度
-                velocity.y = 0f;
+                velocity = PlanarMath.FlattenY(velocity);
                 LocalTransform nextTransform = transform.ValueRO;
                 nextTransform.Position += velocity * deltaTime;
 
@@ -259,7 +260,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 // 槽位误差从已提交位置计算，Progress 不会读取提交前的旧距离
                 float3 slotOffset = slotTarget.ValueRO.Position - nextTransform.Position;
-                slotOffset.y = 0f;
+                slotOffset = PlanarMath.FlattenY(slotOffset);
                 result.ValueRW.AppliedVelocity = velocity;
                 result.ValueRW.DistanceToSlot = math.length(slotOffset);
                 // CommitCount 是唯一 Transform 写入者的单调证据，不在其他系统递增
@@ -328,7 +329,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 // Anchor 到达使用解析后的动态目标，而不是订单中的初始位置快照
                 float3 targetOffset =
                     pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position;
-                targetOffset.y = 0f;
+                targetOffset = PlanarMath.FlattenY(targetOffset);
                 bool anchorArrived = math.length(targetOffset) <=
                                      math.max(0.1f, order.ValueRO.TargetStoppingDistance);
                 bool membersArrived = AreMembersSettled(members);
@@ -380,7 +381,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 float3 slotOffset =
                     _slotTargetLookup[aniEntity].Position - _transformLookup[aniEntity].Position;
-                slotOffset.y = 0f;
+                slotOffset = PlanarMath.FlattenY(slotOffset);
                 if (math.length(slotOffset) > _configLookup[aniEntity].ArrivalRadius ||
                     math.lengthsq(_velocityLookup[aniEntity].Value) > 0.0225f)
                 {

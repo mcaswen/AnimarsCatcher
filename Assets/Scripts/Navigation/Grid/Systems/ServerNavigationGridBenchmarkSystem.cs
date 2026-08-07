@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Entities;
@@ -270,9 +271,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 // 本 Benchmark 只驱动路径请求，不创建或更新 Ani Transform
                 TransformWriteCount = 0,
                 FlowFieldMainThreadSampleCount = sortedTimingSamples.Length,
-                FlowFieldMainThreadP50Milliseconds = CalculatePercentile(sortedTimingSamples, 0.50),
-                FlowFieldMainThreadP95Milliseconds = CalculatePercentile(sortedTimingSamples, 0.95),
-                FlowFieldMainThreadP99Milliseconds = CalculatePercentile(sortedTimingSamples, 0.99),
+                FlowFieldMainThreadP50Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTimingSamples, 0.50),
+                FlowFieldMainThreadP95Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTimingSamples, 0.95),
+                FlowFieldMainThreadP99Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTimingSamples, 0.99),
                 FlowFieldMainThreadMaxMilliseconds =
                     sortedTimingSamples.Length == 0 ? 0.0 : sortedTimingSamples[^1],
                 FlowFieldMainThreadMilliseconds = timingSamplesInTickOrder,
@@ -299,20 +303,6 @@ namespace AnimarsCatcher.Navigation.Grid
                 $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
             Debug.Log($"[NavigationBenchmark] Grid 路径与 Field 结果已生成：{path}");
-        }
-
-        private static double CalculatePercentile(double[] sortedSamples, double percentile)
-        {
-            if (sortedSamples.Length == 0)
-            {
-                return 0.0;
-            }
-
-            int index = math.clamp(
-                (int)math.ceil((float)(percentile * sortedSamples.Length)) - 1,
-                0,
-                sortedSamples.Length - 1);
-            return sortedSamples[index];
         }
 
         private static void FailBenchmark(

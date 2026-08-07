@@ -1,4 +1,5 @@
 using Unity.Collections;
+using AnimarsCatcher.Core;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -1121,7 +1122,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> positions,
             ref int count)
         {
-            Push(cellIndex, costs, heap, positions, ref count);
+            IndexedFloatHeap.PushMin(cellIndex, costs, heap, positions, ref count, CostEpsilon);
         }
 
         private static int PopCell(
@@ -1130,7 +1131,13 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> positions,
             ref int count)
         {
-            return Pop(costs, heap, positions, ref count, -2);
+            return IndexedFloatHeap.PopMin(
+                costs,
+                heap,
+                positions,
+                ref count,
+                CostEpsilon,
+                -2);
         }
 
         private static void PushAbstract(
@@ -1140,7 +1147,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> positions,
             ref int count)
         {
-            Push(nodeIndex, costs, heap, positions, ref count);
+            IndexedFloatHeap.PushMin(nodeIndex, costs, heap, positions, ref count, CostEpsilon);
         }
 
         private static int PopAbstract(
@@ -1149,104 +1156,14 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> positions,
             ref int count)
         {
-            return Pop(costs, heap, positions, ref count, -2);
+            return IndexedFloatHeap.PopMin(
+                costs,
+                heap,
+                positions,
+                ref count,
+                CostEpsilon,
+                -2);
         }
 
-        private static void Push(
-            int value,
-            NativeArray<float> costs,
-            NativeArray<int> heap,
-            NativeArray<int> positions,
-            ref int count)
-        {
-            int position = positions[value];
-            // 负位置表示节点尚未进入开放堆
-            if (position < 0)
-            {
-                position = count++;
-                heap[position] = value;
-                positions[value] = position;
-            }
-
-            // 调用方只会降低现有节点成本，因此从当前位置向上恢复堆序
-            while (position > 0)
-            {
-                int parent = (position - 1) / 2;
-                if (!IsLower(heap[position], heap[parent], costs))
-                {
-                    break;
-                }
-
-                Swap(position, parent, heap, positions);
-                position = parent;
-            }
-        }
-
-        private static int Pop(
-            NativeArray<float> costs,
-            NativeArray<int> heap,
-            NativeArray<int> positions,
-            ref int count,
-            int closedValue)
-        {
-            int result = heap[0];
-            // closedValue 阻止同一 Generation 内已确定节点再次进入开放堆
-            positions[result] = closedValue;
-            count--;
-            if (count == 0)
-            {
-                return result;
-            }
-
-            // 用末尾节点补根后向下恢复最小堆
-            heap[0] = heap[count];
-            positions[heap[0]] = 0;
-            int position = 0;
-            while (true)
-            {
-                int left = position * 2 + 1;
-                if (left >= count)
-                {
-                    break;
-                }
-
-                int right = left + 1;
-                int best = right < count && IsLower(heap[right], heap[left], costs)
-                    ? right
-                    : left;
-                if (!IsLower(heap[best], heap[position], costs))
-                {
-                    break;
-                }
-
-                Swap(position, best, heap, positions);
-                position = best;
-            }
-
-            return result;
-        }
-
-        private static bool IsLower(
-            int left,
-            int right,
-            NativeArray<float> costs)
-        {
-            // 等价成本以更小索引打破平局，保持堆弹出顺序稳定
-            return costs[left] < costs[right] - CostEpsilon ||
-                   (math.abs(costs[left] - costs[right]) <= CostEpsilon && left < right);
-        }
-
-        private static void Swap(
-            int left,
-            int right,
-            NativeArray<int> heap,
-            NativeArray<int> positions)
-        {
-            int value = heap[left];
-            heap[left] = heap[right];
-            heap[right] = value;
-            positions[heap[left]] = left;
-            positions[heap[right]] = right;
-        }
     }
 }

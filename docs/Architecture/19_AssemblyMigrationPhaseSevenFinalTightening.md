@@ -492,6 +492,9 @@ flowchart TD
 
     Gameplay --> Core
     Gameplay --> Contracts
+    Navigation --> Core
+    Navigation --> Contracts
+    Player --> Core
     Player --> Gameplay
     Networking --> Contracts
     Networking --> Gameplay
@@ -504,13 +507,17 @@ flowchart TD
     Legacy --> Core
     Legacy --> Contracts
     Legacy --> Gameplay
+    Legacy --> Navigation
     Legacy --> Player
 
     NavEditor --> Navigation
+    NavEditor --> Gameplay
+    NavEditor --> Contracts
     NetEditor --> Networking
     PlayerEditor --> Player
 
     ProjectEditor --> Gameplay
+    ProjectEditor --> Contracts
     ProjectEditor --> Player
     ProjectEditor --> Networking
     ProjectEditor --> Presentation
@@ -519,7 +526,7 @@ flowchart TD
     ProjectEditor --> Physics
 ```
 
-Navigation 和 Physics Authoring 当前不依赖其他项目程序集。Navigation 尚未接入正式 Ani 移动主链路，因此没有为了未来调用提前增加 Gameplay 依赖。
+Navigation 只依赖 Core 和 Gameplay.Contracts，不依赖 Gameplay、Player 或 Benchmark。Core 承载无玩法语义的数学与数据结构，Contracts 承载跨模块数据契约，Navigation 在此基础上实现 Grid 算法、Job 和 System。
 
 ## 12. 序列化与生成代码原则
 

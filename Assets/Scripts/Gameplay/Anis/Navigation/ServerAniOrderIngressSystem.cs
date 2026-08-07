@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
 using Unity.Collections;
@@ -217,7 +218,7 @@ namespace AnimarsCatcher.Gameplay
             }
 
             // 非有限坐标会污染 Grid 投影和排序结果，必须在契约边界阻断
-            if (!math.all(math.isfinite(targetPosition)))
+            if (!VectorMath.IsFinite(targetPosition))
             {
                 return false;
             }
@@ -272,11 +273,9 @@ namespace AnimarsCatcher.Gameplay
             float3 forward = targetPosition - center;
 
             // 阵型只在 XZ 平面定向，零距离时使用固定前向保证确定性
-            // y 分量被清零后再归一化，避免地形高度差影响队伍朝向
-            forward.y = 0f;
-
-            // normalizesafe 保证队伍中心与目标重合时仍有可复现朝向
-            return math.normalizesafe(forward, new float3(0f, 0f, 1f));
+            return PlanarMath.NormalizeXZOrDefault(
+                forward,
+                new float3(0f, 0f, 1f));
         }
 
         private uint NextSequence()

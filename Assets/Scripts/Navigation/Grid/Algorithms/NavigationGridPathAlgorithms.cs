@@ -1,3 +1,4 @@
+using AnimarsCatcher.Core;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -487,8 +488,8 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             // 连续值必须有限且处于不会破坏成本模型的范围
             // 投影半径限制同时保护扫描成本和整数坐标运算
-            return math.all(math.isfinite(request.StartPosition)) &&
-                   math.all(math.isfinite(request.EndPosition)) &&
+            return VectorMath.IsFinite(request.StartPosition) &&
+                   VectorMath.IsFinite(request.EndPosition) &&
                    math.isfinite(request.AgentRadius) &&
                    math.isfinite(request.ClearanceMargin) &&
                    math.isfinite(request.ClearancePenaltyWeight) &&

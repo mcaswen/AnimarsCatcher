@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Entities;
@@ -190,8 +191,9 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // Benchmark 只提交 MoveTo，Forward 由起点到目标的水平投影确定
             float3 forward = targetPosition - config.SpawnOrigin;
-            forward.y = 0f;
-            forward = math.normalizesafe(forward, new float3(0f, 0f, 1f));
+            forward = PlanarMath.NormalizeXZOrDefault(
+                forward,
+                new float3(0f, 0f, 1f));
 
             Entity orderEntity = entityManager.CreateEntity(
                 typeof(AniSquadOrderRequest),
@@ -352,7 +354,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 cacheHitCount += pathState.ValueRO.CacheHitCount;
             }
 
-            float minimumUnitSpacing = CalculateMinimumSpacing(positions);
+            float minimumUnitSpacing = StatisticsMath.CalculateMinimumPairwiseDistance(positions);
 
             // Tick 样本复制后排序，原始顺序仍保留在 JSON 供回放分析
             // 排序副本用于百分位，原数组维持发生顺序用于尖峰定位
@@ -400,12 +402,18 @@ namespace AnimarsCatcher.Navigation.Grid
                     ? 0f
                     : totalFormationError / positions.Count,
                 TransformWriteCount = transformWriteCount,
-                ServerTickP50Milliseconds = CalculatePercentile(sortedTickMilliseconds, 0.50),
-                ServerTickP95Milliseconds = CalculatePercentile(sortedTickMilliseconds, 0.95),
-                ServerTickP99Milliseconds = CalculatePercentile(sortedTickMilliseconds, 0.99),
-                MainThreadAllocP50Bytes = CalculatePercentile(sortedAllocatedBytes, 0.50),
-                MainThreadAllocP95Bytes = CalculatePercentile(sortedAllocatedBytes, 0.95),
-                MainThreadAllocP99Bytes = CalculatePercentile(sortedAllocatedBytes, 0.99),
+                ServerTickP50Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.50),
+                ServerTickP95Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.95),
+                ServerTickP99Milliseconds =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.99),
+                MainThreadAllocP50Bytes =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedAllocatedBytes, 0.50),
+                MainThreadAllocP95Bytes =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedAllocatedBytes, 0.95),
+                MainThreadAllocP99Bytes =
+                    StatisticsMath.CalculateNearestRankPercentile(sortedAllocatedBytes, 0.99),
                 GitCommit = config.GitCommit.ToString(),
                 UnityVersion = Application.unityVersion,
                 EntitiesAssemblyVersion = typeof(Entity).Assembly.GetName().Version?.ToString(),
@@ -437,44 +445,6 @@ namespace AnimarsCatcher.Navigation.Grid
             Debug.Log(
                 $"[NavigationBenchmark] Grid 群体移动结果已生成：" +
                 $"到达={arrivedCount}/{config.AgentCount}，结果={path}");
-        }
-
-        private static float CalculateMinimumSpacing(List<float3> positions)
-        {
-            float minimumSpacing = float.PositiveInfinity;
-
-            // 阶段四规模上限为 128，直接两两比较比维护空间索引更容易复核
-            for (int first = 0; first < positions.Count; first++)
-            {
-                for (int second = first + 1; second < positions.Count; second++)
-                {
-                    // 每对成员只计算一次，避免对称距离重复参与最小值比较
-                    minimumSpacing = math.min(
-                        minimumSpacing,
-                        math.distance(positions[first], positions[second]));
-                }
-            }
-
-            // 少于两个成员时没有有效间距，以零表达无样本
-            return math.isfinite(minimumSpacing) ? minimumSpacing : 0f;
-        }
-
-        private static double CalculatePercentile(double[] sortedSamples, double percentile)
-        {
-            if (sortedSamples.Length == 0)
-            {
-                // 没有完整 Tick 样本时返回零，并由报告中的 SampleTicks 解释原因
-                return 0.0;
-            }
-
-            // 使用 nearest-rank 索引，边界夹紧避免小样本越界
-            int index = math.clamp(
-                (int)math.ceil((float)(percentile * sortedSamples.Length)) - 1,
-                0,
-                sortedSamples.Length - 1);
-
-            // 调用方已排序样本，这里只执行 nearest-rank 读取
-            return sortedSamples[index];
         }
 
         private static void FailBenchmark(
