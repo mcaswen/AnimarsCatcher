@@ -27,25 +27,25 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             // Lookup 在每次结构变更后刷新，动态目标解析始终读取当前 Transform
             _transformLookup.Update(ref state);
-            foreach (var (order, pathState, entity) in
-                     SystemAPI.Query<RefRO<AniSquadOrder>, RefRW<AniSquadPathState>>()
+            foreach (var (command, pathState, entity) in
+                     SystemAPI.Query<RefRO<AniSquadCommand>, RefRW<AniSquadPathState>>()
                               .WithEntityAccess())
             {
-                AniSquadOrder orderValue = order.ValueRO;
-                float3 targetPosition = orderValue.TargetPosition;
+                AniSquadCommand commandValue = command.ValueRO;
+                float3 targetPosition = commandValue.TargetPosition;
 
-                // MoveTo 使用订单快照，动态命令每 Tick 从权威目标刷新位置
-                if (orderValue.Mode != AniSquadCommandMode.MoveTo)
+                // MoveTo 使用指令快照，动态指令每 Tick 从权威目标刷新位置
+                if (commandValue.Mode != AniSquadCommandMode.MoveTo)
                 {
-                    // 目标消失后继续使用旧坐标会伪造成功状态，因此立即终止订单
-                    if (orderValue.TargetEntity == Entity.Null ||
-                        !_transformLookup.HasComponent(orderValue.TargetEntity))
+                    // 目标消失后继续使用旧坐标会伪造成功状态，因此立即终止指令
+                    if (commandValue.TargetEntity == Entity.Null ||
+                        !_transformLookup.HasComponent(commandValue.TargetEntity))
                     {
                         pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
                         continue;
                     }
 
-                    targetPosition = _transformLookup[orderValue.TargetEntity].Position;
+                    targetPosition = _transformLookup[commandValue.TargetEntity].Position;
                 }
 
                 // Target Entity 也可能产生无效 Transform，不能让非有限值进入路径请求
@@ -79,16 +79,16 @@ namespace AnimarsCatcher.Navigation.Grid
             if (!SystemAPI.TryGetSingleton<NavigationGridReference>(out NavigationGridReference gridReference) ||
                 !gridReference.Value.IsCreated)
             {
-                // Grid 尚未发布时保留订单，待数据源就绪后再创建第一个请求
+                // Grid 尚未发布时保留指令，待数据源就绪后再创建第一个请求
                 return;
             }
 
             float cellSize = math.max(0.1f, gridReference.Value.Value.CellSize);
             // CellSize 同时作为目标移动阈值和请求投影的最小空间尺度
-            foreach (var (squad, order, anchor, pathState, request, fieldState, entity) in
+            foreach (var (squad, command, anchor, pathState, request, fieldState, entity) in
                      SystemAPI.Query<
                          RefRO<AniSquad>,
-                         RefRO<AniSquadOrder>,
+                         RefRO<AniSquadCommand>,
                          RefRO<AniSquadAnchor>,
                          RefRW<AniSquadPathState>,
                          RefRW<NavigationFlowFieldRequest>,
@@ -97,8 +97,8 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 if (pathState.ValueRO.Status == AniSquadMovementStatus.Failed)
                 {
-                    // 失败订单保持终止态，不能因目标仍存在而自动复活
-                    // 只有新订单替换 SubmittedOrderSequence 后才允许恢复
+                    // 失败指令保持终止态，不能因目标仍存在而自动复活
+                    // 只有新指令替换 SubmittedCommandSequence 后才允许恢复
                     continue;
                 }
 
@@ -136,28 +136,28 @@ namespace AnimarsCatcher.Navigation.Grid
                 int cooldown = pathState.ValueRO.RepathCooldownTicks;
                 if (cooldown > 0)
                 {
-                    // 冷却只限制动态目标重规划，新订单仍可立即提交
+                    // 冷却只限制动态目标重规划，新指令仍可立即提交
                     pathState.ValueRW.RepathCooldownTicks = cooldown - 1;
                 }
 
-                bool newOrder = pathState.ValueRO.SubmittedOrderSequence != order.ValueRO.Sequence;
+                bool newCommand = pathState.ValueRO.SubmittedCommandSequence != command.ValueRO.Sequence;
 
                 // 目标跨越至少一个 Cell 才值得失效当前 Field，过滤亚 Cell 抖动
                 float targetDeltaSquared = math.distancesq(
                     pathState.ValueRO.LastSubmittedTargetPosition,
                     pathState.ValueRO.ResolvedTargetPosition);
                 bool targetMoved = targetDeltaSquared >= cellSize * cellSize;
-                bool dynamicTarget = order.ValueRO.Mode != AniSquadCommandMode.MoveTo;
+                bool dynamicTarget = command.ValueRO.Mode != AniSquadCommandMode.MoveTo;
                 bool canRepath = pathState.ValueRO.RepathCooldownTicks <= 0;
 
-                // 新订单、无 Field 或动态目标跨 Cell 是唯一三种重规划原因
+                // 新指令、无 Field 或动态目标跨 Cell 是唯一三种重规划原因
                 // 静态 MoveTo 忽略亚 Cell 目标漂移，避免反复销毁成功 Field
-                bool needsRequest = newOrder ||
+                bool needsRequest = newCommand ||
                                     fieldState.ValueRO.Status == NavigationPathStatus.None ||
                                     (dynamicTarget && targetMoved && canRepath);
                 if (!needsRequest)
                 {
-                    // 已完成或 Holding 的订单不能被旧成功结果重新激活为 Moving
+                    // 已完成或 Holding 的指令不能被旧成功结果重新激活为 Moving
                     if (fieldState.ValueRO.Status == NavigationPathStatus.Succeeded &&
                         fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                     {
@@ -194,12 +194,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     clearanceMargin: 0.05f,
                     maximumProjectionRadiusInCells: 16);
 
-                // 新请求从 Anchor 当前 Cell 投影，避免沿用旧订单起点
+                // 新请求从 Anchor 当前 Cell 投影，避免沿用旧指令起点
 
                 // Request 与 Pending State 必须同 Tick 同版本写入，Flow 系统据此认领结果
                 request.ValueRW = NavigationFlowFieldRequest.Create(pathRequest);
                 fieldState.ValueRW = NavigationFlowFieldState.CreatePending(requestVersion);
-                pathState.ValueRW.SubmittedOrderSequence = order.ValueRO.Sequence;
+                pathState.ValueRW.SubmittedCommandSequence = command.ValueRO.Sequence;
                 pathState.ValueRW.ActiveRequestVersion = requestVersion;
 
                 // 记录本次目标快照，后续距离比较只针对动态目标变化

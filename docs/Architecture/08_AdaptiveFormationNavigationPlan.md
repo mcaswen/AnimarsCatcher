@@ -268,7 +268,7 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 每次有效移动命令创建或更新服务器专用 Squad Entity，建议包含：
 
 - `AniSquad`：拥有者、稳定 SquadId 和成员版本
-- `AniSquadOrder`：命令类型、目标 Cell、目标 Entity 和命令版本
+- `AniSquadCommand`：指令类型、目标 Cell、目标 Entity 和指令版本
 - `AniSquadPathState`：Corridor、Field 版本和失败状态
 - `AniSquadAnchor`：锚点位置、朝向、速度和当前 Cell
 - `AniSquadFormationState`：当前列数、目标列数和布局版本
@@ -394,7 +394,7 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 新增服务器专用 `AniGridMovementSystemGroup`，建议顺序为：
 
 1. `NavigationDynamicOverlaySystem`
-2. `ServerAniOrderIngressSystem`
+2. `ServerAniCommandIngressSystem`
 3. `AniSquadLifecycleSystem`
 4. `AniGridEndpointProjectionSystem`
 5. `AniSquadClusterPathSystem`
@@ -416,7 +416,7 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 ### 8.1 分阶段落地边界
 
 - 阶段三实现 HPA*、Corridor、局部 Field 及其 Benchmark 适配层。适配层复用同一测试场景和确定性回放，只构造路径与 Field 工作负载，不生成速度或写入 Ani Transform。
-- 阶段四实现 `ServerAniOrderIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。正式 RPC 输入与 Benchmark 回放必须汇入相同 `AniSquadOrder` 契约。
+- 阶段四实现 `ServerAniCommandIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。正式 RPC 输入与 Benchmark 回放必须汇入相同 `AniSquadCommand` 契约。
 - 阶段五加入动态 Overlay 和自适应阵型，不改变 Transform 写入所有权。
 - 阶段六加入空间哈希、ORCA 和世界碰撞，并扩展受阻与重新规划状态。`AniWorldCollisionSystem` 只输出安全位移，最终仍由阶段四建立的唯一 `AniMovementCommitSystem` 写入 Transform。
 - 阶段七迁移资源搬运和正式 Prefab、Scene 配置，完成正式后端切换。

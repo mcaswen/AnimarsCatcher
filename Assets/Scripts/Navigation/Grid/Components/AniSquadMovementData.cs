@@ -30,14 +30,14 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存订单解析、重规划和到达判定状态
+    /// 保存指令解析、重规划和到达判定状态
     /// </summary>
     public struct AniSquadPathState : IComponentData
     {
         public AniSquadMovementStatus Status;
         public float3 ResolvedTargetPosition;
         public float3 LastSubmittedTargetPosition;
-        public uint SubmittedOrderSequence;
+        public uint SubmittedCommandSequence;
         public uint ActiveRequestVersion;
         public uint CountedRequestVersion;
         public int RepathCooldownTicks;

@@ -142,7 +142,7 @@ namespace AnimarsCatcher.Navigation.Grid
         /// <param name="targetPosition">解析后的目标位置</param>
         /// <param name="maximumSpeed">成员聚合后的最大 Anchor 速度</param>
         /// <param name="maximumAcceleration">成员聚合后的最大 Anchor 加速度</param>
-        /// <param name="stoppingDistance">订单到达半径</param>
+        /// <param name="stoppingDistance">指令到达半径</param>
         /// <returns>未经过加速度限制的 Anchor 目标速度</returns>
         public static float3 CalculateAnchorVelocity(
             float3 currentPosition,

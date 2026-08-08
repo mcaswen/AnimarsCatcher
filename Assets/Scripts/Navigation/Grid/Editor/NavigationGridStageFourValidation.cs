@@ -121,7 +121,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             // 显式列出权威类型，新增移动 System 时验收会强制补齐过滤测试
             Type[] authoritativeSystems =
             {
-                typeof(ServerAniOrderIngressSystem),
+                typeof(ServerAniCommandIngressSystem),
                 typeof(AniSquadLifecycleSystem),
                 typeof(AniSquadAnchorAdvanceSystem),
                 typeof(AniFormationLayoutSystem),
@@ -132,7 +132,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 typeof(ServerNavigationGridMovementBenchmarkSystem),
             };
 
-            // 订单入口、移动提交和 Benchmark 都必须只出现在 Server World
+            // 指令入口、移动提交和 Benchmark 都必须只出现在 Server World
             for (int index = 0; index < authoritativeSystems.Length; index++)
             {
                 // 同一类型同时出现在两类 World 时，客户端应明确排除权威写入系统
@@ -184,17 +184,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 CreateAni(entityManager, new float3(1f, 0f, 0f)),
             };
 
-            CreateOrder(entityManager, anis, sequence: 1);
+            CreateCommand(entityManager, anis, sequence: 1);
             SystemHandle lifecycle = world.GetOrCreateSystem<AniSquadLifecycleSystem>();
 
-            // 首个订单必须聚合为一个 Squad，并为每个成员补齐运行时组件
+            // 首个指令必须聚合为一个 Squad，并为每个成员补齐运行时组件
             lifecycle.Update(world.Unmanaged);
             Entity firstSquad = GetSingleSquad(entityManager);
             Assert(entityManager.GetBuffer<AniSquadMember>(firstSquad).Length == 3, "Squad 初始成员数量错误");
 
-            CreateOrder(entityManager, new[] { anis[0], anis[1] }, sequence: 2);
+            CreateCommand(entityManager, new[] { anis[0], anis[1] }, sequence: 2);
 
-            // 子集订单会拆出新 Squad，未选成员继续留在旧上下文
+            // 子集指令会拆出新 Squad，未选成员继续留在旧上下文
             lifecycle.Update(world.Unmanaged);
             using EntityQuery squadsAfterSplit = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniSquad>());
@@ -297,7 +297,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             {
                 world.SetTime(new TimeData(tick * DeltaTime, DeltaTime));
 
-                // Benchmark 先创建订单，生命周期随后消费；其余系统按生产依赖顺序推进
+                // Benchmark 先创建指令，生命周期随后消费；其余系统按生产依赖顺序推进
                 benchmark.Update(world.Unmanaged);
                 lifecycle.Update(world.Unmanaged);
                 target.Update(world.Unmanaged);
@@ -339,7 +339,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 squadEntity);
             Assert(pathState.Status == AniSquadMovementStatus.Completed, "Squad 未提交完成状态");
 
-            // 同一订单的路径请求必须保持 Squad 级别，与成员数解耦
+            // 同一指令的路径请求必须保持 Squad 级别，与成员数解耦
             Assert(pathState.FieldRequestCount == 1, "路径与 Field 请求数量没有按 Squad 增长");
             Assert(pathState.SuccessfulFieldRequestCount == 1, "Squad Field 请求没有成功完成");
 
@@ -366,15 +366,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Assert(movementResult.CommitCount > 0, "Ani 没有经过唯一 Commit System 写入");
             }
 
-            using EntityQuery pendingOrders = entityManager.CreateEntityQuery(
-                ComponentType.ReadOnly<AniSquadOrderRequest>());
-            // 订单实体只能短暂存在于入口组，验收结束时不应残留未消费请求
-            Assert(pendingOrders.IsEmptyIgnoreFilter, "Benchmark 订单没有汇入统一 Squad 生命周期");
+            using EntityQuery pendingCommands = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AniSquadCommandRequest>());
+            // 指令实体只能短暂存在于入口组，验收结束时不应残留未消费请求
+            Assert(pendingCommands.IsEmptyIgnoreFilter, "Benchmark 指令没有汇入统一 Squad 生命周期");
         }
 
         private static Entity CreateAni(EntityManager entityManager, float3 position)
         {
-            // 夹具只创建生命周期所需的 Transform，运行时组件由订单消费补齐
+            // 夹具只创建生命周期所需的 Transform，运行时组件由指令消费补齐
             Entity entity = entityManager.CreateEntity(typeof(LocalTransform));
             entityManager.SetComponentData(
                 entity,
@@ -382,15 +382,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return entity;
         }
 
-        private static void CreateOrder(
+        private static void CreateCommand(
             EntityManager entityManager,
             Entity[] anis,
             uint sequence)
         {
-            Entity orderEntity = entityManager.CreateEntity(
-                typeof(AniSquadOrderRequest),
-                typeof(AniSquadOrder));
-            entityManager.SetComponentData(orderEntity, new AniSquadOrder
+            Entity commandEntity = entityManager.CreateEntity(
+                typeof(AniSquadCommandRequest),
+                typeof(AniSquadCommand));
+            entityManager.SetComponentData(commandEntity, new AniSquadCommand
             {
                 Sequence = sequence,
                 OwnerNetworkId = 1,
@@ -402,14 +402,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 DesiredForward = new float3(0f, 0f, 1f),
             });
 
-            // 订单成员按稳定数组顺序写入，生命周期测试可复现拆队结果
-            DynamicBuffer<AniSquadOrderMember> members =
-                entityManager.AddBuffer<AniSquadOrderMember>(orderEntity);
+            // 指令成员按稳定数组顺序写入，生命周期测试可复现拆队结果
+            DynamicBuffer<AniSquadCommandMember> members =
+                entityManager.AddBuffer<AniSquadCommandMember>(commandEntity);
 
-            // 测试订单使用固定能力参数，确保不同规模只改变成员数量
+            // 测试指令使用固定能力参数，确保不同规模只改变成员数量
             for (int index = 0; index < anis.Length; index++)
             {
-                members.Add(new AniSquadOrderMember
+                members.Add(new AniSquadCommandMember
                 {
                     Ani = anis[index],
                     StableId = index,

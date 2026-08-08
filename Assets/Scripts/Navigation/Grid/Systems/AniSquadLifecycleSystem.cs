@@ -8,13 +8,13 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 将统一订单转换为服务器 Squad，并维护成员和路径上下文生命周期
+    /// 将统一指令转换为服务器 Squad，并维护成员和路径上下文生命周期
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup), OrderFirst = true)]
     public partial struct AniSquadLifecycleSystem : ISystem
     {
-        private EntityQuery _orderQuery;
+        private EntityQuery _commandQuery;
         private EntityQuery _squadQuery;
         private uint _nextSquadId;
 
@@ -22,14 +22,14 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
 
-            // 订单和 Squad 查询长期复用，避免每个 Tick 重建查询描述
-            _orderQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<AniSquadOrderRequest>(),
-                ComponentType.ReadOnly<AniSquadOrder>(),
-                ComponentType.ReadOnly<AniSquadOrderMember>());
+            // 指令和 Squad 查询长期复用，避免每个 Tick 重建查询描述
+            _commandQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<AniSquadCommandRequest>(),
+                ComponentType.ReadOnly<AniSquadCommand>(),
+                ComponentType.ReadOnly<AniSquadCommandMember>());
             _squadQuery = state.GetEntityQuery(
                 ComponentType.ReadWrite<AniSquad>(),
-                ComponentType.ReadWrite<AniSquadOrder>(),
+                ComponentType.ReadWrite<AniSquadCommand>(),
                 ComponentType.ReadWrite<AniSquadPathState>(),
                 ComponentType.ReadWrite<AniSquadAnchor>(),
                 ComponentType.ReadWrite<AniSquadFormationState>(),
@@ -44,20 +44,20 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            // 先清理失效成员，再按序消费新订单，保证同 Tick 不会把已死亡成员重新挂回旧 Squad
-            // Cleanup 可能销毁上下文，因此必须在订单快照创建前完成
+            // 先清理失效成员，再按序消费新指令，保证同 Tick 不会把已死亡成员重新挂回旧 Squad
+            // Cleanup 可能销毁上下文，因此必须在指令快照创建前完成
             CleanupSquads(ref state);
 
-            using NativeArray<Entity> orders = _orderQuery.ToEntityArray(Allocator.Temp);
+            using NativeArray<Entity> commands = _commandQuery.ToEntityArray(Allocator.Temp);
 
             // RPC 和 Benchmark 都可能同 Tick 到达，序号排序维持跨输入源的确定性
-            // 快照数组允许下面的消费逻辑销毁订单实体而不改变遍历边界
-            SortOrders(ref state, orders);
-            for (int index = 0; index < orders.Length; index++)
+            // 快照数组允许下面的消费逻辑销毁指令实体而不改变遍历边界
+            SortCommands(ref state, commands);
+            for (int index = 0; index < commands.Length; index++)
             {
-                if (state.EntityManager.Exists(orders[index]))
+                if (state.EntityManager.Exists(commands[index]))
                 {
-                    ApplyOrder(ref state, orders[index]);
+                    ConsumeCommand(ref state, commands[index]);
                 }
             }
         }
@@ -115,25 +115,25 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        private void ApplyOrder(ref SystemState state, Entity orderEntity)
+        private void ConsumeCommand(ref SystemState state, Entity commandEntity)
         {
             EntityManager entityManager = state.EntityManager;
 
-            // 订单组件在本方法内只读一次，后续写回统一进入 Squad 实体
-            AniSquadOrder order = entityManager.GetComponentData<AniSquadOrder>(orderEntity);
+            // 指令组件在本方法内只读一次，后续写回统一进入 Squad 实体
+            AniSquadCommand command = entityManager.GetComponentData<AniSquadCommand>(commandEntity);
 
-            // 先把订单成员复制到临时列表，后续组件补齐会引起结构变更
-            // 复制也隔离了订单实体销毁对源 Buffer 的影响
-            DynamicBuffer<AniSquadOrderMember> orderMembers =
-                entityManager.GetBuffer<AniSquadOrderMember>(orderEntity);
-            using NativeList<AniSquadOrderMember> members =
-                CollectValidMembers(ref state, orderMembers);
+            // 先把指令成员复制到临时列表，后续组件补齐会引起结构变更
+            // 复制也隔离了指令实体销毁对源 Buffer 的影响
+            DynamicBuffer<AniSquadCommandMember> commandMembers =
+                entityManager.GetBuffer<AniSquadCommandMember>(commandEntity);
+            using NativeList<AniSquadCommandMember> members =
+                CollectValidMembers(ref state, commandMembers);
 
             if (members.IsEmpty)
             {
-                // 订单全部指向失效实体时直接消费，避免生成空 Squad
-                // 空订单不应推进 SquadId 或路径请求版本
-                entityManager.DestroyEntity(orderEntity);
+                // 指令全部指向失效实体时直接消费，避免生成空 Squad
+                // 空指令不应推进 SquadId 或路径请求版本
+                entityManager.DestroyEntity(commandEntity);
                 return;
             }
 
@@ -141,7 +141,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // 排序后再寻找可复用 Squad，保证同一成员集合的比较顺序一致
             // 只有成员仍属于同一拥有者且数量一致时才能复用原路径上下文
-            Entity squadEntity = FindReusableSquad(ref state, order, members);
+            Entity squadEntity = FindReusableSquad(ref state, command, members);
             bool reused = squadEntity != Entity.Null;
 
             // 复用判断完成后保存旧成员槽位，创建新 Squad 则不需要历史映射
@@ -151,7 +151,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (!reused)
             {
-                squadEntity = CreateSquad(ref state, order, members);
+                squadEntity = CreateSquad(ref state, command, members);
             }
             else
             {
@@ -173,12 +173,12 @@ namespace AnimarsCatcher.Navigation.Grid
             // 先补齐成员组件，再重新获取 Squad Buffer，避免结构变更使句柄失效
             for (int index = 0; index < members.Length; index++)
             {
-                AniSquadOrderMember orderMember = members[index];
-                // 旧槽位只按 Entity 匹配，不依赖本次订单传入顺序
-                int previousSlot = FindPreviousSlot(previousMembers, orderMember.Ani);
+                AniSquadCommandMember commandMember = members[index];
+                // 旧槽位只按 Entity 匹配，不依赖本次指令传入顺序
+                int previousSlot = FindPreviousSlot(previousMembers, commandMember.Ani);
                 EnsureMemberComponents(
                     entityManager,
-                    orderMember,
+                    commandMember,
                     squadEntity,
                     squad.SquadId,
                     previousSlot);
@@ -191,21 +191,21 @@ namespace AnimarsCatcher.Navigation.Grid
             squadMembers.Clear();
 
             // Buffer 采用排序后的成员快照，稳定键只在入口生成一次
-            // Clear 后完整重建 Buffer，避免旧订单残留未选中的成员
+            // Clear 后完整重建 Buffer，避免旧指令残留未选中的成员
             for (int index = 0; index < members.Length; index++)
             {
-                AniSquadOrderMember orderMember = members[index];
+                AniSquadCommandMember commandMember = members[index];
                 squadMembers.Add(new AniSquadMember
                 {
-                    Ani = orderMember.Ani,
-                    StableId = orderMember.StableId,
-                    SlotIndex = FindPreviousSlot(previousMembers, orderMember.Ani),
+                    Ani = commandMember.Ani,
+                    StableId = commandMember.StableId,
+                    SlotIndex = FindPreviousSlot(previousMembers, commandMember.Ani),
                 });
             }
 
-            entityManager.SetComponentData(squadEntity, order);
+            entityManager.SetComponentData(squadEntity, command);
 
-            // 订单目标、序号和拥有者在同一写回点替换，避免规划系统读到混合状态
+            // 指令目标、序号和拥有者在同一写回点替换，避免规划系统读到混合状态
             UpdateAggregate(ref state, squadEntity, ref squad);
 
             // 新 Squad 和复用 Squad 都需要非零 MemberVersion，供阵型系统触发布局
@@ -223,55 +223,55 @@ namespace AnimarsCatcher.Navigation.Grid
             // 该聚合必须发生在成员组件补齐之后
             AniSquadPathState pathState = entityManager.GetComponentData<AniSquadPathState>(squadEntity);
 
-            // 新订单从 AwaitingPath 开始，旧请求结果不能直接标记为当前订单完成
+            // 新指令从 AwaitingPath 开始，旧请求结果不能直接标记为当前指令完成
             pathState.Status = AniSquadMovementStatus.AwaitingPath;
-            pathState.ResolvedTargetPosition = order.TargetPosition;
-            pathState.SubmittedOrderSequence = 0;
+            pathState.ResolvedTargetPosition = command.TargetPosition;
+            pathState.SubmittedCommandSequence = 0;
             pathState.RepathCooldownTicks = 0;
             pathState.SettledTicks = 0;
 
-            // ActiveRequestVersion 保留用于识别旧 Field 结果，不能随订单直接清零
+            // ActiveRequestVersion 保留用于识别旧 Field 结果，不能随指令直接清零
             // CountedRequestVersion 同样保留，避免重复统计已完成请求
             entityManager.SetComponentData(squadEntity, pathState);
 
             AniSquadFormationState formation =
                 entityManager.GetComponentData<AniSquadFormationState>(squadEntity);
             int requestedColumnCount = math.min(
-                math.max(1, order.FormationColumnCount),
+                math.max(1, command.FormationColumnCount),
                 math.max(1, members.Length));
-            if (formation.Kind != order.Formation ||
+            if (formation.Kind != command.Formation ||
                 formation.ColumnCount != requestedColumnCount ||
                 !reused)
             {
                 // 阵型类型或列数变化会使所有局部偏移失效
-                formation.Kind = order.Formation;
+                formation.Kind = command.Formation;
                 formation.ColumnCount = requestedColumnCount;
                 formation.LayoutVersion = 0;
                 formation.AssignmentVersion = 0;
             }
 
-            // 成员变化总是触发布局，订单只改变阵型配置时也会清空旧分配
+            // 成员变化总是触发布局，指令只改变阵型配置时也会清空旧分配
             // LayoutVersion 保持旧值，确保布局系统在下一更新中重新生成槽位
             formation.MemberVersion = squad.MemberVersion;
             entityManager.SetComponentData(squadEntity, formation);
 
-            // 订单实体的所有数据已转移到 Squad，之后由生命周期系统统一维护
-            // 之后的规划系统只查询 Squad 组件，不再依赖订单实体是否存在
-            entityManager.DestroyEntity(orderEntity);
+            // 指令实体的所有数据已转移到 Squad，之后由生命周期系统统一维护
+            // 之后的规划系统只查询 Squad 组件，不再依赖指令实体是否存在
+            entityManager.DestroyEntity(commandEntity);
             previousMembers.Dispose();
         }
 
-        private static NativeList<AniSquadOrderMember> CollectValidMembers(
+        private static NativeList<AniSquadCommandMember> CollectValidMembers(
             ref SystemState state,
-            DynamicBuffer<AniSquadOrderMember> source)
+            DynamicBuffer<AniSquadCommandMember> source)
         {
-            NativeList<AniSquadOrderMember> members =
+            NativeList<AniSquadCommandMember> members =
                 new(math.max(1, source.Length), Allocator.Temp);
 
             // 入口已经做过权限校验，这里仍需防御死亡实体和重复引用
             for (int index = 0; index < source.Length; index++)
             {
-                AniSquadOrderMember member = source[index];
+                AniSquadCommandMember member = source[index];
                 // 缺少 Transform 的实体无法计算中心和槽位，不能进入 Squad
                 if (member.Ani == Entity.Null ||
                     !state.EntityManager.Exists(member.Ani) ||
@@ -289,8 +289,8 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private Entity FindReusableSquad(
             ref SystemState state,
-            AniSquadOrder order,
-            NativeList<AniSquadOrderMember> members)
+            AniSquadCommand command,
+            NativeList<AniSquadCommandMember> members)
         {
             Entity candidate = Entity.Null;
 
@@ -316,7 +316,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
                 else if (candidate != memberSquad)
                 {
-                    // 一个新订单横跨多个旧 Squad 时必须重新聚合
+                    // 一个新指令横跨多个旧 Squad 时必须重新聚合
                     return Entity.Null;
                 }
             }
@@ -324,7 +324,7 @@ namespace AnimarsCatcher.Navigation.Grid
             if (candidate == Entity.Null ||
                 !state.EntityManager.HasComponent<AniSquad>(candidate) ||
                 state.EntityManager.GetComponentData<AniSquad>(candidate).OwnerNetworkId !=
-                order.OwnerNetworkId)
+                command.OwnerNetworkId)
             {
                 return Entity.Null;
             }
@@ -338,15 +338,15 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private Entity CreateSquad(
             ref SystemState state,
-            AniSquadOrder order,
-            NativeList<AniSquadOrderMember> members)
+            AniSquadCommand command,
+            NativeList<AniSquadCommandMember> members)
         {
             EntityManager entityManager = state.EntityManager;
 
             // Squad 聚合实体同时持有路径、Field、Anchor 和阵型 Buffer，避免按成员重复建图
             Entity squadEntity = entityManager.CreateEntity(
                 typeof(AniSquad),
-                typeof(AniSquadOrder),
+                typeof(AniSquadCommand),
                 typeof(AniSquadPathState),
                 typeof(AniSquadAnchor),
                 typeof(AniSquadFormationState),
@@ -368,29 +368,29 @@ namespace AnimarsCatcher.Navigation.Grid
             entityManager.SetComponentData(squadEntity, new AniSquad
             {
                 SquadId = NextSquadId(),
-                OwnerNetworkId = order.OwnerNetworkId,
+                OwnerNetworkId = command.OwnerNetworkId,
                 MemberVersion = 1,
                 MaximumAgentRadius = 0f,
                 MinimumMaxSpeed = 0f,
                 MinimumMaxAcceleration = 0f,
             });
-            entityManager.SetComponentData(squadEntity, order);
+            entityManager.SetComponentData(squadEntity, command);
             entityManager.SetComponentData(squadEntity, new AniSquadPathState
             {
                 Status = AniSquadMovementStatus.AwaitingPath,
-                ResolvedTargetPosition = order.TargetPosition,
+                ResolvedTargetPosition = command.TargetPosition,
             });
             entityManager.SetComponentData(squadEntity, new AniSquadAnchor
             {
                 Position = center,
-                Forward = math.normalizesafe(order.DesiredForward, new float3(0f, 0f, 1f)),
+                Forward = math.normalizesafe(command.DesiredForward, new float3(0f, 0f, 1f)),
                 CurrentCellIndex = -1,
             });
             entityManager.SetComponentData(squadEntity, new AniSquadFormationState
             {
-                Kind = order.Formation,
+                Kind = command.Formation,
                 ColumnCount = math.min(
-                    math.max(1, order.FormationColumnCount),
+                    math.max(1, command.FormationColumnCount),
                     math.max(1, members.Length)),
                 MemberVersion = 1,
             });
@@ -409,7 +409,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private void DetachMembersFromOtherSquads(
             ref SystemState state,
             Entity destinationSquad,
-            NativeList<AniSquadOrderMember> members)
+            NativeList<AniSquadCommandMember> members)
         {
             for (int index = 0; index < members.Length; index++)
             {
@@ -434,7 +434,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 DynamicBuffer<AniSquadMember> oldMembers =
                     state.EntityManager.GetBuffer<AniSquadMember>(oldSquad);
-                // 迁移只修改旧 Buffer，目标 Buffer 会在 ApplyOrder 的结构变更后统一重建
+                // 迁移只修改旧 Buffer，目标 Buffer 会在 ConsumeCommand 的结构变更后统一重建
                 RemoveMember(oldMembers, aniEntity);
                 if (oldMembers.IsEmpty)
                 {
@@ -458,38 +458,38 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void EnsureMemberComponents(
             EntityManager entityManager,
-            AniSquadOrderMember orderMember,
+            AniSquadCommandMember commandMember,
             Entity squadEntity,
             uint squadId,
             int slotIndex)
         {
-            // 成员组件由订单快照统一写入，避免移动系统依赖玩法属性的瞬时修改
+            // 成员组件由指令快照统一写入，避免移动系统依赖玩法属性的瞬时修改
             var membership = new AniSquadMembership
             {
                 Squad = squadEntity,
                 SquadId = squadId,
                 SlotIndex = slotIndex,
             };
-            SetOrAdd(entityManager, orderMember.Ani, membership);
+            SetOrAdd(entityManager, commandMember.Ani, membership);
             // MaxAcceleration 至少为一，防止零配置让成员永远无法追上槽位
-            SetOrAdd(entityManager, orderMember.Ani, new AniMovementConfig
+            SetOrAdd(entityManager, commandMember.Ani, new AniMovementConfig
             {
-                MaxSpeed = orderMember.MaxSpeed,
-                MaxAcceleration = math.max(1f, orderMember.MaxAcceleration),
-                AgentRadius = math.max(0.01f, orderMember.AgentRadius),
+                MaxSpeed = commandMember.MaxSpeed,
+                MaxAcceleration = math.max(1f, commandMember.MaxAcceleration),
+                AgentRadius = math.max(0.01f, commandMember.AgentRadius),
                 ArrivalRadius = 0.7f,
                 RotationSpeedRadians = math.radians(540f),
             });
-            SetOrAdd(entityManager, orderMember.Ani, new AniSlotTarget());
-            SetOrAdd(entityManager, orderMember.Ani, new AniPreferredVelocity());
+            SetOrAdd(entityManager, commandMember.Ani, new AniSlotTarget());
+            SetOrAdd(entityManager, commandMember.Ani, new AniPreferredVelocity());
 
             // 这些组件由 Commit、Progress 和阵型系统共同维护，缺一都会阻断成员链路
-            SetOrAdd(entityManager, orderMember.Ani, new AniMovementResult());
+            SetOrAdd(entityManager, commandMember.Ani, new AniMovementResult());
         }
 
         private static float3 CalculateMemberCenter(
             ref SystemState state,
-            NativeList<AniSquadOrderMember> members)
+            NativeList<AniSquadCommandMember> members)
         {
             float3 center = float3.zero;
             int count = 0;
@@ -508,7 +508,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 count++;
             }
 
-            // 空列表只可能来自异常订单，零中心让失败路径保持确定性
+            // 空列表只可能来自异常指令，零中心让失败路径保持确定性
             return count == 0 ? float3.zero : center / count;
         }
 
@@ -563,7 +563,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         private static bool ContainsMember(
-            NativeList<AniSquadOrderMember> members,
+            NativeList<AniSquadCommandMember> members,
             Entity aniEntity)
         {
             // 入口列表可能包含重复 Entity，显式扫描维持唯一成员不变量
@@ -593,32 +593,32 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        private static void SortOrders(ref SystemState state, NativeArray<Entity> orders)
+        private static void SortCommands(ref SystemState state, NativeArray<Entity> commands)
         {
-            // 订单数量通常很小，插入排序可保持 NativeArray 原地且无额外分配
-            for (int index = 1; index < orders.Length; index++)
+            // 指令数量通常很小，插入排序可保持 NativeArray 原地且无额外分配
+            for (int index = 1; index < commands.Length; index++)
             {
-                Entity value = orders[index];
-                uint valueSequence = state.EntityManager.GetComponentData<AniSquadOrder>(value).Sequence;
+                Entity value = commands[index];
+                uint valueSequence = state.EntityManager.GetComponentData<AniSquadCommand>(value).Sequence;
                 int insertion = index - 1;
                 while (insertion >= 0 &&
-                       state.EntityManager.GetComponentData<AniSquadOrder>(orders[insertion]).Sequence >
+                       state.EntityManager.GetComponentData<AniSquadCommand>(commands[insertion]).Sequence >
                        valueSequence)
                 {
-                    orders[insertion + 1] = orders[insertion];
+                    commands[insertion + 1] = commands[insertion];
                     insertion--;
                 }
 
-                orders[insertion + 1] = value;
+                commands[insertion + 1] = value;
             }
         }
 
-        private static void SortMembers(NativeList<AniSquadOrderMember> members)
+        private static void SortMembers(NativeList<AniSquadCommandMember> members)
         {
             // 成员规模较小且需要稳定结果，插入排序避免 NativeList 额外分配
             for (int index = 1; index < members.Length; index++)
             {
-                AniSquadOrderMember value = members[index];
+                AniSquadCommandMember value = members[index];
                 int insertion = index - 1;
                 while (insertion >= 0 &&
                        IsAfter(members[insertion], value))
@@ -632,8 +632,8 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         private static bool IsAfter(
-            AniSquadOrderMember left,
-            AniSquadOrderMember right)
+            AniSquadCommandMember left,
+            AniSquadCommandMember right)
         {
             // StableId 是跨回放主键；相等时用 Entity.Index 消除异常输入的非确定性
             return left.StableId > right.StableId ||
@@ -663,7 +663,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             else
             {
-                // 结构变更只发生一次，后续订单复用同一 Archetype
+                // 结构变更只发生一次，后续指令复用同一 Archetype
                 entityManager.AddComponentData(entity, value);
             }
         }

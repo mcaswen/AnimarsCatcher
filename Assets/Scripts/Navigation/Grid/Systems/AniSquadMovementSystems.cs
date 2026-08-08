@@ -33,10 +33,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
             float deltaTime = SystemAPI.Time.DeltaTime;
             ref NavigationGridBlob grid = ref gridReference.Value.Value;
-            foreach (var (squad, order, pathState, anchor, fieldState, field) in
+            foreach (var (squad, command, pathState, anchor, fieldState, field) in
                      SystemAPI.Query<
                          RefRO<AniSquad>,
-                         RefRO<AniSquadOrder>,
+                         RefRO<AniSquadCommand>,
                          RefRW<AniSquadPathState>,
                          RefRW<AniSquadAnchor>,
                          RefRO<NavigationFlowFieldState>,
@@ -44,7 +44,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 float3 targetVelocity = float3.zero;
 
-                // 只有当前请求版本成功且订单仍在移动，Flow Direction 才能驱动 Anchor
+                // 只有当前请求版本成功且指令仍在移动，Flow Direction 才能驱动 Anchor
                 bool fieldReady = fieldState.ValueRO.Status == NavigationPathStatus.Succeeded &&
                                   fieldState.ValueRO.RequestVersion ==
                                   pathState.ValueRO.ActiveRequestVersion;
@@ -71,7 +71,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         pathState.ValueRO.ResolvedTargetPosition,
                         squad.ValueRO.MinimumMaxSpeed,
                         squad.ValueRO.MinimumMaxAcceleration,
-                        order.ValueRO.TargetStoppingDistance);
+                        command.ValueRO.TargetStoppingDistance);
                     if (math.lengthsq(brakingVelocity) > 1e-6f &&
                         AniSquadMovementAlgorithms.TryGetFlowDirection(
                             field,
@@ -115,15 +115,15 @@ namespace AnimarsCatcher.Navigation.Grid
                 float3 flatVelocity = PlanarMath.FlattenY(velocity);
                 if (math.lengthsq(flatVelocity) > 1e-5f)
                 {
-                    // 有有效水平速度时朝运动方向转向，停止后保留订单指定朝向
+                    // 有有效水平速度时朝运动方向转向，停止后保留指令指定朝向
                     anchor.ValueRW.Forward = math.normalize(flatVelocity);
                 }
                 else if (pathState.ValueRO.Status == AniSquadMovementStatus.Completed ||
                          pathState.ValueRO.Status == AniSquadMovementStatus.Holding)
                 {
-                    // 完成后不再跟随残余速度，恢复订单的稳定朝向
+                    // 完成后不再跟随残余速度，恢复指令的稳定朝向
                     anchor.ValueRW.Forward = math.normalizesafe(
-                        order.ValueRO.DesiredForward,
+                        command.ValueRO.DesiredForward,
                         new float3(0f, 0f, 1f));
                 }
             }
@@ -270,7 +270,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 根据 Anchor 和全部成员槽位误差提交订单到达状态
+    /// 根据 Anchor 和全部成员槽位误差提交指令到达状态
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -300,9 +300,9 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // Progress 只读取上一链路写入的结果，不直接修改成员 Transform
             // Lookup 全部刷新后再遍历，保证死亡成员不会被旧引用判定为到达
-            foreach (var (order, anchor, pathState, fieldState, members) in
+            foreach (var (command, anchor, pathState, fieldState, members) in
                      SystemAPI.Query<
-                         RefRO<AniSquadOrder>,
+                         RefRO<AniSquadCommand>,
                          RefRO<AniSquadAnchor>,
                          RefRW<AniSquadPathState>,
                          RefRO<NavigationFlowFieldState>,
@@ -311,7 +311,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (fieldState.ValueRO.Status == NavigationPathStatus.Failed &&
                     fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                 {
-                    // 当前版本明确失败时终止订单，防止继续消费旧 Field
+                    // 当前版本明确失败时终止指令，防止继续消费旧 Field
                     pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
                     pathState.ValueRW.SettledTicks = 0;
                     continue;
@@ -326,12 +326,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // Anchor 到达使用解析后的动态目标，而不是订单中的初始位置快照
+                // Anchor 到达使用解析后的动态目标，而不是指令中的初始位置快照
                 float3 targetOffset =
                     pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position;
                 targetOffset = PlanarMath.FlattenY(targetOffset);
                 bool anchorArrived = math.length(targetOffset) <=
-                                     math.max(0.1f, order.ValueRO.TargetStoppingDistance);
+                                     math.max(0.1f, command.ValueRO.TargetStoppingDistance);
                 bool membersArrived = AreMembersSettled(members);
 
                 // Anchor 到达不代表阵型到达，必须同时满足所有成员误差和速度阈值
@@ -352,8 +352,8 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // Follow 到达后保持跟随，其余一次性命令进入完成态
-                pathState.ValueRW.Status = order.ValueRO.Mode == AniSquadCommandMode.Follow
+                // Follow 到达后保持跟随，其余一次性指令进入完成态
+                pathState.ValueRW.Status = command.ValueRO.Mode == AniSquadCommandMode.Follow
                     ? AniSquadMovementStatus.Holding
                     : AniSquadMovementStatus.Completed;
             }

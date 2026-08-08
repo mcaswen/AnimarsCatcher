@@ -23,9 +23,9 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
-    /// 服务器验证后交给 Grid 导航的群体订单
+    /// 服务器验证后交给 Grid 导航的群体指令
     /// </summary>
-    public struct AniSquadOrder : IComponentData
+    public struct AniSquadCommand : IComponentData
     {
         // 同一玩家的命令序号用于确定跨 World 回放顺序
         public uint Sequence;
@@ -49,17 +49,17 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
-    /// 标记尚未由 Squad 生命周期系统消费的订单实体
+    /// 标记尚未由 Squad 生命周期系统消费的指令实体
     /// </summary>
-    public struct AniSquadOrderRequest : IComponentData
+    public struct AniSquadCommandRequest : IComponentData
     {
     }
 
     /// <summary>
-    /// 保存订单中经过权限校验的服务器 Ani 成员及其移动参数
+    /// 保存指令中经过权限校验的服务器 Ani 成员及其移动参数
     /// </summary>
     [InternalBufferCapacity(16)]
-    public struct AniSquadOrderMember : IBufferElementData
+    public struct AniSquadCommandMember : IBufferElementData
     {
         public Entity Ani;
 
@@ -83,11 +83,11 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
-    /// 接收已校验订单和 Benchmark 回放的 Grid 子组
+    /// 接收已校验指令和 Benchmark 回放的 Grid 子组
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridMovementSystemGroup), OrderFirst = true)]
-    public partial class AniGridOrderIngressSystemGroup : ComponentSystemGroup
+    public partial class AniGridCommandIngressSystemGroup : ComponentSystemGroup
     {
     }
 
@@ -98,7 +98,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
         WorldSystemFilterFlags.ServerSimulation |
         WorldSystemFilterFlags.LocalSimulation)]
     [UpdateInGroup(typeof(AniGridMovementSystemGroup))]
-    [UpdateAfter(typeof(AniGridOrderIngressSystemGroup))]
+    [UpdateAfter(typeof(AniGridCommandIngressSystemGroup))]
     public partial class AniGridRuntimeSystemGroup : ComponentSystemGroup
     {
     }

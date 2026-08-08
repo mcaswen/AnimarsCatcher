@@ -14,10 +14,10 @@ using Debug = UnityEngine.Debug;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 把统一 Benchmark 回放适配为阶段四 Squad 移动订单
+    /// 把统一 Benchmark 回放适配为阶段四 Squad 移动指令
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(AniGridOrderIngressSystemGroup))]
+    [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
     [UpdateAfter(typeof(ServerNavigationGridBenchmarkSystem))]
     public partial struct ServerNavigationGridMovementBenchmarkSystem : ISystem
     {
@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Navigation.Grid
             state.RequireForUpdate<NavigationGridBenchmarkConfig>();
             state.RequireForUpdate<NavigationGridReference>();
 
-            // 查询只保存 Benchmark 标记和 Transform，成员组件会在订单消费时结构化添加
+            // 查询只保存 Benchmark 标记和 Transform，成员组件会在指令消费时结构化添加
             // 查询本身由 SystemState 持有，不在 OnDestroy 手工释放
             _agentQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridMovementBenchmarkAni>(),
@@ -83,15 +83,15 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 CreateAgents(ref state, config);
 
-                // 先写回初始化状态，再创建订单，防止结构变更后下一 Tick 重复生成成员
-                // 该写回必须早于第一个 SubmitOrder 产生的订单实体
+                // 先写回初始化状态，再创建指令，防止结构变更后下一 Tick 重复生成成员
+                // 该写回必须早于第一个 SubmitCommand 产生的指令实体
                 benchmarkState.Initialized = 1;
-                benchmarkState.NextOrderSequence = 1;
+                benchmarkState.NextCommandSequence = 1;
                 state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
                 Debug.Log($"[NavigationBenchmark] 已创建 {config.AgentCount} 个 Grid Benchmark Ani");
             }
 
-            // 创建 Ani 会改变 Archetype，复制 Buffer 后再进行订单结构变更
+            // 创建 Ani 会改变 Archetype，复制 Buffer 后再进行指令结构变更
             // NativeArray 副本的生命周期覆盖整个命令提交循环
             using NativeArray<NavigationGridBenchmarkCommand> commands =
                 SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkCommand>(true)
@@ -102,8 +102,8 @@ namespace AnimarsCatcher.Navigation.Grid
                    benchmarkState.NextCommandIndex < commands.Length &&
                    commands[benchmarkState.NextCommandIndex].Tick == sampleTick)
             {
-                // 一个回放 Tick 可以包含多个命令，按原序号逐个转入 Squad 订单
-                SubmitOrder(
+                // 一个回放 Tick 可以包含多个命令，按原序号逐个转入 Squad 指令
+                SubmitCommand(
                     ref state,
                     config,
                     commands[benchmarkState.NextCommandIndex],
@@ -161,7 +161,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity aniEntity = state.EntityManager.CreateEntity(
                     typeof(LocalTransform),
                     typeof(NavigationGridMovementBenchmarkAni));
-                // Transform 先写入确定性起点，订单消费后才添加移动组件
+                // Transform 先写入确定性起点，指令消费后才添加移动组件
                 state.EntityManager.SetComponentData(
                     aniEntity,
                     LocalTransform.FromPositionRotation(position, quaternion.identity));
@@ -172,7 +172,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        private void SubmitOrder(
+        private void SubmitCommand(
             ref SystemState state,
             NavigationGridBenchmarkConfig config,
             NavigationGridBenchmarkCommand command,
@@ -195,13 +195,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 forward,
                 new float3(0f, 0f, 1f));
 
-            Entity orderEntity = entityManager.CreateEntity(
-                typeof(AniSquadOrderRequest),
-                typeof(AniSquadOrder));
-            // Request Tag 与 Order 同时创建，生命周期查询不会看到半成品订单
-            entityManager.SetComponentData(orderEntity, new AniSquadOrder
+            Entity commandEntity = entityManager.CreateEntity(
+                typeof(AniSquadCommandRequest),
+                typeof(AniSquadCommand));
+            // Request Tag 与 Command 同时创建，生命周期查询不会看到半成品指令
+            entityManager.SetComponentData(commandEntity, new AniSquadCommand
             {
-                Sequence = NextOrderSequence(ref benchmarkState),
+                Sequence = NextCommandSequence(ref benchmarkState),
                 OwnerNetworkId = 1,
                 Mode = AniSquadCommandMode.MoveTo,
                 Formation = AniSquadFormationKind.CompactRectangle,
@@ -212,8 +212,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 DesiredForward = forward,
             });
 
-            DynamicBuffer<AniSquadOrderMember> members =
-                entityManager.AddBuffer<AniSquadOrderMember>(orderEntity);
+            DynamicBuffer<AniSquadCommandMember> members =
+                entityManager.AddBuffer<AniSquadCommandMember>(commandEntity);
 
             // 成员按 AgentIndex 排序写入，确保回放跨 World 的槽位分配一致
             for (int index = 0; index < config.AgentCount; index++)
@@ -221,7 +221,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int stableId = entityManager
                     .GetComponentData<NavigationGridMovementBenchmarkAni>(agents[index])
                     .AgentIndex;
-                members.Add(new AniSquadOrderMember
+                members.Add(new AniSquadCommandMember
                 {
                     Ani = agents[index],
                     StableId = stableId,
@@ -259,7 +259,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 agents[insertion + 1] = value;
             }
 
-            // 返回临时数组的所有权给 SubmitOrder，调用方在订单完成后释放
+            // 返回临时数组的所有权给 SubmitCommand，调用方在指令完成后释放
             return agents;
         }
 
@@ -293,18 +293,18 @@ namespace AnimarsCatcher.Navigation.Grid
             return foundSquad;
         }
 
-        private static uint NextOrderSequence(
+        private static uint NextCommandSequence(
             ref NavigationGridMovementBenchmarkState benchmarkState)
         {
-            uint sequence = benchmarkState.NextOrderSequence++;
+            uint sequence = benchmarkState.NextCommandSequence++;
 
             // 零保留给未初始化序号，计数器环绕时跳过零
-            if (benchmarkState.NextOrderSequence == 0)
+            if (benchmarkState.NextCommandSequence == 0)
             {
-                benchmarkState.NextOrderSequence = 1;
+                benchmarkState.NextCommandSequence = 1;
             }
 
-            return sequence == 0 ? NextOrderSequence(ref benchmarkState) : sequence;
+            return sequence == 0 ? NextCommandSequence(ref benchmarkState) : sequence;
         }
 
         private void ExportResult(
@@ -337,7 +337,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
-            // 路径请求统计按 Squad 汇总，验证一次订单只创建一个上下文
+            // 路径请求统计按 Squad 汇总，验证一条指令只创建一个上下文
             int squadCount = 0;
             int pathRequestCount = 0;
             int pathSuccessCount = 0;

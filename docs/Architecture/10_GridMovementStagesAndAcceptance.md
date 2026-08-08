@@ -191,7 +191,7 @@
 
 ### 交付物
 
-- `ServerAniOrderIngressSystem`：正式玩法消费已校验 `AniCommandRpc`，Benchmark 回放适配层绕过 RPC 容量限制后写入相同 `AniSquadOrder` 契约
+- `ServerAniCommandIngressSystem`：正式玩法消费已校验 `AniCommandRpc`，Benchmark 回放适配层绕过 RPC 容量限制后写入相同 `AniSquadCommand` 契约
 - `AniSquadLifecycleSystem`：根据有效命令创建、更新和拆除 Squad 上下文
 - Squad Entity 和成员 Buffer
 - Squad Order、Path State 和 Anchor
@@ -225,8 +225,8 @@
 
 ### 当前实现与验收记录
 
-- `ServerAniOrderIngressSystem` 将正式 `AniCommandRpc` 的权限校验结果写入统一 `AniSquadOrder`；Benchmark 回放由 `ServerNavigationGridMovementBenchmarkSystem` 直接写入同一契约，不绕过 Squad 生命周期。
-- `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 维护一次订单对应一个 Squad 路径上下文，并处理成员加入、离队、失效和拆队。
+- `ServerAniCommandIngressSystem` 将正式 `AniCommandRpc` 的权限校验结果写入统一 `AniSquadCommand`；Benchmark 回放由 `ServerNavigationGridMovementBenchmarkSystem` 直接写入同一契约，不绕过 Squad 生命周期。
+- `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 维护一条指令对应一个 Squad 路径上下文，并处理成员加入、离队、失效和拆队。
 - `AniSquadAnchorAdvanceSystem`、`AniFormationLayoutSystem`、`AniFormationAssignmentSystem`、`AniSlotTargetSystem`、`AniPreferredVelocitySystem`、`AniMovementCommitSystem` 和 `AniMovementProgressSystem` 已形成固定的服务器更新链路。基础 Commit 是 Grid 后端唯一 Ani `LocalTransform` 写入者。
 - `NavigationGridStageFourValidation.RunFromCommandLine` 已覆盖 32、64、128 Ani 的槽位唯一/中心对称、World 过滤、System 顺序、成员生命周期和开阔地 MoveTo 到达；2026-08-07 验收通过。
 - 阶段四 Benchmark 结果写入 `BenchmarkResults/GridNavigation`，记录 Squad 数、路径请求终态、缓存命中、到达率、最小单位间距、阵型误差、Transform 提交次数和完整 Server Tick 样本。阶段四验收不包含 ORCA、动态 Overlay、世界碰撞或受阻恢复。

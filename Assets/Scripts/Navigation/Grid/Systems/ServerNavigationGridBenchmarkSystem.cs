@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Navigation.Grid
     /// 复用统一 Benchmark 场景参数生成纯路径、Corridor 和 Field 工作负载
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(AniGridOrderIngressSystemGroup))]
+    [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
     public partial struct ServerNavigationGridBenchmarkSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

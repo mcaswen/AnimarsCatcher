@@ -281,7 +281,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public int AppliedCommandCount;
         public int FinalArrivalCount;
         public int FinalMemberCount;
-        public uint NextOrderSequence;
+        public uint NextCommandSequence;
         public long FrameStartTimestamp;
         public long FrameStartAllocatedBytes;
         public byte Initialized;

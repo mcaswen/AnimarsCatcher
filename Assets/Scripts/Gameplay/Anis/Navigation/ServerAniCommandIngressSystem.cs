@@ -10,12 +10,12 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在 Grid 后端验证 AniCommandRpc，并生成统一的 Squad 订单
+    /// 在 Grid 后端验证 AniCommandRpc，并生成统一的 Squad 指令
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
-    [UpdateInGroup(typeof(AniGridOrderIngressSystemGroup))]
-    public partial struct ServerAniOrderIngressSystem : ISystem
+    [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
+    public partial struct ServerAniCommandIngressSystem : ISystem
     {
         private const float DefaultAgentRadius = 0.35f;
         private const float DefaultFollowStoppingDistance = 2.5f;
@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Gameplay
                 _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
             }
 
-            // RPC 消费和订单创建都会改变 Archetype，延迟回放保持查询迭代稳定
+            // RPC 消费和指令创建都会改变 Archetype，延迟回放保持查询迭代稳定
             // Playback 前所有 NativeList 都必须完成 Dispose
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (rpc, receive, rpcEntity) in
@@ -77,11 +77,11 @@ namespace AnimarsCatcher.Gameplay
 
                 // 先拒绝无效目标，避免为不可能执行的命令扫描和分配成员集合
                 // Follow/Find 的实体有效性在这里检查一次，运行时再由 TargetResolve 追踪移动
-                if (!TryResolveOrder(
+                if (!TryResolveCommand(
                         ref state,
                         rpc.ValueRO,
                         ownerNetworkId,
-                        out AniSquadOrder order))
+                        out AniSquadCommand command))
                 {
                     entityCommandBuffer.DestroyEntity(rpcEntity);
                     continue;
@@ -89,7 +89,7 @@ namespace AnimarsCatcher.Gameplay
 
                 NativeParallelHashSet<Entity> selectedEntities =
                     new(math.max(1, rpc.ValueRO.SelectedAniGhostIds.Length), Allocator.Temp);
-                NativeList<AniSquadOrderMember> members =
+                NativeList<AniSquadCommandMember> members =
                     new(math.max(1, rpc.ValueRO.SelectedAniGhostIds.Length), Allocator.Temp);
 
                 // HashSet 同时阻止恶意重复选择和重复成员破坏 Squad Buffer 不变量
@@ -116,8 +116,8 @@ namespace AnimarsCatcher.Gameplay
 
                     AniAttributes attributes = SystemAPI.GetComponent<AniAttributes>(aniEntity);
 
-                    // 订单快照冻结本次移动参数，后续 Squad 系统不再读取玩法组件
-                    members.Add(new AniSquadOrderMember
+                    // 指令快照冻结本次移动参数，后续 Squad 系统不再读取玩法组件
+                    members.Add(new AniSquadCommandMember
                     {
                         Ani = aniEntity,
                         StableId = ghostId,
@@ -137,42 +137,42 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                // 序号只分配给可执行订单，避免无效 RPC 制造回放序号空洞
-                order.Sequence = NextSequence();
-                order.DesiredForward = CalculateForward(ref state, members, order.TargetPosition);
+                // 序号只分配给可执行指令，避免无效 RPC 制造回放序号空洞
+                command.Sequence = NextSequence();
+                command.DesiredForward = CalculateForward(ref state, members, command.TargetPosition);
 
-                // 每个 RPC 只生成一个订单实体，成员数量不会放大路径上下文数量
-                // 订单成员 Buffer 是权限校验后的最小输入，不再携带原 RPC
-                Entity orderEntity = entityCommandBuffer.CreateEntity();
-                entityCommandBuffer.AddComponent(orderEntity, new AniSquadOrderRequest());
-                entityCommandBuffer.AddComponent(orderEntity, order);
-                DynamicBuffer<AniSquadOrderMember> orderMembers =
-                    entityCommandBuffer.AddBuffer<AniSquadOrderMember>(orderEntity);
+                // 每个 RPC 只生成一个指令实体，成员数量不会放大路径上下文数量
+                // 指令成员 Buffer 是权限校验后的最小输入，不再携带原 RPC
+                Entity commandEntity = entityCommandBuffer.CreateEntity();
+                entityCommandBuffer.AddComponent(commandEntity, new AniSquadCommandRequest());
+                entityCommandBuffer.AddComponent(commandEntity, command);
+                DynamicBuffer<AniSquadCommandMember> commandMembers =
+                    entityCommandBuffer.AddBuffer<AniSquadCommandMember>(commandEntity);
                 for (int index = 0; index < members.Length; index++)
                 {
-                    orderMembers.Add(members[index]);
+                    commandMembers.Add(members[index]);
                 }
 
                 members.Dispose();
 
-                // 原始 RPC 不参与重试，订单实体是后续生命周期唯一输入
+                // 原始 RPC 不参与重试，指令实体是后续生命周期唯一输入
                 // Destroy 延迟到 Playback，当前循环仍可安全读取 rpcEntity
                 entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 
-            // 所有查询结束后一次回放，防止当前 Tick 读到半构建订单
-            // 下一系统组只能观察完整的 Request、Order 和 Member Buffer
+            // 所有查询结束后一次回放，防止当前 Tick 读到半构建指令
+            // 下一系统组只能观察完整的 Request、Command 和 Member Buffer
             entityCommandBuffer.Playback(state.EntityManager);
             entityCommandBuffer.Dispose();
         }
 
-        private bool TryResolveOrder(
+        private bool TryResolveCommand(
             ref SystemState state,
             AniCommandRpc rpc,
             int ownerNetworkId,
-            out AniSquadOrder order)
+            out AniSquadCommand command)
         {
-            order = default;
+            command = default;
             AniSquadCommandMode mode;
             float stoppingDistance;
 
@@ -193,7 +193,7 @@ namespace AnimarsCatcher.Gameplay
                 case WorldCommandTargetKind.Ani:
                 case WorldCommandTargetKind.Resource:
                 case WorldCommandTargetKind.Base:
-                    // 非玩家实体使用 Find 语义，到达后由 Progress 结束一次性订单
+                    // 非玩家实体使用 Find 语义，到达后由 Progress 结束一次性指令
                     mode = AniSquadCommandMode.Find;
                     stoppingDistance = DefaultFindStoppingDistance;
                     break;
@@ -224,7 +224,7 @@ namespace AnimarsCatcher.Gameplay
             }
 
             // TargetEntity 保留给 Follow/Find，MoveTo 使用 Entity.Null 表示静态坐标
-            order = new AniSquadOrder
+            command = new AniSquadCommand
             {
                 OwnerNetworkId = ownerNetworkId,
                 Mode = mode,
@@ -238,14 +238,14 @@ namespace AnimarsCatcher.Gameplay
                 DesiredForward = new float3(0f, 0f, 1f),
             };
 
-            // 所有默认值在这里收敛，后续系统只读取统一订单而不再判断 RPC 类型
+            // 所有默认值在这里收敛，后续系统只读取统一指令而不再判断 RPC 类型
             // DesiredForward 会在成员集合通过后由队伍中心重新计算
             return true;
         }
 
         private static float3 CalculateForward(
             ref SystemState state,
-            NativeList<AniSquadOrderMember> members,
+            NativeList<AniSquadCommandMember> members,
             float3 targetPosition)
         {
             float3 center = float3.zero;
@@ -282,7 +282,7 @@ namespace AnimarsCatcher.Gameplay
         {
             uint sequence = _nextSequence++;
 
-            // 零表示未提交订单，环绕时跳过该保留值
+            // 零表示未提交指令，环绕时跳过该保留值
             if (_nextSequence == 0)
             {
                 _nextSequence = 1;
