@@ -40,15 +40,6 @@ docs/<summary>
 | `feat:` | 功能新增 | `feat: 完成玩家翻滚功能` |
 | `update:` | 既有逻辑、数据、资源或格式的明确调整 | `update: 调整Blaster攻击间隔配置` |
 
-可以增加可选模块范围：
-
-```text
-feat(player): 完成玩家翻滚功能
-fix(combat): 修复技能释放后冷却未刷新的问题
-update(ui): 调整结算面板布局
-chore(scene): 整理场景节点命名
-```
-
 `update:` 只是类型前缀，冒号后的描述仍必须具体，禁止写成 `update: 更新代码`。
 
 ## 3. Unity 项目特殊要求
