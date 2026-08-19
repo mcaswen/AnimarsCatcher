@@ -38,6 +38,7 @@
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
 12. [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
 13. [文件夹迁移实施记录](20_FolderMigrationPlan.md)：查看最终目录、阶段提交、关键决策、验收结果和回滚顺序
+14. [Navigation 架构重构规划与执行](22_NavigationArchitectureRefactorExecutionPlan.md)：按 21 号架构基线执行 Navigation 的 R0-R6 结构重构、验证和回滚
 
 ## 3. 总体运行架构
 
