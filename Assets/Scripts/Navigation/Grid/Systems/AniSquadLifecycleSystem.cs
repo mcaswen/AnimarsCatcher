@@ -200,6 +200,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     Ani = commandMember.Ani,
                     StableId = commandMember.StableId,
                     SlotIndex = FindPreviousSlot(previousMembers, commandMember.Ani),
+                    Role = commandMember.Role,
                 });
             }
 
@@ -246,6 +247,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 // 阵型类型或列数变化会使所有局部偏移失效
                 formation.Kind = command.Formation;
                 formation.ColumnCount = requestedColumnCount;
+                formation.DesiredColumnCount = requestedColumnCount;
+                formation.WidthStableTicks = 0;
+                formation.ClearanceVersion = 0;
                 formation.LayoutVersion = 0;
                 formation.AssignmentVersion = 0;
             }
@@ -390,6 +394,9 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 Kind = command.Formation,
                 ColumnCount = math.min(
+                    math.max(1, command.FormationColumnCount),
+                    math.max(1, members.Length)),
+                DesiredColumnCount = math.min(
                     math.max(1, command.FormationColumnCount),
                     math.max(1, members.Length)),
                 MemberVersion = 1,

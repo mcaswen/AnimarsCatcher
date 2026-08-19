@@ -1,4 +1,4 @@
 interface:
   display_name: "Unity 验证 Worktree"
-  short_description: "在独立 worktree 中编译并运行 Unity Play Mode 验证"
-  default_prompt: "使用 $run-unity-verification 更新隔离的 Unity worktree 并运行指定验证。"
+  short_description: "在独立 worktree 中运行 Unity、Burst 与 Play Mode 验证"
+  default_prompt: "使用 $run-unity-verification 更新隔离的 Unity worktree，运行指定验收并诊断 Burst 间歇失败。"

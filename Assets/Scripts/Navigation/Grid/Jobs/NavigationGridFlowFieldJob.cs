@@ -76,6 +76,9 @@ namespace AnimarsCatcher.Navigation.Grid
         // 保存命中或新建的缓存版本
         public uint CacheVersion;
 
+        // 保存本次请求使用的动态 Overlay 版本
+        public uint DynamicOverlayVersion;
+
         // 表示结果是否直接复用了缓存 Field
         public byte CacheHit;
     }
@@ -93,6 +96,13 @@ namespace AnimarsCatcher.Navigation.Grid
         // 保存由 System 按 Entity 稳定排序的请求数组
         [ReadOnly]
         public NativeArray<NavigationFlowFieldJobRequest> Requests;
+
+        [ReadOnly]
+        public NativeArray<NavigationDynamicOverlayCell> DynamicOverlay;
+
+        [ReadOnly]
+        public NativeArray<NavigationDynamicOverlayCluster> DynamicOverlayClusters;
+        public uint DynamicOverlayVersion;
 
         // 保存与 Requests 相同下标的结果描述
         public NativeArray<NavigationFlowFieldJobResult> Results;
@@ -223,7 +233,10 @@ namespace AnimarsCatcher.Navigation.Grid
                     ref WorkNodeChain,
                     ref CacheEntries,
                     ref CacheCorridorClusters,
-                    ref CacheFlowCells);
+                    ref CacheFlowCells,
+                    DynamicOverlay,
+                    DynamicOverlayClusters,
+                    DynamicOverlayVersion);
             }
         }
     }

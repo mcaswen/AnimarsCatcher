@@ -66,6 +66,11 @@ namespace AnimarsCatcher.Navigation.Grid
     {
         public AniSquadFormationKind Kind;
         public int ColumnCount;
+        public int DesiredColumnCount;
+        public byte NarrowPath;
+        public float ForwardClearance;
+        public uint ClearanceVersion;
+        public int WidthStableTicks;
         public uint MemberVersion;
         public uint LayoutVersion;
         public uint AssignmentVersion;
@@ -80,6 +85,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public Entity Ani;
         public int StableId;
         public int SlotIndex;
+        public AniSquadRole Role;
     }
 
     /// <summary>
@@ -90,6 +96,7 @@ namespace AnimarsCatcher.Navigation.Grid
     {
         public int SlotIndex;
         public float3 LocalOffset;
+        public AniSquadRole PreferredRole;
     }
 
     /// <summary>

@@ -39,7 +39,10 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<int> workNodeChain,
             ref NativeList<NavigationFlowFieldCacheEntry> cacheEntries,
             ref NativeList<int> cacheCorridorClusters,
-            ref NativeList<NavigationFlowFieldCell> cacheFlowCells)
+            ref NativeList<NavigationFlowFieldCell> cacheFlowCells,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            NativeArray<NavigationDynamicOverlayCluster> dynamicOverlayClusters,
+            uint dynamicOverlayVersion)
         {
             NavigationPathRequest request = jobRequest.Request.PathRequest;
             // 先初始化失败结果，后续分支只覆盖更具体的失败原因
@@ -48,6 +51,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 request.Version,
                 NavigationPathFailureReason.InvalidRequest,
                 cacheVersion);
+            result.DynamicOverlayVersion = dynamicOverlayVersion;
             // Scratch 形状必须与当前 Grid 一致，Generation 才能安全隔离复用数据
             if (!IsShapeValid(
                     ref grid,
@@ -75,6 +79,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     request.AgentRadius,
                     request.ClearanceMargin,
                     request.MaximumProjectionRadiusInCells,
+                    dynamicOverlay,
                     out int startCellIndex))
             {
                 result.FailureReason = NavigationPathFailureReason.StartProjectionFailed;
@@ -89,6 +94,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     request.AgentRadius,
                     request.ClearanceMargin,
                     request.MaximumProjectionRadiusInCells,
+                    dynamicOverlay,
                     out int endCellIndex))
             {
                 result.FailureReason = NavigationPathFailureReason.EndProjectionFailed;
@@ -96,6 +102,12 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             result.ProjectedEndCellIndex = endCellIndex;
+            if (IsOverlayBlocked(dynamicOverlay, startCellIndex) ||
+                IsOverlayBlocked(dynamicOverlay, endCellIndex))
+            {
+                result.FailureReason = NavigationPathFailureReason.NoPath;
+                return result;
+            }
             NavigationGridCell startCell = grid.Cells[startCellIndex];
             NavigationGridCell endCell = grid.Cells[endCellIndex];
             // 静态 Region 不连通时无需分配 Corridor 和 Field 输出
@@ -156,7 +168,8 @@ namespace AnimarsCatcher.Navigation.Grid
                          ref workCorridorClusters,
                          ref workCorridorPortals,
                          ref workNodeChain,
-                         out abstractExpandedNodeCount))
+                         out abstractExpandedNodeCount,
+                         dynamicOverlay))
             {
                 result.FailureReason = NavigationPathFailureReason.NoPath;
                 return result;
@@ -191,6 +204,9 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // 缓存键使用宏观 Cluster 序列，不依赖临时 Portal Node 父链
             uint corridorHash = CalculateCorridorHash(ref workCorridorClusters);
+            uint dynamicOverlaySignature = CalculateOverlaySignature(
+                ref workCorridorClusters,
+                dynamicOverlayClusters);
             int fieldOffset = flowCells.Length;
             int integrationExpandedCellCount = 0;
 
@@ -201,6 +217,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 request.ClearancePenaltyWeight,
                 corridorHash,
                 cacheVersion,
+                dynamicOverlaySignature,
                 ref workCorridorClusters,
                 ref cacheEntries,
                 ref cacheCorridorClusters,
@@ -224,7 +241,8 @@ namespace AnimarsCatcher.Navigation.Grid
                         clusterGenerations,
                         ref workVisitedCells,
                         ref flowCells,
-                        out integrationExpandedCellCount))
+                        out integrationExpandedCellCount,
+                        dynamicOverlay))
                 {
                     // 恢复 Corridor 输出到本请求写入前的切片起点
                     corridorClusters.ResizeUninitialized(corridorClusterOffset);
@@ -249,7 +267,8 @@ namespace AnimarsCatcher.Navigation.Grid
                     ref flowCells,
                     ref cacheEntries,
                     ref cacheCorridorClusters,
-                    ref cacheFlowCells);
+                    ref cacheFlowCells,
+                    dynamicOverlaySignature);
             }
 
             // 新建 Field 可直接读取 Scratch，缓存命中则从复制后的稀疏 Field 查询
@@ -331,7 +350,8 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<int> corridorClusters,
             ref NativeList<int> corridorPortals,
             ref NativeList<int> nodeChain,
-            out int expandedNodeCount)
+            out int expandedNodeCount,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
             expandedNodeCount = 0;
             int abstractGeneration = generationStart;
@@ -345,9 +365,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 false,
                 startCostGeneration,
                 cellCosts,
-                cellHeap,
-                cellHeapPositions,
-                cellGenerations);
+                    cellHeap,
+                    cellHeapPositions,
+                    cellGenerations,
+                    dynamicOverlay);
 
             int abstractHeapCount = 0;
             NavigationGridCluster startClusterData = grid.Clusters[startCluster];
@@ -397,9 +418,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 true,
                 endCostGeneration,
                 cellCosts,
-                cellHeap,
-                cellHeapPositions,
-                cellGenerations);
+                    cellHeap,
+                    cellHeapPositions,
+                    cellGenerations,
+                    dynamicOverlay);
             // 反向成本保留进入目标 Cell 的地形语义，不能交换起终点复用正向结果
             NavigationGridCluster endClusterData = grid.Clusters[endCluster];
             for (int index = 0; index < endClusterData.PortalNodeCount; index++)
@@ -457,6 +479,16 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     int target = edge.ToNodeIndex;
+                    int targetCell = grid.PortalNodes[target].CellIndex;
+                    if (!NavigationGridPathAlgorithms.CanAgentOccupyDynamic(
+                            ref grid,
+                            targetCell,
+                            request.AgentRadius,
+                            request.ClearanceMargin,
+                            dynamicOverlay))
+                    {
+                        continue;
+                    }
                     // 抽象 Scratch 延迟初始化，避免每个请求清空全部 Portal Node
                     if (abstractGenerations[target] != abstractGeneration)
                     {
@@ -550,7 +582,8 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<float> costs,
             NativeArray<int> heap,
             NativeArray<int> heapPositions,
-            NativeArray<int> generations)
+            NativeArray<int> generations,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
             int heapCount = 0;
             // Generation 标记让本次源点搜索无需清空整张 Grid 的 Scratch
@@ -588,6 +621,10 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     int neighbor = neighborX + neighborZ * grid.Width;
+                    if (IsOverlayBlocked(dynamicOverlay, neighbor))
+                    {
+                        continue;
+                    }
                     // Cluster 边界在此处截断空间搜索
                     if (grid.Cells[neighbor].ClusterId != clusterId)
                     {
@@ -600,14 +637,15 @@ namespace AnimarsCatcher.Navigation.Grid
                     int edgeDeltaX = reverseEdges ? -deltaX : deltaX;
                     int edgeDeltaZ = reverseEdges ? -deltaZ : deltaZ;
                     // 统一边校验保留 Clearance、邻接与对角穿角约束
-                    if (!NavigationGridPathAlgorithms.CanAgentTraverseEdge(
+                    if (!NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
                             ref grid,
                             from,
                             to,
                             edgeDeltaX,
                             edgeDeltaZ,
                             request.AgentRadius,
-                            request.ClearanceMargin))
+                            request.ClearanceMargin,
+                            dynamicOverlay))
                     {
                         continue;
                     }
@@ -625,7 +663,9 @@ namespace AnimarsCatcher.Navigation.Grid
                                           from,
                                           to,
                                           requiredClearance,
-                                          request.ClearancePenaltyWeight);
+                                          request.ClearancePenaltyWeight,
+                                          dynamicOverlay) +
+                                      GetOverlayExtraCost(dynamicOverlay, to);
                     if (candidate >= costs[neighbor] - CostEpsilon)
                     {
                         continue;
@@ -652,7 +692,8 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> clusterGenerations,
             ref NativeList<int> visitedCells,
             ref NativeList<NavigationFlowFieldCell> output,
-            out int expandedCellCount)
+            out int expandedCellCount,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
             // 用 Generation 将 Corridor Cluster 标成反向传播的允许集合
             for (int index = 0; index < corridorClusters.Length; index++)
@@ -698,19 +739,25 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     int predecessor = predecessorX + predecessorZ * grid.Width;
+                    if (IsOverlayBlocked(dynamicOverlay, predecessor) ||
+                        IsOverlayBlocked(dynamicOverlay, current))
+                    {
+                        continue;
+                    }
                     int predecessorCluster = grid.Cells[predecessor].ClusterId;
                     // 前驱必须位于 Corridor，并满足与正向移动相同的边约束
                     if (predecessorCluster < 0 ||
                         predecessorCluster >= clusterGenerations.Length ||
                         clusterGenerations[predecessorCluster] != generation ||
-                        !NavigationGridPathAlgorithms.CanAgentTraverseEdge(
+                        !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
                             ref grid,
                             predecessor,
                             current,
                             -deltaX,
                             -deltaZ,
                             request.AgentRadius,
-                            request.ClearanceMargin))
+                            request.ClearanceMargin,
+                            dynamicOverlay))
                     {
                         continue;
                     }
@@ -728,7 +775,9 @@ namespace AnimarsCatcher.Navigation.Grid
                                           predecessor,
                                           current,
                                           requiredClearance,
-                                          request.ClearancePenaltyWeight);
+                                          request.ClearancePenaltyWeight,
+                                          dynamicOverlay) +
+                                      GetOverlayExtraCost(dynamicOverlay, current);
                     if (candidate >= costs[predecessor] - CostEpsilon)
                     {
                         continue;
@@ -765,7 +814,8 @@ namespace AnimarsCatcher.Navigation.Grid
                         request,
                         generation,
                         costs,
-                        generations),
+                        generations,
+                        dynamicOverlay),
                 });
             }
 
@@ -779,7 +829,8 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationPathRequest request,
             int generation,
             NativeArray<float> costs,
-            NativeArray<int> generations)
+            NativeArray<int> generations,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
             if (cellIndex == targetCellIndex)
             {
@@ -811,17 +862,22 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 int neighbor = neighborX + neighborZ * grid.Width;
+                if (IsOverlayBlocked(dynamicOverlay, neighbor))
+                {
+                    continue;
+                }
                 // 当前 Generation 同时限定 Corridor Field 成员和本次成本有效性
                 if (generations[neighbor] != generation ||
                     costs[neighbor] >= currentCost - CostEpsilon ||
-                    !NavigationGridPathAlgorithms.CanAgentTraverseEdge(
+                    !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
                         ref grid,
                         cellIndex,
                         neighbor,
                         deltaX,
                         deltaZ,
                         request.AgentRadius,
-                        request.ClearanceMargin))
+                        request.ClearanceMargin,
+                        dynamicOverlay))
                 {
                     continue;
                 }
@@ -862,19 +918,24 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 int neighbor = neighborX + neighborZ * grid.Width;
+                if (IsOverlayBlocked(dynamicOverlay, neighbor))
+                {
+                    continue;
+                }
                 float2 direction = math.normalizesafe(new float2(deltaX, deltaZ));
                 float alignment = math.dot(direction, smoothedDirection);
                 // 对齐度相同时选择更小 Cell 索引，保证跨运行的确定性
                 if (generations[neighbor] != generation ||
                     costs[neighbor] >= currentCost - CostEpsilon ||
-                    !NavigationGridPathAlgorithms.CanAgentTraverseEdge(
+                    !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
                         ref grid,
                         cellIndex,
                         neighbor,
                         deltaX,
                         deltaZ,
                         request.AgentRadius,
-                        request.ClearanceMargin) ||
+                        request.ClearanceMargin,
+                        dynamicOverlay) ||
                     (alignment < bestAlignment + CostEpsilon &&
                      !(math.abs(alignment - bestAlignment) <= CostEpsilon &&
                        (bestNeighbor < 0 || neighbor < bestNeighbor))))
@@ -897,6 +958,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float clearancePenaltyWeight,
             uint corridorHash,
             uint cacheVersion,
+            uint dynamicOverlaySignature,
             ref NativeList<int> corridorClusters,
             ref NativeList<NavigationFlowFieldCacheEntry> cacheEntries,
             ref NativeList<int> cacheCorridorClusters,
@@ -916,6 +978,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     entry.CorridorHash != corridorHash ||
                     entry.CorridorCount != corridorClusters.Length ||
                     entry.CacheVersion != cacheVersion ||
+                    entry.DynamicOverlaySignature != dynamicOverlaySignature ||
                     entry.CorridorOffset < 0 ||
                     entry.CorridorOffset + entry.CorridorCount > cacheCorridorClusters.Length ||
                     entry.FieldOffset < 0 ||
@@ -968,7 +1031,8 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<NavigationFlowFieldCell> flowCells,
             ref NativeList<NavigationFlowFieldCacheEntry> cacheEntries,
             ref NativeList<int> cacheCorridorClusters,
-            ref NativeList<NavigationFlowFieldCell> cacheFlowCells)
+            ref NativeList<NavigationFlowFieldCell> cacheFlowCells,
+            uint dynamicOverlaySignature)
         {
             // 空 Field 或达到容量上限时跳过缓存，当前请求结果仍保持有效
             if (cacheEntries.Length >= MaximumCacheEntries || fieldCount <= 0)
@@ -1002,7 +1066,53 @@ namespace AnimarsCatcher.Navigation.Grid
                 FieldOffset = cacheFieldOffset,
                 FieldCount = fieldCount,
                 CacheVersion = cacheVersion,
+                DynamicOverlaySignature = dynamicOverlaySignature,
             });
+        }
+
+        private static uint CalculateOverlaySignature(
+            ref NativeList<int> corridorClusters,
+            NativeArray<NavigationDynamicOverlayCluster> dynamicOverlayClusters)
+        {
+            // 按 Corridor 顺序对 Cluster 索引和版本执行 FNV-1a
+            // Corridor 外的地图变化不会使当前局部 Field 失效
+            uint hash = 2166136261u;
+            for (int index = 0; index < corridorClusters.Length; index++)
+            {
+                int clusterIndex = corridorClusters[index];
+                hash ^= (uint)clusterIndex;
+                hash *= 16777619u;
+                uint version = dynamicOverlayClusters.IsCreated &&
+                               clusterIndex >= 0 &&
+                               clusterIndex < dynamicOverlayClusters.Length
+                    ? dynamicOverlayClusters[clusterIndex].Version
+                    : 0u;
+                hash ^= version;
+                hash *= 16777619u;
+            }
+
+            return hash == 0u ? 1u : hash;
+        }
+
+        private static bool IsOverlayBlocked(
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            int cellIndex)
+        {
+            return dynamicOverlay.IsCreated &&
+                   cellIndex >= 0 &&
+                   cellIndex < dynamicOverlay.Length &&
+                   dynamicOverlay[cellIndex].BlockCount > 0;
+        }
+
+        private static float GetOverlayExtraCost(
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            int cellIndex)
+        {
+            return dynamicOverlay.IsCreated &&
+                   cellIndex >= 0 &&
+                   cellIndex < dynamicOverlay.Length
+                ? math.max(0f, dynamicOverlay[cellIndex].ExtraCost)
+                : 0f;
         }
 
         private static uint CalculateCorridorHash(ref NativeList<int> corridorClusters)

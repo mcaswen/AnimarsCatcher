@@ -62,6 +62,10 @@ namespace AnimarsCatcher.Navigation.Grid
                             columnCount,
                             HorizontalSpacing,
                             LongitudinalSpacing),
+                        PreferredRole = AniSquadMovementAlgorithms.CalculateSlotRole(
+                            slotIndex,
+                            members.Length,
+                            columnCount),
                     });
                 }
 
@@ -76,7 +80,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保留有效旧槽位，并为新增成员确定性分配最近空槽位
+    /// 在布局变化时使用确定性的最小总代价匹配分配槽位
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -84,6 +88,9 @@ namespace AnimarsCatcher.Navigation.Grid
     [UpdateBefore(typeof(AniSlotTargetSystem))]
     public partial struct AniFormationAssignmentSystem : ISystem
     {
+        private const float RoleMismatchPenalty = 100000f;
+        private const float SlotChangePenalty = 0.25f;
+
         private ComponentLookup<LocalTransform> _transformLookup;
         private ComponentLookup<AniSquadMembership> _membershipLookup;
 
@@ -115,125 +122,97 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // Buffer 迭代变量只读，复制可写句柄后再逐成员更新槽位索引
+                // Buffer 迭代变量只读，复制可写句柄后再统一写回匹配结果
                 DynamicBuffer<AniSquadMember> writableMembers = members;
-
-                // 位图只在本次匹配中存活，用一个字节表达槽位占用即可
-                NativeArray<byte> usedSlots = new(
-                    slots.Length,
-                    Allocator.Temp,
-                    NativeArrayOptions.ClearMemory);
-
-                // 先保留仍属于本 Squad 且未重复占用的旧槽位，减少成员视觉跳变
-                for (int memberIndex = 0; memberIndex < writableMembers.Length; memberIndex++)
-                {
-                    AniSquadMember member = writableMembers[memberIndex];
-                    int slotIndex = member.SlotIndex;
-                    bool valid = slotIndex >= 0 &&
-                                 slotIndex < slots.Length &&
-                                 usedSlots[slotIndex] == 0 &&
-                                 _membershipLookup.HasComponent(member.Ani) &&
-                                 _membershipLookup[member.Ani].Squad == squadEntity;
-
-                    // 同一槽位重复出现时只保留排序靠前的成员，后者重新匹配
-                    if (valid)
-                    {
-                        // 先标记保留槽位，后续新成员不能抢占稳定成员位置
-                        usedSlots[slotIndex] = 1;
-                    }
-                    else
-                    {
-                        // 无效旧槽位统一标记为待分配，后续只写回当前成员
-                        member.SlotIndex = -1;
-                        writableMembers[memberIndex] = member;
-                    }
-                }
-
                 quaternion anchorRotation = quaternion.LookRotationSafe(
                     math.normalizesafe(anchor.ValueRO.Forward, new float3(0f, 0f, 1f)),
                     math.up());
 
-                // 新成员按当前位置择最近空槽，距离相同按 SlotIndex 保证确定性
-                for (int memberIndex = 0; memberIndex < writableMembers.Length; memberIndex++)
+                int memberCount = writableMembers.Length;
+                NativeArray<float> costs = new(
+                    memberCount * slots.Length,
+                    Allocator.Temp,
+                    NativeArrayOptions.UninitializedMemory);
+                NativeArray<int> assignments = new(
+                    memberCount,
+                    Allocator.Temp,
+                    NativeArrayOptions.UninitializedMemory);
+
+                // 代价同时考虑当前位置、职责偏好和换槽，低频全局匹配避免贪心交叉
+                // 成员 Buffer 已按 StableId 排序，Hungarian 的行顺序因此不依赖 Entity.Index
+                // 槽位 Buffer 按 SlotIndex 生成，等价总代价时算法稳定选择更小列索引
+                for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
                 {
                     AniSquadMember member = writableMembers[memberIndex];
-                if (member.SlotIndex >= 0)
-                {
-                    // 保留旧槽位的成员不参与最近距离竞争，避免同槽抢占
-                    // 只有新成员进入最近槽位搜索，保持已在队成员的视觉连续性
-                    UpdateMembershipSlot(member.Ani, member.SlotIndex);
-                        continue;
-                    }
-
                     float3 memberPosition = _transformLookup.HasComponent(member.Ani)
                         ? _transformLookup[member.Ani].Position
                         : anchor.ValueRO.Position;
-
-                    // 缺失 Transform 的异常成员以 Anchor 为参考，不引入非有限距离
-                    int bestSlot = FindNearestFreeSlot(
-                        memberPosition,
-                        anchor.ValueRO.Position,
-                        anchorRotation,
-                        slots,
-                        usedSlots);
-                    if (bestSlot < 0)
+                    for (int slotIndex = 0; slotIndex < slots.Length; slotIndex++)
                     {
-                        // 槽位不足只能等待下一次布局版本，不能制造重复槽位
-                        continue;
-                    }
+                        float3 slotPosition =
+                            AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
+                                anchor.ValueRO.Position,
+                                anchorRotation,
+                                slots[slotIndex].LocalOffset);
+                        // 极远距离被钳制在职责惩罚以下，确保正确职责优先于空间距离
+                        // 平方距离省去开方并保留近距离成员之间的排序关系
+                        float cost = math.min(
+                            99999f,
+                            math.distancesq(memberPosition, slotPosition));
+                        if (!IsRoleCompatible(member.Role, slots[slotIndex].PreferredRole))
+                        {
+                            // 角色数量不足时仍允许降级匹配，但总代价会优先用完兼容槽位
+                            cost += RoleMismatchPenalty;
+                        }
 
-                    member.SlotIndex = bestSlot;
-                    writableMembers[memberIndex] = member;
-                    usedSlots[bestSlot] = 1;
-                    UpdateMembershipSlot(member.Ani, bestSlot);
+                        if (member.SlotIndex >= 0 && member.SlotIndex != slotIndex)
+                        {
+                            // 小幅换槽惩罚减少视觉跳变，不覆盖职责和明显的距离收益
+                            cost += SlotChangePenalty;
+                        }
+
+                        costs[memberIndex * slots.Length + slotIndex] = cost;
+                    }
                 }
 
-                usedSlots.Dispose();
+                bool assigned = AniSquadMovementAlgorithms.TrySolveMinimumCostAssignment(
+                    costs,
+                    memberCount,
+                    slots.Length,
+                    assignments);
+                if (assigned)
+                {
+                    // 求解完成后一次性发布，任何失败都不会留下半套新槽位
+                    for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
+                    {
+                        AniSquadMember member = writableMembers[memberIndex];
+                        member.SlotIndex = assignments[memberIndex];
+                        writableMembers[memberIndex] = member;
+                        UpdateMembershipSlot(member.Ani, member.SlotIndex);
+                    }
+                }
+
+                assignments.Dispose();
+                costs.Dispose();
+
+                if (!assigned)
+                {
+                    // 输入异常时保留旧版本，使下一 Tick 能再次尝试而不发布部分分配
+                    continue;
+                }
 
                 // 版本写回使同一布局在后续 Tick 直接跳过匹配
                 formation.ValueRW.AssignmentVersion = formation.ValueRO.LayoutVersion;
             }
         }
 
-        private int FindNearestFreeSlot(
-            float3 memberPosition,
-            float3 anchorPosition,
-            quaternion anchorRotation,
-            DynamicBuffer<AniFormationSlot> slots,
-            NativeArray<byte> usedSlots)
+        private static bool IsRoleCompatible(
+            AniSquadRole memberRole,
+            AniSquadRole preferredRole)
         {
-            int bestSlot = -1;
-            float bestDistanceSquared = float.PositiveInfinity;
-
-            // 线性扫描保证小规模 Squad 的稳定结果，时间复杂度为 O(S)
-            for (int slotIndex = 0; slotIndex < slots.Length; slotIndex++)
-            {
-                if (usedSlots[slotIndex] != 0)
-                {
-                    // 已保留或已分配的槽位不参与距离比较
-                    continue;
-                }
-
-                float3 worldPosition = AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
-                    anchorPosition,
-                    anchorRotation,
-                    slots[slotIndex].LocalOffset);
-                float distanceSquared = math.distancesq(memberPosition, worldPosition);
-
-                // 比较平方距离避免开方，等距时使用索引作为稳定次关键字
-                // 该比较保持同一输入在不同机器上的槽位选择一致
-
-                // 浮点近似相等时选择更小索引，避免平台差异改变成员归属
-                if (distanceSquared < bestDistanceSquared - 1e-5f ||
-                    (math.abs(distanceSquared - bestDistanceSquared) <= 1e-5f &&
-                     slotIndex < bestSlot))
-                {
-                    bestDistanceSquared = distanceSquared;
-                    bestSlot = slotIndex;
-                }
-            }
-
-            return bestSlot;
+            return memberRole == AniSquadRole.Any ||
+                   preferredRole == AniSquadRole.Any ||
+                   memberRole == preferredRole;
         }
 
         private void UpdateMembershipSlot(Entity aniEntity, int slotIndex)
@@ -263,16 +242,41 @@ namespace AnimarsCatcher.Navigation.Grid
     public partial struct AniSlotTargetSystem : ISystem
     {
         private ComponentLookup<AniSlotTarget> _slotTargetLookup;
+        private ComponentLookup<AniMovementConfig> _movementConfigLookup;
+        private EntityQuery _gridQuery;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
             _slotTargetLookup = state.GetComponentLookup<AniSlotTarget>(false);
+            _movementConfigLookup = state.GetComponentLookup<AniMovementConfig>(true);
+            _gridQuery = state.GetEntityQuery(
+                ComponentType.ReadOnly<NavigationGridReference>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
             _slotTargetLookup.Update(ref state);
+            _movementConfigLookup.Update(ref state);
+            if (_gridQuery.CalculateEntityCount() != 1)
+            {
+                return;
+            }
+
+            Entity gridEntity = _gridQuery.GetSingletonEntity();
+            NavigationGridReference gridReference = state.EntityManager.GetComponentData<
+                NavigationGridReference>(gridEntity);
+            if (!gridReference.Value.IsCreated)
+            {
+                return;
+            }
+
+            NativeArray<NavigationDynamicOverlayCell> overlay =
+                state.EntityManager.HasBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                    ? state.EntityManager.GetBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                        .AsNativeArray()
+                    : default;
+            ref NavigationGridBlob grid = ref gridReference.Value.Value;
             foreach (var (anchor, members, slots) in
                      SystemAPI.Query<
                          RefRO<AniSquadAnchor>,
@@ -291,7 +295,49 @@ namespace AnimarsCatcher.Navigation.Grid
                     // 未完成分配的成员由下一次 Assignment 补齐，不写入临时世界目标
                     if (member.SlotIndex < 0 ||
                         member.SlotIndex >= slots.Length ||
-                        !_slotTargetLookup.HasComponent(member.Ani))
+                        !_slotTargetLookup.HasComponent(member.Ani) ||
+                        !_movementConfigLookup.HasComponent(member.Ani))
+                    {
+                        continue;
+                    }
+
+                    float3 desiredPosition =
+                        AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
+                            anchor.ValueRO.Position,
+                            rotation,
+                            slots[member.SlotIndex].LocalOffset);
+                    AniMovementConfig movementConfig = _movementConfigLookup[member.Ani];
+                    float3 slotPosition = desiredPosition;
+                    if (NavigationGridPathAlgorithms.TryWorldToCell(
+                            ref grid,
+                            desiredPosition,
+                            out _,
+                            out int directCellIndex) &&
+                        NavigationGridPathAlgorithms.CanAgentOccupyDynamic(
+                            ref grid,
+                            directCellIndex,
+                            movementConfig.AgentRadius,
+                            0.1f,
+                            overlay))
+                    {
+                        // 合法槽位保留亚 Cell 阵型偏移，只把高度贴合烘焙地面
+                        slotPosition.y = grid.Cells[directCellIndex].Height;
+                    }
+                    else if (NavigationGridPathAlgorithms.TryProjectToNearestCell(
+                                 ref grid,
+                                 desiredPosition,
+                                 movementConfig.AgentRadius,
+                                 0.1f,
+                                 2,
+                                 overlay,
+                                 out int projectedCellIndex))
+                    {
+                        // 无效槽位才退到附近合法 Cell 中心，避免成员追逐不可达目标
+                        slotPosition = NavigationGridPathAlgorithms.GetCellWorldPosition(
+                            ref grid,
+                            projectedCellIndex);
+                    }
+                    else
                     {
                         continue;
                     }
@@ -299,10 +345,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     _slotTargetLookup[member.Ani] = new AniSlotTarget
                     {
                         // 世界目标只写位置，成员旋转由唯一 Commit System 处理
-                        Position = AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
-                            anchor.ValueRO.Position,
-                            rotation,
-                            slots[member.SlotIndex].LocalOffset),
+                        Position = slotPosition,
                     };
                 }
             }

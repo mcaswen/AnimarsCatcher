@@ -1,6 +1,6 @@
 ---
 name: run-unity-verification
-description: "维护并使用 AnimarsCatcher 的独立 Unity 验证 worktree。用于主 Unity Editor 正占用主项目目录时执行脚本编译、Editor 验收、命令行 Play Mode、寻路 Benchmark 或 PlayMode Test，以及创建、更新、检查或移除验证 worktree。"
+description: "维护并使用 AnimarsCatcher 的独立 Unity 验证 worktree。用于主 Unity Editor 正占用主项目目录时执行脚本编译、Editor 验收、命令行 Play Mode、寻路 Benchmark 或 PlayMode Test，诊断 Burst 异步编译或缓存导致的间歇失败，以及创建、更新、检查或移除验证 worktree。"
 ---
 
 # 独立 Unity 验证
@@ -95,9 +95,9 @@ if ($null -eq $unityExe) {
 }
 ```
 
-## 运行同步 Editor 验收
+## 运行阶段三同步 Burst Editor 验收
 
-使用同步 `RunFromCommandLine` 方法验证脚本编译和阶段三算法。该方法返回后可以让 Unity 执行 `-quit`：
+使用同步 `RunFromCommandLine` 方法验证脚本编译和阶段三算法。C# Domain 编译完成不表示 Burst 后台编译已经完成；程序集、命名空间或 Burst Job 大改后的正式验收必须添加 `--burst-force-sync-compilation`，避免 `-executeMethod` 在 Burst JIT 或缓存尚未稳定时开始。该方法返回后可以让 Unity 执行 `-quit`：
 
 ```powershell
 $logDirectory = Join-Path $verifyRoot "Logs"
@@ -106,6 +106,7 @@ $logPath = Join-Path $logDirectory "stage-three-validation.log"
 
 & $unityExe `
     -batchmode `
+    --burst-force-sync-compilation `
     -projectPath $verifyRoot `
     -executeMethod AnimarsCatcher.Navigation.Grid.Editor.NavigationGridStageThreeValidation.RunFromCommandLine `
     -logFile $logPath `
@@ -116,7 +117,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 ```
 
-Unity 会在调用 `-executeMethod` 前完成资源导入和脚本编译。首次运行需要创建完整的独立 `Library`，耗时会明显更长。
+Unity 会在调用 `-executeMethod` 前完成资源导入和脚本编译；上述参数还会等待本次需要的 Burst 编译同步完成。首次运行需要创建完整的独立 `Library` 和 Burst 缓存，耗时会明显更长。同步 Burst 是确定性验收门禁，不替代后续默认异步 Burst 回归。
 
 ## 运行阶段四 Editor 验收
 
@@ -129,6 +130,7 @@ $logPath = Join-Path $logDirectory "stage-four-validation.log"
 
 & $unityExe `
     -batchmode `
+    --burst-force-sync-compilation `
     -projectPath $verifyRoot `
     -executeMethod AnimarsCatcher.Navigation.Grid.Editor.NavigationGridStageFourValidation.RunFromCommandLine `
     -logFile $logPath `
@@ -140,6 +142,58 @@ if ($LASTEXITCODE -ne 0) {
 ```
 
 验收必须看到日志标记 `Navigation Grid 阶段四自动验收通过`。入口固定覆盖 32、64、128 Ani，并检查：槽位唯一和中心对称、Squad 成员生命周期、Anchor 不绑定具体 Ani、Server/Client World 过滤、Planner/Anchor/Commit 顺序、一次订单一个 Squad 路径上下文、开阔地 MoveTo 到达，以及只有 `AniMovementCommitSystem` 递增成员 Transform 提交计数。该入口是阶段四功能验收，不替代阶段三算法验收或跨后端性能对照。
+
+## 诊断 Burst 间歇失败
+
+阶段三或阶段四出现相同提交重复运行结果不一致时，不要根据单次通过或失败定性。先确认验证 worktree 指向目标提交、没有并发 Unity 进程且拥有独立 `Library`，再对同一入口执行以下三组对照，每组至少四次并使用独立日志：
+
+1. 默认 Burst，不添加额外参数
+2. 托管回退，添加 `--burst-disable-compilation`
+3. 同步 Burst，添加 `--burst-force-sync-compilation`
+
+使用相同参数模板串行运行，禁止多个 Editor 争用同一验证目录：
+
+```powershell
+$modes = @(
+    @{ Name = "default"; BurstArguments = @() },
+    @{ Name = "burst-disabled"; BurstArguments = @("--burst-disable-compilation") },
+    @{ Name = "burst-sync"; BurstArguments = @("--burst-force-sync-compilation") }
+)
+
+foreach ($mode in $modes) {
+    foreach ($run in 1..4) {
+        $logPath = Join-Path $verifyRoot "Logs\stage-three-$($mode.Name)-run$run.log"
+        $arguments = @("-batchmode") + $mode.BurstArguments + @(
+            "-projectPath", $verifyRoot,
+            "-executeMethod",
+            "AnimarsCatcher.Navigation.Grid.Editor.NavigationGridStageThreeValidation.RunFromCommandLine",
+            "-logFile", $logPath,
+            "-quit"
+        )
+        $process = Start-Process `
+            -FilePath $unityExe `
+            -ArgumentList $arguments `
+            -Wait `
+            -PassThru `
+            -NoNewWindow
+        [pscustomobject]@{
+            Mode = $mode.Name
+            Run = $run
+            ExitCode = $process.ExitCode
+            Log = $logPath
+        }
+    }
+}
+```
+
+按下面的证据边界判断，不要把相关性写成已确认根因：
+
+- 默认 Burst 间歇失败，而禁用 Burst 和同步 Burst 都稳定：优先检查 Burst 异步编译时序和缓存一致性
+- 默认 Burst 与同步 Burst 以相同方式失败，而禁用 Burst 稳定：优先检查 Burst 编译后代码路径
+- 禁用 Burst 仍失败：优先检查算法、测试夹具、Native 容器初始化和生命周期
+- 独立 worktree 重新导入后所有模式稳定：只能记录旧 `Library`、`ScriptAssemblies` 或 `BurstCache` 状态与失败相关，不能在没有复现的情况下断言 Burst 编译器缺陷
+
+每轮记录提交、完整命令、Burst 模式、退出码、日志路径、成功标记和失败诊断。A 星失败时至少记录投影起终点、`ExpandedNodeCount` 和失败原因；当前 `NoPath` 同时覆盖 Open Set 耗尽与父链重建失败，分析时明确这一诊断限制。不要通过清理主项目 `Library` 验证缓存假设，优先使用隔离 worktree 的独立缓存。
 
 ## 运行 Play Mode 寻路验证
 

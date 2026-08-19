@@ -24,6 +24,9 @@ namespace AnimarsCatcher.Navigation.Grid
         private BlobAssetReference<NavigationGridBlob> _activeGrid;
         private NativeArray<NavigationFlowFieldJobRequest> _activeRequests;
         private NativeArray<NavigationFlowFieldJobResult> _activeResults;
+        private NativeArray<NavigationDynamicOverlayCell> _activeOverlay;
+        private NativeArray<NavigationDynamicOverlayCluster> _activeOverlayClusters;
+        private uint _activeOverlayVersion;
         private NativeList<int> _activeCorridorClusters;
         private NativeList<int> _activeCorridorPortals;
         private NativeList<int> _activeWaypointCells;
@@ -49,6 +52,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private NativeList<int> _cacheCorridorClusters;
         private NativeList<NavigationFlowFieldCell> _cacheFlowCells;
         private Unity.Entities.Hash128 _cacheGridHash;
+        private uint _cacheOverlayVersion;
         private uint _cacheVersion;
         private int _scratchCellCount;
         private int _scratchClusterCount;
@@ -97,7 +101,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 _activeJobHandle.Complete();
                 // 写回发生在释放活动批次容器之前
                 ApplyActiveResults(ref state);
+                SetFlowJobActivity(ref state, false);
                 DisposeActiveBatch();
+                // 留出一个无读者 Tick 让 Overlay 优先发布，避免持续请求使差量长期饥饿
+                return;
             }
 
             if (_requestQuery.IsEmptyIgnoreFilter)
@@ -121,8 +128,9 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             // 唯一 Grid 的 Blob 引用是本批次所有索引的共同命名空间
+            Entity gridEntity = _gridQuery.GetSingletonEntity();
             NavigationGridReference gridReference = state.EntityManager.GetComponentData<
-                NavigationGridReference>(_gridQuery.GetSingletonEntity());
+                NavigationGridReference>(gridEntity);
             // 实体存在但 Blob 未创建同样属于无效 Grid
             if (!gridReference.Value.IsCreated)
             {
@@ -130,10 +138,38 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
+            if (state.EntityManager.HasBuffer<NavigationDynamicOverlayDelta>(gridEntity) &&
+                !state.EntityManager.GetBuffer<NavigationDynamicOverlayDelta>(gridEntity).IsEmpty)
+            {
+                // 差量等待发布时不启动新读者，Overlay 将在所有活动批次退出后优先更新
+                return;
+            }
+
             // Grid Hash 变化必须先让旧缓存失效
-            RefreshCacheForGrid(gridReference.Value);
+            NavigationDynamicOverlayState overlayState =
+                state.EntityManager.HasComponent<NavigationDynamicOverlayState>(gridEntity)
+                    ? state.EntityManager.GetComponentData<NavigationDynamicOverlayState>(gridEntity)
+                    : new NavigationDynamicOverlayState { Version = 1 };
+            DynamicBuffer<NavigationDynamicOverlayCell> overlay =
+                state.EntityManager.HasBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                    ? state.EntityManager.GetBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                    : default;
+            DynamicBuffer<NavigationDynamicOverlayCluster> overlayClusters =
+                state.EntityManager.HasBuffer<NavigationDynamicOverlayCluster>(gridEntity)
+                    ? state.EntityManager.GetBuffer<NavigationDynamicOverlayCluster>(gridEntity)
+                    : default;
+
+            RefreshCacheForGrid(
+                gridReference.Value,
+                overlayClusters.IsCreated ? overlayClusters.AsNativeArray() : default,
+                overlayState.Version);
             // 当前没有活动批次，调度后共享 Scratch 仍只有一个写入者
-            SchedulePendingRequests(ref state, gridReference.Value);
+            SchedulePendingRequests(
+                ref state,
+                gridReference.Value,
+                overlay,
+                overlayClusters,
+                overlayState.Version);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -142,6 +178,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 // World 销毁是唯一允许主动等待未完成 Job 的路径
                 _activeJobHandle.Complete();
+                SetFlowJobActivity(ref state, false);
             }
 
             // 先释放批次和 Scratch，再释放跨批次缓存与工作列表
@@ -156,7 +193,10 @@ namespace AnimarsCatcher.Navigation.Grid
             if (_workNodeChain.IsCreated) _workNodeChain.Dispose();
         }
 
-        private void RefreshCacheForGrid(BlobAssetReference<NavigationGridBlob> grid)
+        private void RefreshCacheForGrid(
+            BlobAssetReference<NavigationGridBlob> grid,
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters,
+            uint dynamicOverlayVersion)
         {
             Unity.Entities.Hash128 dataHash = grid.Value.DataHash;
             if (_scratchCellCount == 0 || !_cacheGridHash.Equals(dataHash))
@@ -171,6 +211,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     _cacheVersion = 1;
                 }
             }
+
+            if (_cacheOverlayVersion != dynamicOverlayVersion)
+            {
+                _cacheOverlayVersion = dynamicOverlayVersion;
+                InvalidateChangedOverlayEntries(overlayClusters);
+            }
             else if (_cacheEntries.Length >= 64 ||
                      _cacheFlowCells.Length > math.max(256, grid.Value.Cells.Length * 4))
             {
@@ -182,7 +228,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private void SchedulePendingRequests(
             ref SystemState state,
-            BlobAssetReference<NavigationGridBlob> grid)
+            BlobAssetReference<NavigationGridBlob> grid,
+            DynamicBuffer<NavigationDynamicOverlayCell> overlay,
+            DynamicBuffer<NavigationDynamicOverlayCluster> overlayClusters,
+            uint overlayVersion)
         {
             using NativeArray<Entity> requestEntities = _requestQuery.ToEntityArray(Allocator.Temp);
             using var pendingEntities = new NativeList<Entity>(requestEntities.Length, Allocator.Temp);
@@ -215,6 +264,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 grid.Value.PortalNodes.Length);
             EnsureGenerationCapacity(batchCount * 4);
             _activeGrid = grid;
+            _activeOverlay = overlay.IsCreated ? overlay.AsNativeArray() : default;
+            _activeOverlayClusters = overlayClusters.IsCreated
+                ? overlayClusters.AsNativeArray()
+                : default;
+            _activeOverlayVersion = overlayVersion;
             // 请求和结果数组使用相同下标形成固定一一对应
             _activeRequests = new NativeArray<NavigationFlowFieldJobRequest>(
                 batchCount,
@@ -260,6 +314,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 fieldState.IntegrationExpandedCellCount = 0;
                 fieldState.TotalCost = 0f;
                 fieldState.CacheHit = 0;
+                fieldState.DynamicOverlayVersion = overlayVersion;
                 state.EntityManager.SetComponentData(entity, fieldState);
                 // 清除上一版本 Buffer，Searching 状态不暴露旧路径数据
                 ClearResultBuffers(state.EntityManager, entity);
@@ -294,6 +349,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 CacheCorridorClusters = _cacheCorridorClusters,
                 CacheFlowCells = _cacheFlowCells,
                 CacheVersion = _cacheVersion,
+                DynamicOverlay = _activeOverlay,
+                DynamicOverlayClusters = _activeOverlayClusters,
+                DynamicOverlayVersion = _activeOverlayVersion,
                 GenerationStart = _nextGeneration,
             };
             // 每个请求使用四个连续 Generation，批次间不得重叠
@@ -301,6 +359,7 @@ namespace AnimarsCatcher.Navigation.Grid
             // 句柄完成前 System 不再访问 Job 持有的 Native 容器
             _activeJobHandle = job.Schedule();
             _activeJobScheduled = true;
+            SetFlowJobActivity(ref state, true);
         }
 
         private void ApplyActiveResults(ref SystemState state)
@@ -408,6 +467,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     : NavigationPathFailureReason.InvalidGrid;
                 // 统计字段和缓存版本与终态一起提交
                 fieldState.CacheVersion = result.CacheVersion;
+                fieldState.DynamicOverlayVersion = result.DynamicOverlayVersion;
                 fieldState.ProjectedStartCellIndex = result.ProjectedStartCellIndex;
                 fieldState.ProjectedEndCellIndex = result.ProjectedEndCellIndex;
                 fieldState.CorridorClusterCount = validRanges ? result.CorridorClusterCount : 0;
@@ -581,9 +641,76 @@ namespace AnimarsCatcher.Navigation.Grid
             _activeCorridorPortals = default;
             _activeWaypointCells = default;
             _activeFlowCells = default;
+            _activeOverlay = default;
+            _activeOverlayClusters = default;
+            _activeOverlayVersion = 0;
             _activeGrid = default;
             _activeJobHandle = default;
             _activeJobScheduled = false;
+        }
+
+        private void InvalidateChangedOverlayEntries(
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters)
+        {
+            if (!_cacheEntries.IsCreated || !_cacheCorridorClusters.IsCreated)
+            {
+                return;
+            }
+
+            for (int entryIndex = _cacheEntries.Length - 1; entryIndex >= 0; entryIndex--)
+            {
+                NavigationFlowFieldCacheEntry entry = _cacheEntries[entryIndex];
+                if (entry.CorridorOffset < 0 ||
+                    entry.CorridorCount < 0 ||
+                    entry.CorridorOffset + entry.CorridorCount > _cacheCorridorClusters.Length ||
+                    CalculateOverlaySignature(entry, overlayClusters) !=
+                    entry.DynamicOverlaySignature)
+                {
+                    // Corridor/Field 切片允许保留在尾部，缓存元数据移除后不会再被读取
+                    _cacheEntries.RemoveAtSwapBack(entryIndex);
+                }
+            }
+        }
+
+        private uint CalculateOverlaySignature(
+            NavigationFlowFieldCacheEntry entry,
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters)
+        {
+            uint hash = 2166136261u;
+            for (int index = 0; index < entry.CorridorCount; index++)
+            {
+                int clusterIndex = _cacheCorridorClusters[entry.CorridorOffset + index];
+                hash ^= (uint)clusterIndex;
+                hash *= 16777619u;
+                uint version = overlayClusters.IsCreated &&
+                               clusterIndex >= 0 &&
+                               clusterIndex < overlayClusters.Length
+                    ? overlayClusters[clusterIndex].Version
+                    : 0u;
+                hash ^= version;
+                hash *= 16777619u;
+            }
+
+            return hash == 0u ? 1u : hash;
+        }
+
+        private void SetFlowJobActivity(ref SystemState state, bool active)
+        {
+            if (_gridQuery.IsEmptyIgnoreFilter)
+            {
+                return;
+            }
+
+            Entity gridEntity = _gridQuery.GetSingletonEntity();
+            if (!state.EntityManager.HasComponent<NavigationGridJobActivity>(gridEntity))
+            {
+                return;
+            }
+
+            NavigationGridJobActivity activity = state.EntityManager.GetComponentData<
+                NavigationGridJobActivity>(gridEntity);
+            activity.FlowFieldJobActive = active ? (byte)1 : (byte)0;
+            state.EntityManager.SetComponentData(gridEntity, activity);
         }
 
         private void DisposeScratch()

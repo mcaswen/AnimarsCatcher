@@ -124,6 +124,11 @@ namespace AnimarsCatcher.Gameplay
                         MaxSpeed = math.max(0f, attributes.MovementSpeed),
                         MaxAcceleration = math.max(1f, attributes.MovementSpeed * 4f),
                         AgentRadius = DefaultAgentRadius,
+                        Role = SystemAPI.HasComponent<PickerAniTag>(aniEntity)
+                            ? AniSquadRole.Picker
+                            : SystemAPI.HasComponent<BlasterAniTag>(aniEntity)
+                                ? AniSquadRole.Blaster
+                                : AniSquadRole.Any,
                     });
                 }
 

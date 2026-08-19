@@ -23,6 +23,16 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
+    /// 阶段五用于稳定生成前后排槽位的成员职责
+    /// </summary>
+    public enum AniSquadRole : byte
+    {
+        Any,
+        Picker,
+        Blaster
+    }
+
+    /// <summary>
     /// 服务器验证后交给 Grid 导航的群体指令
     /// </summary>
     public struct AniSquadCommand : IComponentData
@@ -69,6 +79,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
         public float MaxSpeed;
         public float MaxAcceleration;
         public float AgentRadius;
+        public AniSquadRole Role;
     }
 
     /// <summary>

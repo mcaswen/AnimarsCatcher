@@ -261,6 +261,26 @@
 - 动态障碍加入和移除后能够重新规划并到达
 - Overlay 更新没有全图重建尖峰
 
+### 当前实现状态
+
+阶段五运行时主体已实现，包含以下能力：
+
+- `NavigationDynamicOverlayCell` 保存阻挡引用计数、额外移动成本、动态 Clearance 修正和 Cell 版本
+- `NavigationDynamicOverlaySystem` 等待路径与 Flow Field Job 释放只读 Buffer 后消费服务端差量
+- 单个 Cell 变化只更新自身外围 3x3 范围涉及的 Cluster 版本
+- A* 端点投影、邻边、路径平滑、HPA 局部成本和 Flow Field 集成都读取 Overlay
+- Flow Field 缓存按 Corridor Cluster 版本生成局部确定性签名，无关 Cluster 变化不会使缓存失效
+- `AniAdaptiveFormationSystem` 前视采样有效 Clearance，缩列立即生效，展开使用宽度稳定滞回
+- Picker/Blaster 槽位偏好和确定性的 Hungarian 最小总代价匹配已接入布局版本更新
+- 槽位目标按成员半径重新投影到当前 Grid 与 Overlay 的合法 Cell
+
+阶段五自动校验入口：
+
+- Unity 菜单：`Tools/Animars Catcher/Navigation/Run Stage Five Validation`
+- Batchmode：`NavigationGridStageFiveValidation.RunFromCommandLine`
+
+自动校验覆盖自适应列数、职责槽位、匹配最优性与确定性、Overlay 引用计数、差量钳制和非有限输入拒绝。2026-08-20 已完成 Unity 编译和该入口验收；窄门、连续窄道、动态障碍重新规划及场景性能退出条件仍需正式场景验收。
+
 ## 8. 阶段六：空间哈希、ORCA 与世界碰撞
 
 ### 交付物

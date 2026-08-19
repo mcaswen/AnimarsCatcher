@@ -25,6 +25,31 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
+            return FindPath(
+                ref grid,
+                jobRequest,
+                generation,
+                ref pathCells,
+                gCosts,
+                parents,
+                heap,
+                heapPositions,
+                nodeGenerations,
+                default);
+        }
+
+        internal static NavigationPathJobResult FindPath(
+            ref NavigationGridBlob grid,
+            NavigationPathJobRequest jobRequest,
+            int generation,
+            ref NativeList<int> pathCells,
+            NativeArray<float> gCosts,
+            NativeArray<int> parents,
+            NativeArray<int> heap,
+            NativeArray<int> heapPositions,
+            NativeArray<int> nodeGenerations,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+        {
             NavigationPathRequest request = jobRequest.Request;
 
             // 先构造完整失败结果，提前返回只需覆盖已确定的原因
@@ -52,6 +77,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     request.AgentRadius,
                     request.ClearanceMargin,
                     request.MaximumProjectionRadiusInCells,
+                    dynamicOverlay,
                     out int startCellIndex))
             {
                 result.FailureReason = NavigationPathFailureReason.StartProjectionFailed;
@@ -65,6 +91,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     request.AgentRadius,
                     request.ClearanceMargin,
                     request.MaximumProjectionRadiusInCells,
+                    dynamicOverlay,
                     out int endCellIndex))
             {
                 result.FailureReason = NavigationPathFailureReason.EndProjectionFailed;
@@ -72,6 +99,12 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             result.ProjectedEndCellIndex = endCellIndex;
+            if (IsDynamicCellBlocked(dynamicOverlay, startCellIndex) ||
+                IsDynamicCellBlocked(dynamicOverlay, endCellIndex))
+            {
+                result.FailureReason = NavigationPathFailureReason.NoPath;
+                return result;
+            }
             // 静态 Region 不同必然无路，可以在分配 Open Set 前立即拒绝
             // RegionId 只表达静态 Blob 连通性，动态 Overlay 将在后续阶段增加二次判定
             if (grid.Cells[startCellIndex].RegionId <= 0 ||
@@ -158,14 +191,15 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     int neighborIndex = neighborX + neighborZ * grid.Width;
-                    if (!CanAgentTraverseEdge(
+                    if (!CanAgentTraverseEdgeDynamic(
                             ref grid,
                             currentIndex,
                             neighborIndex,
                             deltaX,
                             deltaZ,
                             request.AgentRadius,
-                            request.ClearanceMargin))
+                            request.ClearanceMargin,
+                            dynamicOverlay))
                     {
                         continue;
                     }
@@ -194,7 +228,9 @@ namespace AnimarsCatcher.Navigation.Grid
                         currentIndex,
                         neighborIndex,
                         requiredClearance,
-                        request.ClearancePenaltyWeight);
+                        request.ClearancePenaltyWeight,
+                        dynamicOverlay);
+                    tentativeCost += GetDynamicExtraCost(dynamicOverlay, neighborIndex);
                     bool lowerCost = tentativeCost < gCosts[neighborIndex] - CostEpsilon;
                     // 相同成本使用较小 Parent Index 使重建路径不依赖先后松弛偶然性
                     bool stableParent =
@@ -245,6 +281,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     gCosts,
                     parents,
                     heap,
+                    dynamicOverlay,
                     out int pathLength))
             {
                 result.FailureReason = NavigationPathFailureReason.NoPath;
@@ -291,6 +328,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<float> gCosts,
             NativeArray<int> parents,
             NativeArray<int> reconstruction,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
             out int pathLength)
         {
             // 父链先恢复稳定顺序，重建异常时调用方会丢弃本请求切片
@@ -349,6 +387,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             request.AgentRadius,
                             request.ClearanceMargin,
                             request.ClearancePenaltyWeight,
+                            dynamicOverlay,
                             out float directCost) &&
                         directCost <=
                         rawSegmentCost * (1f + request.SmoothingCostTolerance) + CostEpsilon)
@@ -386,6 +425,23 @@ namespace AnimarsCatcher.Navigation.Grid
             float requiredClearance,
             float clearancePenaltyWeight)
         {
+            return CalculateStepCost(
+                ref grid,
+                fromCellIndex,
+                toCellIndex,
+                requiredClearance,
+                clearancePenaltyWeight,
+                default);
+        }
+
+        internal static float CalculateStepCost(
+            ref NavigationGridBlob grid,
+            int fromCellIndex,
+            int toCellIndex,
+            float requiredClearance,
+            float clearancePenaltyWeight,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+        {
             // 边成本由几何距离、地形权重和低 Clearance 惩罚组成
             // 所有项保持非负是启发函数可采纳和 G Cost 单调增长的前提
             int fromX = fromCellIndex % grid.Width;
@@ -396,13 +452,123 @@ namespace AnimarsCatcher.Navigation.Grid
             float distance = grid.CellSize * (diagonal ? SquareRootTwo : 1f);
             // 使用目标 Cell 成本使每条有向边只采样一次，并与 A 星和直线检查保持一致
             NavigationGridCell targetCell = grid.Cells[toCellIndex];
-            float extraClearance = math.max(0f, targetCell.Clearance - requiredClearance);
+            float reduction = dynamicOverlay.IsCreated &&
+                              toCellIndex >= 0 &&
+                              toCellIndex < dynamicOverlay.Length
+                ? math.max(0f, dynamicOverlay[toCellIndex].ClearanceReduction)
+                : 0f;
+            float effectiveClearance = math.max(0f, targetCell.Clearance - reduction);
+            float extraClearance = math.max(0f, effectiveClearance - requiredClearance);
             // 通道越宽比例越接近零，惩罚连续衰减而不会形成新的硬阻挡
             float clearanceRatio = grid.CellSize / (grid.CellSize + extraClearance);
             float weightedTerrainCost =
                 math.max(MinimumTerrainCost, targetCell.TerrainCost) +
                 math.max(0f, clearancePenaltyWeight) * clearanceRatio;
             return distance * weightedTerrainCost;
+        }
+
+        private static bool IsDynamicCellBlocked(
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            int cellIndex)
+        {
+            return dynamicOverlay.IsCreated &&
+                   cellIndex >= 0 &&
+                   cellIndex < dynamicOverlay.Length &&
+                   dynamicOverlay[cellIndex].BlockCount > 0;
+        }
+
+        private static float GetDynamicExtraCost(
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            int cellIndex)
+        {
+            return dynamicOverlay.IsCreated &&
+                   cellIndex >= 0 &&
+                   cellIndex < dynamicOverlay.Length
+                ? math.max(0f, dynamicOverlay[cellIndex].ExtraCost)
+                : 0f;
+        }
+
+        internal static bool CanAgentOccupyDynamic(
+            ref NavigationGridBlob grid,
+            int cellIndex,
+            float agentRadius,
+            float clearanceMargin,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+        {
+            if (!CanAgentOccupy(ref grid, cellIndex, agentRadius, clearanceMargin) ||
+                IsDynamicCellBlocked(dynamicOverlay, cellIndex))
+            {
+                return false;
+            }
+
+            float reduction = dynamicOverlay.IsCreated &&
+                              cellIndex >= 0 &&
+                              cellIndex < dynamicOverlay.Length
+                ? math.max(0f, dynamicOverlay[cellIndex].ClearanceReduction)
+                : 0f;
+            float requiredClearance = CalculateRequiredClearance(
+                ref grid,
+                agentRadius,
+                clearanceMargin);
+            return math.max(0f, grid.Cells[cellIndex].Clearance - reduction) >=
+                   requiredClearance;
+        }
+
+        internal static bool CanAgentTraverseEdgeDynamic(
+            ref NavigationGridBlob grid,
+            int fromCellIndex,
+            int toCellIndex,
+            int deltaX,
+            int deltaZ,
+            float agentRadius,
+            float clearanceMargin,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+        {
+            if (!CanAgentTraverseEdge(
+                    ref grid,
+                    fromCellIndex,
+                    toCellIndex,
+                    deltaX,
+                    deltaZ,
+                    agentRadius,
+                    clearanceMargin) ||
+                !CanAgentOccupyDynamic(
+                    ref grid,
+                    fromCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay) ||
+                !CanAgentOccupyDynamic(
+                    ref grid,
+                    toCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay))
+            {
+                return false;
+            }
+
+            if (deltaX == 0 || deltaZ == 0)
+            {
+                return true;
+            }
+
+            int fromX = fromCellIndex % grid.Width;
+            int fromZ = fromCellIndex / grid.Width;
+            int sideXCellIndex = fromX + deltaX + fromZ * grid.Width;
+            int sideZCellIndex = fromX + (fromZ + deltaZ) * grid.Width;
+            return CanAgentOccupyDynamic(
+                       ref grid,
+                       sideXCellIndex,
+                       agentRadius,
+                       clearanceMargin,
+                       dynamicOverlay) &&
+                   CanAgentOccupyDynamic(
+                       ref grid,
+                       sideZCellIndex,
+                       agentRadius,
+                       clearanceMargin,
+                       dynamicOverlay);
         }
 
         internal static bool CanAgentTraverseEdge(

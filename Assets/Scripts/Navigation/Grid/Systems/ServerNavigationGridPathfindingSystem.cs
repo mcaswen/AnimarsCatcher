@@ -13,6 +13,7 @@ namespace AnimarsCatcher.Navigation.Grid
         WorldSystemFilterFlags.ServerSimulation |
         WorldSystemFilterFlags.LocalSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(AniGridMovementSystemGroup))]
     public partial struct ServerNavigationGridPathfindingSystem : ISystem
     {
         // 单批限制控制主线程收集和写回成本，后续阶段可改为配置或预算
@@ -31,6 +32,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private NativeArray<NavigationPathJobRequest> _activeRequests;
         private NativeArray<NavigationPathJobResult> _activeResults;
         private NativeList<int> _activePathCells;
+        private NativeArray<NavigationDynamicOverlayCell> _activeOverlay;
 
         // Scratch 容量按 Grid Cell 数增长，不按请求数量重复分配
         private NativeArray<float> _gCosts;
@@ -68,7 +70,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 // IsCompleted 为真后 Complete 只负责建立内存可见性和传播 Job 异常
                 _activeJobHandle.Complete();
                 ApplyActiveResults(ref state);
+                SetPathJobActivity(ref state, false);
                 DisposeActiveBatch();
+                // 留出一个无读者 Tick 让 Overlay 优先发布，避免持续请求使差量长期饥饿
+                return;
             }
 
             if (_requestQuery.IsEmptyIgnoreFilter)
@@ -103,7 +108,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            SchedulePendingRequests(ref state, gridReference.Value);
+            if (state.EntityManager.HasBuffer<NavigationDynamicOverlayDelta>(gridEntity) &&
+                !state.EntityManager.GetBuffer<NavigationDynamicOverlayDelta>(gridEntity).IsEmpty)
+            {
+                // 差量等待发布时不启动新读者，Overlay 将在所有活动批次退出后优先更新
+                return;
+            }
+
+            DynamicBuffer<NavigationDynamicOverlayCell> overlay =
+                state.EntityManager.HasBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                    ? state.EntityManager.GetBuffer<NavigationDynamicOverlayCell>(gridEntity)
+                    : default;
+            SchedulePendingRequests(ref state, gridReference.Value, overlay);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -111,6 +127,7 @@ namespace AnimarsCatcher.Navigation.Grid
             if (_activeJobScheduled)
             {
                 _activeJobHandle.Complete();
+                SetPathJobActivity(ref state, false);
             }
 
             DisposeActiveBatch();
@@ -120,7 +137,8 @@ namespace AnimarsCatcher.Navigation.Grid
         // 冻结并稳定排序请求，Persistent 容器保留到 Job 结果写回结束
         private void SchedulePendingRequests(
             ref SystemState state,
-            BlobAssetReference<NavigationGridBlob> grid)
+            BlobAssetReference<NavigationGridBlob> grid,
+            DynamicBuffer<NavigationDynamicOverlayCell> overlay)
         {
             using NativeArray<Entity> requestEntities =
                 _requestQuery.ToEntityArray(Allocator.Temp);
@@ -153,6 +171,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // 活动 Grid 引用保持到结果写回结束，避免使用下一帧新查询得到的引用
             _activeGrid = grid;
+            _activeOverlay = overlay.IsCreated ? overlay.AsNativeArray() : default;
             _activeRequests = new NativeArray<NavigationPathJobRequest>(
                 batchCount,
                 Allocator.Persistent,
@@ -202,12 +221,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 Heap = _heap,
                 HeapPositions = _heapPositions,
                 NodeGenerations = _nodeGenerations,
+                DynamicOverlay = _activeOverlay,
                 GenerationStart = _nextGeneration,
             };
             _nextGeneration += batchCount;
             // 不把 Handle 立即 Complete 搜索与后续主线程帧并行执行
             _activeJobHandle = pathfindingJob.Schedule();
             _activeJobScheduled = true;
+            SetPathJobActivity(ref state, true);
         }
 
         // 写回前复核实体和版本，再把路径 Cell 转为世界坐标
@@ -397,9 +418,29 @@ namespace AnimarsCatcher.Navigation.Grid
             _activeRequests = default;
             _activeResults = default;
             _activePathCells = default;
+            _activeOverlay = default;
             _activeGrid = default;
             _activeJobHandle = default;
             _activeJobScheduled = false;
+        }
+
+        private void SetPathJobActivity(ref SystemState state, bool active)
+        {
+            if (_gridQuery.IsEmptyIgnoreFilter)
+            {
+                return;
+            }
+
+            Entity gridEntity = _gridQuery.GetSingletonEntity();
+            if (!state.EntityManager.HasComponent<NavigationGridJobActivity>(gridEntity))
+            {
+                return;
+            }
+
+            NavigationGridJobActivity activity = state.EntityManager.GetComponentData<
+                NavigationGridJobActivity>(gridEntity);
+            activity.PathJobActive = active ? (byte)1 : (byte)0;
+            state.EntityManager.SetComponentData(gridEntity, activity);
         }
 
         // Scratch 生命周期属于当前 System 和 World

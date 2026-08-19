@@ -1,4 +1,5 @@
 using AnimarsCatcher.Core;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace AnimarsCatcher.Navigation.Grid
@@ -111,6 +112,25 @@ namespace AnimarsCatcher.Navigation.Grid
             int maximumRadiusInCells,
             out int projectedCellIndex)
         {
+            return TryProjectToNearestCell(
+                ref grid,
+                worldPosition,
+                agentRadius,
+                clearanceMargin,
+                maximumRadiusInCells,
+                default,
+                out projectedCellIndex);
+        }
+
+        public static bool TryProjectToNearestCell(
+            ref NavigationGridBlob grid,
+            float3 worldPosition,
+            float agentRadius,
+            float clearanceMargin,
+            int maximumRadiusInCells,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            out int projectedCellIndex)
+        {
             projectedCellIndex = -1;
             if (!IsGridShapeValid(ref grid) ||
                 !VectorMath.IsFinite(worldPosition) ||
@@ -144,11 +164,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 for (int x = minimumX; x <= maximumX; x++)
                 {
                     int cellIndex = x + z * grid.Width;
-                    if (!CanAgentOccupy(
+                    if (!CanAgentOccupyDynamic(
                             ref grid,
                             cellIndex,
                             agentRadius,
-                            clearanceMargin))
+                            clearanceMargin,
+                            dynamicOverlay))
                     {
                         continue;
                     }
@@ -160,10 +181,18 @@ namespace AnimarsCatcher.Navigation.Grid
                         cellPosition.z - worldPosition.z);
                     float distanceSquared = math.lengthsq(offset);
                     float terrainCost = math.max(MinimumTerrainCost, cell.TerrainCost);
+                    float effectiveClearance = cell.Clearance;
+                    if (dynamicOverlay.IsCreated && cellIndex < dynamicOverlay.Length)
+                    {
+                        effectiveClearance = math.max(
+                            0f,
+                            effectiveClearance -
+                            math.max(0f, dynamicOverlay[cellIndex].ClearanceReduction));
+                    }
                     if (IsBetterProjectionCandidate(
                             distanceSquared,
                             terrainCost,
-                            cell.Clearance,
+                            effectiveClearance,
                             cellIndex,
                             bestDistanceSquared,
                             bestTerrainCost,
@@ -227,9 +256,40 @@ namespace AnimarsCatcher.Navigation.Grid
             float clearancePenaltyWeight,
             out float lineCost)
         {
+            return TryCalculateLineCost(
+                ref grid,
+                fromCellIndex,
+                toCellIndex,
+                agentRadius,
+                clearanceMargin,
+                clearancePenaltyWeight,
+                default,
+                out lineCost);
+        }
+
+        public static bool TryCalculateLineCost(
+            ref NavigationGridBlob grid,
+            int fromCellIndex,
+            int toCellIndex,
+            float agentRadius,
+            float clearanceMargin,
+            float clearancePenaltyWeight,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            out float lineCost)
+        {
             lineCost = 0f;
-            if (!CanAgentOccupy(ref grid, fromCellIndex, agentRadius, clearanceMargin) ||
-                !CanAgentOccupy(ref grid, toCellIndex, agentRadius, clearanceMargin))
+            if (!CanAgentOccupyDynamic(
+                    ref grid,
+                    fromCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay) ||
+                !CanAgentOccupyDynamic(
+                    ref grid,
+                    toCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay))
             {
                 return false;
             }
@@ -275,27 +335,29 @@ namespace AnimarsCatcher.Navigation.Grid
                 int currentIndex = currentX + currentZ * grid.Width;
                 int nextX = currentX + deltaX;
                 int nextZ = currentZ + deltaZ;
+                int nextIndex = nextX + nextZ * grid.Width;
                 if (!IsInside(nextX, nextZ, grid.Width, grid.Height) ||
-                    !CanAgentTraverseEdge(
+                    !CanAgentTraverseEdgeDynamic(
                         ref grid,
                         currentIndex,
-                        nextX + nextZ * grid.Width,
+                        nextIndex,
                         deltaX,
                         deltaZ,
                         agentRadius,
-                        clearanceMargin))
+                        clearanceMargin,
+                        dynamicOverlay))
                 {
                     return false;
                 }
-
-                int nextIndex = nextX + nextZ * grid.Width;
                 // 直线成本复用 A 星步进成本，保证平滑前后能够按同一尺度比较
                 lineCost += CalculateStepCost(
                     ref grid,
                     currentIndex,
                     nextIndex,
                     requiredClearance,
-                    clearancePenaltyWeight);
+                    clearancePenaltyWeight,
+                    dynamicOverlay);
+                lineCost += GetDynamicExtraCost(dynamicOverlay, nextIndex);
                 currentX = nextX;
                 currentZ = nextZ;
             }

@@ -78,6 +78,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         // 表示结果是否直接复用了已生成的局部 Field
         public byte CacheHit;
+        public uint DynamicOverlayVersion;
 
         /// <summary>
         /// 创建尚未调度的状态并清空所有投影结果
@@ -177,6 +178,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
         // 标识该缓存项的稳定递增版本
         public uint CacheVersion;
+
+        // 保存 Corridor 内 Cluster Overlay 版本的确定性签名
+        // 只要 Corridor 外的 Cluster 变化，该缓存仍可复用
+        public uint DynamicOverlaySignature;
     }
 
     /// <summary>

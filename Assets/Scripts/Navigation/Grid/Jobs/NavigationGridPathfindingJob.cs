@@ -50,6 +50,7 @@ namespace AnimarsCatcher.Navigation.Grid
         // Grid 与 Requests 在整个 Job 生命周期只读
         [ReadOnly] public BlobAssetReference<NavigationGridBlob> Grid;
         [ReadOnly] public NativeArray<NavigationPathJobRequest> Requests;
+        [ReadOnly] public NativeArray<NavigationDynamicOverlayCell> DynamicOverlay;
 
         // Results 与 PathCells 是本批次输出，由拥有批次的 System 释放
         public NativeArray<NavigationPathJobResult> Results;
@@ -101,7 +102,8 @@ namespace AnimarsCatcher.Navigation.Grid
                     Parents,
                     Heap,
                     HeapPositions,
-                    NodeGenerations);
+                    NodeGenerations,
+                    DynamicOverlay);
             }
         }
     }
