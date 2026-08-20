@@ -1,5 +1,5 @@
 @{
-    Version = 11
+    Version = 12
     SourceRoot = 'Assets/Scripts'
     GlobalNamespaceBaseline = 'Tools/GlobalNamespaceBaseline.txt'
     ProjectAssembliesAutoReferenced = $false
@@ -47,9 +47,9 @@
             )
         }
         @{
-            Path = 'Assets/Scripts/Navigation/Grid/Editor'
+            Path = 'Assets/Scripts/Navigation/Tooling/Editor'
             Assembly = 'AnimarsCatcher.Navigation.Editor'
-            AsmdefPath = 'Assets/Scripts/Navigation/Grid/Editor/AnimarsCatcher.Navigation.Editor.asmdef'
+            AsmdefPath = 'Assets/Scripts/Navigation/Tooling/Editor/AnimarsCatcher.Navigation.Editor.asmdef'
             RootNamespace = 'AnimarsCatcher.Navigation.Grid.Editor'
             Owner = 'Navigation Editor'
             Status = 'PhaseSevenImplemented'
@@ -64,13 +64,49 @@
             )
         }
         @{
-            Path = 'Assets/Scripts/Navigation/Grid'
+            Path = 'Assets/Scripts/Navigation/Tooling/Validation'
+            Assembly = 'AnimarsCatcher.Navigation.Validation'
+            AsmdefPath = 'Assets/Scripts/Navigation/Tooling/Validation/AnimarsCatcher.Navigation.Validation.asmdef'
+            RootNamespace = 'AnimarsCatcher.Navigation.Grid.Editor'
+            Owner = 'Navigation Validation'
+            Status = 'NavigationRefactorR5'
+            Lifecycle = 'Editor'
+            NamespacePrefixes = @('AnimarsCatcher.Navigation.Grid.Editor')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Gameplay',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Navigation',
+                'AnimarsCatcher.Navigation.Benchmark',
+                'AnimarsCatcher.Navigation.Editor'
+            )
+        }
+        @{
+            Path = 'Assets/Scripts/Navigation/Tooling/Benchmark'
+            Assembly = 'AnimarsCatcher.Navigation.Benchmark'
+            AsmdefPath = 'Assets/Scripts/Navigation/Tooling/Benchmark/AnimarsCatcher.Navigation.Benchmark.asmdef'
+            RootNamespace = 'AnimarsCatcher.Navigation.Grid.Benchmark'
+            Owner = 'Navigation Benchmark'
+            Status = 'NavigationRefactorR5'
+            Lifecycle = 'Benchmark'
+            NamespacePrefixes = @('AnimarsCatcher.Navigation.Grid')
+            RequireNamespace = $true
+            EnforceDependencyBoundary = $true
+            AllowedProjectDependencies = @(
+                'AnimarsCatcher.Core',
+                'AnimarsCatcher.Gameplay.Contracts',
+                'AnimarsCatcher.Navigation'
+            )
+        }
+        @{
+            Path = 'Assets/Scripts/Navigation'
             Assembly = 'AnimarsCatcher.Navigation'
-            AsmdefPath = 'Assets/Scripts/Navigation/Grid/AnimarsCatcher.Navigation.asmdef'
+            AsmdefPath = 'Assets/Scripts/Navigation/AnimarsCatcher.Navigation.asmdef'
             RootNamespace = 'AnimarsCatcher.Navigation'
             Owner = 'Navigation'
             Status = 'PhaseSevenTightened'
-            Lifecycle = 'Mixed'
+            Lifecycle = 'Runtime'
             NamespacePrefixes = @('AnimarsCatcher.Navigation')
             RequireNamespace = $true
             EnforceDependencyBoundary = $true
@@ -95,6 +131,7 @@
                 'AnimarsCatcher.Gameplay',
                 'AnimarsCatcher.Gameplay.Contracts',
                 'AnimarsCatcher.Navigation',
+                'AnimarsCatcher.Navigation.Benchmark',
                 'AnimarsCatcher.Player'
             )
         }
@@ -114,6 +151,7 @@
                 'AnimarsCatcher.Gameplay',
                 'AnimarsCatcher.Gameplay.Contracts',
                 'AnimarsCatcher.Navigation.Editor',
+                'AnimarsCatcher.Navigation.Validation',
                 'AnimarsCatcher.Networking',
                 'AnimarsCatcher.Physics.Authoring',
                 'AnimarsCatcher.Player',

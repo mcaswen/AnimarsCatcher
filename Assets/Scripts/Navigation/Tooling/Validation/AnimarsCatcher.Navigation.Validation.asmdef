@@ -1,0 +1,26 @@
+{
+  "name": "AnimarsCatcher.Navigation.Validation",
+  "rootNamespace": "AnimarsCatcher.Navigation.Grid.Editor",
+  "references": [
+    "GUID:e48f3384d761f244ab49193ce9b063de",
+    "GUID:fa16307da46fd914dbbf094824885beb",
+    "GUID:f05c300e182190c41b105556583f32e4",
+    "GUID:b73f0e4ac9bd4b74b900f340954819c2",
+    "GUID:ff624f15e5084b8c90869d254a388c65",
+    "GUID:e0cd26848372d4e5c891c569017e11f1",
+    "GUID:734d92eba21c94caba915361bd5ac177",
+    "GUID:a5baed0c9693541a5bd947d336ec7659",
+    "GUID:d8b63aba1907145bea998dd612889d6b"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

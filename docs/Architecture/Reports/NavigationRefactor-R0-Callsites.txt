@@ -1,0 +1,66 @@
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/AniSquadMovementAlgorithms.cs:12:    public static class AniSquadMovementAlgorithms
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:11:    public static class NavigationGridFlowFieldAlgorithms
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:1180:            return NavigationGridPathAlgorithms.IsGridShapeValid(ref grid) &&
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:138:            float requiredClearance = NavigationGridPathAlgorithms.CalculateRequiredClearance(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:483:                    if (!NavigationGridPathAlgorithms.CanAgentOccupyDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:595:            float requiredClearance = NavigationGridPathAlgorithms.CalculateRequiredClearance(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:608:                    NavigationGridPathAlgorithms.GetDirection(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:614:                    if (!NavigationGridPathAlgorithms.IsInside(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:640:                    if (!NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:661:                                      NavigationGridPathAlgorithms.CalculateStepCost(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:70:                !NavigationGridPathAlgorithms.IsRequestValid(request))
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:713:            float requiredClearance = NavigationGridPathAlgorithms.CalculateRequiredClearance(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:726:                    NavigationGridPathAlgorithms.GetDirection(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:732:                    if (!NavigationGridPathAlgorithms.IsInside(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:752:                        !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:76:            if (!NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:773:                                      NavigationGridPathAlgorithms.CalculateStepCost(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:849:                NavigationGridPathAlgorithms.GetDirection(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:855:                if (!NavigationGridPathAlgorithms.IsInside(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:872:                    !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:905:                NavigationGridPathAlgorithms.GetDirection(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:91:            if (!NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:911:                if (!NavigationGridPathAlgorithms.IsInside(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridFlowFieldAlgorithms.cs:930:                    !NavigationGridPathAlgorithms.CanAgentTraverseEdgeDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridOpenSet.cs:6:    public static partial class NavigationGridPathAlgorithms
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridPathAlgorithms.cs:11:    public static partial class NavigationGridPathAlgorithms
+HEAD:Assets/Scripts/Navigation/Grid/Algorithms/NavigationGridPathQueryAlgorithms.cs:7:    public static partial class NavigationGridPathAlgorithms
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:104:                AniSquadMovementAlgorithms.CalculateSlotRole(0, 6, 2) == AniSquadRole.Picker,
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:107:                AniSquadMovementAlgorithms.CalculateSlotRole(4, 6, 2) == AniSquadRole.Blaster,
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:55:                AniSquadMovementAlgorithms.TrySolveMinimumCostAssignment(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:64:                AniSquadMovementAlgorithms.TrySolveMinimumCostAssignment(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:80:                AniSquadMovementAlgorithms.CalculateAdaptiveColumnCount(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:88:                AniSquadMovementAlgorithms.CalculateAdaptiveColumnCount(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFiveValidation.cs:96:                AniSquadMovementAlgorithms.CalculateAdaptiveColumnCount(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageFourValidation.cs:78:                float3 offset = AniSquadMovementAlgorithms.CalculateSlotOffset(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:107:                NavigationGridPathAlgorithms.TryWorldToCell(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:115:            float3 roundTripPosition = NavigationGridPathAlgorithms.GetCellWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:123:                NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:133:                NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:184:                !NavigationGridPathAlgorithms.TryCalculateLineCost(
+HEAD:Assets/Scripts/Navigation/Grid/Editor/NavigationGridStageTwoValidation.cs:252:                    NavigationGridPathAlgorithms.CanAgentOccupy(
+HEAD:Assets/Scripts/Navigation/Grid/Jobs/NavigationGridFlowFieldJob.cs:197:                    Results[requestIndex] = NavigationGridFlowFieldAlgorithms.CreateFailureResult(
+HEAD:Assets/Scripts/Navigation/Grid/Jobs/NavigationGridFlowFieldJob.cs:210:                Results[requestIndex] = NavigationGridFlowFieldAlgorithms.Build(
+HEAD:Assets/Scripts/Navigation/Grid/Jobs/NavigationGridPathfindingJob.cs:82:                    Results[requestIndex] = NavigationGridPathAlgorithms.CreateFailureResult(
+HEAD:Assets/Scripts/Navigation/Grid/Jobs/NavigationGridPathfindingJob.cs:96:                Results[requestIndex] = NavigationGridPathAlgorithms.FindPath(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniAdaptiveFormationSystem.cs:116:                        NavigationGridPathAlgorithms.CalculateRequiredClearance(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniAdaptiveFormationSystem.cs:135:                int desiredColumns = AniSquadMovementAlgorithms.CalculateAdaptiveColumnCount(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniAdaptiveFormationSystem.cs:92:                    if (!NavigationGridPathAlgorithms.TryWorldToCell(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:153:                            AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:178:                bool assigned = AniSquadMovementAlgorithms.TrySolveMinimumCostAssignment(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:305:                        AniSquadMovementAlgorithms.CalculateSlotWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:311:                    if (NavigationGridPathAlgorithms.TryWorldToCell(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:316:                        NavigationGridPathAlgorithms.CanAgentOccupyDynamic(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:326:                    else if (NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:336:                        slotPosition = NavigationGridPathAlgorithms.GetCellWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:42:                int columnCount = AniSquadMovementAlgorithms.CalculateColumnCount(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:58:                        LocalOffset = AniSquadMovementAlgorithms.CalculateSlotOffset(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadFormationSystems.cs:65:                        PreferredRole = AniSquadMovementAlgorithms.CalculateSlotRole(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:106:                    position.y = NavigationGridPathAlgorithms.GetCellWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:175:                    targetVelocity = AniSquadMovementAlgorithms.CalculateSlotVelocity(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:57:                    NavigationGridPathAlgorithms.TryProjectToNearestCell(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:69:                    float3 brakingVelocity = AniSquadMovementAlgorithms.CalculateAnchorVelocity(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:76:                        AniSquadMovementAlgorithms.TryGetFlowDirection(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/AniSquadMovementSystems.cs:99:                if (NavigationGridPathAlgorithms.TryWorldToCell(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/ServerNavigationGridFlowFieldSystem.cs:447:                            Position = NavigationGridPathAlgorithms.GetCellWorldPosition(
+HEAD:Assets/Scripts/Navigation/Grid/Systems/ServerNavigationGridPathfindingSystem.cs:279:                            Position = NavigationGridPathAlgorithms.GetCellWorldPosition(

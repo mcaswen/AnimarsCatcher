@@ -5,10 +5,11 @@
 - 架构基线：[Navigation 模块架构重构方案](21.NavigationArchitectureRefactor.md)
 - 行为基线：[Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - 性能基线：[Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
+- 执行记录：[Navigation 重构执行报告（2026-08-20）](Reports/NavigationRefactor-Execution-20260820.md)
 
-> 状态：执行计划已建立，R0 基线冻结待执行；当前阶段五运行时主体和阶段五自动校验已通过，但尚未开始 R1-R6 结构重构
+> 状态：R1-R5 已落地并通过结构与 Stage 1-5 验证；R6 算法和性能复审待执行
 >
-> 范围：`Assets/Scripts/Navigation` 当前 43 个 C# 文件
+> 范围：`Assets/Scripts/Navigation` 当前 57 个 C# 文件
 >
 > 原则：只改变职责边界、文件组织和 API 形态，不改变导航行为、Burst/DOTS 数据布局、缓存语义或性能策略
 
@@ -31,9 +32,9 @@
 
 ## 2. 当前基线
 
-### 2.1 当前物理结构
+### 2.1 R0 重构前物理结构
 
-当前 Navigation 仍按 Unity 实现形式组织：
+R0 时 Navigation 仍按 Unity 实现形式组织：
 
 ```text
 Assets/Scripts/Navigation/Grid/
@@ -46,7 +47,7 @@ Assets/Scripts/Navigation/Grid/
 └── Systems/
 ```
 
-这不是最终结构。`Algorithms`、`Jobs`、`Systems`、`Components` 只能作为迁移前位置，不能继续承载新功能。
+这不是最终结构。上述迁移前目录已在 R5 清空并移除。
 
 ### 2.2 已有能力
 
@@ -57,15 +58,16 @@ Assets/Scripts/Navigation/Grid/
 - Squad 生命周期、Anchor、自适应阵型、职责槽位和唯一 Transform Commit
 - Stage 1-5 Validation 和 Grid Benchmark 适配层
 
-### 2.3 当前事实基线
+### 2.3 当前执行事实
 
-- 阶段五运行时主体已实现
-- `NavigationGridStageFiveValidation.RunFromCommandLine` 已完成 Unity 编译和自动校验
-- `Tools/CheckCommentStyle.ps1` 当前通过，注释率达到项目 15% 门槛
-- 阶段五运行日志保存于 `Temp/stage5-validation-current.log`
-- R1-R6 尚未执行，旧的 `NavigationGridPathAlgorithms` 和 `NavigationGridFlowFieldAlgorithms` 仍是现行实现
+- R0 的 43 文件结构快照与 66 条旧入口调用点已从重构前 `HEAD` 重建并持久化
+- R1-R5 已执行，旧的三个大算法入口和按 Unity 类型划分的目录已移除
+- Stage 1-5、Unity 编译、程序集边界、注释规范、GUID 唯一性和 Missing Script 检查均通过
+- 最终代码的两轮 Stage3 Benchmark 确定性字段一致，且无 Job 安全异常
+- Stage4 Squad Benchmark 两轮均 4/4 路径成功，但到达率为 0 且终态写入数不一致，已登记为 R6 Review
+- namespace migration 按计划保留为独立后续工作，本轮未混入目录和职责重构
 
-阶段五行为通过不等于架构重构完成。重构仍必须以 R0 基线冻结开始，并在每次拆分后重新验证。
+完整证据、环境信息和残留风险见执行报告；R1-R5 的结构完成不代表 R6 算法与性能复审已经完成。
 
 ## 3. 目标结构
 
@@ -133,11 +135,11 @@ Stage 1-5 使用各自的 `RunFromCommandLine` 入口，Benchmark 使用 09 号�
 
 ### R0 退出条件
 
-- [ ] 结构快照和调用点清单已保存
-- [ ] Stage 1-5 全部通过
+- [x] 结构快照和调用点清单已保存
+- [x] Stage 1-5 全部通过
 - [ ] 两次相同输入得到相同 Cell 路径、Corridor、Field 和槽位结果
 - [ ] Benchmark 基线结果可读且包含环境元数据
-- [ ] Unity 编译、注释检查和程序集审计通过
+- [x] Unity 编译、注释检查和程序集审计通过
 
 ## 6. R1：Shared Runtime Rules
 
@@ -152,6 +154,7 @@ Grid/Static/NavigationGridDirections.cs
 Grid/Runtime/NavigationGridQuery.cs
 Grid/Runtime/NavigationGridTraversal.cs
 Grid/Runtime/NavigationGridCost.cs
+Grid/Runtime/NavigationPathRequest.cs
 Grid/Runtime/NavigationDynamicOverlayView.cs  (可选)
 ```
 
@@ -183,9 +186,9 @@ Grid/Runtime/NavigationDynamicOverlayView.cs  (可选)
 
 ### R1 退出条件
 
-- [ ] Runtime 四类规则有唯一实现
-- [ ] Flow Field 和 HPA 不再依赖 PathAlgorithms
-- [ ] Squad 公共 Grid 查询不再依赖 PathAlgorithms
+- [x] Runtime 四类规则有唯一实现
+- [x] Flow Field 和 HPA 不再依赖 PathAlgorithms
+- [x] Squad 公共 Grid 查询不再依赖 PathAlgorithms
 - [ ] 原有行为输出和 Benchmark 无非预期变化
 
 ## 7. R2：A* Vertical Slice
@@ -236,10 +239,10 @@ NavigationPathJobResult FindPath(
 
 ### R2 退出条件
 
-- [ ] `NavigationGridPathAlgorithms` 不再存在
-- [ ] A* 不再持有 Query、Traversal、Cost 的实现
+- [x] `NavigationGridPathAlgorithms` 不再存在
+- [x] A* 不再持有 Query、Traversal、Cost 的实现
 - [ ] A* 输出格式和性能基线保持一致
-- [ ] Pathfinding 可以被单独阅读和验证
+- [x] Pathfinding 可以被单独阅读和验证
 
 ## 8. R3：HPA / Flow Field 分离
 
@@ -290,10 +293,10 @@ Grid/FlowField/ServerNavigationGridFlowFieldSystem.cs
 
 ### R3 退出条件
 
-- [ ] `NavigationGridFlowFieldAlgorithms` 不再存在
-- [ ] Corridor Solver 和 Integration Solver 独立
-- [ ] Cache 不拥有 ECS 生命周期，System 仍拥有 Native 容器
-- [ ] Flow Field Job 不重新承担搜索实现
+- [x] `NavigationGridFlowFieldAlgorithms` 不再存在
+- [x] Corridor Solver 和 Integration Solver 独立
+- [x] Cache 不拥有 ECS 生命周期，System 仍拥有 Native 容器
+- [x] Flow Field Job 不重新承担搜索实现
 
 ## 9. R4：Squad 独立
 
@@ -333,10 +336,10 @@ Navigation/Squad/AniSquadMovementSystems.cs
 
 ### R4 退出条件
 
-- [ ] Squad 与 Grid 物理目录平级
-- [ ] Formation 和 Steering 算法独立
-- [ ] Grid 不依赖 Squad
-- [ ] 唯一 Transform Commit 所有权不变
+- [x] Squad 与 Grid 物理目录平级
+- [x] Formation 和 Steering 算法独立
+- [x] Grid 不依赖 Squad
+- [x] 唯一 Transform Commit 所有权不变
 
 ## 10. R5：Static 与 Tooling 整理
 
@@ -365,10 +368,10 @@ Navigation/Squad/AniSquadMovementSystems.cs
 
 ### R5 退出条件
 
-- [ ] 目标目录结构与 21 号文档一致
-- [ ] Benchmark Data 不存在于 FlowField Runtime Data
-- [ ] Editor/Validation/Benchmark 不进入运行时切片
-- [ ] 旧目录和旧大类不再被引用
+- [x] 目标目录结构与 21 号文档一致
+- [x] Benchmark Data 不存在于 FlowField Runtime Data
+- [x] Editor/Validation/Benchmark 不进入运行时切片
+- [x] 旧目录和旧大类不再被引用
 
 ## 11. R6：算法与性能复审
 
@@ -429,28 +432,28 @@ R6: algorithm or performance fixes, only after review
 
 ### 职责
 
-- [ ] `NavigationGridPathAlgorithms` 和 `NavigationGridFlowFieldAlgorithms` 已删除
-- [ ] Query、Traversal、Cost、A*、HPA、Flow Field、Squad 和 Tooling 各有明确归属
-- [ ] Squad 与 Grid 平级
-- [ ] Benchmark Data 不在 FlowField Runtime Data 中
+- [x] `NavigationGridPathAlgorithms` 和 `NavigationGridFlowFieldAlgorithms` 已删除
+- [x] Query、Traversal、Cost、A*、HPA、Flow Field、Squad 和 Tooling 各有明确归属
+- [x] Squad 与 Grid 平级
+- [x] Benchmark Data 不在 FlowField Runtime Data 中
 
 ### 依赖
 
-- [ ] Overlay 只依赖 Static
-- [ ] Runtime 依赖 Static + Overlay
-- [ ] Pathfinding 和 Hierarchical 依赖 Runtime
-- [ ] FlowField 依赖 Runtime + Hierarchical
-- [ ] Squad 依赖 Runtime + FlowField
-- [ ] Grid 不依赖 Squad 或 Benchmark
-- [ ] Tooling 只消费上述层，不被 Runtime 反向引用
+- [x] Overlay 只依赖 Static
+- [x] Runtime 依赖 Static + Overlay
+- [x] Pathfinding 和 Hierarchical 依赖 Runtime
+- [x] FlowField 依赖 Runtime + Hierarchical
+- [x] Squad 依赖 Runtime + FlowField
+- [x] Grid 不依赖 Squad 或 Benchmark
+- [x] Tooling 只消费上述层，不被 Runtime 反向引用
 
 ### 行为和性能
 
-- [ ] Stage 1-5 全部通过
+- [x] Stage 1-5 全部通过
 - [ ] A*、Corridor、Field、Overlay、Squad 输出与基线一致
 - [ ] deterministic tie-breaking 保持
 - [ ] 无新增 GC allocation
-- [ ] NativeContainer 所有权和 Cache 生命周期保持
+- [x] NativeContainer 所有权和 Cache 生命周期保持
 - [ ] Benchmark 无非预期退化
 
 ### 可读性
@@ -470,11 +473,11 @@ Squad 在哪里？       → Squad
 
 ## 15. 当前下一步
 
-下一次执行从 R0 开始，不直接移动文件：
+下一步进入 R6 复审，不再继续扩大本轮结构改动：
 
-1. 固定 Stage 1-5、Path/Flow/Squad Benchmark 和结构调用点快照
-2. 建立 R0 报告目录和重复运行比较结果
-3. 冻结基线后开始 R1 Shared Runtime Rules
-4. R1 只抽取公共规则，确认 FlowField 不再引用 PathAlgorithms 后再进入 R2
+1. 为 Stage4 Benchmark 建立“固定 Server Tick 后停止”的独立复现，排除基准终止时机漂移
+2. 定位 32 Ani 在 720 个采样 Tick 后到达率仍为 0 的原因，并明确预期到达窗口
+3. 修复前先保存槽位、Anchor、Path State 和 Transform 写入序列，再决定是否创建算法修复任务
+4. R6 结论稳定后补跑 32/64/128 Squad Benchmark；namespace migration 仍使用独立提交
 
-R0 完成前不得同时进行 namespace 迁移、算法优化、Benchmark 指标改定义或大规模物理目录移动。
+R6 不得把未复现的问题修复、Benchmark 指标改定义或 namespace 迁移混入 R1-R5 的结构结果。

@@ -118,6 +118,11 @@ function Get-Lifecycle
         return 'Benchmark'
     }
 
+    if ($RuleLifecycle -eq 'Editor')
+    {
+        return 'Editor'
+    }
+
     if ($editorPath -or $editorWrapped)
     {
         return 'Editor'
@@ -452,7 +457,9 @@ foreach ($file in $sourceFiles)
     }
 
     $lifecycle = Get-Lifecycle $repoPath $text $rule.Lifecycle
-    if ($lifecycle -eq 'Editor' -and $repoPath -notmatch '/Editor/')
+    if ($lifecycle -eq 'Editor' -and
+        $rule.Lifecycle -ne 'Editor' -and
+        $repoPath -notmatch '/Editor/')
     {
         $warnings.Add("Editor-only script outside Editor directory: $repoPath")
     }

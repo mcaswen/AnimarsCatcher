@@ -1,0 +1,377 @@
+using AnimarsCatcher.Core;
+using Unity.Collections;
+using Unity.Mathematics;
+
+namespace AnimarsCatcher.Navigation.Grid
+{
+    /// <summary>
+    /// 统一坐标转换、端点投影和离散直线查询
+    /// </summary>
+    public static class NavigationGridQuery
+    {
+        private const float CostEpsilon = 0.00001f;
+        private const float MinimumTerrainCost = 0.01f;
+
+        // 世界坐标只在有效 Grid Bounds 内转换，边界外不会隐式钳制
+        // 端点投影依次按距离、地形、Clearance 和 Cell 索引稳定决胜
+        // 投影和直线查询共享 Traversal 规则，不能绕过动态 Overlay
+        // 离散直线使用整数误差累加，避免浮点舍入改变跨平台步进序列
+        // 查询只返回值或索引，不持有 Native 容器和 ECS 生命周期
+
+        public static bool CanAgentOccupy(
+            ref NavigationGridBlob grid,
+            int cellIndex,
+            float agentRadius,
+            float clearanceMargin)
+        {
+            return NavigationGridTraversal.CanAgentOccupy(
+                ref grid, cellIndex, agentRadius, clearanceMargin);
+        }
+        public static bool TryWorldToCell(
+            ref NavigationGridBlob grid,
+            float3 worldPosition,
+            out int2 coordinate,
+            out int cellIndex)
+        {
+            coordinate = default;
+            cellIndex = -1;
+            if (!NavigationGridTraversal.IsGridShapeValid(ref grid) || !VectorMath.IsFinite(worldPosition))
+            {
+                return false;
+            }
+
+            float2 localPosition = new float2(
+                worldPosition.x - grid.BoundsMinimum.x,
+                worldPosition.z - grid.BoundsMinimum.z);
+            // Bounds 使用左闭右开区间，防止最大边界被映射为 Width 或 Height
+            if (localPosition.x < 0f || localPosition.y < 0f ||
+                localPosition.x >= grid.Width * grid.CellSize ||
+                localPosition.y >= grid.Height * grid.CellSize)
+            {
+                return false;
+            }
+
+            coordinate = new int2(
+                (int)math.floor(localPosition.x / grid.CellSize),
+                (int)math.floor(localPosition.y / grid.CellSize));
+            cellIndex = coordinate.x + coordinate.y * grid.Width;
+            return true;
+        }
+
+        /// <summary>
+        /// 把稳定 Cell 索引转换为烘焙表面上的世界坐标
+        /// </summary>
+        /// <param name="grid">运行时只读 Grid</param>
+        /// <param name="cellIndex">行主序 Cell 索引</param>
+        /// <returns>目标 Cell 中心的世界坐标</returns>
+        public static float3 GetCellWorldPosition(
+            ref NavigationGridBlob grid,
+            int cellIndex)
+        {
+            int x = cellIndex % grid.Width;
+            int z = cellIndex / grid.Width;
+            NavigationGridCell cell = grid.Cells[cellIndex];
+            return new float3(
+                grid.BoundsMinimum.x + (x + 0.5f) * grid.CellSize,
+                cell.Height,
+                grid.BoundsMinimum.z + (z + 0.5f) * grid.CellSize);
+        }
+
+        /// <summary>
+        /// 判断指定 Agent 是否能占用目标 Cell
+        /// </summary>
+        /// <param name="grid">运行时只读 Grid</param>
+        /// <param name="cellIndex">待检查 Cell 索引</param>
+        /// <param name="agentRadius">Agent 世界半径</param>
+        /// <param name="clearanceMargin">额外安全边距</param>
+        /// <returns>基础可行走且剩余 Clearance 足够时返回 true</returns>
+        public static bool TryProjectToNearestCell(
+            ref NavigationGridBlob grid,
+            float3 worldPosition,
+            float agentRadius,
+            float clearanceMargin,
+            int maximumRadiusInCells,
+            out int projectedCellIndex)
+        {
+            return TryProjectToNearestCell(
+                ref grid,
+                worldPosition,
+                agentRadius,
+                clearanceMargin,
+                maximumRadiusInCells,
+                default,
+                out projectedCellIndex);
+        }
+
+        public static bool TryProjectToNearestCell(
+            ref NavigationGridBlob grid,
+            float3 worldPosition,
+            float agentRadius,
+            float clearanceMargin,
+            int maximumRadiusInCells,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            out int projectedCellIndex)
+        {
+            projectedCellIndex = -1;
+            if (!NavigationGridTraversal.IsGridShapeValid(ref grid) ||
+                !VectorMath.IsFinite(worldPosition) ||
+                !math.isfinite(agentRadius) ||
+                !math.isfinite(clearanceMargin) ||
+                agentRadius < 0f ||
+                clearanceMargin < 0f ||
+                maximumRadiusInCells < 0)
+            {
+                return false;
+            }
+
+            // raw 坐标故意不先 Clamp，使 Grid 外位置仍受最大投影半径约束
+            int rawX = (int)math.floor(
+                (worldPosition.x - grid.BoundsMinimum.x) / grid.CellSize);
+            int rawZ = (int)math.floor(
+                (worldPosition.z - grid.BoundsMinimum.z) / grid.CellSize);
+            int minimumX = math.max(0, rawX - maximumRadiusInCells);
+            int maximumX = math.min(grid.Width - 1, rawX + maximumRadiusInCells);
+            int minimumZ = math.max(0, rawZ - maximumRadiusInCells);
+            int maximumZ = math.min(grid.Height - 1, rawZ + maximumRadiusInCells);
+
+            // 候选依次比较距离、地形成本、Clearance 和 Cell Index，不依赖遍历顺序
+            float bestDistanceSquared = float.PositiveInfinity;
+            float bestTerrainCost = float.PositiveInfinity;
+            float bestClearance = float.NegativeInfinity;
+
+            // 扫描完整候选方形，避免首个搜索环让角点候选错误胜出
+            for (int z = minimumZ; z <= maximumZ; z++)
+            {
+                for (int x = minimumX; x <= maximumX; x++)
+                {
+                    int cellIndex = x + z * grid.Width;
+                    if (!NavigationGridTraversal.CanAgentOccupyDynamic(
+                            ref grid,
+                            cellIndex,
+                            agentRadius,
+                            clearanceMargin,
+                            dynamicOverlay))
+                    {
+                        continue;
+                    }
+
+                    NavigationGridCell cell = grid.Cells[cellIndex];
+                    float3 cellPosition = GetCellWorldPosition(ref grid, cellIndex);
+                    float2 offset = new float2(
+                        cellPosition.x - worldPosition.x,
+                        cellPosition.z - worldPosition.z);
+                    float distanceSquared = math.lengthsq(offset);
+                    float terrainCost = math.max(MinimumTerrainCost, cell.TerrainCost);
+                    float effectiveClearance = cell.Clearance;
+                    if (dynamicOverlay.IsCreated && cellIndex < dynamicOverlay.Length)
+                    {
+                        effectiveClearance = math.max(
+                            0f,
+                            effectiveClearance -
+                            math.max(0f, dynamicOverlay[cellIndex].ClearanceReduction));
+                    }
+                    if (IsBetterProjectionCandidate(
+                            distanceSquared,
+                            terrainCost,
+                            effectiveClearance,
+                            cellIndex,
+                            bestDistanceSquared,
+                            bestTerrainCost,
+                            bestClearance,
+                            projectedCellIndex))
+                    {
+                        bestDistanceSquared = distanceSquared;
+                        bestTerrainCost = terrainCost;
+                        bestClearance = cell.Clearance;
+                        projectedCellIndex = cellIndex;
+                    }
+                }
+            }
+
+            return projectedCellIndex >= 0;
+        }
+
+        /// <summary>
+        /// 计算八方向 Grid 上保持可采纳性的 Octile Distance
+        /// </summary>
+        /// <param name="grid">运行时只读 Grid</param>
+        /// <param name="fromCellIndex">起始 Cell 索引</param>
+        /// <param name="toCellIndex">目标 Cell 索引</param>
+        /// <returns>使用最低地形成本缩放后的启发成本</returns>
+        public static bool TryCalculateLineCost(
+            ref NavigationGridBlob grid,
+            int fromCellIndex,
+            int toCellIndex,
+            float agentRadius,
+            float clearanceMargin,
+            float clearancePenaltyWeight,
+            out float lineCost)
+        {
+            return TryCalculateLineCost(
+                ref grid,
+                fromCellIndex,
+                toCellIndex,
+                agentRadius,
+                clearanceMargin,
+                clearancePenaltyWeight,
+                default,
+                out lineCost);
+        }
+
+        public static bool TryCalculateLineCost(
+            ref NavigationGridBlob grid,
+            int fromCellIndex,
+            int toCellIndex,
+            float agentRadius,
+            float clearanceMargin,
+            float clearancePenaltyWeight,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            out float lineCost)
+        {
+            lineCost = 0f;
+            if (!NavigationGridTraversal.CanAgentOccupyDynamic(
+                    ref grid,
+                    fromCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay) ||
+                !NavigationGridTraversal.CanAgentOccupyDynamic(
+                    ref grid,
+                    toCellIndex,
+                    agentRadius,
+                    clearanceMargin,
+                    dynamicOverlay))
+            {
+                return false;
+            }
+
+            if (fromCellIndex == toCellIndex)
+            {
+                return true;
+            }
+
+            int currentX = fromCellIndex % grid.Width;
+            int currentZ = fromCellIndex / grid.Width;
+            int targetX = toCellIndex % grid.Width;
+            int targetZ = toCellIndex / grid.Width;
+            // 整数误差累加使相同端点不受浮点舍入和平台差异影响
+            int absoluteDeltaX = math.abs(targetX - currentX);
+            int absoluteDeltaZ = math.abs(targetZ - currentZ);
+            int stepX = currentX < targetX ? 1 : -1;
+            int stepZ = currentZ < targetZ ? 1 : -1;
+            int error = absoluteDeltaX - absoluteDeltaZ;
+            float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
+                ref grid,
+                agentRadius,
+                clearanceMargin);
+
+            // 每轮只产生一个正交或对角相邻步，再由 NeighborMask 和 Clearance 验证
+            // 这里验证的是平滑后可直接连接的离散通道，不是物理层最终 Capsule Cast
+            while (currentX != targetX || currentZ != targetZ)
+            {
+                int deltaX = 0;
+                int deltaZ = 0;
+                int doubledError = error * 2;
+                if (doubledError > -absoluteDeltaZ)
+                {
+                    deltaX = stepX;
+                    error -= absoluteDeltaZ;
+                }
+                if (doubledError < absoluteDeltaX)
+                {
+                    deltaZ = stepZ;
+                    error += absoluteDeltaX;
+                }
+
+                int currentIndex = currentX + currentZ * grid.Width;
+                int nextX = currentX + deltaX;
+                int nextZ = currentZ + deltaZ;
+                int nextIndex = nextX + nextZ * grid.Width;
+                if (!NavigationGridTraversal.IsInside(nextX, nextZ, grid.Width, grid.Height) ||
+                    !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
+                        ref grid,
+                        currentIndex,
+                        nextIndex,
+                        deltaX,
+                        deltaZ,
+                        agentRadius,
+                        clearanceMargin,
+                        dynamicOverlay))
+                {
+                    return false;
+                }
+                // 直线成本复用 A 星步进成本，保证平滑前后能够按同一尺度比较
+                lineCost += NavigationGridCost.CalculateStepCost(
+                    ref grid,
+                    currentIndex,
+                    nextIndex,
+                    requiredClearance,
+                    clearancePenaltyWeight,
+                    dynamicOverlay);
+                lineCost += NavigationGridCost.GetDynamicExtraCost(dynamicOverlay, nextIndex);
+                currentX = nextX;
+                currentZ = nextZ;
+            }
+
+            return true;
+        }
+
+        private static bool IsBetterProjectionCandidate(
+            float distanceSquared,
+            float terrainCost,
+            float clearance,
+            int cellIndex,
+            float bestDistanceSquared,
+            float bestTerrainCost,
+            float bestClearance,
+            int bestCellIndex)
+        {
+            // 候选依次比较距离、地形成本、Clearance 和 Cell Index
+            if (bestCellIndex < 0 || distanceSquared < bestDistanceSquared - CostEpsilon)
+            {
+                return true;
+            }
+
+            if (math.abs(distanceSquared - bestDistanceSquared) > CostEpsilon)
+            {
+                return false;
+            }
+
+            if (terrainCost < bestTerrainCost - CostEpsilon)
+            {
+                return true;
+            }
+
+            if (math.abs(terrainCost - bestTerrainCost) > CostEpsilon)
+            {
+                return false;
+            }
+
+            if (clearance > bestClearance + CostEpsilon)
+            {
+                return true;
+            }
+
+            return math.abs(clearance - bestClearance) <= CostEpsilon &&
+                   cellIndex < bestCellIndex;
+        }
+
+        public static bool IsRequestValid(NavigationPathRequest request)
+        {
+            // 连续值必须有限且处于不会破坏成本模型的范围
+            // 投影半径限制同时保护扫描成本和整数坐标运算
+            return VectorMath.IsFinite(request.StartPosition) &&
+                   VectorMath.IsFinite(request.EndPosition) &&
+                   math.isfinite(request.AgentRadius) &&
+                   math.isfinite(request.ClearanceMargin) &&
+                   math.isfinite(request.ClearancePenaltyWeight) &&
+                   math.isfinite(request.SmoothingCostTolerance) &&
+                   request.AgentRadius >= 0f &&
+                   request.ClearanceMargin >= 0f &&
+                   request.ClearancePenaltyWeight >= 0f &&
+                   request.SmoothingCostTolerance >= 0f &&
+                   request.MaximumProjectionRadiusInCells >= 0;
+        }
+
+    }
+}
