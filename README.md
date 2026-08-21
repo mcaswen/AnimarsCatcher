@@ -5,7 +5,7 @@
 ![NetCode](https://img.shields.io/badge/NetCode_for_Entities-1.9.0-0078D4)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 
-AnimarsCatcher 是基于 Unity DOTS、Entities 与 NetCode for Entities 构建的 1v1 RTS 联机技术 Demo。项目通过一个可运行的对局原型，将数据导向模拟、按 Tick 预测、服务端权威规则、Ani 行为调度、大规模群体导航组合在一起，目标是塑造一个高性能，可联网，流程完整的 RTS 游戏体验。
+AnimarsCatcher 是基于 Entities 与 NetCode for Entities 构建的 1v1 RTS 联机技术 Demo。项目以 ECS 架构构建绝大部分游戏系统，将数据导向模拟、按 Tick 预测、服务端权威规则、Ani 行为调度、大规模群体导航组合在一起，目标是塑造一个高性能，可联网，流程完整的 RTS 游戏体验。
 
 项目的主要玩法为：玩家控制网络预测角色，框选 Picker 或 Blaster Ani，下达移动、跟随、目标交互与资源搬运命令，并通过战斗争夺领地，率先攻下对方基地的玩家获胜。
 
@@ -25,19 +25,18 @@ AnimarsCatcher 是基于 Unity DOTS、Entities 与 NetCode for Entities 构建�
 ### 数据导向模拟与 Ani FSM
 
 - Ani、生命值、阵营、资源、攻击和移动意图以 Component 或 DynamicBuffer 表达，由职责独立的 System 处理，Authoring 与 Baker 负责生成运行时数据
-- 伤害与资源变化通过事件 Buffer 汇总，角色物理和相机等适合并行的计算使用 Burst、Job System 与 NativeContainer
-- 通用 FSM 使用 Blob 状态图、类型化黑板和 Burst FunctionPointer，当前移动状态覆盖 Idle、Follow、Find 与 MoveTo
+- 伤害与资源变化通过事件 Buffer 汇总，角色物理和相机等适合并行处理的计算使用 Burst、Job System 与 NativeContainer
+- 通用 FSM 使用 Blob 状态图、类型化黑板和 Burst FunctionPointer 模拟多态，实现 ECS 约束下的多态状态切换/评估与条件/行为调度与扩展
 
 ### NetCode 会话与预测输入
 
-- 自定义 Bootstrap 创建 Client、Server 与 Thin Client World，并完成连接、Lobby、开局、场景就绪、InGame 和角色生成链路
-- 服务器负责阵营、出生点、`GhostOwner` 与 `CommandTarget`，一次性命令使用 RPC，持续状态使用 Ghost Snapshot
-- 玩家输入以 `ICommandData` 按 `NetworkTick` 写入命令缓冲，在客户端和服务器预测组中驱动 KCC，支持回滚与重放
-- 支持 Host、Client、Dedicated Server、Multiplayer PlayMode 和局域网房间发现
+- 自定义 Bootstrap 创建 Client、Server 与 Thin Client World，实现自定义 Lobby/Connection/InGame/玩家 刷新链路与可靠 RPC 交互
+- 服务器负责阵营、出生点、`GhostOwner` 与 `CommandTarget`，并设计局域网监听/发布机制与协议以实现客户端房间发现与加入
+- 玩家输入以 `ICommandData` 按 `NetworkTick` 写入命令环形缓冲，在客户端和服务器预测 System 组中驱动 KCC，以适配客户端预测/回放一致性需求
 
 ### 双导航后端与群体移动
 
-Legacy NavMesh 提供当前完整玩法基线和受控性能对照，包括服务端路径推进、固定阵型、FSM 移动、邻居分离与资源搬运
+Legacy NavMesh 提供当前完整玩法基线和受控性能对照，其通过调用 NavMesh API 计算寻路期望速度并只在服务端推进路径点，由单位物理移动系统基于 PhysicsWorld 距离查询计算挤压方向与权重，叠加到最终的期望速度
 
 Clearance Grid 是正在接入正式玩法的新后端：
 
@@ -48,12 +47,12 @@ Clearance Grid 是正在接入正式玩法的新后端：
 ### RTS 指令与服务端玩法闭环
 
 - 客户端把框选和世界目标编码为 GhostId 快照与 `AniCommandRpc`，服务器复核连接、所有权和目标后再交给 FSM 或 Squad
-- 指令链路保持“玩家意图 → 网络命令 → 服务端校验 → 行为调度 → 移动结果”，客户端不直接提交最终 Transform
+- 指令链路保持“玩家意图 → 网络命令 → 服务端校验 → 行为调度 → 移动结果”，落地到单位黑板/意图层驱动单位进入 Find/Follow 等状态并与 FSM 交互
 - 战斗感知、攻击确认、伤害汇总、死亡、资源刷新与搬运、玩家资源统计和基地胜负均由 Server World 决定
 
 ### 画面、UI表现与工程边界
 
-- 服务器保持纯 Entity 状态，Client World 创建并维护 GameObject View、动画、血条、选中光圈、HUD、音频和 VFX
+- 服务器保持纯 Entity 状态，Client World 创建并维护 GameObject View、动画、血条、选中光圈、HUD、音频和 VFX 等表现层
 - 网络与玩法通知通过 Presentation Bridge 转换为 UI 和场景行为，避免底层业务程序集直接依赖托管表现
 - 331 个业务脚本归属 15 个自定义 asmdef，Runtime、Contracts、Editor、Validation 与 Benchmark 使用独立编译边界
 
