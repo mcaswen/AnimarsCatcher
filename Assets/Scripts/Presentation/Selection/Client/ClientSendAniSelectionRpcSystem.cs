@@ -38,7 +38,7 @@ namespace AnimarsCatcher.Presentation.Selection
             var drag = SystemAPI.GetSingletonRW<AniSelectionDragState>();
             if (drag.ValueRO.IsReleased == 0) return;
 
-            // 立即消费释放标记，保证一次拖拽最多发送一个 RPC
+            // 立即清除释放标记，保证一次拖拽最多发送一个 RPC
             drag.ValueRW.IsReleased = 0;
 
             // 将任意拖拽方向归一化为屏幕空间包围盒

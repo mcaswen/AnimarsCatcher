@@ -14,14 +14,14 @@ public static class BlackboardEventKeys
 }
 
 /// <summary>
-/// 通过写入当前 Tick 在实体黑板上发布一次性状态机事件
+/// 通过写入当前 Tick 在 Entity 黑板上发布一次性状态机事件
 /// </summary>
 public static class FsmEventBus
 {
     /// <summary>
-    /// 发布实体被分配给玩家的事件版本
+    /// 发布 Entity 被分配给玩家的事件版本
     /// </summary>
-    /// <param name="blackboard">接收事件的实体黑板</param>
+    /// <param name="blackboard">接收事件的 Entity 黑板</param>
     /// <param name="context">提供当前 Tick 的状态机上下文</param>
     public static void RaiseAssignedToPlayer(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {
@@ -29,9 +29,9 @@ public static class FsmEventBus
     }
 
     /// <summary>
-    /// 发布实体被分配到目标的事件版本
+    /// 发布 Entity 被分配到目标的事件版本
     /// </summary>
-    /// <param name="blackboard">接收事件的实体黑板</param>
+    /// <param name="blackboard">接收事件的 Entity 黑板</param>
     /// <param name="context">提供当前 Tick 的状态机上下文</param>
     public static void RaiseAssignedToTarget(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {
@@ -39,9 +39,9 @@ public static class FsmEventBus
     }
 
     /// <summary>
-    /// 发布实体失去目标的事件版本
+    /// 发布 Entity 失去目标的事件版本
     /// </summary>
-    /// <param name="blackboard">接收事件的实体黑板</param>
+    /// <param name="blackboard">接收事件的 Entity 黑板</param>
     /// <param name="context">提供当前 Tick 的状态机上下文</param>
     public static void RaiseTargetLost(ref DynamicBuffer<FsmVar> blackboard, in FsmContext context)
     {

@@ -14,7 +14,7 @@ namespace AnimarsCatcher.Gameplay
         public float3 TargetWorldPosition;
         public Entity TargetEntity;
 
-        // 使用 GhostId 传递选择集，服务器再映射为权威实体
+        // 使用 GhostId 传递选择集，服务器收到后再映射到自己的 Entity
         public FixedList512Bytes<int> SelectedAniGhostIds;
     }
 }

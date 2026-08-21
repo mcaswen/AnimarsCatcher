@@ -193,7 +193,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         var hitBody   = physicsWorld.Bodies[hit.RigidBodyIndex];
                         var hitEntity = hitBody.Entity;
 
-                        // 碰撞过滤器可能包含自身，需要显式忽略
+                        // 碰撞过滤器可能命中 Ani 自身，因此需要主动排除
                         if (hitEntity != entity)
                         {
                             float hitDistance    = desiredDistance * hit.Fraction;

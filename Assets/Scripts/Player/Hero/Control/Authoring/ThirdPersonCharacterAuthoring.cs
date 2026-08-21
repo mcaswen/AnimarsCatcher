@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Player
     using Unity.NetCode;
 
     /// <summary>
-    /// 标记参与角色控制流程的实体
+    /// 标记参与角色控制流程的 Entity
     /// </summary>
     public struct CharacterTag : IComponentData { }
 

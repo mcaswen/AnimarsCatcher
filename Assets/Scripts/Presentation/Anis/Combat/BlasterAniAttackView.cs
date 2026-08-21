@@ -60,7 +60,7 @@ namespace AnimarsCatcher.Presentation.Anis
         private int _shootTriggerHash;
         private int _isShootingBoolHash;
 
-        // 分别阻止动画请求和激光事件重复消费同一 ShotId
+        // 分别记录动画和激光处理过的 ShotId，避免同一次攻击重复播放
         private uint _lastConsumedShotId;
         private uint _lastFiredVisualShotId;
         private bool _bound;
@@ -82,13 +82,13 @@ namespace AnimarsCatcher.Presentation.Anis
         }
 
         /// <summary>
-        /// 绑定视图对应的 ECS 实体和世界生命周期
+        /// 绑定视图对应的 ECS Entity 及其所属 World
         /// </summary>
-        /// <param name="entity">视图跟随的网络实体</param>
-        /// <param name="entityManager">实体所属世界的管理器</param>
+        /// <param name="entity">视图跟随的网络 Entity</param>
+        /// <param name="entityManager">Entity 所属世界的管理器</param>
         public void Bind(Entity entity, EntityManager entityManager)
         {
-            // EntityManager 与 World 成对保存，场景切换后先验证 World 生命周期
+            // EntityManager 与 World 成对保存，场景切换后先确认 World 仍然有效
             _targetEntity = entity;
             _boundEntityManager = entityManager;
             _boundWorld = entityManager.World;
@@ -109,7 +109,7 @@ namespace AnimarsCatcher.Presentation.Anis
             // 请求组件由 ECS 保留，视图通过单调 ShotId 判断是否出现新攻击
             var fireRequest = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
 
-            // ShotId 同时承担新事件检测和重复消费保护
+            // 通过 ShotId 判断是否出现新攻击，并防止重复处理同一次攻击
             if (fireRequest.ShotId == 0 || fireRequest.ShotId == _lastConsumedShotId)
                 return;
 
@@ -212,7 +212,7 @@ namespace AnimarsCatcher.Presentation.Anis
             }
         }
 
-        // 从枪口生成射线与光束，并把候选命中加入 ECS 桥接队列
+        // 从枪口生成射线与光束，并把候选命中加入 ECS 系统读取的队列
         private void FireLaser(uint shotId)
         {
             Debug.Log($"[BlasterAniAttackView] FireLaser from instance {GetInstanceID()}, name={name}, ShotId={shotId}");
@@ -250,7 +250,7 @@ namespace AnimarsCatcher.Presentation.Anis
 
             if (hit)
             {
-                // Proxy 把场景碰撞体桥接回当前 World 的 Ghost 实体
+                // Proxy 用于查找场景碰撞体对应的当前 World Ghost Entity
                 var selectableProxy = hitInfo.collider.GetComponentInParent<WorldCommandTargetProxy>();
                 if (selectableProxy != null)
                 {

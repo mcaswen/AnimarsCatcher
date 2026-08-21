@@ -98,7 +98,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                         continue;
                 }
 
-                // 保持请求幂等，避免结构变更重复入队
+            // 已有请求时不再重复添加，避免同一 Ani 多次进入处理队列
                 if (SystemAPI.HasComponent<AniFormationJoinRequest>(entity))
                     continue;
 

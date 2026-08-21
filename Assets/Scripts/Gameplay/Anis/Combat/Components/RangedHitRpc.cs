@@ -10,7 +10,7 @@ namespace AnimarsCatcher.Gameplay
     public struct RangedHitRpc : IRpcCommand
     {
         public int AttackerGhostId;
-        // 负值表示没有命中网络实体
+        // 负值表示没有命中网络 Entity
         public int TargetGhostId;
         public float3 HitPosition;
         public float3 HitNormal;

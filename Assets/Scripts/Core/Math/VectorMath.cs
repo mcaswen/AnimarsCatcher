@@ -4,7 +4,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Core
 {
     /// <summary>
-    /// 提供不依赖玩法语义的三维向量计算
+    /// 提供可供各玩法模块复用的三维向量计算
     /// </summary>
     public static class VectorMath
     {

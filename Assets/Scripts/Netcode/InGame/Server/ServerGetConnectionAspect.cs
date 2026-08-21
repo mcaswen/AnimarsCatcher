@@ -10,7 +10,7 @@ namespace AnimarsCatcher.Networking
     public struct PlayerSpawnedTag : IComponentData {}
 
     /// <summary>
-    /// 封装服务器对连接实体的 InGame、生成去重和 CommandTarget 操作
+    /// 封装服务器对连接 Entity 的 InGame、生成去重和 CommandTarget 操作
     /// </summary>
     public readonly partial struct ServerGetConnectionAspect : IAspect
     {
@@ -55,7 +55,7 @@ namespace AnimarsCatcher.Networking
         /// <summary>
         /// 将连接的输入命令目标设置为服务器创建的角色
         /// </summary>
-        /// <param name="character">该连接拥有的角色实体</param>
+        /// <param name="character">该连接拥有的角色 Entity</param>
         /// <param name="state">服务器系统状态</param>
         /// <param name="entityCommandBuffer">延迟结构变更命令缓冲区</param>
         public void SetCommandTarget(Entity character, ref SystemState state, ref EntityCommandBuffer entityCommandBuffer)

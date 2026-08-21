@@ -8,7 +8,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 在成员或阵型变化时生成中心对称的基础槽位
+    /// 在成员数量或阵型宽度变化后，重新生成以队伍中心为基准的槽位
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Navigation.Grid
                          DynamicBuffer<AniSquadMember>,
                          DynamicBuffer<AniFormationSlot>>())
             {
-                // MemberVersion 是布局失效标记，版本和槽位数量都未变时直接复用缓存
+                // 成员版本和槽位数量都没变时，现有布局仍然有效，无需每帧重建
                 if (formation.ValueRO.LayoutVersion == formation.ValueRO.MemberVersion &&
                     slots.Length == members.Length)
                 {
@@ -44,12 +44,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     members.Length,
                     formation.ValueRO.ColumnCount);
 
-                // 列数只由阵型配置和成员数量决定，不读取成员当前位置
+                // 阵型宽度只取决于当前配置和成员数，不会因成员暂时站偏而改变
 
-                // 槽位从局部中心生成，Anchor 移动不会改变阵型的对称性
+                // 槽位使用相对队伍中心的坐标，锚点移动不会破坏阵型对称性
                 slots.Clear();
 
-                // SlotIndex 与成员稳定排序一致，重建后仍能复用确定性槽位
+                // 槽位索引按固定顺序生成，重建同一阵型时结果保持一致
                 for (int slotIndex = 0; slotIndex < members.Length; slotIndex++)
                 {
                     slots.Add(new AniFormationSlot
@@ -72,15 +72,15 @@ namespace AnimarsCatcher.Navigation.Grid
                 formation.ValueRW.ColumnCount = columnCount;
                 formation.ValueRW.LayoutVersion = formation.ValueRO.MemberVersion;
 
-                // 布局重建后必须重新分配成员，旧 SlotIndex 不能直接视为有效
-                // AssignmentVersion 清零是布局和分配之间的显式同步边界
+                // 槽位位置重建后，成员需要重新分配，旧槽位索引不能直接沿用
+                // 将分配版本清零，让下一个系统明确知道需要重新匹配
                 formation.ValueRW.AssignmentVersion = 0;
             }
         }
     }
 
     /// <summary>
-    /// 在布局变化时使用确定性的最小总代价匹配分配槽位
+    /// 阵型变化后，为成员分配合适且移动总成本较低的槽位
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -114,7 +114,7 @@ namespace AnimarsCatcher.Navigation.Grid
                          DynamicBuffer<AniFormationSlot>>()
                               .WithEntityAccess())
             {
-                // 已完成布局且成员数量匹配时不重新扫描，避免每 Tick 进行 O(M*S) 匹配
+                // 当前布局已经完成分配且人数没变时直接复用，避免每帧重新计算匹配
                 if (formation.ValueRO.AssignmentVersion == formation.ValueRO.LayoutVersion ||
                     members.IsEmpty ||
                     slots.Length != members.Length)
@@ -122,7 +122,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // Buffer 迭代变量只读，复制可写句柄后再统一写回匹配结果
+                // 查询得到的缓冲区句柄只读，复制出可写句柄后再统一提交匹配结果
                 DynamicBuffer<AniSquadMember> writableMembers = members;
                 quaternion anchorRotation = quaternion.LookRotationSafe(
                     math.normalizesafe(anchor.ValueRO.Forward, new float3(0f, 0f, 1f)),
@@ -138,9 +138,9 @@ namespace AnimarsCatcher.Navigation.Grid
                     Allocator.Temp,
                     NativeArrayOptions.UninitializedMemory);
 
-                // 代价同时考虑当前位置、职责偏好和换槽，低频全局匹配避免贪心交叉
-                // 成员 Buffer 已按 StableId 排序，Hungarian 的行顺序因此不依赖 Entity.Index
-                // 槽位 Buffer 按 SlotIndex 生成，等价总代价时算法稳定选择更小列索引
+                // 匹配成本同时考虑路程、职责适配和换槽；全局匹配可以减少成员路线交叉
+                // 成员按 StableId 排序，因此 Hungarian 算法的输入顺序不受 Entity.Index 影响
+                // 槽位按索引排列，成本相同时优先选择索引更小的位置
                 for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
                 {
                     AniSquadMember member = writableMembers[memberIndex];
@@ -154,20 +154,20 @@ namespace AnimarsCatcher.Navigation.Grid
                                 anchor.ValueRO.Position,
                                 anchorRotation,
                                 slots[slotIndex].LocalOffset);
-                        // 极远距离被钳制在职责惩罚以下，确保正确职责优先于空间距离
-                        // 平方距离省去开方并保留近距离成员之间的排序关系
+                        // 距离成本设有上限，使职责合适的重要性始终高于单纯离得近
+                        // 使用平方距离可省去开方，同时保持距离远近的排序不变
                         float cost = math.min(
                             99999f,
                             math.distancesq(memberPosition, slotPosition));
                         if (!IsRoleCompatible(member.Role, slots[slotIndex].PreferredRole))
                         {
-                            // 角色数量不足时仍允许降级匹配，但总代价会优先用完兼容槽位
+                            // 某类角色人数不足时允许站到非首选槽位，但会优先用满职责相符的位置
                             cost += RoleMismatchPenalty;
                         }
 
                         if (member.SlotIndex >= 0 && member.SlotIndex != slotIndex)
                         {
-                            // 小幅换槽惩罚减少视觉跳变，不覆盖职责和明显的距离收益
+                            // 给换槽增加少量成本，减少不必要的来回换位，但不阻止明显更合理的分配
                             cost += SlotChangePenalty;
                         }
 
@@ -182,7 +182,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     assignments);
                 if (assigned)
                 {
-                    // 求解完成后一次性发布，任何失败都不会留下半套新槽位
+                    // 全部匹配成功后再一次性写回，失败时不会留下半套新分配
                     for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
                     {
                         AniSquadMember member = writableMembers[memberIndex];
@@ -197,11 +197,11 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 if (!assigned)
                 {
-                    // 输入异常时保留旧版本，使下一 Tick 能再次尝试而不发布部分分配
+                    // 输入异常时不更新版本，下一帧可以重试，同时保留上一套完整结果
                     continue;
                 }
 
-                // 版本写回使同一布局在后续 Tick 直接跳过匹配
+                // 记录已分配的布局版本，后续帧可以直接复用结果
                 formation.ValueRW.AssignmentVersion = formation.ValueRO.LayoutVersion;
             }
         }
@@ -219,21 +219,20 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             if (!_membershipLookup.HasComponent(aniEntity))
             {
-                // 成员可能在清理和匹配之间失效，缺少归属组件时跳过写回
+                // 成员可能在计算期间被移除；缺少队伍归属组件时不再写回
                 return;
             }
 
             AniSquadMembership membership = _membershipLookup[aniEntity];
             membership.SlotIndex = slotIndex;
 
-            // Membership 与 Squad Buffer 必须同步写入，Progress 通过该索引读取槽位
-            // 缺少任一写回会让表现层和服务器路径状态产生不同槽位
+            // 成员归属组件和队伍缓冲区必须写入同一个槽位索引，进度判断和画面才能一致
             _membershipLookup[aniEntity] = membership;
         }
     }
 
     /// <summary>
-    /// 按 Anchor 姿态把局部槽位转换为成员世界目标
+    /// 根据队伍锚点的位置和朝向，为每名成员生成世界坐标槽位
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -285,16 +284,16 @@ namespace AnimarsCatcher.Navigation.Grid
                          DynamicBuffer<AniSquadMember>,
                          DynamicBuffer<AniFormationSlot>>())
             {
-                // 槽位保持局部坐标，只有此处结合 Anchor 姿态生成成员世界目标
+                // 槽位数据始终保存相对坐标，只在这里结合锚点生成世界坐标
                 quaternion rotation = quaternion.LookRotationSafe(
                     math.normalizesafe(anchor.ValueRO.Forward, new float3(0f, 0f, 1f)),
                     math.up());
 
-                // 同一 Anchor Rotation 应用于所有成员，阵型不会因逐成员朝向产生剪切
+                // 所有成员使用同一个锚点旋转，避免阵型因个人朝向不同而变形
                 for (int memberIndex = 0; memberIndex < members.Length; memberIndex++)
                 {
                     AniSquadMember member = members[memberIndex];
-                    // 未完成分配的成员由下一次 Assignment 补齐，不写入临时世界目标
+                    // 尚未分配到有效槽位的成员留到下一次匹配，不写入临时目标
                     if (member.SlotIndex < 0 ||
                         member.SlotIndex >= slots.Length ||
                         !_slotTargetLookup.HasComponent(member.Ani) ||
@@ -322,7 +321,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             0.1f,
                             overlay))
                     {
-                        // 合法槽位保留亚 Cell 阵型偏移，只把高度贴合烘焙地面
+                        // 槽位本身可站立时保留精确位置，只把高度贴到烘焙地面
                         slotPosition.y = grid.Cells[directCellIndex].Height;
                     }
                     else if (NavigationGridQuery.TryProjectToNearestCell(
@@ -334,7 +333,7 @@ namespace AnimarsCatcher.Navigation.Grid
                                  overlay,
                                  out int projectedCellIndex))
                     {
-                        // 无效槽位才退到附近合法 Cell 中心，避免成员追逐不可达目标
+                        // 槽位被挡住时改用附近可站立格子的中心，避免成员追赶无法到达的位置
                         slotPosition = NavigationGridQuery.GetCellWorldPosition(
                             ref grid,
                             projectedCellIndex);
@@ -346,7 +345,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                     _slotTargetLookup[member.Ani] = new AniSlotTarget
                     {
-                        // 世界目标只写位置，成员旋转由唯一 Commit System 处理
+                        // 这里只设置目标位置；成员旋转统一由移动提交系统处理
                         Position = slotPosition,
                     };
                 }

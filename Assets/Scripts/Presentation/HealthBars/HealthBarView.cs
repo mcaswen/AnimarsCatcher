@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace AnimarsCatcher.Presentation.HealthBars
 {
     /// <summary>
-    /// 将目标 ECS 实体的世界位置和生命值投影到屏幕血条
+    /// 将目标 ECS Entity 的世界位置和生命值投影到屏幕血条
     /// </summary>
     [MovedFrom(true, "AnimarsCatcher.Presentation.HealthUI", "AnimarsCatcher.Presentation", "HealthBarView")]
     public class HealthBarView : MonoBehaviour
@@ -33,7 +33,7 @@ namespace AnimarsCatcher.Presentation.HealthBars
         private bool _isFriendly;
 
         /// <summary>
-        /// 绑定目标实体和 HUD 投影环境
+        /// 绑定目标 Entity 和 HUD 投影环境
         /// </summary>
         public void InitializeHealthBar(
             EntityManager entityManager,
@@ -58,7 +58,7 @@ namespace AnimarsCatcher.Presentation.HealthBars
             Debug.Log($"Initialized HealthBarView for Entity {targetEntity.Index} (IsFriendly: {isFriendly})");
         }
 
-        // 在实体完成移动后更新屏幕位置和生命值填充
+        // 在 Entity 完成移动后更新屏幕位置和生命值填充
         private void LateUpdate()
         {
             if (!_entityManager.Exists(_targetEntity))

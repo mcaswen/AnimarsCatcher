@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Gameplay
                 Entity pickablePrefabEntity = Entity.Null;
                 if (authoring._pickablePrefab != null)
                 {
-                    // 将掉落 GameObject 转换为可实例化的 Ghost 预制体实体
+                    // 将掉落 GameObject 转换为可实例化的 Ghost 预制体 Entity
                     pickablePrefabEntity =
                         GetEntity(authoring._pickablePrefab, TransformUsageFlags.Dynamic);
                 }

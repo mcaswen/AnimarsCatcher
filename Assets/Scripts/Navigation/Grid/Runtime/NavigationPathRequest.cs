@@ -4,7 +4,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 定义所有路径服务从等待到完成的共享生命周期状态
+    /// 路径请求从排队、计算到成功或失败的通用状态
     /// </summary>
     public enum NavigationPathStatus : byte
     {
@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 定义路径搜索失败或终止的稳定原因
+    /// 路径请求无法完成的具体原因
     /// </summary>
     public enum NavigationPathFailureReason : byte
     {
@@ -32,32 +32,32 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 描述 A*、HPA 和 Flow Field 共用的确定性 Grid 请求
+    /// A*、分层寻路和 Flow Field 共用的格子寻路请求参数
     /// </summary>
     public struct NavigationPathRequest : IComponentData
     {
-        // 起终点保留世界坐标，由路径服务统一执行 Bounds 检查和端点投影
+        // 起点和终点使用世界坐标，各种寻路服务会统一检查范围并纠正到可站立格子
         public float3 StartPosition;
         public float3 EndPosition;
 
-        // BaseAgentRadius 已参与烘焙占用采样，运行时只扣除超出的半径
+        // 基础角色半径已经参与烘焙，运行时只检查超出的体型空间
         public float AgentRadius;
         public float ClearanceMargin;
 
-        // ClearancePenaltyWeight 只改变偏好，不会把不可占用 Cell 变为可用
+        // 狭窄空间惩罚只影响路线偏好，不会把原本不可站立的格子变成可用
         public float ClearancePenaltyWeight;
 
-        // 平滑只能在此比例内增加原始 A 星分段成本
+        // 路径平滑后的成本最多可比原始 A* 分段增加这个比例
         public float SmoothingCostTolerance;
 
-        // 投影半径以 Cell 为单位，零表示只接受位置直接对应的 Cell
+        // 端点搜索半径以格子为单位；0 表示只接受坐标直接落入的格子
         public int MaximumProjectionRadiusInCells;
 
-        // 调用方每次替换请求时递增版本，用于拒绝异步返回的旧结果
+        // 调用方每次替换请求都递增版本号，用于忽略迟到的异步旧结果
         public uint Version;
 
         /// <summary>
-        /// 使用 Grid 路径服务的推荐默认值创建路径请求
+        /// 使用导航服务的推荐参数创建一条路径请求
         /// </summary>
         /// <param name="startPosition">请求起点世界坐标</param>
         /// <param name="endPosition">请求终点世界坐标</param>
@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Navigation.Grid
         /// <param name="maximumProjectionRadiusInCells">端点投影最大搜索半径</param>
         /// <param name="clearancePenaltyWeight">低 Clearance 路径惩罚权重</param>
         /// <param name="smoothingCostTolerance">平滑路径允许增加的成本比例</param>
-        /// <returns>状态系统可直接消费的路径请求</returns>
+        /// <returns>可以直接提交给寻路系统的请求</returns>
         public static NavigationPathRequest Create(
             float3 startPosition,
             float3 endPosition,

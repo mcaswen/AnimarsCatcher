@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 保存服务器生成系统使用的两类 Ani Ghost 预制体实体
+    /// 保存服务器生成系统使用的两类 Ani Ghost 预制体 Entity
     /// </summary>
     public struct AniGhostPrefabRegistry : IComponentData
     {

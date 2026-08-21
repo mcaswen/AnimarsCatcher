@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Gameplay
             {
                 ref var fsmData = ref fsm.ValueRW;
 
-                // 待应用迁移尚未消费时不能再次评估
+                // 上一次选中的迁移尚未应用时不能再次评估
                 if (fsmData.HasPending == 1) continue;
 
                 ref var graph = ref graphRef.ValueRO.Value.Value;

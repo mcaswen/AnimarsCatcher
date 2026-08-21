@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Gameplay
                 idToIndex.TryAdd(resourceOwners[i].NetworkId, i);
             }
 
-            // 统计值来自实体现状，每帧必须从零重建
+            // 统计值取自当前 Entity 组件，每帧都要从零重新计算
             for (int i = 0; i < resourceStates.Length; i++)
             {
                 var resourceState = resourceStates[i];
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Gameplay
                 resourceStates[i] = resourceState;
             }
 
-            // 遍历 Ani 实体并按所有者累计各分类计数
+            // 遍历 Ani Entity 并按所有者累计各分类计数
             foreach (var owner in SystemAPI
                          .Query<RefRO<GhostOwner>>()
                          .WithAll<PickerAniTag>())

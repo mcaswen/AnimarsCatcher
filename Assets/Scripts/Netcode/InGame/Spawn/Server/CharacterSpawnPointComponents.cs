@@ -4,7 +4,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Networking
 {
     /// <summary>
-    /// 标记保存角色出生点集合的实体
+    /// 标记保存角色出生点集合的 Entity
     /// </summary>
     public struct CharacterSpawnPointsTag : IComponentData { }
 

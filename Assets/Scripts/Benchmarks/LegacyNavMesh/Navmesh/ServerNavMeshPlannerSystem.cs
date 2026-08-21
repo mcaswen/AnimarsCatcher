@@ -11,7 +11,7 @@ using UnityEngine.AI;
 namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 {
     /// <summary>
-    /// 在服务端响应导航请求并将 NavMesh 路径写入实体缓冲区
+    /// 在服务端响应导航请求并将 NavMesh 路径写入 Entity 缓冲区
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]

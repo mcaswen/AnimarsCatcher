@@ -57,7 +57,7 @@ namespace AnimarsCatcher.Networking
                     LocalPlayerNetworkId = localNetworkId
                 });
 
-            // 网络层只发布权威场景请求，具体加载表现由上层桥接负责
+            // 网络层只发布服务器确认的场景加载请求，具体加载表现由上层桥接负责
             Entity sceneLoadEntity = state.EntityManager.CreateEntity(typeof(ClientSceneLoadRequest));
             state.EntityManager.SetComponentData(
                 sceneLoadEntity,

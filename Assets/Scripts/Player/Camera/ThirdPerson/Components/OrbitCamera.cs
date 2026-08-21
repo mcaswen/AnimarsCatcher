@@ -51,7 +51,7 @@ namespace AnimarsCatcher.Player
     }
 
     /// <summary>
-    /// 记录遮挡检测需要忽略的实体
+    /// 记录遮挡检测需要忽略的 Entity
     /// </summary>
     [Serializable]
     public struct OrbitCameraIgnoredEntityBufferElement : IBufferElementData

@@ -6,7 +6,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 配置实体的初始生命值并限制最小值为一
+    /// 配置 Entity 的初始生命值并限制最小值为一
     /// </summary>
     [DisallowMultipleComponent]
     public class HealthAuthoring : MonoBehaviour

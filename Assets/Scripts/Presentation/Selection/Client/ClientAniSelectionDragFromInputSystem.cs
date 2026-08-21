@@ -7,7 +7,7 @@ using AnimarsCatcher.Player;
 namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
-    /// 将右键按压边沿转换为框选拖拽状态
+    /// 根据右键的按下、持续和释放过程更新框选拖拽状态
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Presentation.Selection
             bool previousHeld = drag.ValueRO.PreviousRightHeld == 1;
             bool nowHeld = rightHeldNow == 1;
 
-            // 按下边沿同时记录框选起点和当前终点
+            // 右键刚按下时同时记录框选起点和当前终点
             if (!previousHeld && nowHeld)
             {
                 drag.ValueRW.IsDragging  = 1;
@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Presentation.Selection
             {
                 drag.ValueRW.EndScreen = mousePosition;
             }
-            // 释放边沿结束拖拽并通知 RPC 系统消费结果
+            // 右键释放时结束拖拽，并通知 RPC 系统处理框选结果
             else if (previousHeld && !nowHeld && drag.ValueRO.IsDragging == 1)
             {
                 drag.ValueRW.EndScreen = mousePosition;

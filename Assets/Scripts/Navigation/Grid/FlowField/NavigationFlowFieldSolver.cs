@@ -5,7 +5,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 协调 HPA Corridor、Integration Field 和 Cache 的纯数据构建流程
+    /// 依次完成端点纠正、分层通道搜索、Flow Field 构建和缓存复用
     /// </summary>
     public static class NavigationFlowFieldSolver
     {
@@ -41,14 +41,14 @@ namespace AnimarsCatcher.Navigation.Grid
             uint dynamicOverlayVersion)
         {
             NavigationPathRequest request = jobRequest.Request.PathRequest;
-            // 先初始化失败结果，后续分支只覆盖更具体的失败原因
+            // 先准备完整失败结果，后续提前返回时只需填写具体原因
             NavigationFlowFieldJobResult result = CreateFailureResult(
                 jobRequest.Entity,
                 request.Version,
                 NavigationPathFailureReason.InvalidRequest,
                 cacheVersion);
             result.DynamicOverlayVersion = dynamicOverlayVersion;
-            // Scratch 形状必须与当前 Grid 一致，Generation 才能安全隔离复用数据
+            // 临时数组必须覆盖当前导航网格，Generation 才能安全区分不同请求的数据
             if (!IsShapeValid(
                     ref grid,
                     cellCosts,
@@ -68,7 +68,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 起点投影失败时保留默认的负 Cell 索引
+            // 起点无法纠正到可站立格子时保留负索引并返回对应失败原因
             if (!NavigationGridQuery.TryProjectToNearestCell(
                     ref grid,
                     request.StartPosition,
@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             result.ProjectedStartCellIndex = startCellIndex;
-            // 终点使用同一体型和最大投影半径，避免两端规则不一致
+            // 起终点使用相同的角色体型和搜索半径，避免两端采用不同规则
             if (!NavigationGridQuery.TryProjectToNearestCell(
                     ref grid,
                     request.EndPosition,
@@ -106,14 +106,14 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             NavigationGridCell startCell = grid.Cells[startCellIndex];
             NavigationGridCell endCell = grid.Cells[endCellIndex];
-            // 静态 Region 不连通时无需分配 Corridor 和 Field 输出
+            // 起终点不在同一静态连通区域时，无需继续构建宏观通道和 Flow Field
             if (startCell.RegionId <= 0 || startCell.RegionId != endCell.RegionId)
             {
                 result.FailureReason = NavigationPathFailureReason.RegionMismatch;
                 return result;
             }
 
-            // 投影 Cell 的 ClusterId 必须能索引当前分层 Blob
+            // 纠正后格子的分块编号必须能在当前分层数据中找到
             int startCluster = startCell.ClusterId;
             int endCluster = endCell.ClusterId;
             if (startCluster < 0 ||
@@ -125,24 +125,24 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 工作列表按请求复用，构建新 Corridor 前清除上一请求内容
+            // 临时列表会在请求之间复用，开始新通道前先清除上一条内容
             workCorridorClusters.Clear();
             workCorridorPortals.Clear();
             workNodeChain.Clear();
 
-            // Clearance 同时约束端点局部搜索、Portal 过滤和最终 Integration Field
+            // 同一个角色空间需求用于端点搜索、分块入口筛选和最终 Flow Field
             float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
                 ref grid,
                 request.AgentRadius,
                 request.ClearanceMargin);
             int abstractExpandedNodeCount = 0;
             bool dynamicOverlayMayBeActive = dynamicOverlayVersion > 1u;
-            // 同 Cluster 请求跳过抽象图，只生成该 Cluster 的局部 Field
+            // 起终点在同一分块时无需搜索抽象图，只为该分块生成局部 Flow Field
             if (startCluster == endCluster)
             {
                 workCorridorClusters.Add(startCluster);
             }
-            // 跨 Cluster 时把起终点作为虚拟节点连接到各自的 Portal Node
+            // 跨分块时将起点和终点作为临时节点，连接到各自分块的通道节点
             else if (!NavigationGridCorridorSolver.TryBuildAbstractCorridor(
                          ref grid,
                          startCellIndex,
@@ -173,23 +173,23 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 保存切片起点，后续失败时可恢复到本请求写入前的长度
+            // 先记录各输出列表的长度；后续失败时可以撤销本请求已写入的部分
             int corridorClusterOffset = corridorClusters.Length;
 
-            // Corridor 追加到共享列表，Result 只保存对应偏移和长度
+            // 通道追加到共享列表，单条结果只记录自己的起始位置和长度
             for (int index = 0; index < workCorridorClusters.Length; index++)
             {
                 corridorClusters.Add(workCorridorClusters[index]);
             }
 
-            // Portal 使用独立连续切片，顺序与 Corridor 的 Cluster 跨越顺序一致
+            // 分块入口单独连续保存，顺序与通道跨越分块的顺序一致
             int corridorPortalOffset = corridorPortals.Length;
             for (int index = 0; index < workCorridorPortals.Length; index++)
             {
                 corridorPortals.Add(workCorridorPortals[index]);
             }
 
-            // 宏观路点由投影起点、Portal 代表 Cell 和投影终点组成
+            // 宏观路点由纠正后的起点、各通道代表格子和终点组成
             int waypointOffset = hierarchicalWaypointCells.Length;
             AppendUnique(hierarchicalWaypointCells, startCellIndex);
             for (int index = workNodeChain.Length - 1; index >= 0; index--)
@@ -200,7 +200,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             AppendUnique(hierarchicalWaypointCells, endCellIndex);
 
-            // 缓存键使用宏观 Cluster 序列，不依赖临时 Portal Node 父链
+            // 缓存键使用最终分块序列，不依赖搜索过程中临时生成的父节点链
             uint corridorHash = NavigationGridCorridorSolver.CalculateHash(ref workCorridorClusters);
             uint dynamicOverlaySignature = NavigationFlowFieldCache.CalculateOverlaySignature(
                 ref workCorridorClusters,
@@ -208,7 +208,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int fieldOffset = flowCells.Length;
             int integrationExpandedCellCount = 0;
 
-            // Corridor Hash 只作缓存初筛，命中函数还会比较完整 Cluster 序列
+            // 通道哈希只用于快速筛选，实际命中还会比较完整分块序列
             bool cacheHit = NavigationFlowFieldCache.TryAppendCachedField(
                 endCellIndex,
                 requiredClearance,
@@ -225,7 +225,7 @@ namespace AnimarsCatcher.Navigation.Grid
                                         (dynamicOverlayMayBeActive
                                             ? grid.PortalNodes.Length + 2
                                             : 2);
-            // 只有缓存未命中时才在 Corridor 内反向生成 Integration Field
+            // 缓存未命中时，才从目标开始在通道内反向生成 Integration Field
             if (!cacheHit)
             {
                 if (!NavigationIntegrationFieldSolver.BuildIntegrationField(
@@ -245,13 +245,13 @@ namespace AnimarsCatcher.Navigation.Grid
                         out integrationExpandedCellCount,
                         dynamicOverlay))
                 {
-                    // 恢复 Corridor 输出到本请求写入前的切片起点
+                    // Flow Field 构建失败时，将通道输出恢复到本请求开始前的长度
                     corridorClusters.ResizeUninitialized(corridorClusterOffset);
                     corridorPortals.ResizeUninitialized(corridorPortalOffset);
-                    // 路点和 Field 也必须同步回滚，避免留下不完整结果
+                    // 路点和 Flow Field 也一起撤销，避免共享列表中留下残缺结果
                     hierarchicalWaypointCells.ResizeUninitialized(waypointOffset);
                     flowCells.ResizeUninitialized(fieldOffset);
-                    // 完成回滚后再返回，下一请求才能安全复用共享列表
+                    // 撤销完成后再返回，下一条请求即可安全复用这些列表
                     result.FailureReason = NavigationPathFailureReason.NoPath;
                     return result;
                 }
@@ -272,7 +272,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     dynamicOverlaySignature);
             }
 
-            // 新建 Field 可直接读取 Scratch，缓存命中则从复制后的稀疏 Field 查询
+            // 新建结果可直接读取临时成本；缓存命中时则在已复制的稀疏 Flow Field 中查找
             float totalCost = 0f;
             if (!cacheHit && cellGenerations[startCellIndex] == integrationGeneration)
             {
@@ -288,7 +288,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     out totalCost);
             }
 
-            // 所有输出切片都完整后才把结果切换为成功
+            // 所有输出片段都完整生成后，才将请求标记为成功
             result.Status = NavigationPathStatus.Succeeded;
             result.FailureReason = NavigationPathFailureReason.None;
             result.CorridorClusterOffset = corridorClusterOffset;
@@ -312,7 +312,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationPathFailureReason failureReason,
             uint cacheVersion)
         {
-            // 失败结果统一使用负偏移，System 写回前仍会验证切片范围
+            // 失败结果使用负的切片起点；调度系统写回前仍会检查所有范围
             return new NavigationFlowFieldJobResult
             {
                 Entity = entity,
@@ -331,7 +331,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void AppendUnique(NativeList<int> values, int value)
         {
-            // 只消除连续重复路点，不改变真实的路径回访顺序
+            // 只删除连续重复的路点，不会重排路线真实经过的顺序
             if (values.Length == 0 || values[values.Length - 1] != value)
             {
                 values.Add(value);
@@ -355,7 +355,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int cellCount = grid.Cells.Length;
             int clusterCount = grid.Clusters.Length;
             int nodeCount = grid.PortalNodes.Length;
-            // Scratch 可大于当前需求，但每类数组都必须覆盖对应索引上界
+            // 临时数组可以比当前需求更大，但不能小于格子、分块或节点的实际索引范围
             return NavigationGridTraversal.IsGridShapeValid(ref grid) &&
                    grid.DataVersion >= 3 &&
                    grid.ClusterWidth > 0 &&

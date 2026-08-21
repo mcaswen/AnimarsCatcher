@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Gameplay
     public static class ServerCampAssignmentPolicy
     {
         /// <summary>
-        /// 根据连接编号和当前网络角色返回服务器权威阵营
+        /// 根据连接编号和当前网络角色返回服务器分配的阵营
         /// </summary>
         /// <param name="networkId">NetCode 分配的连接编号</param>
         /// <returns>该连接应使用的阵营</returns>

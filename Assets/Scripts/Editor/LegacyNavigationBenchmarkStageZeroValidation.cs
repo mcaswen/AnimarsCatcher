@@ -39,11 +39,11 @@ namespace AnimarsCatcher.Editor
         }
 
         /// <summary>
-        /// 执行后端、回放、128 Ani 容量和场景夹具验收
+        /// 检查后端配置、命令回放、128 Ani 容量和固定测试场景
         /// </summary>
         public static void RunAll()
         {
-            // 验收顺序先覆盖纯配置，再打开并检查共享场景夹具
+            // 先检查纯配置，再打开共享测试场景检查实际加载结果
             TestLaunchArgumentParsing();
             TestBackendTagsAreExclusive();
             TestConflictingTagsAreRejected();
@@ -155,7 +155,7 @@ namespace AnimarsCatcher.Editor
                 Assert(!string.IsNullOrWhiteSpace(sceneLoader.MapSceneHash), $"{ScenePath} 缺少地图 Hash");
 
                 int[] expectedCounts = { 32, 64, 128 };
-                // 三种规模都通过同一个场景加载器注入，不复制 Scene
+                // 三种规模都通过同一个场景加载器传入，不复制 Scene
                 for (int i = 0; i < expectedCounts.Length; i++)
                 {
                     int expectedCount = expectedCounts[i];

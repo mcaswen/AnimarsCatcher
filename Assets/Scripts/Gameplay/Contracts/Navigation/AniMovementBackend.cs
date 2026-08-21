@@ -42,16 +42,16 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
-    /// 以单一配置实体初始化或切换 World 的移动后端
+    /// 通过唯一的配置 Entity 初始化或切换 World 的移动后端
     /// </summary>
     public static class AniMovementBackendWorldUtility
     {
         /// <summary>
-        /// 配置目标 World，并确保配置实体上只存在一个后端 Tag
+        /// 配置目标 World，并确保配置 Entity 上只存在一个后端 Tag
         /// </summary>
         /// <param name="world">需要配置的 World</param>
         /// <param name="backend">唯一允许运行的移动后端</param>
-        /// <returns>保存配置和后端 Tag 的实体</returns>
+        /// <returns>保存配置和后端 Tag 的 Entity</returns>
         public static Entity ConfigureWorld(World world, AniMovementBackend backend)
         {
             if (world == null || !world.IsCreated)
@@ -96,7 +96,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
         /// </summary>
         /// <param name="world">需要验证的 World</param>
         /// <param name="reason">验证失败时的具体原因</param>
-        /// <returns>配置和后端 Tag 是否满足互斥契约</returns>
+        /// <returns>配置和后端 Tag 是否满足互斥要求</returns>
         public static bool TryValidateWorld(World world, out string reason)
         {
             EntityManager entityManager = world.EntityManager;

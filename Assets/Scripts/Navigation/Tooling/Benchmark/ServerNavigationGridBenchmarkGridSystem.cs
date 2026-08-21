@@ -7,7 +7,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 仅在统一 Benchmark 场景缺少烘焙数据时提供确定性静态 Grid
+    /// 基准场景没有正式烘焙资产时，创建一张固定的开放导航网格作为测试数据
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
@@ -38,20 +38,20 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
             state.RequireForUpdate<NavigationGridBenchmarkConfig>();
-            // Query 用于优先复用场景中已经烘焙的 Grid
+            // 优先查询并复用场景中已有的正式导航网格
             _gridQuery = state.GetEntityQuery(ComponentType.ReadOnly<NavigationGridReference>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            // 任意现有 Grid 都优先于合成 Benchmark 数据
+            // 只要场景已有导航网格，就不创建合成数据
             int existingGridCount = _gridQuery.CalculateEntityCount();
             if (existingGridCount > 0)
             {
-                // 正式烘焙 Grid 优先，Benchmark 数据源不得覆盖或创建第二份引用
+                // 正式烘焙网格始终优先，基准系统不会覆盖它或再创建第二张
                 if (existingGridCount > 1)
                 {
-                    // 多 Grid 会破坏 Flow Field 缓存的索引归属
+                    // 多张网格会让 Flow Field 缓存中的格子索引无法确定归属
                     Debug.LogError("[NavigationBenchmark] More than one Navigation Grid exists");
                 }
 
@@ -59,9 +59,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // 缺少 Authoring 时只创建一次合成 Grid
+            // 没有正式网格时只创建一次合成网格
             _ownedGrid = CreateBenchmarkGrid();
-            // 引用实体和 Blob 都由当前 System 负责销毁
+            // 引用 Entity 和 Blob 都由当前 System 负责销毁
             _ownedGridEntity = state.EntityManager.CreateEntity(typeof(NavigationGridReference));
             state.EntityManager.SetComponentData(
                 _ownedGridEntity,
@@ -77,16 +77,16 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             if (!_ownsGrid)
             {
-                // 复用正式 Grid 时不拥有其实体或 Blob 生命周期
+                // 复用正式 Grid 时不拥有其 Entity 或 Blob 生命周期
                 return;
             }
 
-            // World 的 System 销毁顺序不保证 FlowField Job 先结束；释放基准 Grid 前必须完成其所有读取者
+            // World 销毁系统的顺序不固定，释放合成网格前必须等待所有读取它的任务完成
             state.EntityManager.CompleteAllTrackedJobs();
 
             if (state.EntityManager.Exists(_ownedGridEntity))
             {
-                // 先移除引用实体再释放 Blob，避免 World 内留下指向已释放内存的组件
+                // 先移除引用 Entity 再释放 Blob，避免 World 内留下指向已释放内存的组件
                 state.EntityManager.DestroyEntity(_ownedGridEntity);
             }
 
@@ -100,7 +100,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static BlobAssetReference<NavigationGridBlob> CreateBenchmarkGrid()
         {
-            // 合成数据只用于固定坐标下的路径工作量对比
+            // 合成网格只用于在固定地图条件下比较寻路工作量
             var cells = new NavigationGridCellData[Width * Height];
             for (int index = 0; index < cells.Length; index++)
             {
@@ -113,7 +113,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 };
             }
 
-            // 开放地面仍按生产顺序派生全部底层拓扑
+            // 即使是全开放地面，也通过正式烘焙算法生成邻接、安全距离和分层数据
             NavigationGridBakingAlgorithms.BuildConnectivity(cells, Width, Height, 0.5f);
             NavigationEuclideanDistanceTransform.Calculate(cells, Width, Height, CellSize);
             NavigationGridBakingAlgorithms.AssignClusters(cells, Width, Height, ClusterSizeInCells);
@@ -128,7 +128,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 Width * CellSize,
                 4f,
                 Height * CellSize);
-            // 固定 Hash 明确区分合成数据和正式场景烘焙结果
+            // 使用固定哈希明确区分合成网格和正式场景资产
             return NavigationGridBlobBuilder.Create(
                 cells,
                 hierarchy,

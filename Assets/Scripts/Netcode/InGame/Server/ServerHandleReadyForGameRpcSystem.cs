@@ -10,7 +10,7 @@ namespace AnimarsCatcher.Networking
     using UnityEngine;
 
     /// <summary>
-    /// 在 Server World 响应客户端就绪请求并权威创建角色
+    /// 在 Server World 响应客户端就绪请求并创建服务器角色
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -79,7 +79,7 @@ namespace AnimarsCatcher.Networking
                 // 连接进入 InGame 后才会参与 Ghost 快照和输入命令传输
                 connectionAspect.EnsureInGame(ref state, ref entityCommandBuffer);
 
-                // 阵营和出生点均由服务器策略决定，客户端请求不携带权威结果
+                // 阵营和出生点均由服务器策略决定，客户端请求不能指定这些结果
                 bool spawned = TrySpawnCharacterForConnection(
                     ref state,
                     ref entityCommandBuffer,
@@ -121,7 +121,7 @@ namespace AnimarsCatcher.Networking
             entityCommandBuffer.Dispose();
         }
 
-        // 在连接所属阵营的出生点组中创建角色并建立权威状态
+        // 在连接所属阵营的出生点组中创建角色，并写入服务器维护的初始状态
         private bool TrySpawnCharacterForConnection(
             ref SystemState state,
             ref EntityCommandBuffer entityCommandBuffer,

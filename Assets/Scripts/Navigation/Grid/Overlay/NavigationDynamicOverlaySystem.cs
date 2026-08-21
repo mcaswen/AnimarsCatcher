@@ -4,7 +4,7 @@ using Unity.Entities;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 在服务端运行时消费动态障碍差量，并只更新受影响的 Overlay Cell 和 Cluster
+    /// 在服务端应用动态障碍的新增和移除，只更新真正受影响的格子与寻路分块
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup), OrderFirst = true)]
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             NavigationGridJobActivity activity = entityManager.GetComponentData<
                 NavigationGridJobActivity>(gridEntity);
-            // 路径或 Field Job 仍持有 Buffer NativeArray 时，延迟到下一个 Tick 再写入
+            // 寻路任务仍在读取缓冲区时延迟到下一帧，避免读写同一块内存
             if (activity.PathJobActive != 0 || activity.FlowFieldJobActive != 0)
             {
                 return;

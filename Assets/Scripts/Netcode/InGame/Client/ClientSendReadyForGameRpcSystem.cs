@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Networking
                 return;
             }
 
-            // 首次完整只记录时间，避免资源刚注册时立即开始预测
+            // 第一次确认资源完整时只记录起点时间，避免资源刚注册便立即开始预测
             if (!_sceneReadyOnce)
             {
                 _sceneReadyOnce = true;
@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Networking
             if (elapsed - _sceneReadyTime < extraDelaySeconds)
                 return;
 
-            // 后续 RPC 和本地 InGame 标记必须指向当前连接实体
+            // 后续 RPC 和本地 InGame 标记必须指向当前连接 Entity
             if (!SystemAPI.TryGetSingletonEntity<NetworkId>(out var connectionEntity))
                 return;
 

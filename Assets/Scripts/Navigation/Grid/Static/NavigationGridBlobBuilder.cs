@@ -6,15 +6,15 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 将已经完成静态拓扑和分层构建的 Grid 装配为运行时只读 Blob
+    /// 将格子地图和分层寻路结果打包成可在运行时共享的只读 Blob
     /// </summary>
     public static class NavigationGridBlobBuilder
     {
         /// <summary>
-        /// 复制 Cell、Cluster、Portal 和抽象边并创建指定生命周期的 Blob
+        /// 复制格子、分块、入口和抽象连接，创建指定生命周期的 Blob
         /// </summary>
-        /// <param name="cells">完成邻接、Clearance、Region 和 Cluster 分配的 Cell</param>
-        /// <param name="hierarchy">与 Cell 拓扑对应的分层构建结果</param>
+        /// <param name="cells">已完成邻接、可用空间、连通区域和分块编号的格子</param>
+        /// <param name="hierarchy">根据这些格子生成的分层寻路结果</param>
         /// <param name="boundsMinimum">Grid 世界包围盒最小点</param>
         /// <param name="boundsMaximum">Grid 世界包围盒最大点</param>
         /// <param name="cellSize">Cell 在 XZ 平面的世界边长</param>
@@ -23,11 +23,11 @@ namespace AnimarsCatcher.Navigation.Grid
         /// <param name="width">Grid 在 X 轴的 Cell 数量</param>
         /// <param name="height">Grid 在 Z 轴的 Cell 数量</param>
         /// <param name="clusterSizeInCells">规则 Cluster 的 Cell 边长</param>
-        /// <param name="geometryHash">参与构建的静态几何 Hash</param>
-        /// <param name="parameterHash">参与构建的配置参数 Hash</param>
-        /// <param name="dataHash">完整输出数据 Hash</param>
+        /// <param name="geometryHash">参与构建的静态场景几何哈希</param>
+        /// <param name="parameterHash">影响构建结果的配置哈希</param>
+        /// <param name="dataHash">完整输出内容的哈希</param>
         /// <param name="allocator">返回 Blob 的生命周期分配器</param>
-        /// <returns>由调用者负责注册或释放的只读 Grid Blob</returns>
+        /// <returns>由调用方负责注册或释放的只读导航网格 Blob</returns>
         public static BlobAssetReference<NavigationGridBlob> Create(
             NavigationGridCellData[] cells,
             NavigationGridHierarchyBuildResult hierarchy,
@@ -54,10 +54,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 throw new ArgumentNullException(nameof(hierarchy));
             }
 
-            // 临时 Builder 只负责组装，最终 Blob 创建后保持只读
+            // BlobBuilder 只在构建期间可写，创建完成后的 Blob 保持只读
             var builder = new BlobBuilder(Allocator.Temp);
             ref NavigationGridBlob root = ref builder.ConstructRoot<NavigationGridBlob>();
-            // 根节点先写入与所有数组共享的 Grid 形状和版本
+            // 根节点先写入整张导航网格共用的尺寸、角色基准和版本信息
             root.BoundsMinimum = boundsMinimum;
             root.BoundsMaximum = boundsMaximum;
             root.CellSize = cellSize;
@@ -74,7 +74,7 @@ namespace AnimarsCatcher.Navigation.Grid
             root.ParameterHash = parameterHash;
             root.DataHash = dataHash;
 
-            // Cell 按行主序复制到连续 BlobArray
+            // 格子按行连续复制到 BlobArray
             BlobBuilderArray<NavigationGridCell> blobCells =
                 builder.Allocate(ref root.Cells, cells.Length);
             for (int index = 0; index < cells.Length; index++)
@@ -89,13 +89,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     Clearance = source.Clearance,
                     RegionId = source.RegionId,
                     ClusterId = source.ClusterId,
-                    // 托管枚举和 bool 转为稳定字节表示
+                    // 枚举和 bool 转为 byte，适合紧凑地存入 Blob
                     NeighborMask = (byte)source.NeighborMask,
                     Walkable = source.Walkable ? (byte)1 : (byte)0,
                 };
             }
 
-            // Cluster 与 hierarchy 数组保持相同索引
+            // 寻路分块沿用分层构建结果中的索引
             BlobBuilderArray<NavigationGridCluster> blobClusters =
                 builder.Allocate(ref root.Clusters, hierarchy.Clusters.Length);
             for (int index = 0; index < hierarchy.Clusters.Length; index++)
@@ -107,13 +107,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     MinimumZ = source.MinimumZ,
                     MaximumXExclusive = source.MaximumXExclusive,
                     MaximumZExclusive = source.MaximumZExclusive,
-                    // Offset 和 Count 指向后面的全局 Portal Node 索引数组
+                    // 起点和数量指向后面的全局入口节点索引数组
                     PortalNodeOffset = source.PortalNodeOffset,
                     PortalNodeCount = source.PortalNodeCount,
                 };
             }
 
-            // Portal 保持分层构建器产生的稳定顺序
+            // 分块入口沿用构建器的扫描顺序
             BlobBuilderArray<NavigationGridPortal> blobPortals =
                 builder.Allocate(ref root.Portals, hierarchy.Portals.Length);
             for (int index = 0; index < hierarchy.Portals.Length; index++)
@@ -128,7 +128,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     LastCellA = source.LastCellA,
                     FirstCellB = source.FirstCellB,
                     LastCellB = source.LastCellB,
-                    // 代表 Cell 和 Clearance 直接沿用已量化的烘焙结果
+                    // 代表格子和最窄可用空间直接使用烘焙结果
                     RepresentativeCellA = source.RepresentativeCellA,
                     RepresentativeCellB = source.RepresentativeCellB,
                     MinimumClearance = source.MinimumClearance,
@@ -137,7 +137,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 };
             }
 
-            // Portal Node 数组保留每个 Portal 两侧节点的连续布局
+            // 入口节点保持每个入口两侧连续排列
             BlobBuilderArray<NavigationGridPortalNode> blobNodes =
                 builder.Allocate(ref root.PortalNodes, hierarchy.PortalNodes.Length);
             for (int index = 0; index < hierarchy.PortalNodes.Length; index++)
@@ -148,13 +148,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     PortalIndex = source.PortalIndex,
                     ClusterId = source.ClusterId,
                     CellIndex = source.CellIndex,
-                    // Offset 和 Count 定位全局抽象边数组
+                    // 起点和数量用于读取全局抽象连接数组
                     EdgeOffset = source.EdgeOffset,
                     EdgeCount = source.EdgeCount,
                 };
             }
 
-            // 抽象边按 Node 出边切片顺序复制
+            // 抽象连接按节点的出边顺序复制
             BlobBuilderArray<NavigationGridAbstractEdge> blobEdges =
                 builder.Allocate(ref root.AbstractEdges, hierarchy.AbstractEdges.Length);
             for (int index = 0; index < hierarchy.AbstractEdges.Length; index++)
@@ -165,12 +165,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     ToNodeIndex = source.ToNodeIndex,
                     StaticCost = source.StaticCost,
                     MinimumClearance = source.MinimumClearance,
-                    // Blob 使用字节保存跨 Portal 标志
+                    // 是否穿过分块入口使用 byte 保存
                     CrossesPortal = source.CrossesPortal ? (byte)1 : (byte)0,
                 };
             }
 
-            // Cluster 的 Offset 和 Count 会读取这份连续 Node 索引
+            // 各分块通过自己的起点和数量读取这份连续节点索引
             BlobBuilderArray<int> clusterNodeIndices = builder.Allocate(
                 ref root.ClusterPortalNodeIndices,
                 hierarchy.ClusterPortalNodeIndices.Length);
@@ -179,10 +179,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 clusterNodeIndices[index] = hierarchy.ClusterPortalNodeIndices[index];
             }
 
-            // 使用调用方指定的 allocator 创建最终 Blob 生命周期
+            // 使用调用方指定的 Allocator 创建最终 Blob
             BlobAssetReference<NavigationGridBlob> result =
                 builder.CreateBlobAssetReference<NavigationGridBlob>(allocator);
-            // 临时 Builder 与已创建的 Blob 引用相互独立
+            // Blob 创建后即可释放临时 Builder，不会影响最终数据
             builder.Dispose();
             return result;
         }

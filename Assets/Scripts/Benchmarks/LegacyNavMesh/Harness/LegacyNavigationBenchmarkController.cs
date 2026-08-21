@@ -68,7 +68,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         }
 
         /// <summary>
-        /// 写入由固定夹具生成器维护的共享场景参数
+        /// 写入由固定测试数据生成器维护的共享场景参数
         /// </summary>
         /// <param name="mapSceneHash">共享地图 Scene 的 SHA256</param>
         /// <param name="replayScript">所有测试规模共用的回放资产</param>
@@ -82,7 +82,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         }
 
         /// <summary>
-        /// 在进入 Play Mode 前向当前场景加载器注入本次测试规模
+        /// 在进入 Play Mode 前把本次测试规模写入当前场景加载器
         /// </summary>
         public void ConfigureRun(int agentCount)
         {
@@ -145,7 +145,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 
             using EntityQuery backendConfigQuery = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniMovementBackendConfig>());
-            // 唯一后端配置是选择 Benchmark 实现的权威来源
+            // Benchmark 使用哪个后端只由这份唯一配置决定
             if (backendConfigQuery.CalculateEntityCount() != 1)
             {
                 Debug.LogError("[NavigationBenchmark] 当前 World 缺少唯一移动后端配置");
@@ -180,11 +180,11 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 typeof(LegacyNavigationBenchmarkState),
                 typeof(LegacyNavigationBenchmarkCounters),
                 typeof(NavigationBenchmarkEnabled));
-            // 配置、状态、计数和样本缓冲集中在单例实体，便于各阶段系统共享
+            // 配置、状态、计数和样本缓冲集中在单例 Entity，便于各阶段系统共享
             entityManager.AddBuffer<LegacyNavigationBenchmarkCommandElement>(configEntity);
             entityManager.AddBuffer<LegacyNavigationBenchmarkSampleElement>(configEntity);
 
-            // 对 Inspector 参数做下限收敛，避免异常夹具破坏计时状态机
+            // 把 Inspector 参数限制到有效下限，避免错误配置破坏计时流程
             entityManager.SetComponentData(configEntity, new LegacyNavigationBenchmarkConfig
             {
                 AgentCount = _agentCount,
@@ -265,7 +265,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 new NavigationGridMovementBenchmarkState());
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
                 entityManager.GetBuffer<NavigationGridBenchmarkCommand>(configEntity);
-            // 两种后端消费同一 Tick 序列，差异只来自寻路实现
+            // 两种后端处理同一组 Tick 命令，差异只来自寻路实现
             for (int index = 0; index < _replayScript.Commands.Count; index++)
             {
                 LegacyNavigationBenchmarkCommandDefinition command = _replayScript.Commands[index];
@@ -324,7 +324,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         {
             const string ArgumentPrefix = "-benchmark-git-commit=";
             string[] arguments = Environment.GetCommandLineArgs();
-            // 构建后的 Player 无法可靠读取仓库状态，由批处理显式注入提交号
+            // 构建后的 Player 无法可靠读取仓库状态，因此由批处理直接传入提交号
             for (int i = 0; i < arguments.Length; i++)
             {
                 if (arguments[i].StartsWith(ArgumentPrefix, StringComparison.OrdinalIgnoreCase))

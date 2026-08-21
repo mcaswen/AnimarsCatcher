@@ -10,7 +10,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 复用统一 Benchmark 场景参数生成纯路径、Corridor 和 Field 工作负载
+    /// 按固定回放创建寻路和 Flow Field 请求，收集正确性统计与主线程性能样本
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
@@ -25,7 +25,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            // 从单例恢复本 Tick 的配置和回放状态
+            // 每帧从单例读取基准配置和当前回放进度
             Entity benchmarkEntity = SystemAPI.GetSingletonEntity<NavigationGridBenchmarkConfig>();
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
@@ -58,29 +58,28 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (benchmarkState.Initialized == 0)
             {
-                // 首条命令同时承担 Warmup 目标，空回放无法建立可比工作负载
+                // 第一条回放命令同时用作预热目标；没有命令就无法建立有效工作负载
                 if (commands.IsEmpty)
                 {
                     FailBenchmark(ref state, benchmarkEntity, "Grid Benchmark 命令回放为空");
                     return;
                 }
 
-                // 请求实体只创建一次，后续命令通过递增 Version 复用组件和 Buffer
+                // 请求 Entity 只创建一次，后续命令通过递增 Version 复用组件和 Buffer
                 CreateRequests(ref state, config, commands[0]);
                 benchmarkState.Initialized = 1;
                 benchmarkState.NextCommandIndex = 0;
             }
 
-            // 先统计上一批终态，避免新版本写入覆盖刚完成的状态
+            // 先统计刚完成的请求，再提交新版本，避免完成状态被覆盖
             CountCompletedRequests(ref state, ref benchmarkState);
 
-            // Warmup 结束后将采样 Tick 从零开始计数
+            // 预热结束后，正式采样帧从 0 开始计数
             int sampleTick = benchmarkState.Tick - config.WarmupTicks;
             if (sampleTick >= 0 && benchmarkState.NextCommandIndex < commands.Length)
             {
                 NavigationGridBenchmarkCommand command = commands[benchmarkState.NextCommandIndex];
-                // 只在命令指定的采样 Tick 广播新目标
-                // 配置校验保证 Tick 严格递增，因此每帧最多消费一条
+                // 只在回放指定帧提交新目标；命令帧严格递增，因此每帧最多处理一条
                 if (command.Tick == sampleTick)
                 {
                     SubmitCommand(ref state, config, command, ref benchmarkState);
@@ -92,7 +91,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int totalTicks = config.WarmupTicks + config.SampleTicks;
             if (benchmarkState.Tick >= totalTicks && AllRequestsTerminal(ref state))
             {
-                // 采样期结束后仍等待最后一个异步批次进入终态，避免导出缺失结果
+                // 采样窗口结束后仍等待最后一批异步请求完成，避免报告缺少结果
                 benchmarkState.Completed = 1;
             }
 
@@ -105,7 +104,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationGridBenchmarkCommand firstCommand)
         {
             int count = math.max(1, config.AgentCount);
-            // AgentIndex 决定稳定阵列位置，实体只在初始化时创建
+            // AgentIndex 决定请求起点在阵列中的位置，Entity 只在初始化时创建
             for (int agentIndex = 0; agentIndex < count; agentIndex++)
             {
                 Entity entity = state.EntityManager.CreateEntity(
@@ -117,7 +116,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 state.EntityManager.AddBuffer<NavigationHierarchicalWaypoint>(entity);
                 state.EntityManager.AddBuffer<NavigationFlowFieldCell>(entity);
                 float3 start = CalculateSpawnPosition(config, agentIndex);
-                // 首条命令只提供 Warmup 目标，不计入采样提交量
+                // 第一条命令只用于预热，不计入正式采样的提交数
                 NavigationPathRequest pathRequest = NavigationPathRequest.Create(
                     start,
                     config.SpawnOrigin + firstCommand.TargetOffset,
@@ -149,10 +148,10 @@ namespace AnimarsCatcher.Navigation.Grid
                          RefRW<NavigationFlowFieldState>,
                          RefRO<NavigationGridBenchmarkRequestTag>>())
             {
-                // 递增版本让 Flow Field System 把命令识别为新请求
+                // 每次目标变化都递增版本，让 Flow Field 系统识别为新请求
                 uint version = request.ValueRO.PathRequest.Version + 1;
                 float3 start = CalculateSpawnPosition(config, tag.ValueRO.AgentIndex);
-                // 全部 Agent 共享目标但保留独立起点，可直接测量 Field 缓存复用
+                // 所有请求共享目标但保留不同起点，可以直接测量 Flow Field 缓存复用效果
                 NavigationPathRequest pathRequest = NavigationPathRequest.Create(
                     start,
                     config.SpawnOrigin + command.TargetOffset,
@@ -175,7 +174,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 NavigationPathStatus status = fieldState.ValueRO.Status;
                 uint version = fieldState.ValueRO.RequestVersion;
-                // 只统计首次观察到的 Succeeded 或 Failed 版本
+                // 每个成功或失败版本只在首次观察到时统计
                 if ((status != NavigationPathStatus.Succeeded &&
                      status != NavigationPathStatus.Failed) ||
                     tag.ValueRO.CountedVersion == version)
@@ -183,7 +182,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // CountedVersion 让每个请求版本只进入统计一次，后续 Tick 只观察不重复累加
+                // CountedVersion 记录已统计版本，后续帧不会重复累加
                 tag.ValueRW.CountedVersion = version;
                 benchmarkState.CompletedRequestCount++;
                 if (fieldState.ValueRO.CacheHit != 0)
@@ -211,7 +210,7 @@ namespace AnimarsCatcher.Navigation.Grid
                      SystemAPI.Query<RefRO<NavigationFlowFieldState>>())
             {
                 NavigationPathStatus status = fieldState.ValueRO.Status;
-                // 任一 Pending 或 Searching 请求都会延迟结果导出
+                // 仍有请求等待或计算时延迟导出结果
                 if (status == NavigationPathStatus.Pending ||
                     status == NavigationPathStatus.Searching)
                 {
@@ -242,7 +241,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<NavigationGridBenchmarkTimingSample> timingSamples)
         {
             double[] sortedTimingSamples = new double[timingSamples.Length];
-            // 排序副本用于百分位，原始副本保留逐 Tick 尖峰位置
+            // 排序副本用于计算百分位，原始样本顺序用于定位具体帧的尖峰
             for (int index = 0; index < timingSamples.Length; index++)
             {
                 sortedTimingSamples[index] = timingSamples[index].FlowFieldMilliseconds;
@@ -268,7 +267,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     benchmarkState.TotalAbstractExpandedNodeCount,
                 TotalIntegrationExpandedCellCount =
                     benchmarkState.TotalIntegrationExpandedCellCount,
-                // 本 Benchmark 只驱动路径请求，不创建或更新 Ani Transform
+                // 该模式只产生寻路请求，不创建或移动 Ani
                 TransformWriteCount = 0,
                 FlowFieldMainThreadSampleCount = sortedTimingSamples.Length,
                 FlowFieldMainThreadP50Milliseconds =
@@ -294,10 +293,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 GridBakeHash = gridBakeHash,
                 TimestampUtc = DateTime.UtcNow.ToString("O"),
             };
-            // 结果统一写入项目 BenchmarkResults，便于批处理归档比较
+            // 结果统一写到项目的 BenchmarkResults 目录，方便批处理归档和比较
             string directory = Path.GetFullPath("BenchmarkResults/GridNavigation");
             Directory.CreateDirectory(directory);
-            // 文件名包含请求规模和 UTC 时间，避免覆盖既有样本
+            // 文件名包含请求规模和 UTC 时间，避免覆盖已有样本
             string path = Path.Combine(
                 directory,
                 $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
@@ -316,7 +315,7 @@ namespace AnimarsCatcher.Navigation.Grid
             state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
             Debug.LogError($"[NavigationBenchmark] {reason}");
             state.Enabled = false;
-            // 批处理通过非零退出码传播失败，本地编辑器只保留错误日志
+            // 批处理失败时返回非零退出码；编辑器手动运行时只记录错误日志
             if (Application.isBatchMode)
             {
                 Application.Quit(1);

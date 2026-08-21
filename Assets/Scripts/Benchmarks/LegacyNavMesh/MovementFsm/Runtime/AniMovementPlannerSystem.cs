@@ -63,7 +63,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 {
                     var member = SystemAPI.GetComponent<AniFormationMember>(entity);
 
-                    // 队长是拥有并控制该 Ani 的玩家实体
+                    // 队长是拥有并控制该 Ani 的玩家 Entity
                     leaderEntity = member.leader;
                     slotIndex   = member.slotIndex;
                 }
@@ -323,7 +323,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         }
 
         // 定点移动使用命令接收时冻结的阵型锚点和前向
-        // leaderTransform 只在缓存前向无效时提供兜底朝向
+        // 缓存前向无效时才使用 leaderTransform 提供备用朝向
         private static void HandleMoveTo(
         in LocalTransform aniTransform,
         in LocalTransform leaderTransform,

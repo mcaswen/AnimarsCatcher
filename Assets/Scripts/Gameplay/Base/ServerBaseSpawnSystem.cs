@@ -9,7 +9,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 仅在服务器实例化基地并创建唯一的对局结果实体
+    /// 仅在服务器实例化基地并创建唯一的对局结果 Entity
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                // 基地必须由服务器实例化以保持网络状态权威
+                // 基地必须由服务器实例化，确保所有客户端收到一致的网络状态
                 Entity baseEntity =
                     entityCommandBuffer.Instantiate(spawnPoint.ValueRO.BasePrefab);
 

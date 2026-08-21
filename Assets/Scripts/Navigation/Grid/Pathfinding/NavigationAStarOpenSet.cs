@@ -4,16 +4,16 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 管理带反向索引和稳定决胜规则的 A 星最小堆
+    /// 管理 A* 的待搜索节点，并能快速找到总成本最低的格子
     /// </summary>
     public static class NavigationAStarOpenSet
     {
         private const float CostEpsilon = 0.00001f;
 
-        // HeapPositions 同时表达堆内位置、未发现状态和 Closed 状态
-        // F Cost 相同时按启发值和 Cell 索引决胜，保证搜索顺序确定
-        // 所有数组由 Pathfinding System 分配，本类不拥有释放责任
-        // Open Set 使用数组最小堆，HeapPositions 保存反向索引并用负值表示 Closed
+        // HeapPositions 同时记录节点在堆中的位置，以及尚未发现或已经关闭的状态
+        // 总成本相同时再比较启发值和格子索引，让搜索顺序保持一致
+        // 数组由寻路系统创建和释放，本结构只负责使用它们
+        // 待搜索集合采用数组最小堆，负的位置值表示节点已经离开集合
         internal static void PushHeap(
             int cellIndex,
             int endCellIndex,
@@ -23,7 +23,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             ref int heapCount)
         {
-            // 新节点追加到堆尾，并同步反向索引后向上恢复堆序
+            // 新节点先放到堆尾，再向上调整到正确位置
             int position = heapCount++;
             heap[position] = cellIndex;
             heapPositions[cellIndex] = position;
@@ -44,19 +44,19 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             ref int heapCount)
         {
-            // 根节点是排序键最小的待展开节点
+            // 堆顶始终是下一步应展开的最低成本节点
             int result = heap[0];
 
-            // 负位置表示节点已离开 Open Set，后续松弛不能再修改它
+            // 弹出后把位置设为负数，后续不会再更新这个已关闭节点
             heapPositions[result] = -1;
             heapCount--;
             if (heapCount <= 0)
             {
-                // 最后一个节点移除后无需执行替换和下沉
+                // 移除最后一个节点后堆已为空，无需继续调整
                 return result;
             }
 
-            // 用末尾节点补根并向下修复，使移除成本保持为 O(log N)
+            // 用末尾节点补到堆顶后向下调整，移除操作保持 O(log N)
             int replacement = heap[heapCount];
             heap[0] = replacement;
             heapPositions[replacement] = 0;
@@ -79,7 +79,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heap,
             NativeArray<int> heapPositions)
         {
-            // 松弛只会降低 G Cost，因此从当前位置向父节点恢复堆序即可
+            // 路径松弛只会降低节点成本，因此只需向上调整
             while (position > 0)
             {
                 int parentPosition = (position - 1) / 2;
@@ -107,7 +107,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heap,
             NativeArray<int> heapPositions)
         {
-            // 每轮与排序键更小的子节点交换，维持稳定的最小堆顺序
+            // 每次与优先级更高的子节点交换，直到恢复最小堆顺序
             while (true)
             {
                 int leftPosition = position * 2 + 1;
@@ -150,7 +150,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationGridBlob grid,
             NativeArray<float> gCosts)
         {
-            // 比较键依次为 F Cost、H Cost 和 Cell Index，近似相等时继续比较稳定键
+            // 依次比较总成本、启发成本和格子索引；浮点值接近时继续使用后续字段决定顺序
             float leftHeuristic = NavigationGridCost.CalculateOctileHeuristic(
                 ref grid,
                 leftCellIndex,
@@ -168,7 +168,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (math.abs(leftTotal - rightTotal) > CostEpsilon)
             {
-                // 总成本明显更高时直接判定排序靠后
+                // 总成本明显更高时直接排到后面
                 return false;
             }
 
@@ -191,7 +191,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heap,
             NativeArray<int> heapPositions)
         {
-            // 两个数组必须同步交换，维持节点与堆位置的双向映射
+            // 节点数组和反向位置表必须同时更新，保持双向对应
             int leftCellIndex = heap[leftPosition];
             int rightCellIndex = heap[rightPosition];
             heap[leftPosition] = rightCellIndex;

@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Presentation.Resource
         /// 查找 GhostOwner 与本地 NetworkId 匹配的玩家资源状态
         /// </summary>
         /// <param name="result">找到的本地玩家资源快照</param>
-        /// <returns>找到匹配实体时返回 true</returns>
+        /// <returns>找到匹配 Entity 时返回 true</returns>
         public static bool TryGetLocalPlayerResourceState(out PlayerResourceState result)
         {
             result = default;
@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Presentation.Resource
                 var owners   = query.ToComponentDataArray<GhostOwner>(Unity.Collections.Allocator.Temp);
                 var states   = query.ToComponentDataArray<PlayerResourceState>(Unity.Collections.Allocator.Temp);
 
-                // 通过 GhostOwner 过滤其他连接同步到本机的玩家资源实体
+                // 通过 GhostOwner 过滤其他连接同步到本机的玩家资源 Entity
                 bool found = false;
                 for (int i = 0; i < entities.Length; i++)
                 {

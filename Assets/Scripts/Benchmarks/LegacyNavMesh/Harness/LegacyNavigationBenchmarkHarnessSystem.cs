@@ -112,7 +112,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 });
                 entityManager.AddComponent<LegacyNavigationBenchmarkAniTag>(aniEntity);
 
-                // 在预热前验证被测 Prefab 契约，缺失组件不能降级为较轻负载
+            // 预热前检查被测 Prefab 的必需组件，组件缺失时不能以较轻负载继续测试
                 if (!entityManager.HasBuffer<FsmVar>(aniEntity) ||
                     !entityManager.HasComponent<NavAgent>(aniEntity) ||
                     !entityManager.HasComponent<NavSteering>(aniEntity) ||

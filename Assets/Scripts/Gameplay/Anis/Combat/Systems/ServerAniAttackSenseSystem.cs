@@ -30,12 +30,12 @@ namespace AnimarsCatcher.Gameplay
                     .WithAny<PickerAniTag, BlasterAniTag>()
                     .Build());
 
-            // Ani 候选需要位置、阵营和属性以排除自身类型缺失实体
+            // Ani 候选需要位置、阵营和属性以排除自身类型缺失 Entity
             _enemyAniQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, Camp, AniAttributes>()
                 .Build();
 
-            // 资源候选只包含显式允许攻击的资源
+            // 资源候选只包含配置为可攻击的资源
             _resourceQuery = SystemAPI.QueryBuilder()
                 .WithAll<LocalTransform, AttackableResourceTag>()
                 .Build();
@@ -66,7 +66,7 @@ namespace AnimarsCatcher.Gameplay
             var baseTransforms = _baseQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
             var baseHealth     = _baseQuery.ToComponentDataArray<Health>(Allocator.Temp);
 
-            // 每个 Ani 独立按攻击范围和类型执行目标仲裁
+                // 每个 Ani 根据攻击范围和类型独立选择目标
             foreach (var (attributes, transform, camp, entity) in
                      SystemAPI.Query<RefRO<AniAttributes>, RefRO<LocalTransform>, RefRO<Camp>>()
                          .WithAny<PickerAniTag, BlasterAniTag>()

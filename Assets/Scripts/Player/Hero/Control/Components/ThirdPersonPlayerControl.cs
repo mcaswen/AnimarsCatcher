@@ -7,7 +7,7 @@ namespace AnimarsCatcher.Player
     using Unity.NetCode;
 
     /// <summary>
-    /// 保存玩家控制实体当前绑定的角色和相机
+    /// 保存玩家控制 Entity 当前绑定的角色和相机
     /// </summary>
     [GhostComponent]
     public struct ThirdPersonPlayerControl : IComponentData

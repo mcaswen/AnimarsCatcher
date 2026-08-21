@@ -14,9 +14,9 @@ namespace AnimarsCatcher.Player
         /// <summary>
         /// 读取模拟阶段使用的相机目标世界变换
         /// </summary>
-        /// <param name="targetCharacterEntity">受控角色实体</param>
+        /// <param name="targetCharacterEntity">受控角色 Entity</param>
         /// <param name="localTransformLookup">局部变换查询</param>
-        /// <param name="parentLookup">父实体查询</param>
+        /// <param name="parentLookup">父 Entity 查询</param>
         /// <param name="postTransformMatrixLookup">后置变换查询</param>
         /// <param name="CameraTargetLookup">相机目标查询</param>
         /// <param name="worldTransform">输出目标世界变换</param>
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Player
             bool foundValidCameraTarget = false;
             worldTransform = float4x4.identity;
 
-            // 优先使用显式 CameraTarget，缺失时回退到角色自身变换
+            // 优先使用配置的 CameraTarget，缺失时读取角色自身变换
             if (CameraTargetLookup.TryGetComponent(targetCharacterEntity, out CameraTarget CameraTarget) &&
                 localTransformLookup.HasComponent(CameraTarget.TargetEntity))
             {
@@ -56,7 +56,7 @@ namespace AnimarsCatcher.Player
         /// <summary>
         /// 读取表现阶段使用的插值后相机目标世界变换
         /// </summary>
-        /// <param name="targetCharacterEntity">受控角色实体</param>
+        /// <param name="targetCharacterEntity">受控角色 Entity</param>
         /// <param name="localToWorldLookup">插值后的世界变换查询</param>
         /// <param name="CameraTargetLookup">相机目标查询</param>
         /// <param name="worldTransform">输出目标世界变换</param>
@@ -70,7 +70,7 @@ namespace AnimarsCatcher.Player
             bool foundValidCameraTarget = false;
             worldTransform = default;
 
-            // 优先读取显式相机目标的插值姿态，缺失时回退到角色自身
+            // 优先读取配置的相机目标插值姿态，缺失时读取角色自身姿态
             if (CameraTargetLookup.TryGetComponent(targetCharacterEntity, out CameraTarget CameraTarget) &&
                 localToWorldLookup.TryGetComponent(CameraTarget.TargetEntity, out worldTransform))
             {

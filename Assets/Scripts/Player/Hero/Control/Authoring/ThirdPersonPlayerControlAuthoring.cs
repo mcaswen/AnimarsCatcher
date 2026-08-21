@@ -6,12 +6,12 @@ namespace AnimarsCatcher.Player
     using UnityEngine.Serialization;
 
     /// <summary>
-    /// 标记由玩家输入驱动的控制实体
+    /// 标记由玩家输入驱动的控制 Entity
     /// </summary>
     public struct PlayerTag : IComponentData {}
 
     /// <summary>
-    /// 配置玩家控制实体与默认相机的关联
+    /// 配置玩家控制 Entity 与默认相机的关联
     /// </summary>
     [DisallowMultipleComponent]
     public class ThirdPersonPlayerControlAuthoring : MonoBehaviour

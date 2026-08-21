@@ -4,7 +4,7 @@ namespace AnimarsCatcher.Player
     using Unity.Mathematics;
 
     /// <summary>
-    /// 保存客户端采集并按网络 Tick 消费的玩家输入状态
+    /// 保存客户端采集并按网络 Tick 处理的玩家输入状态
     /// </summary>
     public struct PlayerInput : IComponentData
     {

@@ -6,19 +6,19 @@ using Unity.Jobs;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 保存单个 Burst 路径任务的实体归属和不可变请求数据
+    /// 保存单个 Burst 路径任务的 Entity 归属和不可变请求数据
     /// </summary>
     public struct NavigationPathJobRequest
     {
-        // Entity 只作为结果归属标识，Job 内不访问 EntityManager
+        // Entity 只用于标记结果属于谁，任务内部不会访问 EntityManager
         public Entity Entity;
 
-        // 请求在调度前复制，后续 ECS 修改不会影响活动批次
+        // 请求在调度前复制，之后 ECS 中的修改不会影响正在运行的批次
         public NavigationPathRequest Request;
     }
 
     /// <summary>
-    /// 保存单个 Burst 路径任务写回 ECS 所需的紧凑结果
+    /// 单条 Burst 寻路结果，包含写回 ECS 所需的状态和路径切片
     /// </summary>
     public struct NavigationPathJobResult
     {
@@ -26,48 +26,48 @@ namespace AnimarsCatcher.Navigation.Grid
         public Entity Entity;
         public uint RequestVersion;
 
-        // 失败结果也保留已投影的端点，便于定位不可达原因
+        // 即使失败也保留已纠正的端点，便于定位不可达发生在哪一步
         public NavigationPathStatus Status;
         public NavigationPathFailureReason FailureReason;
         public int ProjectedStartCellIndex;
         public int ProjectedEndCellIndex;
 
-        // 全批次路径连续写入 PathCells，每个结果只保存自己的切片
+        // 整个批次的路径连续写入 PathCells，每条结果只记录自己的起点和长度
         public int PathOffset;
         public int PathLength;
 
-        // 搜索统计不参与下游控制，只用于验收和性能分析
+        // 搜索统计只用于验证和性能分析，不影响游戏逻辑
         public int ExpandedNodeCount;
         public float TotalCost;
     }
 
     /// <summary>
-    /// 在单个后台任务中顺序处理路径批次并复用整张 Grid 的 Scratch 内存
+    /// 在一个后台任务中依次处理多条路径，并为整批请求复用同一组临时数组
     /// </summary>
     [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.Standard)]
     public struct NavigationGridPathfindingJob : IJob
     {
-        // Grid 与 Requests 在整个 Job 生命周期只读
+        // 导航网格和请求在任务运行期间只读
         [ReadOnly] public BlobAssetReference<NavigationGridBlob> Grid;
         [ReadOnly] public NativeArray<NavigationPathJobRequest> Requests;
         [ReadOnly] public NativeArray<NavigationDynamicOverlayCell> DynamicOverlay;
 
-        // Results 与 PathCells 是本批次输出，由拥有批次的 System 释放
+        // Results 和 PathCells 由调度该批次的系统创建并释放
         public NativeArray<NavigationPathJobResult> Results;
         public NativeList<int> PathCells;
 
-        // Scratch 数组覆盖整张 Grid，批次内请求顺序复用同一份内存
+        // 临时数组按整张网格分配，批次中的请求依次复用它们
         public NativeArray<float> GCosts;
         public NativeArray<int> Parents;
         public NativeArray<int> Heap;
         public NativeArray<int> HeapPositions;
 
-        // Generation 标记数组槽位归属，避免每次搜索全量清零
+        // Generation 区分数组值属于哪次搜索，因此无需在每条请求前全部清零
         public NativeArray<int> NodeGenerations;
         public int GenerationStart;
 
         /// <summary>
-        /// 执行完整批次并把每条平滑路径写入共享连续数组
+        /// 执行整批请求，并把每条平滑路径写入共享的连续数组
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.Standard)]
         public void Execute()
@@ -75,7 +75,7 @@ namespace AnimarsCatcher.Navigation.Grid
             PathCells.Clear();
             if (!Grid.IsCreated)
             {
-                // Grid 失效时仍为每个请求生成可写回的稳定失败结果
+                // 导航网格无效时仍为每条请求生成完整失败结果，主线程可以正常写回
                 for (int requestIndex = 0; requestIndex < Requests.Length; requestIndex++)
                 {
                     NavigationPathJobRequest request = Requests[requestIndex];
@@ -91,7 +91,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationGridBlob grid = ref Grid.Value;
             for (int requestIndex = 0; requestIndex < Requests.Length; requestIndex++)
             {
-                // 单 Job 顺序处理使 Scratch 数组无需按请求复制或加锁
+                // 一个任务内顺序处理请求，临时数组无需按请求复制，也不需要加锁
                 NavigationPathJobRequest request = Requests[requestIndex];
                 Results[requestIndex] = NavigationGridPathfinder.FindPath(
                     ref grid,

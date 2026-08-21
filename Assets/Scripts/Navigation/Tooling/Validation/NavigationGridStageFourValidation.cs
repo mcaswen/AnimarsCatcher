@@ -17,7 +17,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 执行阶段四 Squad 生命周期、阵型和开阔地移动自动验收
+    /// 自动验证队伍的创建与拆分、阵型槽位、系统运行范围和开阔地移动
     /// </summary>
     public static class NavigationGridStageFourValidation
     {
@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 从无界面 Unity 进程运行阶段四全部自动验收
+        /// 供无界面的 Unity 进程执行阶段四全部验证
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -38,11 +38,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 执行阵型、World 过滤、生命周期和开阔地移动验收
+        /// 依次验证阵型算法、World 过滤、队伍生命周期和开阔地移动
         /// </summary>
         public static void RunAll()
         {
-            // 先验证纯算法和 World 边界，再运行会创建实体和异步 Job 的场景夹具
+            // 先检查纯算法和系统注册范围，再运行包含 Entity 与异步 Job 的完整测试场景
             TestFormationLayouts();
             TestWorldFiltersAndPipelineOrder();
             TestSquadMembershipLifecycle();
@@ -54,11 +54,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             int[] counts = { 32, 64, 128 };
 
-            // 三档规模共用同一算法入口，防止只验证小规模的偶然布局
-            // Column 和 CompactRectangle 都必须覆盖，前者验证中心线不变量
+            // 32、64、128 人都使用正式槽位算法，避免只验证小队时碰巧正确
+            // 同时覆盖单列纵队和紧凑矩形，确认纵队成员始终位于中心线
             for (int countIndex = 0; countIndex < counts.Length; countIndex++)
             {
-                // 两种布局共用同一 memberCount，避免测试夹具自身改变对称性
+                // 两种阵型使用相同人数，便于直接比较布局对称性
                 ValidateFormation(counts[countIndex], AniSquadFormationKind.Column, 1);
                 ValidateFormation(counts[countIndex], AniSquadFormationKind.CompactRectangle, 8);
             }
@@ -72,7 +72,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             var offsets = new float3[memberCount];
             float3 center = float3.zero;
 
-            // 先保存全部局部偏移，后续同时检查有限性、唯一性和中心矩
+            // 先保存全部相对位置，再检查数值有效、槽位不重复和整体居中
             for (int slotIndex = 0; slotIndex < memberCount; slotIndex++)
             {
                 float3 offset = AniSquadFormationAlgorithms.CalculateSlotOffset(
@@ -82,17 +82,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     configuredColumns,
                     1.8f,
                     2.5f);
-                // 槽位算法必须对所有索引返回有限坐标，后续比较才有意义
+                // 每个槽位都必须得到有限坐标，才能继续比较和求中心
                 Assert(math.all(math.isfinite(offset)), "阵型槽位出现非有限坐标");
                 if (kind == AniSquadFormationKind.Column)
                 {
-                    // Column 的横向不变量是所有槽位都落在 Anchor 中心线上
+                    // 纵队的所有槽位都应位于队伍锚点的横向中心线上
                     Assert(math.abs(offset.x) <= 0.0001f, "纵队槽位没有保持单列");
                 }
 
                 for (int previous = 0; previous < slotIndex; previous++)
                 {
-                    // 逐项比较保证错误布局不会通过后续的中心平均检查
+                    // 同时逐项检查，避免左右错误刚好在平均值中互相抵消
                     Assert(
                         math.distancesq(offsets[previous], offset) > 0.0001f,
                         $"{memberCount} Ani 阵型出现重复槽位");
@@ -104,7 +104,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             center /= memberCount;
 
-            // 对称性使用平均偏移验证，避免依赖特定偶数或奇数成员数
+            // 使用所有成员的平均偏移验证整体居中，奇数和偶数人数都适用
             Assert(
                 math.lengthsq(center) <= 0.0001f,
                 $"{memberCount} Ani 阵型没有围绕 Anchor 中心对称");
@@ -112,13 +112,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestWorldFiltersAndPipelineOrder()
         {
-            // Server 和 Client 的系统清单分别读取，验证权威逻辑不会泄漏到客户端
+            // 分别读取服务器和客户端系统列表，确保移动逻辑只注册到服务器
             IReadOnlyList<Type> serverSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ServerSimulation);
             IReadOnlyList<Type> clientSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ClientSimulation);
 
-            // 显式列出权威类型，新增移动 System 时验收会强制补齐过滤测试
+            // 明确列出所有只能在服务器运行的系统，新增系统后若忘记补充 World 过滤，验证会立即失败
             Type[] authoritativeSystems =
             {
                 typeof(ServerAniCommandIngressSystem),
@@ -133,10 +133,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 typeof(ServerNavigationGridMovementBenchmarkSystem),
             };
 
-            // 指令入口、移动提交和 Benchmark 都必须只出现在 Server World
+            // 指令入口、位置写回和基准系统都只能运行在服务器 World
             for (int index = 0; index < authoritativeSystems.Length; index++)
             {
-                // 同一类型同时出现在两类 World 时，客户端应明确排除权威写入系统
+                // 每个系统都必须出现在服务器列表中，同时不能出现在客户端列表中
                 Assert(
                     ContainsSystem(serverSystems, authoritativeSystems[index]),
                     $"Server World 缺少 {authoritativeSystems[index].Name}");
@@ -147,28 +147,28 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             AssertUpdatedAfter<AniSquadTargetResolveSystem, AniSquadLifecycleSystem>();
             AssertUpdatedAfter<AniSquadPathRequestSystem, AniSquadTargetResolveSystem>();
-            // 由 Squad 声明对 Grid 的单向依赖，避免 Grid Runtime 反向引用 Squad
+            // 队伍系统依赖底层网格系统，底层网格不应反向依赖队伍逻辑
             AssertUpdatedBefore<AniSquadPathRequestSystem, ServerNavigationGridFlowFieldSystem>();
-            // 路径结果必须先完成，Anchor 才能读取当前 Field 方向
+            // Flow Field 结果先更新，队伍锚点随后才能读取本帧方向
             AssertUpdatedAfter<AniSquadAnchorAdvanceSystem, ServerNavigationGridFlowFieldSystem>();
             AssertUpdatedAfter<AniAdaptiveFormationSystem, AniSquadAnchorAdvanceSystem>();
             AssertUpdatedBefore<AniAdaptiveFormationSystem, AniFormationLayoutSystem>();
             AssertUpdatedAfter<AniFormationLayoutSystem, AniSquadAnchorAdvanceSystem>();
             AssertUpdatedAfter<AniFormationAssignmentSystem, AniFormationLayoutSystem>();
             AssertUpdatedAfter<AniSlotTargetSystem, AniFormationAssignmentSystem>();
-            // 槽位目标和期望速度都必须先于唯一 Commit 写入
+            // 先生成槽位目标和期望速度，最后才由唯一提交系统写 Transform
             AssertUpdatedAfter<AniPreferredVelocitySystem, AniSlotTargetSystem>();
             AssertUpdatedAfter<AniMovementCommitSystem, AniPreferredVelocitySystem>();
             AssertUpdatedAfter<AniMovementProgressSystem, AniMovementCommitSystem>();
 
-            // 顺序断言覆盖目标解析、路径、Anchor、阵型、速度、提交和到达状态
+            // 检查目标解析、寻路、锚点、阵型、速度、位置写回和到达判断的完整顺序
 
-            // Anchor 只保存空间状态，不绑定队伍中的某一个具体 Ani
+            // 队伍锚点是独立的虚拟中心，不能引用某一名具体 Ani
             FieldInfo[] anchorFields = typeof(AniSquadAnchor).GetFields(
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             for (int index = 0; index < anchorFields.Length; index++)
             {
-                // 反射检查所有字段，防止后续新增 Entity 引用绕过架构约束
+                // 用反射检查所有字段，今后新增 Entity 字段也会触发失败
                 Assert(
                     anchorFields[index].FieldType != typeof(Entity),
                     "AniSquadAnchor 不应绑定具体 Ani 实体");
@@ -177,7 +177,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestSquadMembershipLifecycle()
         {
-            // 生命周期测试不需要完整 Grid，只配置后端标记以运行服务器系统
+            // 生命周期测试不需要实际寻路，只启用网格移动后端让服务器系统运行
             using var world = new World("Navigation Grid Stage Four Lifecycle", WorldFlags.Game);
             AniMovementBackendWorldUtility.ConfigureWorld(world, AniMovementBackend.ClearanceGrid);
             EntityManager entityManager = world.EntityManager;
@@ -191,20 +191,20 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             CreateCommand(entityManager, anis, sequence: 1);
             SystemHandle lifecycle = world.GetOrCreateSystem<AniSquadLifecycleSystem>();
 
-            // 首个指令必须聚合为一个 Squad，并为每个成员补齐运行时组件
+            // 第一条指令应把全部成员组成一支队伍，并补齐移动所需组件
             lifecycle.Update(world.Unmanaged);
             Entity firstSquad = GetSingleSquad(entityManager);
             Assert(entityManager.GetBuffer<AniSquadMember>(firstSquad).Length == 3, "Squad 初始成员数量错误");
 
             CreateCommand(entityManager, new[] { anis[0], anis[1] }, sequence: 2);
 
-            // 子集指令会拆出新 Squad，未选成员继续留在旧上下文
+            // 只选择部分成员的新指令应拆出新队伍，未选成员继续留在原队伍
             lifecycle.Update(world.Unmanaged);
             using EntityQuery squadsAfterSplit = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniSquad>());
             Assert(squadsAfterSplit.CalculateEntityCount() == 2, "成员离队后没有拆分 Squad 上下文");
             Entity newSquad = entityManager.GetComponentData<AniSquadMembership>(anis[0]).Squad;
-            // 两名选中成员必须共享新 Squad，不能各自生成路径上下文
+            // 两名选中成员必须加入同一支新队伍，不能各自创建寻路上下文
             Assert(
                 entityManager.GetComponentData<AniSquadMembership>(anis[1]).Squad == newSquad,
                 "同一新命令的成员没有进入同一 Squad");
@@ -214,7 +214,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             entityManager.DestroyEntity(anis[2]);
 
-            // 旧 Squad 的最后成员死亡后应立即销毁路径和阵型资源
+            // 原队伍最后一名成员销毁后，其寻路和阵型数据也应立即销毁
             lifecycle.Update(world.Unmanaged);
             Assert(!entityManager.Exists(firstSquad), "最后一个成员死亡后旧 Squad 没有拆除");
 
@@ -231,7 +231,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             int[] counts = { 32, 64, 128 };
 
-            // 每档使用独立 World，避免前一档的请求版本或缓存污染下一档
+            // 每种人数使用独立 World，避免前一轮请求和缓存影响下一轮
             for (int countIndex = 0; countIndex < counts.Length; countIndex++)
             {
                 RunMovementBenchmark(counts[countIndex]);
@@ -240,7 +240,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void RunMovementBenchmark(int agentCount)
         {
-            // 该夹具手动按生产顺序更新系统，验证链路而不是依赖编辑器自动组装
+            // 测试按正式运行顺序手动更新各系统，直接验证完整调用链
             using var world = new World($"Navigation Grid Stage Four {agentCount}", WorldFlags.Game);
             AniMovementBackendWorldUtility.ConfigureWorld(world, AniMovementBackend.ClearanceGrid);
             EntityManager entityManager = world.EntityManager;
@@ -254,7 +254,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             entityManager.AddBuffer<NavigationGridMovementBenchmarkStateTrace>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(configEntity);
 
-            // 所有 Buffer 必须在获取命令句柄前创建，避免后续结构变更使句柄失效
+            // 先创建所有缓冲区，再取得命令缓冲区句柄，避免后续结构变化使句柄失效
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
                 entityManager.GetBuffer<NavigationGridBenchmarkCommand>(configEntity);
             commands.Add(new NavigationGridBenchmarkCommand
@@ -263,7 +263,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 TargetOffset = new float3(-10f, 0f, 8f),
             });
 
-            // 单条命令包含全部成员，用于验证路径请求按 Squad 而非 Ani 扩展
+            // 一条命令包含全部成员，用来确认寻路请求按队伍创建，而不是每名 Ani 一份
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 Workload = NavigationGridBenchmarkWorkload.SquadMovement,
@@ -278,7 +278,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 RecordMovementTrace = 1,
             });
 
-            // 夹具先发布共享 Grid，再创建请求；顺序与生产 Benchmark 的资源依赖一致
+            // 先发布共享导航网格，再创建队伍指令，与正式基准的资源准备顺序一致
 
             SystemHandle grid = world.GetOrCreateSystem<ServerNavigationGridBenchmarkGridSystem>();
             SystemHandle benchmark =
@@ -295,7 +295,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             SystemHandle preferredVelocity = world.GetOrCreateSystem<AniPreferredVelocitySystem>();
             SystemHandle commit = world.GetOrCreateSystem<AniMovementCommitSystem>();
             SystemHandle progress = world.GetOrCreateSystem<AniMovementProgressSystem>();
-            // 所有句柄在首次 Update 前创建，避免系统自动组更新顺序影响夹具
+            // 所有系统句柄在第一次更新前创建，测试不依赖编辑器自动组装系统组
             grid.Update(world.Unmanaged);
             Entity gridEntity = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>()).GetSingletonEntity();
@@ -321,12 +321,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             bool completed = false;
 
-            // Flow Field 可能跨 Tick 完成，循环必须覆盖异步搜索和成员收敛两个阶段
+            // Flow Field 会跨帧完成，循环既要等待异步寻路，也要等待成员站稳
             for (int tick = 0; tick < 1080; tick++)
             {
                 world.SetTime(new TimeData(tick * DeltaTime, DeltaTime));
 
-                // Benchmark 先创建指令，生命周期随后消费；其余系统按生产依赖顺序推进
+                // 基准系统先创建指令，生命周期系统随后处理，其余系统按正式依赖顺序更新
                 benchmark.Update(world.Unmanaged);
                 lifecycle.Update(world.Unmanaged);
                 target.Update(world.Unmanaged);
@@ -334,7 +334,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 flow.Update(world.Unmanaged);
                 JobHandle.ScheduleBatchedJobs();
 
-                // 先完成异步 Job 调度，再运行依赖 Field 的 Anchor 和表现链路
+                // 先让异步任务调度和写回，再更新依赖 Flow Field 的锚点与成员移动
                 anchor.Update(world.Unmanaged);
                 adaptive.Update(world.Unmanaged);
                 layout.Update(world.Unmanaged);
@@ -349,13 +349,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                         configEntity);
                 if (state.Completed != 0)
                 {
-                    // Completed 仍需检查 Failed，防止失败状态被 benchmark 终态掩盖
+                    // 基准结束后仍要检查 Failed，避免固定窗口状态掩盖真实失败
                     Assert(state.Failed == 0, $"{agentCount} Ani 群体移动报告失败");
                     completed = true;
                     break;
                 }
 
-                // 让异步寻路在每个验证 Tick 之间获得调度机会
+                // 每个验证帧之间刷新任务调度，让异步寻路获得运行机会
                 Thread.Yield();
             }
 
@@ -364,7 +364,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 ComponentType.ReadOnly<AniSquad>());
             Assert(squads.CalculateEntityCount() == 1, "一次移动命令必须只生成一个 Squad 上下文");
             Entity squadEntity = squads.GetSingletonEntity();
-            // 先确认单个上下文，再读取 PathState，避免多队伍时误取 Singleton
+            // 先确认只有一支队伍，再读取 PathState，避免错误地把多队结果当作单例
             AniSquadPathState pathState = entityManager.GetComponentData<AniSquadPathState>(
                 squadEntity);
             Assert(pathState.Status == AniSquadMovementStatus.Completed, "Squad 未提交完成状态");
@@ -379,7 +379,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 formation.ColumnCount == configuredColumnCount,
                 "开阔地完成态阵型意外缩列");
 
-            // 同一指令的路径请求必须保持 Squad 级别，与成员数解耦
+            // 同一条队伍指令只应产生一份寻路请求，与成员人数无关
             Assert(pathState.FieldRequestCount == 1, "路径与 Field 请求数量没有按 Squad 增长");
             Assert(pathState.SuccessfulFieldRequestCount == 1, "Squad Field 请求没有成功完成");
 
@@ -391,8 +391,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(slots.Length == agentCount, "阵型槽位数量与测试规模不一致");
             var usedSlots = new bool[agentCount];
 
-            // 成员 Buffer 采用稳定槽位索引，验收重复、越界和唯一 Commit 写入
-            // usedSlots 只用于测试断言，不参与运行时分配逻辑
+            // 检查所有成员槽位索引不重复、不越界，并确认位置只由提交系统写入
+            // usedSlots 仅用于测试中检查重复槽位
             for (int index = 0; index < members.Length; index++)
             {
                 int slotIndex = members[index].SlotIndex;
@@ -402,11 +402,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 AniMovementResult movementResult = entityManager.GetComponentData<AniMovementResult>(
                     members[index].Ani);
 
-                // CommitCount 是唯一 Transform 写入所有权的可观测证据
+                // CommitCount 用于确认每名成员确实经过唯一的 Transform 提交流程
                 Assert(movementResult.CommitCount > 0, "Ani 没有经过唯一 Commit System 写入");
             }
 
-            // 完成后继续执行生产链路，防止 Anchor 朝向复位使自适应阵型重新布局并复活指令
+            // 完成后继续运行一段时间，确认锚点朝向或阵型更新不会让已完成指令重新移动
             for (int stabilityTick = 0; stabilityTick < 30; stabilityTick++)
             {
                 world.SetTime(new TimeData((1080 + stabilityTick) * DeltaTime, DeltaTime));
@@ -436,13 +436,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             using EntityQuery pendingCommands = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniSquadCommandRequest>());
-            // 指令实体只能短暂存在于入口组，验收结束时不应残留未消费请求
+            // 指令 Entity 只会短暂存在于入口组，检查结束时不能残留尚未处理的请求
             Assert(pendingCommands.IsEmptyIgnoreFilter, "Benchmark 指令没有汇入统一 Squad 生命周期");
         }
 
         private static Entity CreateAni(EntityManager entityManager, float3 position)
         {
-            // 夹具只创建生命周期所需的 Transform，运行时组件由指令消费补齐
+            // 测试成员开始时只有 Transform，其余运行时组件必须由生命周期系统补齐
             Entity entity = entityManager.CreateEntity(typeof(LocalTransform));
             entityManager.SetComponentData(
                 entity,
@@ -470,11 +470,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 DesiredForward = new float3(0f, 0f, 1f),
             });
 
-            // 指令成员按稳定数组顺序写入，生命周期测试可复现拆队结果
+            // 指令成员按固定数组顺序写入，使拆队结果可重复
             DynamicBuffer<AniSquadCommandMember> members =
                 entityManager.AddBuffer<AniSquadCommandMember>(commandEntity);
 
-            // 测试指令使用固定能力参数，确保不同规模只改变成员数量
+            // 各种人数使用相同移动参数，保证测试变量只有成员数量
             for (int index = 0; index < anis.Length; index++)
             {
                 members.Add(new AniSquadCommandMember
@@ -490,7 +490,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static Entity GetSingleSquad(EntityManager entityManager)
         {
-            // 该断言同时验证生命周期没有意外创建第二个上下文
+            // 该检查也能发现生命周期系统意外创建了第二支队伍
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniSquad>());
             Assert(query.CalculateEntityCount() == 1, "期望一个 Squad 上下文");
@@ -499,7 +499,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void AssertUpdatedAfter<TSystem, TDependency>()
         {
-            // 反射读取显式属性，避免只检查类型存在而漏掉实际更新顺序
+            // 用反射读取 UpdateBefore 和 UpdateAfter，检查实际声明的系统顺序
             object[] attributes = typeof(TSystem).GetCustomAttributes(
                 typeof(UpdateAfterAttribute),
                 inherit: true);
@@ -517,7 +517,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void AssertUpdatedBefore<TSystem, TDependency>()
         {
-            // UpdateBefore 与 UpdateAfter 表达相同顺序时优先放在高层消费者一侧
+            // UpdateBefore 和 UpdateAfter 都可以表达相同关系，检查时同时支持两种写法
             object[] attributes = typeof(TSystem).GetCustomAttributes(
                 typeof(UpdateBeforeAttribute),
                 inherit: true);
@@ -535,10 +535,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static bool ContainsSystem(IReadOnlyList<Type> systems, Type target)
         {
-            // 使用线性扫描保持 Editor 验收无额外分配，系统数量很小
+            // 系统类型数量很少，直接扫描即可
             for (int index = 0; index < systems.Count; index++)
             {
-                // 类型比较避免依赖系统名称或程序集加载顺序
+                // 按 Type 比较，不依赖显示名称或程序集加载顺序
                 if (systems[index] == target)
                 {
                     return true;
@@ -550,7 +550,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void Assert(bool condition, string message)
         {
-            // 统一抛出异常让 batchmode 返回失败，而不是只写一条普通日志
+            // 失败时抛出异常，让 Batch Mode 通过退出码报告错误
             if (!condition)
             {
                 throw new InvalidOperationException(message);

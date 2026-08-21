@@ -42,7 +42,7 @@ namespace AnimarsCatcher.Presentation.Cameras
         // 在目标完成移动后更新相机，减少画面抖动
         private void LateUpdate()
         {
-            // 显式绑定优先 Tag 查询仅作为旧场景兼容路径
+            // 优先使用直接绑定的目标，仅在兼容旧场景时才通过 Tag 查找
             if (_followTarget == null)
             {
                 GameObject playerObj = GameObject.FindWithTag("Player");

@@ -5,18 +5,18 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 统一坐标转换、端点投影和离散直线查询
+    /// 提供世界坐标与格子之间的转换、端点纠正和格子直线检查
     /// </summary>
     public static class NavigationGridQuery
     {
         private const float CostEpsilon = 0.00001f;
         private const float MinimumTerrainCost = 0.01f;
 
-        // 世界坐标只在有效 Grid Bounds 内转换，边界外不会隐式钳制
-        // 端点投影依次按距离、地形、Clearance 和 Cell 索引稳定决胜
-        // 投影和直线查询共享 Traversal 规则，不能绕过动态 Overlay
-        // 离散直线使用整数误差累加，避免浮点舍入改变跨平台步进序列
-        // 查询只返回值或索引，不持有 Native 容器和 ECS 生命周期
+        // 只有导航网格范围内的世界坐标才能直接转换，范围外的位置不会被悄悄夹到边缘
+        // 纠正端点时依次比较距离、地形成本、可用空间和格子索引
+        // 端点纠正和直线检查使用同一套通行规则，包括动态障碍
+        // 格子直线采用整数步进，避免不同平台的浮点舍入改变经过的格子
+        // 查询方法只返回普通值或索引，不持有 Native 容器，也不管理 ECS 生命周期
 
         public static bool CanAgentOccupy(
             ref NavigationGridBlob grid,
@@ -43,7 +43,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float2 localPosition = new float2(
                 worldPosition.x - grid.BoundsMinimum.x,
                 worldPosition.z - grid.BoundsMinimum.z);
-            // Bounds 使用左闭右开区间，防止最大边界被映射为 Width 或 Height
+            // 世界范围采用左闭右开区间，最大边界不会被错误换算成 Width 或 Height
             if (localPosition.x < 0f || localPosition.y < 0f ||
                 localPosition.x >= grid.Width * grid.CellSize ||
                 localPosition.y >= grid.Height * grid.CellSize)
@@ -59,7 +59,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 把稳定 Cell 索引转换为烘焙表面上的世界坐标
+        /// 将格子索引转换为该格子中心在烘焙地面上的世界坐标
         /// </summary>
         /// <param name="grid">运行时只读 Grid</param>
         /// <param name="cellIndex">行主序 Cell 索引</param>
@@ -78,13 +78,13 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 判断指定 Agent 是否能占用目标 Cell
+        /// 判断指定体型的角色能否安全站在目标格子中
         /// </summary>
         /// <param name="grid">运行时只读 Grid</param>
         /// <param name="cellIndex">待检查 Cell 索引</param>
         /// <param name="agentRadius">Agent 世界半径</param>
         /// <param name="clearanceMargin">额外安全边距</param>
-        /// <returns>基础可行走且剩余 Clearance 足够时返回 true</returns>
+        /// <returns>格子本身可行走且周围空间足够时返回 true</returns>
         public static bool TryProjectToNearestCell(
             ref NavigationGridBlob grid,
             float3 worldPosition,
@@ -124,7 +124,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return false;
             }
 
-            // raw 坐标故意不先 Clamp，使 Grid 外位置仍受最大投影半径约束
+            // 原始坐标不先夹到地图边缘，这样地图外目标仍会受到最大搜索半径限制
             int rawX = (int)math.floor(
                 (worldPosition.x - grid.BoundsMinimum.x) / grid.CellSize);
             int rawZ = (int)math.floor(
@@ -134,12 +134,12 @@ namespace AnimarsCatcher.Navigation.Grid
             int minimumZ = math.max(0, rawZ - maximumRadiusInCells);
             int maximumZ = math.min(grid.Height - 1, rawZ + maximumRadiusInCells);
 
-            // 候选依次比较距离、地形成本、Clearance 和 Cell Index，不依赖遍历顺序
+            // 候选格子按距离、地形成本、可用空间和索引排序，不依赖扫描顺序
             float bestDistanceSquared = float.PositiveInfinity;
             float bestTerrainCost = float.PositiveInfinity;
             float bestClearance = float.NegativeInfinity;
 
-            // 扫描完整候选方形，避免首个搜索环让角点候选错误胜出
+            // 扫描整个候选范围后再选择，避免先遇到的角落格子意外胜出
             for (int z = minimumZ; z <= maximumZ; z++)
             {
                 for (int x = minimumX; x <= maximumX; x++)
@@ -192,12 +192,12 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 计算八方向 Grid 上保持可采纳性的 Octile Distance
+        /// 计算八方向格子地图上的八角距离，作为 A* 不会高估的启发成本
         /// </summary>
         /// <param name="grid">运行时只读 Grid</param>
         /// <param name="fromCellIndex">起始 Cell 索引</param>
         /// <param name="toCellIndex">目标 Cell 索引</param>
-        /// <returns>使用最低地形成本缩放后的启发成本</returns>
+        /// <returns>按最低地形成本换算后的启发成本</returns>
         public static bool TryCalculateLineCost(
             ref NavigationGridBlob grid,
             int fromCellIndex,
@@ -254,7 +254,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int currentZ = fromCellIndex / grid.Width;
             int targetX = toCellIndex % grid.Width;
             int targetZ = toCellIndex / grid.Width;
-            // 整数误差累加使相同端点不受浮点舍入和平台差异影响
+            // 使用整数误差累计，让相同端点在不同平台上经过同一组格子
             int absoluteDeltaX = math.abs(targetX - currentX);
             int absoluteDeltaZ = math.abs(targetZ - currentZ);
             int stepX = currentX < targetX ? 1 : -1;
@@ -265,8 +265,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 agentRadius,
                 clearanceMargin);
 
-            // 每轮只产生一个正交或对角相邻步，再由 NeighborMask 和 Clearance 验证
-            // 这里验证的是平滑后可直接连接的离散通道，不是物理层最终 Capsule Cast
+            // 每轮只走到正交或对角相邻格子，再检查烘焙邻接和角色所需空间
+            // 这里检查的是格子层面的直达路线，不等同于物理系统的 Capsule Cast
             while (currentX != targetX || currentZ != targetZ)
             {
                 int deltaX = 0;
@@ -300,7 +300,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 {
                     return false;
                 }
-                // 直线成本复用 A 星步进成本，保证平滑前后能够按同一尺度比较
+                // 直线路线复用 A* 的单步成本，平滑前后才能在同一尺度下比较
                 lineCost += NavigationGridCost.CalculateStepCost(
                     ref grid,
                     currentIndex,
@@ -326,7 +326,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float bestClearance,
             int bestCellIndex)
         {
-            // 候选依次比较距离、地形成本、Clearance 和 Cell Index
+            // 距离相同时依次用地形成本、可用空间和格子索引决定优先级
             if (bestCellIndex < 0 || distanceSquared < bestDistanceSquared - CostEpsilon)
             {
                 return true;
@@ -358,8 +358,8 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public static bool IsRequestValid(NavigationPathRequest request)
         {
-            // 连续值必须有限且处于不会破坏成本模型的范围
-            // 投影半径限制同时保护扫描成本和整数坐标运算
+            // 半径和权重必须是有限的非负值，避免破坏坐标和成本计算
+            // 搜索半径设有上限，以控制扫描开销并防止整数坐标溢出
             return VectorMath.IsFinite(request.StartPosition) &&
                    VectorMath.IsFinite(request.EndPosition) &&
                    math.isfinite(request.AgentRadius) &&

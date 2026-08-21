@@ -9,7 +9,7 @@ using Unity.Collections;
 namespace AnimarsCatcher.Presentation.HealthBars
 {
     /// <summary>
-    /// 在客户端为带血条配置且尚未生成视图的实体创建 HUD
+    /// 在客户端为带血条配置且尚未生成视图的 Entity 创建 HUD
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Presentation.HealthBars
                 _gameHudRoot = Object.FindFirstObjectByType<HealthHUDBootstrap>();
                 if (_gameHudRoot == null)
                 {
-                    // HUD 尚未初始化时保留实体到后续帧处理
+                    // HUD 尚未初始化时保留 Entity 到后续帧处理
                     return;
                 }
             }

@@ -5,7 +5,7 @@ using Unity.Entities;
 namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 {
     /// <summary>
-    /// 定义移动状态进入和退出时对导航黑板执行的原子动作
+    /// 定义进入和退出移动状态时对导航黑板执行的操作
     /// </summary>
     [BurstCompile]
     public static class AniMovementFsmActions
@@ -13,8 +13,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 进入空闲状态时停止导航并标记已经到达
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void EnterIdle(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -31,8 +31,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 离开空闲状态时不需要额外清理
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void ExitIdle(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -43,8 +43,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 进入跟随状态时启用导航并发布加入玩家阵型事件
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void EnterFollow(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -61,7 +61,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
             // 跟随目标使用 PlayerEntity，清除寻敌状态遗留的 TargetEntity
             Blackboard.SetEntity(ref blackboard, AniMovementBlackboardKeys.TargetEntity, Entity.Null);
 
-            // 使用当前 Tick 作为事件版本，阵型系统按版本消费
+            // 使用当前 Tick 作为事件版本，阵型系统按版本判断是否已经处理
             var playerEntity = Blackboard.GetEntity(ref blackboard, AniMovementBlackboardKeys.PlayerEntity);
             if (playerEntity != Entity.Null)
             {
@@ -75,8 +75,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 离开跟随状态时发布阵型离开事件
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void ExitFollow(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -89,15 +89,15 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 进入寻敌状态时启用导航并强制刷新目标位置
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void EnterFind(in Entity entity, ref Fsm fsm, in FsmContext context)
         {
             var blackboard = context.BlackboardLookup[entity];
 
-            // 目标实体位置由移动规划系统写入导航目标
+            // 目标 Entity 位置由移动规划系统写入导航目标
             Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.NavStop, false);
             Blackboard.SetBool(ref blackboard, AniMovementBlackboardKeys.MoveArrived, false);
 
@@ -109,8 +109,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 离开寻敌状态时不需要额外清理
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void ExitFind(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -121,8 +121,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 进入定点移动状态时启用导航并强制刷新点击目标
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void EnterMoveTo(in Entity entity, ref Fsm fsm, in FsmContext context)
@@ -141,8 +141,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 离开定点移动状态时不需要额外清理
         /// </summary>
-        /// <param name="entity">执行动作的 Ani 实体</param>
-        /// <param name="fsm">实体状态机数据</param>
+        /// <param name="entity">执行动作的 Ani Entity</param>
+        /// <param name="fsm">Entity 状态机数据</param>
         /// <param name="context">当前状态机上下文</param>
         [BurstCompile]
         public static void ExitMoveTo(in Entity entity, ref Fsm fsm, in FsmContext context)

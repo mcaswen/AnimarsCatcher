@@ -14,7 +14,7 @@ public enum CampType : byte
 }
 
 /// <summary>
-/// 保存实体阵营并通过 Ghost 同步给客户端
+/// 保存 Entity 阵营并通过 Ghost 同步给客户端
 /// </summary>
 [GhostComponent]
 public struct Camp : IComponentData
@@ -23,7 +23,7 @@ public struct Camp : IComponentData
 }
 
 /// <summary>
-/// 保存玩家连接的服务器权威阵营归属
+/// 保存由服务器确定的玩家阵营归属
 /// </summary>
 public struct PlayerCamp : IComponentData
 {

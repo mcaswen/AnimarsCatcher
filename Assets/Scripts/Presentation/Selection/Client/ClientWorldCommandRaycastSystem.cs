@@ -99,7 +99,7 @@ namespace AnimarsCatcher.Presentation.Selection
                 }
             }
 
-            // 仅在没有交互实体命中时退化为地面移动
+            // 只有没有命中交互 Entity 时才把点击作为地面移动处理
             else if (Physics.Raycast(ray, out RaycastHit hitGround, 1000f, context.GroundMask))
             {
                 targetKind = WorldCommandTargetKind.Ground;

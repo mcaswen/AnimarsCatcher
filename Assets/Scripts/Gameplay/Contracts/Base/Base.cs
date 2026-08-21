@@ -5,7 +5,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay.Contracts
 {
 /// <summary>
-/// 标记参与基地规则的实体并同步到所有客户端
+/// 标记参与基地规则的 Entity 并同步到所有客户端
 /// </summary>
 [GhostComponent(PrefabType = GhostPrefabType.All, SendTypeOptimization = GhostSendType.AllClients)]
 public struct BaseTag : IComponentData {}

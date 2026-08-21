@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Player
     }
 
     /// <summary>
-    /// 保存固定相机当前跟随的角色实体
+    /// 保存固定相机当前跟随的角色 Entity
     /// </summary>
     [Serializable]
     public struct FixedCameraControl : IComponentData

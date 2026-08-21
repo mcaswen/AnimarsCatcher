@@ -8,7 +8,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 将统一指令转换为服务器 Squad，并维护成员和路径上下文生命周期
+    /// 根据服务器收到的移动指令创建或复用队伍，并维护成员、阵型和寻路数据
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup), OrderFirst = true)]
@@ -23,7 +23,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
 
-            // 指令和 Squad 查询长期复用，避免每个 Tick 重建查询描述
+            // 指令和队伍查询在系统生命周期内复用，避免每帧重新创建
             _commandQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<AniSquadCommandRequest>(),
                 ComponentType.ReadOnly<AniSquadCommand>(),
@@ -39,20 +39,20 @@ namespace AnimarsCatcher.Navigation.Grid
                 ComponentType.ReadWrite<NavigationFlowFieldRequest>(),
                  ComponentType.ReadWrite<NavigationFlowFieldState>());
 
-            // 零保留给未初始化的身份，实际 SquadId 从一开始递增
+            // 0 表示尚未分配身份，因此有效 SquadId 从 1 开始
             _nextSquadId = 1;
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            // 先清理失效成员，再按序消费新指令，保证同 Tick 不会把已死亡成员重新挂回旧 Squad
+            // 先移除失效成员，再处理新指令，避免同一帧把已死亡成员重新加入旧队伍
             // Cleanup 可能销毁上下文，因此必须在指令快照创建前完成
             CleanupSquads(ref state);
 
             using NativeArray<Entity> commands = _commandQuery.ToEntityArray(Allocator.Temp);
 
-            // RPC 和 Benchmark 都可能同 Tick 到达，序号排序维持跨输入源的确定性
-            // 快照数组允许下面的消费逻辑销毁指令实体而不改变遍历边界
+            // RPC 和基准测试可能在同一帧产生指令，按序号处理可以保持统一顺序
+            // 使用快照数组后，下面的处理逻辑可以销毁指令 Entity 而不影响本轮遍历
             SortCommands(ref state, commands);
             for (int index = 0; index < commands.Length; index++)
             {
@@ -66,7 +66,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private void CleanupSquads(ref SystemState state)
         {
             // 查询结果是快照，清理过程允许销毁 Squad 而不影响后续索引
-            // 该快照不持有可写 Buffer，结构变更只通过 EntityManager 发生
+            // 快照不保留可写缓冲区，所有结构变更都通过 EntityManager 完成
             using NativeArray<Entity> squads = _squadQuery.ToEntityArray(Allocator.Temp);
             for (int squadIndex = 0; squadIndex < squads.Length; squadIndex++)
             {
@@ -80,12 +80,12 @@ namespace AnimarsCatcher.Navigation.Grid
                     state.EntityManager.GetBuffer<AniSquadMember>(squadEntity);
                 bool changed = false;
 
-                // 倒序移除避免 DynamicBuffer 紧缩后跳过下一个成员
+                // 从后向前删除，避免 DynamicBuffer 收缩后漏掉紧邻的成员
                 for (int memberIndex = members.Length - 1; memberIndex >= 0; memberIndex--)
                 {
                     Entity aniEntity = members[memberIndex].Ani;
 
-                    // 归属组件和 Buffer 必须双向指向同一 Squad，任一侧失效都要移除
+                    // 成员归属组件和队伍缓冲区必须互相对应；任一侧不一致都视为失效成员
                     if (!state.EntityManager.Exists(aniEntity) ||
                         !state.EntityManager.HasComponent<AniSquadMembership>(aniEntity) ||
                          state.EntityManager.GetComponentData<AniSquadMembership>(aniEntity).Squad !=
@@ -98,14 +98,14 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 if (members.IsEmpty)
                 {
-                    // 最后一个有效成员离开后，路径、Field 和阵型上下文没有保留价值
+                    // 最后一名有效成员离开后，队伍的路径、Flow Field 和阵型数据都可以释放
                     state.EntityManager.DestroyEntity(squadEntity);
                     continue;
                 }
 
                 if (changed)
                 {
-                    // 成员版本失效所有旧槽位分配，但保留可复用的 Squad 身份
+                    // 人员变化会让旧槽位分配失效，但队伍身份仍可继续使用
                     AniSquad squad = state.EntityManager.GetComponentData<AniSquad>(squadEntity);
                     squad.MemberVersion++;
                     state.EntityManager.SetComponentData(squadEntity, squad);
@@ -120,11 +120,11 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             EntityManager entityManager = state.EntityManager;
 
-            // 指令组件在本方法内只读一次，后续写回统一进入 Squad 实体
+            // 指令组件在本方法内只读一次，后续写回统一进入 Squad Entity
             AniSquadCommand command = entityManager.GetComponentData<AniSquadCommand>(commandEntity);
 
             // 先把指令成员复制到临时列表，后续组件补齐会引起结构变更
-            // 复制也隔离了指令实体销毁对源 Buffer 的影响
+            // 复制也隔离了指令 Entity 销毁对源 Buffer 的影响
             DynamicBuffer<AniSquadCommandMember> commandMembers =
                 entityManager.GetBuffer<AniSquadCommandMember>(commandEntity);
             using NativeList<AniSquadCommandMember> members =
@@ -132,21 +132,20 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (members.IsEmpty)
             {
-                // 指令全部指向失效实体时直接消费，避免生成空 Squad
-                // 空指令不应推进 SquadId 或路径请求版本
+                // 指令中没有任何有效成员时直接丢弃，不创建空队伍，也不占用新的编号
                 entityManager.DestroyEntity(commandEntity);
                 return;
             }
 
             SortMembers(members);
 
-            // 排序后再寻找可复用 Squad，保证同一成员集合的比较顺序一致
-            // 只有成员仍属于同一拥有者且数量一致时才能复用原路径上下文
+            // 先排序再查找可复用队伍，让相同成员集合始终以同一顺序比较
+            // 只有成员仍属于同一玩家、同一队伍且人数一致时，才能复用原来的寻路数据
             Entity squadEntity = FindReusableSquad(ref state, command, members);
             bool reused = squadEntity != Entity.Null;
 
-            // 复用判断完成后保存旧成员槽位，创建新 Squad 则不需要历史映射
-            // NativeList 的容量按当前成员数设置，避免大规模临时过度分配
+            // 确认可复用后再保存旧槽位；新队伍没有需要保留的历史分配
+            // 临时列表按当前人数分配容量，避免申请多余内存
             NativeList<AniSquadMember> previousMembers =
                 new(math.max(1, members.Length), Allocator.Temp);
 
@@ -156,7 +155,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             else
             {
-                // 保留旧槽位索引，成员顺序变化时仍尽量维持画面稳定
+                // 记住成员原来的槽位，即使输入顺序变化也尽量避免画面上的突然换位
                 DynamicBuffer<AniSquadMember> oldMembers =
                     entityManager.GetBuffer<AniSquadMember>(squadEntity);
                 for (int index = 0; index < oldMembers.Length; index++)
@@ -167,15 +166,15 @@ namespace AnimarsCatcher.Navigation.Grid
 
             DetachMembersFromOtherSquads(ref state, squadEntity, members);
 
-            // Detach 之后再补齐目标组件，旧 Squad 的版本更新不会覆盖新归属
+            // 先从旧队伍脱离，再补齐目标组件，避免旧队伍更新时覆盖新的归属
 
             AniSquad squad = entityManager.GetComponentData<AniSquad>(squadEntity);
 
-            // 先补齐成员组件，再重新获取 Squad Buffer，避免结构变更使句柄失效
+            // LayoutVersion 保持旧值，确保布局系统在下一更新中重新生成槽位
             for (int index = 0; index < members.Length; index++)
             {
                 AniSquadCommandMember commandMember = members[index];
-                // 旧槽位只按 Entity 匹配，不依赖本次指令传入顺序
+                // 旧槽位按 Entity 匹配，不依赖这次指令中的成员顺序
                 int previousSlot = FindPreviousSlot(previousMembers, commandMember.Ani);
                 EnsureMemberComponents(
                     entityManager,
@@ -185,14 +184,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     previousSlot);
             }
 
-            // 成员补组件会产生结构变更，完成后再获取可写 Buffer 句柄
-            // 这是 DynamicBuffer 生命周期约束，不能把句柄跨过 SetOrAdd 调用保存
+            // SetOrAdd 可能改变 Entity 结构，所以必须在调用结束后重新取得可写 DynamicBuffer
             DynamicBuffer<AniSquadMember> squadMembers =
                 entityManager.GetBuffer<AniSquadMember>(squadEntity);
             squadMembers.Clear();
 
-            // Buffer 采用排序后的成员快照，稳定键只在入口生成一次
-            // Clear 后完整重建 Buffer，避免旧指令残留未选中的成员
+            // 队伍缓冲区使用排序后的成员快照，固定编号只在入口处计算一次
+            // 清空后完整重建，避免上一次指令中未被选中的成员残留
             for (int index = 0; index < members.Length; index++)
             {
                 AniSquadCommandMember commandMember = members[index];
@@ -207,10 +205,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
             entityManager.SetComponentData(squadEntity, command);
 
-            // 指令目标、序号和拥有者在同一写回点替换，避免规划系统读到混合状态
+            // 目标、指令序号和玩家归属一起更新，避免规划系统读到新旧混合的状态
             UpdateAggregate(ref state, squadEntity, ref squad);
 
-            // 新 Squad 和复用 Squad 都需要非零 MemberVersion，供阵型系统触发布局
+            // 无论新建还是复用队伍，都要更新成员版本，让阵型系统检查布局
             if (!reused)
             {
                 squad.MemberVersion = 1;
@@ -221,19 +219,18 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             entityManager.SetComponentData(squadEntity, squad);
-            // Aggregate 使用成员配置的保守边界，供 Anchor 统一限制速度
-            // 该聚合必须发生在成员组件补齐之后
+            // 从成员参数取全队都能满足的保守值，用来限制锚点速度和通行空间
+            // 必须先补齐成员组件，才能正确汇总这些参数
             AniSquadPathState pathState = entityManager.GetComponentData<AniSquadPathState>(squadEntity);
 
-            // 新指令从 AwaitingPath 开始，旧请求结果不能直接标记为当前指令完成
+            // 新指令从等待寻路开始，旧请求结果不能直接把它标记为完成
             pathState.Status = AniSquadMovementStatus.AwaitingPath;
             pathState.ResolvedTargetPosition = command.TargetPosition;
             pathState.SubmittedCommandSequence = 0;
             pathState.RepathCooldownTicks = 0;
             pathState.SettledTicks = 0;
 
-            // ActiveRequestVersion 保留用于识别旧 Field 结果，不能随指令直接清零
-            // CountedRequestVersion 同样保留，避免重复统计已完成请求
+            // 保留当前和已统计的请求版本，用于识别迟到的旧结果并避免重复统计
             entityManager.SetComponentData(squadEntity, pathState);
 
             AniSquadFormationState formation =
@@ -246,7 +243,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 formation.ColumnCount != requestedColumnCount ||
                 !reused)
             {
-                // 阵型类型或列数变化会使所有局部偏移失效
+                // 阵型类型或最大列数变化后，所有槽位相对位置都需要重算
                 formation.Kind = command.Formation;
                 formation.ConfiguredColumnCount = requestedColumnCount;
                 formation.ColumnCount = requestedColumnCount;
@@ -257,13 +254,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 formation.AssignmentVersion = 0;
             }
 
-            // 成员变化总是触发布局，指令只改变阵型配置时也会清空旧分配
-            // LayoutVersion 保持旧值，确保布局系统在下一更新中重新生成槽位
+            // 人员或阵型配置变化都会清除旧分配；保留旧布局版本可让阵型系统在下一帧重建
             formation.MemberVersion = squad.MemberVersion;
             entityManager.SetComponentData(squadEntity, formation);
 
-            // 指令实体的所有数据已转移到 Squad，之后由生命周期系统统一维护
-            // 之后的规划系统只查询 Squad 组件，不再依赖指令实体是否存在
+            // 指令内容已经转移到队伍 Entity，后续系统只读取队伍组件，不再需要原指令 Entity
             entityManager.DestroyEntity(commandEntity);
             previousMembers.Dispose();
         }
@@ -275,11 +270,11 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeList<AniSquadCommandMember> members =
                 new(math.max(1, source.Length), Allocator.Temp);
 
-            // 入口已经做过权限校验，这里仍需防御死亡实体和重复引用
+            // 指令入口已检查权限，这里仍会过滤已销毁的 Entity 和重复成员
             for (int index = 0; index < source.Length; index++)
             {
                 AniSquadCommandMember member = source[index];
-                // 缺少 Transform 的实体无法计算中心和槽位，不能进入 Squad
+                // 没有 Transform 的 Entity 无法参与队伍中心和槽位计算，因此不能加入队伍
                 if (member.Ani == Entity.Null ||
                     !state.EntityManager.Exists(member.Ani) ||
                     !state.EntityManager.HasComponent<LocalTransform>(member.Ani) ||
@@ -301,11 +296,11 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             Entity candidate = Entity.Null;
 
-            // 只有所有成员都指向同一个旧 Squad 才能更新原上下文
+            // 只有所有成员原本就在同一个队伍中，才能直接更新该队伍
             for (int index = 0; index < members.Length; index++)
             {
                 Entity aniEntity = members[index].Ani;
-                // 缺少归属或归属已销毁时无法复用旧路径上下文
+                // 成员没有有效队伍归属时，不能复用旧的寻路数据
                 if (!state.EntityManager.HasComponent<AniSquadMembership>(aniEntity))
                 {
                     return Entity.Null;
@@ -323,7 +318,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
                 else if (candidate != memberSquad)
                 {
-                    // 一个新指令横跨多个旧 Squad 时必须重新聚合
+                    // 新指令合并了多个旧队伍时，需要创建新的队伍上下文
                     return Entity.Null;
                 }
             }
@@ -336,10 +331,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 return Entity.Null;
             }
 
-            // 成员数量变化意味着旧阵型和 Field 语义已改变，应创建新的 Squad
+            // 人数变化会改变阵型和 Flow Field 的适用范围，因此创建新的队伍上下文
             DynamicBuffer<AniSquadMember> currentMembers =
                 state.EntityManager.GetBuffer<AniSquadMember>(candidate);
-            // 数量相等仍需依赖前面的同 Squad 检查，避免部分成员误复用
+            // 人数相同也必须确认所有成员来自同一队伍，不能只凭数量复用
             return currentMembers.Length == members.Length ? candidate : Entity.Null;
         }
 
@@ -350,7 +345,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             EntityManager entityManager = state.EntityManager;
 
-            // Squad 聚合实体同时持有路径、Field、Anchor 和阵型 Buffer，避免按成员重复建图
+            // 队伍 Entity 集中保存路径、Flow Field、锚点和阵型，避免每名成员重复计算同一条路线
             Entity squadEntity = entityManager.CreateEntity(
                 typeof(AniSquad),
                 typeof(AniSquadCommand),
@@ -366,12 +361,11 @@ namespace AnimarsCatcher.Navigation.Grid
             entityManager.AddBuffer<NavigationHierarchicalWaypoint>(squadEntity);
             entityManager.AddBuffer<NavigationFlowFieldCell>(squadEntity);
 
-            // Buffer 属于 Squad 生命周期，成员数量变化不会复制这些路径容器
-            // 这些 Buffer 的所有权始终跟随 Squad，不直接挂在 Ani 上
+            // 这些缓冲区随队伍 Entity 一起创建和销毁，不直接挂到单个 Ani 上
 
             float3 center = CalculateMemberCenter(ref state, members);
 
-            // Anchor 初始位置取成员中心，首帧不会因队长选择产生瞬移
+            // 锚点从全体成员的中心开始，避免因随意选择队长而在首帧跳动
             entityManager.SetComponentData(squadEntity, new AniSquad
             {
                 SquadId = NextSquadId(),
@@ -409,7 +403,7 @@ namespace AnimarsCatcher.Navigation.Grid
             });
             entityManager.SetComponentData(squadEntity, default(NavigationFlowFieldRequest));
 
-            // None 状态表示尚未提交请求，避免误读未初始化的 Field 结果
+            // None 表示尚未提交 Flow Field 请求，不会被误认为已有结果
             entityManager.SetComponentData(squadEntity, new NavigationFlowFieldState
             {
                 Status = NavigationPathStatus.None,
@@ -428,7 +422,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 Entity aniEntity = members[index].Ani;
 
-                // 已经属于目标 Squad 的成员无需迁移，避免无意义版本递增
+                // 成员已经属于目标队伍时无需迁移，也不必更新旧队伍版本
                 if (!state.EntityManager.HasComponent<AniSquadMembership>(aniEntity))
                 {
                     continue;
@@ -436,29 +430,29 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 Entity oldSquad = state.EntityManager.GetComponentData<AniSquadMembership>(aniEntity).Squad;
 
-                // 一个 Ani 只能属于一个 Squad，迁移前从旧 Buffer 中移除
+                // 一名 Ani 只能属于一个队伍，加入新队伍前先从旧队伍缓冲区移除
             if (oldSquad == Entity.Null || oldSquad == destinationSquad ||
                     !state.EntityManager.Exists(oldSquad) ||
                     !state.EntityManager.HasBuffer<AniSquadMember>(oldSquad))
             {
-                // 无效旧归属已由 Cleanup 负责处理，当前迁移无需重复操作
+                // 无效的旧归属会由清理流程处理，这里无需重复修改
                 continue;
                 }
 
                 DynamicBuffer<AniSquadMember> oldMembers =
                     state.EntityManager.GetBuffer<AniSquadMember>(oldSquad);
-                // 迁移只修改旧 Buffer，目标 Buffer 会在 ConsumeCommand 的结构变更后统一重建
+                // 迁移阶段只清理旧队伍；目标队伍缓冲区稍后会按新指令完整重建
                 RemoveMember(oldMembers, aniEntity);
                 if (oldMembers.IsEmpty)
                 {
-                    // 迁移掏空旧 Squad 时立即释放其路径上下文
+                    // 旧队伍没有成员后立即销毁，同时释放它的寻路数据
                     state.EntityManager.DestroyEntity(oldSquad);
                     continue;
                 }
 
                 AniSquad oldSquadData = state.EntityManager.GetComponentData<AniSquad>(oldSquad);
 
-                // 旧 Squad 剩余成员需要重新布局，但不应更换 Squad 身份
+                // 旧队伍还有成员时只需重新排阵，不需要更换队伍身份
                 oldSquadData.MemberVersion++;
                 UpdateAggregate(ref state, oldSquad, ref oldSquadData);
                 state.EntityManager.SetComponentData(oldSquad, oldSquadData);
@@ -476,7 +470,7 @@ namespace AnimarsCatcher.Navigation.Grid
             uint squadId,
             int slotIndex)
         {
-            // 成员组件由指令快照统一写入，避免移动系统依赖玩法属性的瞬时修改
+            // 将移动参数复制到导航组件，避免移动过程中直接依赖可能随时变化的玩法属性
             var membership = new AniSquadMembership
             {
                 Squad = squadEntity,
@@ -484,7 +478,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 SlotIndex = slotIndex,
             };
             SetOrAdd(entityManager, commandMember.Ani, membership);
-            // MaxAcceleration 至少为一，防止零配置让成员永远无法追上槽位
+            // 最大加速度至少为 1，防止错误的零配置让成员永远无法启动或追上槽位
             SetOrAdd(entityManager, commandMember.Ani, new AniMovementConfig
             {
                 MaxSpeed = commandMember.MaxSpeed,
@@ -496,7 +490,7 @@ namespace AnimarsCatcher.Navigation.Grid
             SetOrAdd(entityManager, commandMember.Ani, new AniSlotTarget());
             SetOrAdd(entityManager, commandMember.Ani, new AniPreferredVelocity());
 
-            // 这些组件由 Commit、Progress 和阵型系统共同维护，缺一都会阻断成员链路
+            // 位置目标、期望速度和移动结果分别由阵型、移动和进度流程使用，缺少任何一个都会中断移动
             SetOrAdd(entityManager, commandMember.Ani, new AniMovementResult());
         }
 
@@ -507,7 +501,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float3 center = float3.zero;
             int count = 0;
 
-            // 初始 Anchor 使用有效成员平均位置，死亡实体不参与几何中心
+            // 初始锚点取所有有效成员的平均位置，已销毁的 Entity 不参与计算
             for (int index = 0; index < members.Length; index++)
             {
                 Entity entity = members[index].Ani;
@@ -521,7 +515,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 count++;
             }
 
-            // 空列表只可能来自异常指令，零中心让失败路径保持确定性
+            // 空列表只会来自异常输入，此时返回零坐标作为明确的默认值
             return count == 0 ? float3.zero : center / count;
         }
 
@@ -536,13 +530,13 @@ namespace AnimarsCatcher.Navigation.Grid
             float minimumSpeed = float.PositiveInfinity;
             float minimumAcceleration = float.PositiveInfinity;
 
-            // 聚合速度取成员下界、半径取成员上界，保证整个 Squad 都满足约束
+            // 速度和加速度取全队最小值，半径取最大值，确保路线对每名成员都安全可用
             for (int index = 0; index < members.Length; index++)
             {
                 Entity aniEntity = members[index].Ani;
                 if (!state.EntityManager.HasComponent<AniMovementConfig>(aniEntity))
                 {
-                    // 组件尚未补齐时不把默认零值混入 Squad 能力聚合
+                    // 成员配置尚未准备好时跳过，避免默认零值错误限制整支队伍
                     continue;
                 }
 
@@ -552,7 +546,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 minimumAcceleration = math.min(minimumAcceleration, config.MaxAcceleration);
             }
 
-            // Infinity 只表示没有可用成员，转换为零让后续速度系统自然停住
+            // 无穷值表示没有可汇总的成员，此时改为零，让移动系统自然保持停止
             squad.MaximumAgentRadius = maximumRadius;
             squad.MinimumMaxSpeed = float.IsInfinity(minimumSpeed) ? 0f : minimumSpeed;
             squad.MinimumMaxAcceleration =
@@ -563,7 +557,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeList<AniSquadMember> previousMembers,
             Entity aniEntity)
         {
-            // 成员规模较少，线性查找旧槽位比建立临时映射更节省分配
+            // 队伍人数有限，直接扫描旧槽位比额外创建映射表更省内存
             for (int index = 0; index < previousMembers.Length; index++)
             {
                 if (previousMembers[index].Ani == aniEntity)
@@ -579,7 +573,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeList<AniSquadCommandMember> members,
             Entity aniEntity)
         {
-            // 入口列表可能包含重复 Entity，显式扫描维持唯一成员不变量
+            // 指令可能重复引用同一 Entity，加入前扫描一次，确保队伍中每名成员只出现一次
             for (int index = 0; index < members.Length; index++)
             {
                 if (members[index].Ani == aniEntity)
@@ -595,7 +589,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<AniSquadMember> members,
             Entity aniEntity)
         {
-            // 删除后立即返回，调用方会在外层处理旧 Squad 是否被掏空
+            // 找到并删除后立即返回；调用方随后会判断旧队伍是否已经为空
             for (int index = members.Length - 1; index >= 0; index--)
             {
                 if (members[index].Ani == aniEntity)
@@ -608,7 +602,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void SortCommands(ref SystemState state, NativeArray<Entity> commands)
         {
-            // 指令数量通常很小，插入排序可保持 NativeArray 原地且无额外分配
+            // 同帧指令通常很少，使用原地插入排序即可避免额外分配
             for (int index = 1; index < commands.Length; index++)
             {
                 Entity value = commands[index];
@@ -628,7 +622,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void SortMembers(NativeList<AniSquadCommandMember> members)
         {
-            // 成员规模较小且需要稳定结果，插入排序避免 NativeList 额外分配
+            // 队伍人数有限，原地插入排序既不额外分配，也能得到固定顺序
             for (int index = 1; index < members.Length; index++)
             {
                 AniSquadCommandMember value = members[index];
@@ -648,7 +642,7 @@ namespace AnimarsCatcher.Navigation.Grid
             AniSquadCommandMember left,
             AniSquadCommandMember right)
         {
-            // StableId 是跨回放主键；相等时用 Entity.Index 消除异常输入的非确定性
+            // StableId 用于在回放中保持同一顺序；异常重复时再用 Entity.Index 决定先后
             return left.StableId > right.StableId ||
                    (left.StableId == right.StableId && left.Ani.Index > right.Ani.Index);
         }
@@ -657,7 +651,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             uint value = _nextSquadId++;
 
-            // 零保留为无效引用，计数器环绕时跳过零
+            // 0 保留为无效编号，计数器溢出后会跳过它
             if (_nextSquadId == 0)
             {
                 _nextSquadId = 1;
@@ -669,14 +663,14 @@ namespace AnimarsCatcher.Navigation.Grid
         private static void SetOrAdd<T>(EntityManager entityManager, Entity entity, T value)
             where T : unmanaged, IComponentData
         {
-            // 组件存在时只写值；不存在时才结构变更，减少 Archetype 迁移
+            // 组件已存在时只更新值，缺少时才改变 Entity 结构，减少 Archetype 迁移
             if (entityManager.HasComponent<T>(entity))
             {
                 entityManager.SetComponentData(entity, value);
             }
             else
             {
-                // 结构变更只发生一次，后续指令复用同一 Archetype
+                // 组件补齐后，后续指令可以直接复用同一个 Archetype
                 entityManager.AddComponentData(entity, value);
             }
         }
@@ -691,13 +685,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // 清空 AssignmentVersion 使成员变化在下一帧重新匹配槽位
+            // 清空分配版本，让阵型系统在下一帧为变化后的成员重新匹配槽位
             AniSquadFormationState formation =
                 entityManager.GetComponentData<AniSquadFormationState>(squadEntity);
             formation.MemberVersion = memberVersion;
             formation.AssignmentVersion = 0;
 
-            // LayoutVersion 保持旧值，下一次布局系统会看到版本不一致并重建槽位
+            // 保留旧布局版本，使布局系统能发现版本不一致并重建槽位
             entityManager.SetComponentData(squadEntity, formation);
         }
     }

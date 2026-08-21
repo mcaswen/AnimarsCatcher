@@ -4,7 +4,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay.Contracts
 {
     /// <summary>
-    /// 保存服务器权威的对局结束状态和胜利阵营
+    /// 保存由服务器确定的对局结束状态和胜利阵营
     /// </summary>
     [GhostComponent(PrefabType = GhostPrefabType.All, SendTypeOptimization = GhostSendType.AllClients)]
     public struct GameResult : IComponentData

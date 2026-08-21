@@ -8,7 +8,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在服务器汇总实体收到的全部伤害事件并一次性更新生命值
+    /// 在服务器汇总 Entity 收到的全部伤害事件并一次性更新生命值
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]

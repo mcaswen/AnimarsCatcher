@@ -5,13 +5,13 @@ namespace AnimarsCatcher.Player
     using UnityEngine;
 
     /// <summary>
-    /// 标记需要驱动主 GameObject 相机的实体
+    /// 标记需要驱动主 GameObject 相机的 Entity
     /// </summary>
     [Serializable]
     public struct MainEntityCameraTag : IComponentData {}
 
     /// <summary>
-    /// 把场景中的相机目标烘焙为主相机实体
+    /// 把场景中的相机目标烘焙为主相机 Entity
     /// </summary>
     [DisallowMultipleComponent]
     public class MainEntityCameraAuthoring : MonoBehaviour

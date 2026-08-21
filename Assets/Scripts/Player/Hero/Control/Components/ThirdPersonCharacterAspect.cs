@@ -63,7 +63,7 @@ namespace AnimarsCatcher.Player
             ref KinematicCharacterBody characterBody = ref CharacterAspect.CharacterBody.ValueRW;
             ref float3 characterPosition = ref CharacterAspect.LocalTransform.ValueRW.Position;
 
-            // 更新父实体位移和接地，使速度计算读取当前地面状态
+            // 更新父 Entity 位移和接地，使速度计算读取当前地面状态
             CharacterAspect.Update_Initialize(in this, ref context, ref baseContext, ref characterBody, baseContext.Time.DeltaTime);
             CharacterAspect.Update_ParentMovement(in this, ref context, ref baseContext, ref characterBody, ref characterPosition, characterBody.WasGroundedBeforeCharacterUpdate);
             CharacterAspect.Update_Grounding(in this, ref context, ref baseContext, ref characterBody, ref characterPosition);
@@ -87,7 +87,7 @@ namespace AnimarsCatcher.Player
             ref ThirdPersonCharacter characterComponent = ref CharacterComponent.ValueRW;
             ref ThirdPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
 
-            // 站在旋转父实体上时同步旋转输入和相对速度
+            // 站在旋转父 Entity 上时同步旋转输入和相对速度
             if (characterBody.ParentEntity != Entity.Null)
             {
                 characterControl.MoveVector = math.rotate(characterBody.RotationFromParent, characterControl.MoveVector);
@@ -97,7 +97,7 @@ namespace AnimarsCatcher.Player
 
             if (characterBody.IsGrounded)
             {
-                // 接地时将速度平滑收敛到地面切线上的目标速度
+                // 接地时让速度沿地面切线平滑接近目标速度
                 float3 targetVelocity = characterControl.MoveVector * characterComponent.GroundMaxSpeed;
                 CharacterControlUtilities.StandardGroundMove_Interpolated(ref characterBody.RelativeVelocity, targetVelocity, characterComponent.GroundedMovementSharpness, deltaTime, characterBody.GroundingUp, characterBody.GroundHit.Normal);
             }
@@ -125,7 +125,7 @@ namespace AnimarsCatcher.Player
         }
 
         /// <summary>
-        /// 在可变帧率阶段更新父实体旋转插值和角色朝向
+        /// 在可变帧率阶段更新父 Entity 旋转插值和角色朝向
         /// </summary>
         /// <param name="context">第三人称角色更新上下文</param>
         /// <param name="baseContext">KCC 基础更新上下文</param>
@@ -136,7 +136,7 @@ namespace AnimarsCatcher.Player
             ref ThirdPersonCharacterControl characterControl = ref CharacterControl.ValueRW;
             ref quaternion characterRotation = ref CharacterAspect.LocalTransform.ValueRW.Rotation;
 
-            // 以可变帧率插值父实体旋转，使旋转平台上的角色表现连续
+            // 以可变帧率插值父 Entity 旋转，使旋转平台上的角色表现连续
             KinematicCharacterUtilities.AddVariableRateRotationFromFixedRateRotation(ref characterRotation, characterBody.RotationFromParent, baseContext.Time.DeltaTime, characterBody.LastPhysicsUpdateDeltaTime);
 
             // 有移动输入时平滑转向移动方向

@@ -8,7 +8,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 验证动态 Overlay 所有权和自适应阵型规则的确定性
+    /// 验证动态障碍的添加与移除，以及队伍根据通道宽度收拢阵型的规则
     /// </summary>
     public static class NavigationGridStageFiveValidation
     {
@@ -19,7 +19,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 供 Unity batchmode 调用阶段五全部校验
+        /// 供 Unity Batch Mode 执行阶段五全部验证
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -27,7 +27,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 依次执行纯算法和 Overlay 生命周期校验
+        /// 依次验证阵型算法和动态障碍缓冲区的生命周期
         /// </summary>
         public static void RunAll()
         {

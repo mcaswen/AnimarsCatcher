@@ -3,7 +3,7 @@ using Unity.Collections;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 描述 Flow Field 批次的 Native 工作区边界，所有容器仍由系统创建和释放
+    /// Flow Field 批处理复用的一组临时数组；内存由调度系统创建和释放
     /// </summary>
     public struct NavigationFlowFieldWorkspace
     {

@@ -91,7 +91,7 @@ namespace AnimarsCatcher.Gameplay
                 var pending    = _pendingLookup[attackerEntity];
                 var attributes = _attributesLookup[attackerEntity];
 
-                // 攻击模式必须与近战 RPC 链路匹配
+                // 只有近战模式才能通过这类 RPC 结算
                 if (attributes.AttackMode != AniAttackMode.Melee)
                 {
                     entityCommandBuffer.DestroyEntity(rpcEntity);
@@ -111,7 +111,7 @@ namespace AnimarsCatcher.Gameplay
                     !_campLookup.HasComponent(target) ||
                     !_meleeAttackableLookup.HasComponent(target))
                 {
-                    // 目标失效后消费快照，避免同一攻击持续重试
+                    // 目标失效后清除本次攻击记录，避免同一攻击持续重试
                     entityCommandBuffer.RemoveComponent<AniPendingAttack>(attackerEntity);
                     entityCommandBuffer.DestroyEntity(rpcEntity);
                     continue;
@@ -133,10 +133,10 @@ namespace AnimarsCatcher.Gameplay
                     Amount = attributes.AttackDamage,
                 });
 
-                // 待结算快照只能成功消费一次
+                // 每条待结算攻击记录只能成功处理一次
                 entityCommandBuffer.RemoveComponent<AniPendingAttack>(attackerEntity);
 
-                // RPC 实体消费后立即销毁
+                // RPC Entity 处理后立即销毁
                 entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 

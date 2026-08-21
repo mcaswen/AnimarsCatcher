@@ -26,7 +26,7 @@ namespace AnimarsCatcher.Gameplay
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
             var prefab = SystemAPI.GetSingleton<PlayerResourceGhostPrefabReference>().Value;
 
-            // 遍历连接并保证每个 NetworkId 只有一份资源实体
+            // 遍历连接并保证每个 NetworkId 只有一份资源 Entity
             foreach (var (networkId, connectionEntity) in SystemAPI
                          .Query<RefRO<NetworkId>>()
                          .WithEntityAccess())

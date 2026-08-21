@@ -6,7 +6,7 @@ namespace AnimarsCatcher.Networking.Editor
     using UnityEngine;
 
     /// <summary>
-    /// 将 NetCode 编辑器播放模式同步到运行时配置桥接层
+    /// 将 NetCode 编辑器播放模式同步到运行时配置
     /// </summary>
     [InitializeOnLoad]
     public static class NetworkPlayModeConfigurationInitializer

@@ -7,7 +7,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在服务器销毁生命值耗尽且没有专用死亡流程的 Ani 实体
+    /// 在服务器销毁生命值耗尽且没有专用死亡流程的 Ani Entity
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Gameplay
             {
                 var healthData = health.ValueRO;
 
-                // 只处理本帧伤害结算后生命值耗尽的实体
+                // 只处理本帧伤害结算后生命值耗尽的 Entity
                 if (healthData.Current > 0)
                     continue;
 

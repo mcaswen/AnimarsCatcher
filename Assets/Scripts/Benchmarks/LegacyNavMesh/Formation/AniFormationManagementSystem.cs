@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 slotsByLeader.Add(formationMember.leader, formationMember.slotIndex);
             }
 
-            // 离开请求只负责解除成员关系并消费请求组件
+            // 离开请求只负责解除成员关系，并在处理后移除请求组件
             foreach (var (leaveReq,  entity) in SystemAPI
                          .Query<RefRO<AniFormationLeaveRequest>>()
                          .WithEntityAccess())

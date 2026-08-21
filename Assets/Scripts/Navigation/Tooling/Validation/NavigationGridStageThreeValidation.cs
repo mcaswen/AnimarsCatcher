@@ -13,7 +13,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 执行阶段三 Portal、HPA 星、局部 Flow Field 与缓存自动验收
+    /// 自动验证分块入口、分层寻路、局部 Flow Field、动态障碍改路和缓存复用
     /// </summary>
     public static class NavigationGridStageThreeValidation
     {
@@ -24,7 +24,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 供 Unity 批处理执行阶段三完整验收
+        /// 供 Unity Batch Mode 执行阶段三全部验证
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -32,11 +32,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 执行分层烘焙、路径、缓存和异步接线验证
+        /// 依次验证分层数据、宏观路线、Flow Field、缓存和异步系统接线
         /// </summary>
         public static void RunAll()
         {
-            // 先验证纯算法，再验证 World 接线和异步生命周期
+            // 先检查纯算法，再检查 World 中的系统注册与异步生命周期
             TestHierarchyBakeDeterminism();
             TestHierarchicalReachabilityFieldAndCache();
             TestDynamicOverlayReselectsCorridor();
@@ -46,13 +46,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             TestWorldFilterRegistration();
             TestAsynchronousFlowFieldSystem();
             TestBenchmarkWorkloadScales();
-            // 只有全部断言完成后才输出成功标记
+            // 所有断言通过后才输出成功标记
             Debug.Log("Navigation Grid 阶段三自动验收通过");
         }
 
         private static void TestHierarchyBakeDeterminism()
         {
-            // 使用开放 Grid 排除障碍布局对 Portal 顺序的干扰
+            // 使用开放地图，排除障碍布局对分块入口生成顺序的影响
             NavigationGridCellData[] cells = CreateWalkableCells(16, 8);
             PrepareCells(cells, 16, 8, 4, 1f);
             NavigationGridHierarchyBuildResult first = NavigationGridHierarchyBuilder.Build(
@@ -61,7 +61,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 8,
                 4,
                 1f);
-            // 相同输入再次构建，用于检查分层数据的确定性
+            // 用相同输入重新构建一次，确认分层数据完全一致
             NavigationGridHierarchyBuildResult second = NavigationGridHierarchyBuilder.Build(
                 cells,
                 16,
@@ -88,7 +88,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             const int Width = 24;
             const int Height = 12;
-            // 中央墙只保留两个开口，强制宏观路线选择 Portal
+            // 中央墙只留两个开口，强制宏观路线明确选择分块入口
             NavigationGridCellData[] cells = CreateWalkableCells(Width, Height);
             for (int z = 0; z < Height; z++)
             {
@@ -108,9 +108,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 maximumProjectionRadiusInCells: 0,
                 clearancePenaltyWeight: 0f,
                 smoothingCostTolerance: 0f);
-            // 普通 A 星提供可达性和成本基线
+            // 普通 A* 提供实际可达和路线成本基线
             PathExecutionResult ordinary = ExecuteOrdinaryPath(grid, request);
-            // 连续两个相同请求用于验证同一批次内的 Field 缓存复用
+            // 连续提交两个相同请求，检查同一批次内能否复用 Flow Field 缓存
             FlowExecutionResult flow = ExecuteFlowBatch(
                 grid,
                 new[]
@@ -133,7 +133,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 flow.Results[0].TotalCost <= ordinary.Result.TotalCost * 1.25f + 0.0001f,
                 "HPA 星 Corridor 路径成本超过阶段三允许的 25% 次优范围");
 
-            // 先将宏观 Corridor 转为可快速检查的 Cluster 集合
+            // 先把宏观通道转换为分块集合，便于检查 Flow Field 是否越界
             var corridorSet = new HashSet<int>();
             for (int index = 0; index < flow.Results[0].CorridorClusterCount; index++)
             {
@@ -142,7 +142,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
 
             var integrationCosts = new Dictionary<int, float>();
-            // 建立 Cell 到 Integration Cost 的索引，供方向下降断言随机访问邻居
+            // 建立格子到剩余成本的索引，便于检查每个方向指向的邻格
             for (int index = 0; index < flow.Results[0].FieldCount; index++)
             {
                 NavigationFlowFieldCell fieldCell = flow.FlowCells[
@@ -153,7 +153,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     "Field 包含 Corridor 外 Cell");
             }
 
-            // 最后逐 Cell 验证方向落在合法且成本下降的邻居上
+            // 最后逐格确认方向指向合法且保持最低总成本的邻居
             ValidateDescendingDirections(ref grid.Value, flow, 0, integrationCosts, request);
         }
 
@@ -161,7 +161,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             const int Width = 8;
             const int Height = 3;
-            // 两个边界缺口分别承载窄通道和宽通道
+            // 两个分块边界开口分别形成窄入口和宽入口
             NavigationGridCellData[] cells = CreateWalkableCells(Width, Height);
             SetWalkable(cells, Width, 3, 0, false);
             SetWalkable(cells, Width, 4, 0, false);
@@ -169,14 +169,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridBakingAlgorithms.BuildConnectivity(cells, Width, Height, 0.5f);
             NavigationGridBakingAlgorithms.AssignClusters(cells, Width, Height, 4);
             NavigationGridBakingAlgorithms.AssignRegions(cells, Width, Height);
-            // Connectivity 固定后手工覆盖 Clearance，隔离 Portal 分桶这一项行为
+            // 先固定连接关系，再手工设置安全距离，只测试入口按宽度拆分的行为
             for (int index = 0; index < cells.Length; index++)
             {
                 NavigationGridCellData cell = cells[index];
                 cell.Clearance = cell.Walkable ? 2f : 0f;
                 cells[index] = cell;
             }
-            // 1.1 和 1.8 在旧的整格分桶中会被合成同一 Portal，导致宽段被窄段拖累
+            // 宽度 1.1 和 1.8 不能合并成同一入口，否则宽段会被窄段的最小值限制
             SetClearance(cells, Width, 3, 1, 1.1f);
             SetClearance(cells, Width, 4, 1, 1.1f);
             SetClearance(cells, Width, 3, 2, 1.8f);
@@ -190,13 +190,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 7,
                 maximumProjectionRadiusInCells: 0,
                 clearancePenaltyWeight: 0f);
-            // 请求半径设置为只能通过宽 Portal
+            // 角色体型设置为只能通过宽入口
             FlowExecutionResult flow = ExecuteFlowBatch(
                 grid,
                 new[] { NavigationFlowFieldRequest.Create(request) });
             Assert(flow.Results[0].Status == NavigationPathStatus.Succeeded, "大体型应通过宽 Portal");
             float requiredClearance = request.AgentRadius - grid.Value.BaseAgentRadius;
-            // 逐个确认最终 Corridor 没有使用 Clearance 不足的 Portal
+            // 逐项确认最终通道没有使用空间不足的入口
             for (int index = 0; index < flow.Results[0].CorridorPortalCount; index++)
             {
                 int portalIndex = flow.CorridorPortals[
@@ -210,13 +210,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestDynamicOverlayReselectsCorridor()
         {
-            // 三乘三 Cluster 提供穿过中央、绕上方和绕下方三类宏观候选
-            // 起终点位于中间一行，静态最短路线应穿过中央 Cluster
-            // 动态墙只切断中央 Cluster 内部，不封闭其 Portal 代表 Cell
-            // 旧实现因此会先选择静态 Corridor，再在 Integration 阶段失败
-            // 修复后的抽象搜索应在失败前看到内部边不可达并选择外围路线
-            // ExtraCost 夹具保持所有 Cell 可达，只改变路线的相对总成本
-            // 两个夹具分别覆盖“必须重选”和“应当重选”两种语义
+            // 三乘三分块提供穿过中央、绕上方和绕下方三类宏观路线
+            // 起终点位于中间一行，静态最短路线会穿过中央分块
+            // 动态墙只切断中央分块内部，入口代表格子本身仍保持开放
+            // 宏观搜索必须发现内部已不可达并改走外围，而不是等到 Flow Field 阶段才失败
+            // 另一项测试只增加成本、不阻挡格子，确认宏观路线也会选择更便宜的绕路
             const int Width = 12;
             const int Height = 12;
             const int ClusterSize = 4;
@@ -237,7 +235,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(baseline.Results[0].Status == NavigationPathStatus.Succeeded,
                 "动态 Corridor 夹具的静态基线失败");
 
-            // 在中央 Cluster 内建立贯穿墙；Portal 代表 Cell 保持开放，专门复现静态内部边失效
+            // 在中央分块内建立贯穿墙，但保留入口代表格子，用来复现静态内部连接失效
             var blockedOverlay = new NavigationDynamicOverlayCell[Width * Height];
             for (int z = 4; z < 8; z++)
             {
@@ -258,7 +256,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(!CorridorEquals(baseline, blocked),
                 "动态墙未触发宏观 Corridor 重选");
 
-            // 高额非阻挡成本也必须影响宏观选择，不能只在选定 Corridor 的 Field 内生效
+            // 很高的动态附加成本也必须影响宏观路线，不能等通道选定后才在 Flow Field 中生效
             var expensiveOverlay = new NavigationDynamicOverlayCell[Width * Height];
             for (int z = 4; z < 8; z++)
             {
@@ -285,15 +283,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestFlowDirectionBellmanFallback()
         {
-            // 单 Cluster 排除 HPA Corridor 对方向结果的影响
-            // 中心到目标的直线被一个 Cell 阻断，左右绕行完全对称
-            // 中心的东西后继拥有相同 Bellman 总成本和相反单位向量
-            // 平滑和为零时仍必须选择一条真实下降边
-            // CellIndex 决胜规定西侧索引更小，因此期望方向固定为负 X
-            // 夹具通过完整 Flow Job 生成 Integration Cost，不注入人工 Scratch
+            // 使用单个分块，排除宏观通道选择对方向结果的影响
+            // 中心到目标的直线被一个格子挡住，左右绕行完全对称
+            // 东西两个下一格具有相同最低总成本，方向混合后会互相抵消
+            // 即使混合向量为零，也必须选择一条真实可走的最优边
+            // 西侧格子索引更小，因此预期方向固定为负 X
+            // 测试运行完整的 Flow Field 任务来生成成本，不手工填入临时数据
             const int Width = 5;
             NavigationGridCellData[] cells = CreateWalkableCells(Width, Width);
-            // 目标正南方的静态障碍让中心 Cell 产生东西两个对称最优后继
+            // 目标正南方的障碍使中心格子产生东西两个对称的最优下一格
             SetWalkable(cells, Width, 2, 1, false);
             PrepareCells(cells, Width, Width, Width, 1f);
             using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, Width, Width, Width);
@@ -332,18 +330,18 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestCacheCapacityRecycles()
         {
-            // 单 Cluster 让 65 个请求共享 Corridor，却拥有不同目标 Cell 缓存键
-            // 前 64 项恰好填满固定容量，不应提前换代
-            // 第 65 项触发整代回收并作为新一代第一项写入
-            // 第 66 项重复第 65 项，CacheHit 是新目标已经被接纳的外部证据
-            // 所有断言只读取公开 Job Result，不跨程序集访问内部缓存容器
-            // 该夹具同时覆盖换代后的 Field 切片范围和目标成本查询
+            // 65 个请求共用同一分块通道，但目标格子不同，因此缓存键也不同
+            // 前 64 项正好填满缓存，不应提前换代
+            // 第 65 项触发整代清理，并成为新一代第一项
+            // 第 66 项重复第 65 个目标，必须命中新一代缓存
+            // 测试只读取公开任务结果，不访问内部缓存容器
+            // 同时检查换代后的 Flow Field 切片和起点成本仍然有效
             const int Width = 9;
             NavigationGridCellData[] cells = CreateWalkableCells(Width, Width);
             PrepareCells(cells, Width, Width, Width, 1f);
             using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, Width, Width, Width);
             var requests = new NavigationFlowFieldRequest[66];
-            // 前 65 个目标填满并换代；最后一个请求重复第 65 个目标，必须命中新一代
+            // 前 65 个目标填满并换代，最后一项重复第 65 个目标并验证缓存命中
             for (int target = 0; target <= 64; target++)
             {
                 int x = target % Width;
@@ -376,15 +374,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestWorldFilterRegistration()
         {
-            // 分别读取三类 World 的默认系统注册表
-            // 注册表来自系统特性解析，可验证过滤声明而不启动完整游戏 World
+            // 分别读取服务器、本地模拟和客户端的默认系统列表
+            // 无需启动完整游戏 World，就能检查系统过滤声明
             IReadOnlyList<Type> serverSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ServerSimulation);
             IReadOnlyList<Type> localSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.LocalSimulation);
             IReadOnlyList<Type> clientSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ClientSimulation);
-            // Server 和 Local 可执行寻路，纯 Client 不得注册权威导航系统
+            // 服务器和本地模拟可以寻路，纯客户端不能注册只应由服务器运行的导航系统
             Assert(
                 ContainsSystem(serverSystems, typeof(ServerNavigationGridBenchmarkGridSystem)),
                 "Server World is missing the Grid benchmark data source");
@@ -425,7 +423,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridCellData[] cells = CreateWalkableCells(16, 8);
             PrepareCells(cells, 16, 8, 4, 1f);
             using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, 16, 8, 4);
-            // 隔离 World 避免项目中其他导航系统影响请求状态
+            // 使用隔离 World，避免项目中的其他系统改变测试请求状态
             using var world = new World("Navigation Grid Stage Three Validation", WorldFlags.Game);
             AniMovementBackendWorldUtility.ConfigureWorld(world, AniMovementBackend.ClearanceGrid);
             EntityManager entityManager = world.EntityManager;
@@ -455,7 +453,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 entityManager,
                 NavigationFlowFieldRequest.Create(pathRequest));
             SystemHandle system = world.GetOrCreateSystem<ServerNavigationGridFlowFieldSystem>();
-            // 首次 Update 只能调度 Job 并进入 Searching
+            // 第一次更新只能调度后台任务并进入 Searching
             system.Update(world.Unmanaged);
             NavigationFlowFieldState fieldState =
                 entityManager.GetComponentData<NavigationFlowFieldState>(requestEntity);
@@ -463,7 +461,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             WaitForFlowResult(world, system, requestEntity, out fieldState);
             Assert(fieldState.Status == NavigationPathStatus.Succeeded, "异步阶段三请求失败");
 
-            // 递增版本后重交相同目标和 Corridor，验证跨帧缓存
+            // 递增版本后重新提交相同目标和通道，检查跨帧缓存复用
             pathRequest.Version++;
             entityManager.SetComponentData(
                 requestEntity,
@@ -479,11 +477,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private static void TestBenchmarkWorkloadScales()
         {
             int[] counts = { 32, 64, 128 };
-            // 三档规模共用同一配置结构，只改变请求实体数量
+            // 三种规模使用同一配置，只改变请求 Entity 数量
             for (int countIndex = 0; countIndex < counts.Length; countIndex++)
             {
                 int count = counts[countIndex];
-                // 每档规模使用独立 World，避免前一档实体和系统状态进入计数
+                // 每种规模使用独立 World，避免上一轮 Entity 和系统状态影响统计
                 using var world = new World($"Stage Three Benchmark {count}", WorldFlags.Game);
                 AniMovementBackendWorldUtility.ConfigureWorld(world, AniMovementBackend.ClearanceGrid);
                 EntityManager entityManager = world.EntityManager;
@@ -511,11 +509,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     AgentRadius = 0.35f,
                 });
 
-                // 先让数据源系统注册唯一 Benchmark Grid
+                // 先让数据源系统创建唯一的基准导航网格
                 SystemHandle gridSystem =
                     world.GetOrCreateSystem<ServerNavigationGridBenchmarkGridSystem>();
                 gridSystem.Update(world.Unmanaged);
-                // 唯一 Grid 是缓存索引和结果归属的前提
+                // 只有一张网格时，缓存索引和结果归属才有明确含义
                 using EntityQuery grids = entityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<NavigationGridReference>());
                 Assert(grids.CalculateEntityCount() == 1, "Shared benchmark did not get one Grid");
@@ -526,7 +524,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 using EntityQuery requests = entityManager.CreateEntityQuery(
                     ComponentType.ReadOnly<NavigationGridBenchmarkRequestTag>());
                 Assert(requests.CalculateEntityCount() == count, $"{count} 规模未生成对应 Field 工作负载");
-                // 逐实体检查纯路径工作负载没有混入移动组件
+                // 逐个 Entity 检查纯寻路模式没有意外添加移动组件
                 using NativeArray<Entity> entities = requests.ToEntityArray(Allocator.Temp);
                 for (int index = 0; index < entities.Length; index++)
                 {
@@ -535,7 +533,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     for (int typeIndex = 0; typeIndex < componentTypes.Length; typeIndex++)
                     {
                         Type managedType = TypeManager.GetType(componentTypes[typeIndex].TypeIndex);
-                        // LocalTransform 表示 Benchmark 已经污染 Ani 移动写回统计
+                        // 出现 LocalTransform 说明纯寻路基准错误地创建了可移动 Ani
                         Assert(
                             managedType == null || managedType.FullName != "Unity.Transforms.LocalTransform",
                             "Grid 路径与 Field Benchmark 不得创建或写入 Ani Transform");
@@ -551,17 +549,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Dictionary<int, float> integrationCosts,
             NavigationPathRequest request)
         {
-            // 方向合法性分三层验证：非零、离散邻接、Bellman 最优
-            // 下降断言防止形成局部环，Bellman 断言防止选择次优下降边
-            // 当前夹具没有 Overlay，所以 successor cost 不包含动态额外项
-            // 动态成本的同一公式由 Corridor 重选夹具覆盖
+            // 方向依次检查非零、对应真实相邻格，以及满足 Bellman 最优条件
+            // 成本下降可防止局部环，Bellman 条件可防止选择更贵的下降边
+            // 当前场景没有动态障碍，因此下一格成本不包含动态附加项
+            // 动态成本由前面的宏观改路测试覆盖
             NavigationFlowFieldJobResult result = flow.Results[resultIndex];
             for (int index = 0; index < result.FieldCount; index++)
             {
                 NavigationFlowFieldCell fieldCell = flow.FlowCells[result.FieldOffset + index];
                 if (math.lengthsq(fieldCell.Direction) <= 0.0001f)
                 {
-                    // 只有投影终点允许输出零方向
+                    // 只有纠正后的目标格子允许方向为零
                     Assert(
                         fieldCell.CellIndex == result.ProjectedEndCellIndex,
                         "非目标 Cell 的 Flow Direction 不能为零");
@@ -570,10 +568,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
                 int deltaX = (int)math.round(fieldCell.Direction.x);
                 int deltaZ = (int)math.round(fieldCell.Direction.y);
-                // 平滑方向最终仍应归属八邻域中的一个离散 Cell
+                // 平滑方向最终仍必须对应八邻域中的一个真实格子
                 int x = fieldCell.CellIndex % grid.Width + deltaX;
                 int z = fieldCell.CellIndex / grid.Width + deltaZ;
-                // 非零方向必须映射到 Grid 内的离散邻居
+                // 非零方向必须能映射到地图范围内的相邻格子
                 Assert(x >= 0 && x < grid.Width && z >= 0 && z < grid.Height, "Flow 指向 Grid 外");
                 int neighbor = x + z * grid.Width;
                 Assert(grid.Cells[neighbor].Walkable != 0, "Flow 指向不可行走 Cell");
@@ -602,25 +600,25 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationDynamicOverlayCell[] overlayCells = null,
             uint overlayVersion = 1)
         {
-            // Scratch 长度与运行时 System 使用相同的 Cell、Cluster 和 Node 维度
+            // 临时数组按正式系统使用的格子、分块和节点数量分配
             int cellCount = grid.Value.Cells.Length;
             int clusterCount = grid.Value.Clusters.Length;
             int nodeCount = grid.Value.PortalNodes.Length;
-            // 输入和结果数组按 request 下标一一对应
+            // 输入请求和结果数组按下标一一对应
             var jobRequests = new NativeArray<NavigationFlowFieldJobRequest>(requests.Length, Allocator.TempJob);
             var results = new NativeArray<NavigationFlowFieldJobResult>(requests.Length, Allocator.TempJob);
-            // 四个 NativeList 镜像 Job 的共享切片输出
+            // 四个 NativeList 对应后台任务的四类共享输出
             var corridorClusters = new NativeList<int>(64, Allocator.TempJob);
             var corridorPortals = new NativeList<int>(64, Allocator.TempJob);
             var waypointCells = new NativeList<int>(128, Allocator.TempJob);
             var flowCells = new NativeList<NavigationFlowFieldCell>(256, Allocator.TempJob);
-            // Cell Scratch 用于局部 Dijkstra 和 Integration Field
+            // 格子临时数组由局部 Dijkstra 和 Integration Field 共用
             var cellCosts = new NativeArray<float>(cellCount, Allocator.TempJob);
             var cellHeap = new NativeArray<int>(cellCount, Allocator.TempJob);
             var cellHeapPositions = new NativeArray<int>(cellCount, Allocator.TempJob);
             var cellGenerations = new NativeArray<int>(cellCount, Allocator.TempJob, NativeArrayOptions.ClearMemory);
             var clusterGenerations = new NativeArray<int>(clusterCount, Allocator.TempJob, NativeArrayOptions.ClearMemory);
-            // 抽象 Scratch 按 Portal Node 数量分配
+            // 抽象搜索临时数组按入口节点数量分配
             var abstractCosts = new NativeArray<float>(nodeCount, Allocator.TempJob);
             var abstractEndCosts = new NativeArray<float>(nodeCount, Allocator.TempJob);
             var abstractParents = new NativeArray<int>(nodeCount, Allocator.TempJob);
@@ -646,10 +644,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             {
                 if (overlayCells != null)
                 {
-                    // 托管输入先复制到与生产 Job 相同形状的 NativeArray
-                    // Cluster 版本只标记当前确有非零动态值的分块
-                    // 全局 OverlayVersion 大于初始值才启用动态宏观边路径
-                    // AffectedCellCount 在夹具中只承担诊断，不参与算法选择
+                    // 托管输入先复制到与正式任务相同形状的 NativeArray
+                    // 只有当前仍包含动态影响的分块才写入非零版本
+                    // 全局动态障碍版本非零时，宏观搜索才启用动态边重算
+                    // AffectedCellCount 仅用于诊断，不影响路线选择
                     Assert(overlayCells.Length == cellCount, "测试 Overlay 长度与 Grid 不一致");
                     for (int cellIndex = 0; cellIndex < cellCount; cellIndex++)
                     {
@@ -671,7 +669,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     }
                 }
 
-                // 数组顺序就是 Job 的稳定批次顺序
+                // 数组顺序就是后台任务处理请求的固定顺序
                 for (int index = 0; index < requests.Length; index++)
                 {
                     jobRequests[index] = new NavigationFlowFieldJobRequest
@@ -714,10 +712,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     DynamicOverlayClusters = dynamicOverlayClusters,
                     DynamicOverlayVersion = overlayVersion,
                 };
-                // 测试同步等待只用于读取结果，不代表运行时 System 会阻塞主线程
+                // 测试中同步等待只是为了立即读取结果，正式系统不会这样阻塞主线程
                 JobHandle handle = job.Schedule();
                 handle.Complete();
-                // 离开作用域前复制结果，返回对象不持有 Native 容器
+                // 退出作用域前将结果复制为托管数据，返回对象不持有 Native 容器
                 return new FlowExecutionResult(
                     results.ToArray(),
                     corridorClusters.AsArray().ToArray(),
@@ -727,7 +725,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
             finally
             {
-                // finally 保证 Job 或断言异常时也释放全部 TempJob 分配
+                // finally 确保任务或断言异常时也会释放所有 TempJob 内存
                 cacheCells.Dispose();
                 cacheClusters.Dispose();
                 cacheEntries.Dispose();
@@ -761,9 +759,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             FlowExecutionResult left,
             FlowExecutionResult right)
         {
-            // 结果切片可能位于共享数组的任意偏移，比较时必须使用各自 Offset
-            // Cluster 顺序属于 Corridor 语义，集合相同但顺序不同仍视为重选
-            // Portal 和 Waypoint 会随 Cluster 序列派生，无需在此重复比较
+            // 每条结果在共享数组中的起点可能不同，比较时必须使用各自切片范围
+            // 分块顺序属于宏观路线的一部分，即使集合相同，顺序不同也算路线变化
+            // 分块序列已经决定入口和宏观路点，这里无需重复比较
             NavigationFlowFieldJobResult leftResult = left.Results[0];
             NavigationFlowFieldJobResult rightResult = right.Results[0];
             if (leftResult.CorridorClusterCount != rightResult.CorridorClusterCount)
@@ -788,7 +786,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationPathRequest request)
         {
             int cellCount = grid.Value.Cells.Length;
-            // 普通 A 星 Scratch 全部按 Cell 数分配
+            // 普通 A* 的临时数组全部按格子数分配
             var requests = new NativeArray<NavigationPathJobRequest>(1, Allocator.TempJob);
             var results = new NativeArray<NavigationPathJobResult>(1, Allocator.TempJob);
             var pathCells = new NativeList<int>(32, Allocator.TempJob);
@@ -818,14 +816,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     GenerationStart = 1,
                     DynamicOverlay = dynamicOverlay,
                 };
-                // 同步完成后只保留状态、成本、展开量和路径 Cell
+                // 同步完成后只保留状态、成本、展开数和路径格子
                 JobHandle handle = job.Schedule();
                 handle.Complete();
                 return new PathExecutionResult(results[0], pathCells.AsArray().ToArray());
             }
             finally
             {
-                // 普通路径基线与 Flow 辅助器保持相同的异常释放保证
+                // 普通路径基线与 Flow Field 测试使用相同的异常释放规则
                 generations.Dispose();
                 dynamicOverlay.Dispose();
                 heapPositions.Dispose();
@@ -844,14 +842,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             int height,
             int clusterSize)
         {
-            // 分层数据直接由当前测试 Cell 拓扑生成
+            // 分层数据直接根据当前测试格子的连接关系生成
             NavigationGridHierarchyBuildResult hierarchy = NavigationGridHierarchyBuilder.Build(
                 cells,
                 width,
                 height,
                 clusterSize,
                 1f);
-            // Temp Builder 只承载构造过程，返回的 Blob 使用独立 Persistent 分配
+            // 临时 Builder 只用于构建，返回的 Blob 使用独立 Persistent 内存
             var builder = new BlobBuilder(Allocator.Temp);
             ref NavigationGridBlob root = ref builder.ConstructRoot<NavigationGridBlob>();
             root.BoundsMinimum = new float3(0f, -1f, 0f);
@@ -866,10 +864,10 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             root.ClusterHeight = hierarchy.ClusterHeight;
             root.RegionCount = CountRegions(cells);
             root.DataVersion = NavigationGridBakeAsset.CurrentDataVersion;
-            // 固定 Hash 让测试只观察拓扑和算法行为
+            // 使用固定哈希，让测试只关注地图连接和算法结果
             root.DataHash = new Unity.Entities.Hash128("00000000000000000000000000000001");
 
-            // 测试 Blob 的 Cell 布局与生产 Baker 保持一致
+            // 测试 Blob 的格子布局与正式 Baker 保持一致
             BlobBuilderArray<NavigationGridCell> blobCells = builder.Allocate(ref root.Cells, cells.Length);
             for (int index = 0; index < cells.Length; index++)
             {
@@ -888,7 +886,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // Cluster 的 Portal Node 偏移和数量必须保持构建器生成的连续切片契约
+            // 分块直接复制构建器生成的入口节点切片起点和数量
             BlobBuilderArray<NavigationGridCluster> blobClusters =
                 builder.Allocate(ref root.Clusters, hierarchy.Clusters.Length);
             for (int index = 0; index < hierarchy.Clusters.Length; index++)
@@ -905,7 +903,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // Portal 保留区间端点、代表 Cell 和双向成本
+            // 分块入口保留两侧范围、代表格子和双向成本
             BlobBuilderArray<NavigationGridPortal> blobPortals =
                 builder.Allocate(ref root.Portals, hierarchy.Portals.Length);
             for (int index = 0; index < hierarchy.Portals.Length; index++)
@@ -928,7 +926,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // Portal Node 保留其 Cluster 和出边切片
+            // 入口节点保留所属分块和出边切片
             BlobBuilderArray<NavigationGridPortalNode> blobNodes =
                 builder.Allocate(ref root.PortalNodes, hierarchy.PortalNodes.Length);
             for (int index = 0; index < hierarchy.PortalNodes.Length; index++)
@@ -944,7 +942,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // 抽象边的字节标志与生产 Blob 表示一致
+            // 抽象连接的 byte 标记与正式 Blob 表示一致
             BlobBuilderArray<NavigationGridAbstractEdge> blobEdges =
                 builder.Allocate(ref root.AbstractEdges, hierarchy.AbstractEdges.Length);
             for (int index = 0; index < hierarchy.AbstractEdges.Length; index++)
@@ -959,7 +957,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 };
             }
 
-            // Cluster 通过连续索引数组定位自己的 Portal Node
+            // 每个分块通过连续索引数组找到自己的入口节点
             BlobBuilderArray<int> clusterNodeIndices = builder.Allocate(
                 ref root.ClusterPortalNodeIndices,
                 hierarchy.ClusterPortalNodeIndices.Length);
@@ -968,7 +966,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 clusterNodeIndices[index] = hierarchy.ClusterPortalNodeIndices[index];
             }
 
-            // 返回 Persistent Blob，由每个 using 测试作用域负责释放
+            // 返回 Persistent Blob，由每个测试作用域负责释放
             BlobAssetReference<NavigationGridBlob> result =
                 builder.CreateBlobAssetReference<NavigationGridBlob>(Allocator.Persistent);
             builder.Dispose();
@@ -982,13 +980,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Entity entity = entityManager.CreateEntity(
                 typeof(NavigationFlowFieldRequest),
                 typeof(NavigationFlowFieldState));
-            // Flow Field System 写回前要求四类输出 Buffer 全部存在
+            // Flow Field 系统写回前要求四类输出缓冲区全部存在
             entityManager.AddBuffer<NavigationCorridorCluster>(entity);
             entityManager.AddBuffer<NavigationCorridorPortal>(entity);
             entityManager.AddBuffer<NavigationHierarchicalWaypoint>(entity);
             entityManager.AddBuffer<NavigationFlowFieldCell>(entity);
             entityManager.SetComponentData(entity, request);
-            // State 捕获相同版本，运行时写回会同时比对请求与状态版本
+            // 请求和状态使用相同版本，运行时写回会同时检查两者
             entityManager.SetComponentData(
                 entity,
                 NavigationFlowFieldState.CreatePending(request.PathRequest.Version));
@@ -1003,13 +1001,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             JobHandle.ScheduleBatchedJobs();
             fieldState = world.EntityManager.GetComponentData<NavigationFlowFieldState>(entity);
-            // 有限循环防止调度故障让编辑器验收无限等待
+            // 使用有限循环，避免任务调度故障让编辑器测试无限等待
             for (int updateIndex = 0;
                  updateIndex < 10000 && fieldState.Status == NavigationPathStatus.Searching;
                  updateIndex++)
             {
                 Thread.Yield();
-                // 每次 Update 只推进真实 System，不直接 Complete 其内部句柄
+                // 每次更新只运行真实系统，不直接访问或 Complete 内部任务句柄
                 system.Update(world.Unmanaged);
                 fieldState = world.EntityManager.GetComponentData<NavigationFlowFieldState>(entity);
             }
@@ -1020,7 +1018,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             var cells = new NavigationGridCellData[width * height];
             for (int index = 0; index < cells.Length; index++)
             {
-                // 默认开放地面，具体测试只覆盖障碍或 Clearance 差异
+                // 默认创建开放地面，各测试只覆盖需要的障碍或安全距离差异
                 cells[index] = new NavigationGridCellData
                 {
                     Height = 0f,
@@ -1040,7 +1038,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             int clusterSize,
             float cellSize)
         {
-            // 派生顺序与生产烘焙一致，后一步依赖前一步的拓扑结果
+            // 使用与正式烘焙相同的计算顺序，后一步读取前一步结果
             NavigationGridBakingAlgorithms.BuildConnectivity(cells, width, height, 0.5f);
             NavigationEuclideanDistanceTransform.Calculate(cells, width, height, cellSize);
             NavigationGridBakingAlgorithms.AssignClusters(cells, width, height, clusterSize);
@@ -1076,7 +1074,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private static int CountRegions(NavigationGridCellData[] cells)
         {
             int maximum = 0;
-            // RegionId 从一连续编号，因此最大值就是有效 Region 数量
+            // 有效区域从 1 连续编号，因此最大 RegionId 就是区域数量
             for (int index = 0; index < cells.Length; index++)
             {
                 maximum = math.max(maximum, cells[index].RegionId);

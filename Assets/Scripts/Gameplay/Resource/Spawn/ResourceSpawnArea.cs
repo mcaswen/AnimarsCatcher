@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Gameplay
         public float2 HalfExtentsXZ;
         public float  SpawnHeightOffset;
 
-        // 区域内两类资源各自的实体上限
+        // 区域内两类资源各自的 Entity 上限
         public int MaxFoodCount;
         public int MaxCrystalCount;
 

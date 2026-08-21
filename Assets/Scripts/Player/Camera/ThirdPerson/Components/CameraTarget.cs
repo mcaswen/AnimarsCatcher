@@ -7,7 +7,7 @@ namespace AnimarsCatcher.Player
     using Unity.NetCode;
 
     /// <summary>
-    /// 保存相机实际跟随目标的实体引用
+    /// 保存相机实际跟随目标的 Entity 引用
     /// </summary>
     [Serializable]
     public struct CameraTarget : IComponentData

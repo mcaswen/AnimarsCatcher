@@ -51,7 +51,7 @@ namespace AnimarsCatcher.Player
                 return;
             }
 
-            // 原始设备状态只采集一次，所有本地输入实体共享同一帧快照
+            // 原始设备状态只采集一次，所有本地输入 Entity 共享同一帧快照
             var keyboard = Keyboard.current;
             var mouse = Mouse.current;
 

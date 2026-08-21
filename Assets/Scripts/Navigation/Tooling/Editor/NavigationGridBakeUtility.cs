@@ -14,7 +14,7 @@ using Object = UnityEngine.Object;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 提供确定性的编辑器 Physics Grid 烘焙和新鲜度校验
+    /// 在编辑器中采样场景物理几何、生成导航网格资产，并检查现有资产是否已经过期
     /// </summary>
     public static class NavigationGridBakeUtility
     {
@@ -24,14 +24,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private const float SampleEpsilon = 0.001f;
 
         /// <summary>
-        /// 采样当前场景并整体更新对应的 Grid 资产
+        /// 采样当前场景并完整更新对应的导航网格资产
         /// </summary>
         /// <param name="authoring">待烘焙的 Grid 配置</param>
-        /// <returns>创建或更新后的可检查资产</returns>
+        /// <returns>创建或更新后的烘焙资产</returns>
         public static NavigationGridBakeAsset Bake(NavigationGridAuthoring authoring)
         {
-            // 物理采样和几何 Hash 读取同一次同步后的 Transform 状态
-            // 所有派生字段在内存中完成后再整体替换资产
+            // 先同步 Transform，使物理采样和几何哈希读取同一份场景状态
+            // 所有格子和分层数据都在内存中生成完毕后，再一次性替换资产内容
             if (!TryValidateSettings(authoring, out string settingsError))
             {
                 throw new InvalidOperationException(settingsError);
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             int height = dimensions.y;
             NavigationGridCellData[] cells = new NavigationGridCellData[width * height];
 
-            // 物理采样生成基础 Cell 随后纯算法阶段派生拓扑和空间标识
+            // 物理查询先生成基础格子，随后再计算邻接、安全距离、连通区域和分层数据
             Dictionary<Collider, string> colliderKeys = BuildColliderKeyLookup(authoring);
             SampleCells(authoring, colliderKeys, cells, width, height);
             NavigationGridBakingAlgorithms.BuildConnectivity(
@@ -64,7 +64,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 authoring.ClusterSizeInCells);
             int regionCount = NavigationGridBakingAlgorithms.AssignRegions(cells, width, height);
 
-            // 量化发生在 Hash 和资产写入前保证两者读取同一份数据
+            // 在计算内容哈希和写入资产之前统一量化浮点值，确保两处使用完全相同的数据
             QuantizeCells(cells);
             NavigationGridHierarchyBuildResult hierarchy =
                 NavigationGridHierarchyBuilder.Build(
@@ -118,17 +118,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 校验资产来源、参数、几何和 Cell 数据是否仍与场景一致
+        /// 检查资产的场景来源、配置、几何和内容是否仍与当前场景一致
         /// </summary>
         /// <param name="authoring">待校验的 Grid 配置</param>
         /// <param name="message">校验结果说明</param>
-        /// <returns>所有新鲜度条件满足时返回 true</returns>
+        /// <returns>资产仍然有效、不需要重新烘焙时返回 true</returns>
         public static bool TryValidateCurrentAsset(
             NavigationGridAuthoring authoring,
             out string message)
         {
-            // 新鲜度按来源、版本、参数、几何和数据内容逐层校验
-            // 任一摘要不一致都要求重新烘焙而不增量修补旧资产
+            // 依次检查场景来源、版本、配置、几何和资产内容
+            // 任一项不一致都要求完整重新烘焙，不尝试局部修补旧资产
             if (!TryValidateSettings(authoring, out message))
             {
                 return false;
@@ -165,7 +165,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 return false;
             }
 
-            // 参数和几何分开比较可以向用户报告准确的过期原因
+            // 配置和场景几何分别比较，用户可以准确知道资产为什么过期
             string parameterHash = ComputeParameterHash(authoring);
             if (!string.Equals(bakeAsset.ParameterHash, parameterHash, StringComparison.Ordinal))
             {
@@ -192,7 +192,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 校验 Authoring 是否具备可重复烘焙的基础条件
+        /// 检查场景配置是否完整，并且能够生成可重复验证的烘焙结果
         /// </summary>
         /// <param name="authoring">待检查的 Grid 配置</param>
         /// <param name="message">配置检查结果</param>
@@ -201,8 +201,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridAuthoring authoring,
             out string message)
         {
-            // 配置校验同时限制正确性和最坏内存规模
-            // 未保存场景无法产生稳定 GUID 与几何身份，因而禁止烘焙
+            // 配置检查既防止无效结果，也限制极端尺寸造成的内存占用
+            // 未保存场景没有固定 GUID 和对象路径，无法可靠判断资产是否过期，因此不允许烘焙
             if (authoring == null)
             {
                 message = "缺少 NavigationGridAuthoring";
@@ -250,7 +250,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 return false;
             }
 
-            // 使用 long 计算总数防止尺寸相乘先发生整数溢出
+            // 使用 long 计算格子总数，防止宽高相乘时先发生整数溢出
             int2 dimensions = authoring.GridDimensions;
             long cellCount = (long)dimensions.x * dimensions.y;
             if (cellCount <= 0 || cellCount > MaximumCellCount)
@@ -271,14 +271,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 按固定字段顺序计算 Authoring 参数 Hash
+        /// 根据所有影响烘焙结果的配置计算参数哈希
         /// </summary>
         /// <param name="authoring">Grid 配置</param>
-        /// <returns>三十二位十六进制 Hash</returns>
+        /// <returns>32 位十六进制文本哈希</returns>
         public static string ComputeParameterHash(NavigationGridAuthoring authoring)
         {
-            // 字段写入顺序属于资产兼容契约，调整顺序会使现有资产过期
-            // Terrain Cost 规则顺序影响 Layer 匹配优先级，因而不能排序
+            // 字段顺序是参数哈希格式的一部分，修改顺序会让已有资产被判定为过期
+            // 地形成本规则按配置顺序匹配，不能为了计算哈希而重新排序
             using var writer = new NavigationGridHashWriter();
             writer.Append(NavigationGridBakeAsset.CurrentToolVersion);
             writer.Append(NavigationGridBakeAsset.CurrentDataVersion);
@@ -306,14 +306,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 按稳定 Collider 顺序计算场景几何 Hash
+        /// 根据烘焙范围内的 Collider 和外部网格资源计算场景几何哈希
         /// </summary>
         /// <param name="authoring">限定场景、Layer 和 Bounds 的 Grid 配置</param>
-        /// <returns>三十二位十六进制 Hash</returns>
+        /// <returns>32 位十六进制文本哈希</returns>
         public static string ComputeGeometryHash(NavigationGridAuthoring authoring)
         {
-            // Collider 先按稳定键排序，再写入 Mesh 和 TerrainData 等外部依赖摘要
-            // Bounds 与物理采样读取同一次同步后的 Physics 状态
+            // 先按可跨会话识别的路径排序 Collider，再加入 Mesh、TerrainData 等依赖资源的摘要
+            // 边界和物理采样都读取同步后的同一份 Physics 状态
             Physics.SyncTransforms();
             List<Collider> colliders = CollectRelevantColliders(authoring);
             var records = new List<NavigationGridColliderRecord>(colliders.Count);
@@ -325,7 +325,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     GetStableObjectKey(collider)));
             }
 
-            // 排序只使用跨会话稳定键，不使用 InstanceId
+            // 排序使用场景或资产路径，不使用重启编辑器后会变化的 InstanceId
             records.Sort((left, right) =>
                 string.CompareOrdinal(left.StableKey, right.StableKey));
 
@@ -352,12 +352,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 把稳定 Cell 索引转换为地表世界中心
+        /// 将格子索引转换为该格子中心在烘焙地面上的世界坐标
         /// </summary>
         /// <param name="bakeAsset">包含尺寸和高度的 Grid 资产</param>
         /// <param name="index">Cell 行主序索引</param>
         /// <param name="verticalOffset">用于 Gizmo 的垂直偏移</param>
-        /// <returns>目标 Cell 的世界中心</returns>
+        /// <returns>目标格子中心的世界坐标</returns>
         public static Vector3 GetCellCenter(
             NavigationGridBakeAsset bakeAsset,
             int index,
@@ -373,7 +373,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 bounds.min.z + (z + 0.5f) * bakeAsset.CellSize);
         }
 
-        // 地面支撑、坡度和角色体积共同决定 Walkable，此处不派生邻接和 Clearance
+        // 地面支撑、坡度和角色空间共同决定格子能否站立；邻接和安全距离稍后统一计算
         private static void SampleCells(
             NavigationGridAuthoring authoring,
             Dictionary<Collider, string> colliderKeys,
@@ -447,8 +447,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 候选地面按距离和稳定键选择，只接受当前场景对象
-        // 命中达到缓存上限时主动失败，避免静默截断集合
+        // 多个地面命中按距离和对象路径决定优先级，并且只接受当前场景中的对象
+        // 命中数达到缓冲区上限时明确失败，避免悄悄丢掉可能更合适的地面
         private static bool TryFindGround(
             NavigationGridAuthoring authoring,
             Dictionary<Collider, string> colliderKeys,
@@ -504,8 +504,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return found;
         }
 
-        // 圆周采样保守拒绝窄边缘、悬空和断裂平台
-        // 支撑点必须与中心命中保持可接受的高度连续性
+        // 在角色脚底圆周上补充采样，用来排除窄边缘、悬空位置和断裂平台
+        // 周边支撑点与中心地面的高度差必须在允许范围内
         private static bool HasBaseAgentGroundSupport(
             NavigationGridAuthoring authoring,
             Dictionary<Collider, string> colliderKeys,
@@ -523,7 +523,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 slopeHeightAllowance) + SampleEpsilon;
             Bounds bounds = authoring.WorldBounds;
 
-            // 环形支撑采样防止中心落在地面但 Agent 脚底跨出悬崖或窄平台
+            // 即使中心点有地面，脚底周边伸出悬崖或窄平台时也不能算作可站立
             for (int sampleIndex = 0; sampleIndex < supportSampleCount; sampleIndex++)
             {
                 float angle = sampleIndex * Mathf.PI * 2f / supportSampleCount;
@@ -566,8 +566,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return true;
         }
 
-        // 基础角色体积略微离开支撑面，避免把地面自身当成障碍
-        // Trigger 和不相关 Layer 不参与阻挡判断
+        // 角色检测体积略微抬离地面，避免将支撑地面本身误判为障碍
+        // Trigger 和未配置为障碍的 Layer 不参与占用检查
         private static bool HasStaticObstacle(
             NavigationGridAuthoring authoring,
             RaycastHit groundHit,
@@ -612,8 +612,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return false;
         }
 
-        // 当前场景已有资产时原地更新以保持引用稳定
-        // 复制场景沿用旧资产时创建独立副本避免覆盖来源数据
+        // 当前场景已有自己的资产时原地更新，已有引用不会失效
+        // 复制场景若仍引用原场景资产，则创建独立副本，避免覆盖来源场景的数据
         private static NavigationGridBakeAsset GetOrCreateBakeAsset(
             NavigationGridAuthoring authoring)
         {
@@ -638,15 +638,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     return authoring.BakeAsset;
                 }
 
-                // 复制 Scene 会保留原 SO 引用，新场景必须创建独立资产避免覆盖来源场景数据
+                // Unity 复制场景时会保留原 ScriptableObject 引用，因此新场景要换成自己的资产
                 return CreateBakeAsset(authoring);
             }
 
             return CreateBakeAsset(authoring);
         }
 
-        // 输出目录和前缀遵循项目资源命名规范
-        // 唯一路径生成防止同名场景或历史资产被静默覆盖
+        // 输出目录和文件名前缀遵循项目约定
+        // 使用唯一资产路径，避免同名场景或历史资产被无提示覆盖
         private static NavigationGridBakeAsset CreateBakeAsset(
             NavigationGridAuthoring authoring)
         {
@@ -661,8 +661,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return bakeAsset;
         }
 
-        // AssetDatabase 只能逐级创建目录
-        // 已存在层级直接复用使调用保持幂等
+        // AssetDatabase 需要逐级创建目录；已经存在的层级直接复用
         private static void EnsureAssetFolder(string folderPath)
         {
             string[] segments = folderPath.Split('/');
@@ -679,8 +678,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 场景名进入资产路径前移除文件系统非法字符
-        // 空结果使用稳定回退名称避免生成不可定位资产
+        // 场景名用于文件名之前先移除非法字符
+        // 清理后为空时使用固定备用名称，确保仍能生成可定位资产
         private static string SanitizeAssetName(string value)
         {
             char[] invalidCharacters = Path.GetInvalidFileNameChars();
@@ -694,8 +693,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return builder.ToString();
         }
 
-        // 采样热路径通过字典复用稳定键
-        // 这样每次射线命中不需要重复访问 AssetDatabase 和 Hierarchy
+        // 物理采样会频繁查询对象身份，因此用字典缓存对象路径
+        // 每次射线命中便无需重复访问 AssetDatabase 和 Hierarchy
         private static Dictionary<Collider, string> BuildColliderKeyLookup(
             NavigationGridAuthoring authoring)
         {
@@ -709,8 +708,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return result;
         }
 
-        // 此处只筛选场景、Layer、Bounds 和启用状态，后续再按稳定键排序
-        // Trigger 与无效 Collider 不参与几何 Hash 或物理采样
+        // 这里只按场景、Layer、范围和启用状态筛选，之后再按对象路径排序
+        // Trigger 和无效 Collider 都不参与几何哈希或物理采样
         private static List<Collider> CollectRelevantColliders(
             NavigationGridAuthoring authoring)
         {
@@ -744,8 +743,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return result;
         }
 
-        // 持久化资产使用项目路径，场景组件使用场景与 Hierarchy 路径
-        // 稳定身份不能依赖跨会话变化的 InstanceId
+        // 资产对象使用项目路径，场景组件使用场景路径加 Hierarchy 路径
+        // 这些身份不能依赖重启编辑器后会变化的 InstanceId
         private static string GetStableObjectKey(Object target)
         {
             GlobalObjectId globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(target);
@@ -764,8 +763,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return $"{target.GetType().FullName}:{assetPath}:{target.name}";
         }
 
-        // Hierarchy 路径加入同名兄弟索引以区分名称相同的对象
-        // 未保存场景无法形成跨会话稳定身份并由上层校验拒绝
+        // Hierarchy 路径包含同名兄弟对象的索引，避免名称相同的对象混淆
+        // 未保存场景无法生成可跨会话识别的路径，已在上层配置检查中拒绝
         private static string BuildHierarchyFallbackKey(Component component)
         {
             var segments = new List<string>();
@@ -782,8 +781,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return $"{component.gameObject.scene.path}/{string.Join("/", segments)}#{component.GetType().FullName}:{componentIndex}";
         }
 
-        // Collider 序列化字段不足以覆盖外部 Mesh 和 TerrainData 依赖
-        // 依赖资产变化必须传播到几何 Hash 并触发重新烘焙
+        // Collider 自身的序列化字段不能反映 Mesh 或 TerrainData 内容变化
+        // 因此还要加入外部依赖的哈希，使资源修改能够触发重新烘焙
         private static void AppendColliderDependencies(
             NavigationGridHashWriter writer,
             Collider collider)
@@ -798,8 +797,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 空依赖写入显式占位确保字段位置保持稳定
-        // 持久化依赖同时写入路径和 Asset Dependency Hash
+        // 没有依赖资源时写入明确占位值，保持哈希字段顺序不变
+        // 有持久化资源时同时写入资产路径和依赖哈希
         private static void AppendObjectDependency(
             NavigationGridHashWriter writer,
             Object dependency)
@@ -819,8 +818,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 : AssetDatabase.GetAssetDependencyHash(path).ToString());
         }
 
-        // 物理结果量化后再进入 Data Hash 和运行时 Blob
-        // 统一精度吸收无业务意义的浮点尾差并提高跨机器可重复性
+        // 物理采样结果先量化，再进入内容哈希和运行时 Blob
+        // 固定精度可以消除没有业务意义的浮点尾差，提高不同机器重复烘焙的一致性
         private static void QuantizeCells(NavigationGridCellData[] cells)
         {
             for (int i = 0; i < cells.Length; i++)
@@ -838,14 +837,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 中点远离零舍入让正负值采用对称规则
+        // 中点采用远离零的舍入方式，使正负值使用对称规则
         private static float Quantize(float value)
         {
             return Mathf.Round(value * 10_000f) / 10_000f;
         }
 
-        // 内存烘焙结果与持久化资产使用完全相同的字段顺序
-        // Hash 覆盖头部元数据和每个 Cell 的全部运行时字段
+        // 内存结果和持久化资产使用完全相同的字段顺序计算内容哈希
+        // 哈希覆盖网格元数据、所有格子字段和分层寻路数据
         private static string ComputeDataHash(NavigationGridBakeResult result)
         {
             using var writer = new NavigationGridHashWriter();
@@ -888,8 +887,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return writer.FinishHash128();
         }
 
-        // 从资产重新计算内容 Hash 用于发现手工修改和序列化损坏
-        // 此重载必须与内存结果重载保持字节级一致
+        // 从资产重新计算内容哈希，可发现手工修改或序列化损坏
+        // 该路径必须与内存结果采用完全相同的字节顺序
         private static string ComputeDataHash(NavigationGridBakeAsset bakeAsset)
         {
             using var writer = new NavigationGridHashWriter();
@@ -932,8 +931,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return writer.FinishHash128();
         }
 
-        // 头部字段顺序属于 Data Hash 格式的一部分
-        // 修改字段集合时必须同步提升 DataVersion 并更新两条计算路径
+        // 元数据字段顺序属于内容哈希格式的一部分
+        // 新增、删除或重排字段时，必须提升 DataVersion 并同步更新两条哈希计算路径
         private static void AppendDataHeader(
             NavigationGridHashWriter writer,
             string sceneGuid,
@@ -981,8 +980,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             writer.Append(clusterPortalNodeIndexCount);
         }
 
-        // Cell 按行主序写入，任何重排都会产生不同 Data Hash
-        // 委托让数组和 ScriptableObject 共用同一序列化顺序
+        // 格子按行写入，顺序变化会产生不同内容哈希
+        // 通过委托让内存数组和 ScriptableObject 使用同一读取顺序
         private static void AppendCells(
             NavigationGridHashWriter writer,
             int cellCount,
@@ -1071,7 +1070,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private readonly struct NavigationGridColliderRecord
         {
-            // Collider 与稳定键绑定后才能脱离 Unity 查找顺序进行排序
+            // 将 Collider 与对象路径配对后，排序就不再依赖 Unity 返回对象的顺序
             public NavigationGridColliderRecord(Collider collider, string stableKey)
             {
                 Collider = collider;
@@ -1085,21 +1084,21 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
     internal sealed class NavigationGridHashWriter : IDisposable
     {
-        // 所有值按固定字段顺序写入，字符串带 UTF8 长度前缀
-        // Finish 后禁止复用，防止摘要意外包含额外字段
+        // 所有值按固定顺序写入；字符串以 UTF-8 编码并带长度前缀
+        // 调用 Finish 后不再允许写入，防止哈希意外包含额外字段
         private readonly MemoryStream _stream = new MemoryStream();
         private readonly BinaryWriter _writer;
         private bool _finished;
 
         public NavigationGridHashWriter()
         {
-            // 保持底层流打开以便 Flush 后从起点计算摘要
+            // BinaryWriter 释放时保持底层流打开，随后从流起点计算哈希
             _writer = new BinaryWriter(_stream, Encoding.UTF8, true);
         }
 
         public void Append(string value)
         {
-            // 长度前缀区分字符串边界，空引用按空字符串处理
+            // 长度前缀用于区分连续字符串，null 按空字符串处理
             byte[] bytes = Encoding.UTF8.GetBytes(value ?? string.Empty);
             _writer.Write(bytes.Length);
             _writer.Write(bytes);
@@ -1127,7 +1126,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         public void Append(Vector3 value)
         {
-            // 向量始终按 X Y Z 顺序展开
+            // 向量始终按 X、Y、Z 顺序写入
             Append(value.x);
             Append(value.y);
             Append(value.z);
@@ -1135,14 +1134,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         public void Append(Bounds value)
         {
-            // Bounds 使用中心和尺寸保持 Unity 序列化语义一致
+            // Bounds 写入中心和尺寸，与 Unity 的序列化含义一致
             Append(value.center);
             Append(value.size);
         }
 
         public void Append(Matrix4x4 value)
         {
-            // 矩阵按固定行列顺序展开避免平台内存布局差异
+            // 矩阵按固定行列顺序写入，不依赖平台内存布局
             for (int row = 0; row < 4; row++)
             {
                 for (int column = 0; column < 4; column++)
@@ -1154,8 +1153,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         public string FinishHash128()
         {
-            // SHA256 提供稳定摘要，最终截取前十六字节形成 128 位文本
-            // 截断结果只用于变化检测，不作为安全签名
+            // 使用 SHA-256 计算摘要，并截取前 16 字节形成 128 位文本
+            // 该哈希只用于检测内容变化，不用作安全签名
             if (_finished)
             {
                 throw new InvalidOperationException("Hash writer can only be finished once");
@@ -1177,7 +1176,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         public void Dispose()
         {
-            // Writer 和底层流都由当前实例独占
+            // Writer 和底层内存流都只由当前哈希构建器持有
             _writer.Dispose();
             _stream.Dispose();
         }

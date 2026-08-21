@@ -4,17 +4,17 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 计算供所有体型复用的保守欧氏 Clearance 场
+    /// 计算每个可行走格子到最近障碍边界的直线距离，供不同体型角色判断能否通过
     /// </summary>
     public static class NavigationEuclideanDistanceTransform
     {
         private const double InfiniteDistance = double.PositiveInfinity;
 
-        // 外围补一圈阻挡，使越界空间自然进入同一个距离场
-        // 两次一维平方距离变换组合为确定性的二维欧氏距离
-        // 断崖和不可连接的可行走邻居同样作为零距离边界
-        // 中心距离减去阻挡 Cell 半对角线，避免高估任意方向可用空间
-        // 所有临时数组仅存在于烘焙调用期间，不进入运行时 Blob
+        // 地图外围视为一圈障碍，让边界格子也能用同一公式计算距离
+        // 先沿一个轴、再沿另一个轴做平方距离变换，得到二维欧氏距离
+        // 断崖以及看似可站立但不能相互跨越的邻格，也视为障碍边界
+        // 从中心距离中扣除半个格子对角线，避免高估斜向可用空间
+        // 临时数组只在烘焙时存在，不会写入运行时 Blob
 
         public static void Calculate(
             NavigationGridCellData[] cells,
@@ -22,15 +22,15 @@ namespace AnimarsCatcher.Navigation.Grid
             int height,
             float cellSize)
         {
-            // Clearance 使用欧氏距离场而不是曼哈顿层数
-            // 结果表达 Cell 中心附近可用的保守半径并供多体型复用
+            // 使用直线距离而不是横竖步数，结果更接近角色周围真实可用半径
+            // 得到的安全距离略偏保守，可供不同半径的角色共同使用
             ValidateShape(cells, width, height);
             if (cellSize <= 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(cellSize));
             }
 
-            // 外围补一圈阻挡，将越出 Grid 的空间统一纳入距离场而不在变换阶段增加边界分支
+            // 在工作数组外围补一圈障碍，距离变换时无需为地图边界单独分支
             int paddedWidth = width + 2;
             int paddedHeight = height + 2;
             double[] source = new double[paddedWidth * paddedHeight];
@@ -48,19 +48,19 @@ namespace AnimarsCatcher.Navigation.Grid
                         z - 1,
                         width,
                         height);
-                    // 0 表示距离源，+∞ 表示非源点；变换结果是到所有距离源的最小平方距离
+                    // 障碍边界记为 0，其他位置记为无穷；变换后得到最近障碍的平方距离
                     source[x + z * paddedWidth] = blocked ? 0d : InfiniteDistance;
                 }
             }
 
-            // 一维工作区按最长轴复用，避免为每一行和每一列重复分配数组
+            // 一维临时数组按较长轴分配，并在所有行列之间复用
             int maximumLength = Math.Max(paddedWidth, paddedHeight);
             double[] lineSource = new double[maximumLength];
             double[] lineResult = new double[maximumLength];
             int[] envelopeIndices = new int[maximumLength];
             double[] envelopeLimits = new double[maximumLength + 1];
 
-            // 平方欧氏距离可分离为 Z 和 X 两次一维变换，总复杂度保持 O(width * height)
+            // 平方欧氏距离可以拆成 Z、X 两次一维计算，总开销为 O(width * height)
             for (int x = 0; x < paddedWidth; x++)
             {
                 for (int z = 0; z < paddedHeight; z++)
@@ -116,7 +116,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     {
                         double centerDistance = Math.Sqrt(
                             distanceSquared[(x + 1) + (z + 1) * paddedWidth]);
-                        // 从中心距离减去阻挡 Cell 半对角线，保证任何方向都不会高估可用空间
+                        // 扣除障碍格子的半对角线，确保任何方向都不会高估可用空间
                         cell.Clearance = Mathf.Max(
                             0f,
                             (float)centerDistance * cellSize - obstacleHalfDiagonal);
@@ -134,8 +134,8 @@ namespace AnimarsCatcher.Navigation.Grid
             int width,
             int height)
         {
-            // 不可行走 Cell 和外围补边界都是距离场的零距离源
-            // 可行走断层也作为源点避免 Clearance 跨越实际上不可通过的边缘
+            // 不可行走格子和地图外边界都是距离为零的障碍源
+            // 可行走地面之间的断层也作为障碍源，安全距离不会跨过实际无法通过的边缘
             int index = x + z * width;
             NavigationGridCellData cell = cells[index];
             if (!cell.Walkable)
@@ -143,7 +143,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return true;
             }
 
-            // 两侧都可站立但不能跨越时把断层 Cell 当作距离场边界
+            // 两个格子都能站立但不能互通时，将这一侧视为距离场边界
             return
                 IsDisconnectedWalkableNeighbor(
                     cells,
@@ -193,8 +193,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int height,
             NavigationNeighborMask directionMask)
         {
-            // 只检查仍可站立但没有对应连接的相邻 Cell
-            // 普通阻挡已经由源点标记覆盖，此处专门捕获台阶和断崖边界
+            // 普通障碍已经标记，这里只查找可站立却没有邻接连接的台阶和断崖
             int neighborX = x + deltaX;
             int neighborZ = z + deltaZ;
             if (!IsInside(neighborX, neighborZ, width, height))
@@ -221,13 +220,13 @@ namespace AnimarsCatcher.Navigation.Grid
             int[] envelopeIndices,
             double[] envelopeLimits)
         {
-            // 使用一维平方距离变换构造抛物线下包络
-            // 每个有限源点最多入栈和出栈一次，因此单轴计算保持线性复杂度
-            // source 的有限值表示距离源，无穷值表示等待其他源点传播
+            // 一维平方距离变换通过构造抛物线下包络求最近距离
+            // 每个有效距离源最多进出工作栈一次，因此单轴计算为线性时间
+            // 有限值代表已有距离源，无穷值代表需要由其他距离源覆盖的位置
             int envelopeCount = -1;
 
-            // 每个有限源点 q 都定义一条 source[q] + (x - q)^2 抛物线
-            // envelopeIndices 和 envelopeLimits 保存这些抛物线的下包络及其开始生效的位置
+            // 每个距离源 q 对应一条 source[q] + (x - q)^2 抛物线
+            // envelopeIndices 记录组成下包络的抛物线，envelopeLimits 记录各自开始成为最优解的位置
             for (int position = 0; position < length; position++)
             {
                 if (double.IsPositiveInfinity(source[position]))
@@ -249,7 +248,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         break;
                     }
 
-                    // 新抛物线在旧抛物线生效前已经更优时，旧抛物线不可能贡献最小距离
+                    // 新抛物线在旧抛物线的有效范围开始前就更低时，旧抛物线可以直接移除
                     envelopeCount--;
                 }
 
@@ -270,7 +269,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // 查询位置单调递增时，最优抛物线也只会向后切换，因而评估阶段是线性复杂度
+            // 查询位置从小到大移动时，最优抛物线也只会向后切换，因此评估仍为线性时间
             int activeEnvelope = 0;
             for (int position = 0; position < length; position++)
             {
@@ -290,8 +289,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int width,
             int height)
         {
-            // 所有二维算法都依赖 Cells 与 Width Height 完全匹配
-            // 在入口集中失败可避免越界错误被误判为采样或寻路问题
+            // 格子总数必须与宽高一致；入口处先检查，避免尺寸错误演变为越界访问
             if (cells == null)
             {
                 throw new ArgumentNullException(nameof(cells));

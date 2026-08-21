@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Gameplay
                 return;
             }
 
-            // 服务器是生成数量、阵营归属和实体拥有权的最终执行方
+            // Ani 的生成数量、阵营归属和 Entity 拥有权都由服务器决定
             foreach (var (rpc, req, rpcEntity) in SystemAPI
                          .Query<RefRO<SpawnAniRequestRpc>, RefRO<ReceiveRpcCommandRequest>>()
                          .WithEntityAccess())
@@ -100,7 +100,7 @@ namespace AnimarsCatcher.Gameplay
                         networkId);
                 }
 
-                // RPC 实体消费后立即销毁，防止下一帧重复生成
+                // RPC Entity 处理后立即销毁，防止下一帧重复生成
                 entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 

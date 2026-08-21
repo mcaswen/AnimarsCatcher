@@ -25,7 +25,7 @@ namespace AnimarsCatcher.Networking
 
             var entityManager = serverWorld.EntityManager;
 
-            // 监听请求必须唯一，重复实体会让 NetCode 重复绑定同一端口
+            // 监听请求必须唯一，重复 Entity 会让 NetCode 重复绑定同一端口
             if (!entityManager.CreateEntityQuery(typeof(NetworkStreamRequestListen)).IsEmpty)
             {
                 Debug.Log("[Server] 已经存在 NetworkStreamRequestListen，跳过。");

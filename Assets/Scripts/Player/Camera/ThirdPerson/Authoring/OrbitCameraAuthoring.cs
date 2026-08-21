@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Player
     using UnityEngine.Serialization;
 
     /// <summary>
-    /// 配置环绕相机的旋转、缩放、遮挡和忽略实体
+    /// 配置环绕相机的旋转、缩放、遮挡和忽略 Entity
     /// </summary>
     [DisallowMultipleComponent]
     public class OrbitCameraAuthoring : MonoBehaviour

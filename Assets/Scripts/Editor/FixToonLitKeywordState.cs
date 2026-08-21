@@ -35,7 +35,7 @@ namespace AnimarsCatcher.Editor
                     foreach (var kw in shader.keywordSpace.keywords)
                         mat.SetKeyword(kw, false);
 
-                    // 标脏后由末尾 SaveAssets 统一持久化，减少逐材质磁盘写入
+            // 标记修改后由末尾的 SaveAssets 统一保存，减少逐个材质写入磁盘
                     EditorUtility.SetDirty(mat);
                 }
             }

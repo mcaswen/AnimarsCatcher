@@ -76,7 +76,7 @@ namespace AnimarsCatcher.Presentation.EntityView
                 return;
             }
 
-            // 视觉层按渲染帧位移计算速度，避免依赖预测实体的回滚速度
+            // 视觉层按渲染帧位移计算速度，避免依赖预测 Entity 的回滚速度
             Vector3 speed = delta / deltaTime;
 
             ControlSmokeParticleSystem(speed);

@@ -6,7 +6,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在场景或预制体上配置实体的初始阵营
+    /// 在场景或预制体上配置 Entity 的初始阵营
     /// </summary>
     [DisallowMultipleComponent]
     public class CampAuthoring : MonoBehaviour

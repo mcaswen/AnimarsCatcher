@@ -12,7 +12,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Editor
 {
     /// <summary>
-    /// 在批处理 Editor 中打开固定场景、进入 Play Mode并等待当前导航后端的基准结果
+    /// 在批处理 Editor 中打开固定场景、进入 Play Mode，并等待当前导航后端的基准结果
     /// </summary>
     [InitializeOnLoad]
     public static class LegacyNavigationBenchmarkBatchRunner
@@ -69,7 +69,7 @@ namespace AnimarsCatcher.Editor
 
         private static void BeginRun(int agentCount)
         {
-            // 批处理只创建 Server World，避免客户端表现系统污染基准负载
+            // 批处理只创建 Server World，避免客户端表现系统影响基准负载
             if (Application.isBatchMode &&
                 !NetworkPlayModeConfiguration.IsServerOnly)
             {
@@ -209,7 +209,7 @@ namespace AnimarsCatcher.Editor
 
         private static void Finish(int exitCode, string message)
         {
-            // 先关闭轮询再切换 Play Mode，避免域重载后重复消费同一报告
+            // 先关闭轮询再切换 Play Mode，避免域重载后重复处理同一报告
             SessionState.SetBool(ActiveKey, false);
             EditorApplication.update -= Poll;
 

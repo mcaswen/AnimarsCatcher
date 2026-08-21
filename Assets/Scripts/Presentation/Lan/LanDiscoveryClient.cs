@@ -110,7 +110,7 @@ namespace AnimarsCatcher.Presentation.Lan
             CleanupExpiredServers();
         }
 
-        // 消费当前帧已经到达的全部数据报
+        // 处理当前帧已经到达的全部数据报
         private void ReceivePackets()
         {
             try

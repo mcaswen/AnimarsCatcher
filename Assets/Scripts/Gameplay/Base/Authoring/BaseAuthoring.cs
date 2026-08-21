@@ -7,7 +7,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 将场景中的基地配置烘焙为参与阵营、生命值和攻击感知的实体数据
+    /// 将场景中的基地配置烘焙为参与阵营、生命值和攻击感知的 Entity 数据
     /// </summary>
     public class BaseAuthoring : MonoBehaviour
     {

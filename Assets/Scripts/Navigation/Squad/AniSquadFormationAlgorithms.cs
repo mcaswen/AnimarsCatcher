@@ -7,17 +7,17 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 提供阶段四阵型、速度和局部 Field 采样的无状态计算
+    /// 提供阵型宽度、角色槽位、成员分配和槽位坐标等纯计算方法
     /// </summary>
     public static class AniSquadFormationAlgorithms
     {
         /// <summary>
-        /// 计算给定成员数量下的固定阵型列数
+        /// 根据阵型类型、成员数和配置上限确定每排人数
         /// </summary>
         /// <param name="kind">阵型类型</param>
         /// <param name="memberCount">当前成员数量</param>
         /// <param name="configuredColumns">紧凑矩形的配置列数</param>
-        /// <returns>至少为一且不超过成员数量的列数</returns>
+        /// <returns>实际列数，范围为 1 到成员数量</returns>
         public static int CalculateColumnCount(
             AniSquadFormationKind kind,
             int memberCount,
@@ -26,23 +26,23 @@ namespace AnimarsCatcher.Navigation.Grid
             int count = math.max(1, memberCount);
             if (kind == AniSquadFormationKind.Column)
             {
-                // 纵队是单列特例，忽略外部列数避免布局形状漂移
+                // 纵队始终只有一列，不受外部配置影响
                 return 1;
             }
 
-            // 紧凑矩形限制在成员数量内，防止产生没有成员的尾列
+            // 列数不超过成员数，避免布局中出现整列空位
             return math.clamp(configuredColumns, 1, count);
         }
 
         /// <summary>
-        /// 根据前视可用宽度计算阶段五的目标列数
+        /// 根据队伍前方的可用宽度，计算当前最多可以并排行进的成员数
         /// </summary>
         /// <param name="kind">当前阵型类型</param>
         /// <param name="memberCount">当前有效成员数量</param>
-        /// <param name="usableWidth">扣除边界余量后的前视宽度</param>
+        /// <param name="usableWidth">扣除两侧安全距离后，前方真正可用的宽度</param>
         /// <param name="maximumAgentDiameter">队伍最大成员直径</param>
         /// <param name="horizontalGap">相邻列之间的额外间距</param>
-        /// <returns>限制在一到成员数量之间的目标列数</returns>
+        /// <returns>适合当前通道的列数，范围为 1 到成员数量</returns>
         public static int CalculateAdaptiveColumnCount(
             AniSquadFormationKind kind,
             int memberCount,
@@ -65,9 +65,9 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 为前排和后排生成稳定的职责槽位偏好
+        /// 指定各排更适合的成员职责：Picker 在前，Blaster 在后
         /// </summary>
-        /// <param name="slotIndex">稳定槽位索引</param>
+        /// <param name="slotIndex">槽位索引</param>
         /// <param name="memberCount">当前有效成员数量</param>
         /// <param name="columnCount">当前阵型列数</param>
         /// <returns>前排 Picker、后排 Blaster、中间排 Any</returns>
@@ -89,22 +89,22 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 使用确定性的 Hungarian 匹配求解成员到槽位的最小总代价
+        /// 使用 Hungarian 算法为每名成员分配唯一槽位，并尽量降低全队换位成本
         /// </summary>
-        /// <param name="costMatrix">按成员行、槽位列连续存储的非负有限代价</param>
+        /// <param name="costMatrix">每名成员前往每个槽位的代价矩阵，按成员逐行存放</param>
         /// <param name="memberCount">需要分配的成员数量</param>
         /// <param name="slotCount">可用槽位数量，必须不少于成员数量</param>
-        /// <param name="assignments">逐成员输出槽位索引</param>
-        /// <returns>输入有效并生成完整一对一匹配时返回 true</returns>
+        /// <param name="assignments">输出每名成员对应的槽位索引</param>
+        /// <returns>成功为所有成员分配不同槽位时返回 true</returns>
         public static bool TrySolveMinimumCostAssignment(
             NativeArray<float> costMatrix,
             int memberCount,
             int slotCount,
             NativeArray<int> assignments)
         {
-            // 当前阵型是一名成员对应一个槽位，因此只接受成员数不大于槽位数的矩阵
-            // 输入容器由调用方持有，求解器只写 assignments，不修改原始代价
-            // 维度检查在任何临时分配前完成，异常调用不会产生额外运行时负担
+            // 每名成员都需要独立槽位，因此槽位数不能少于成员数
+            // 求解过程只写 assignments，不会修改调用方传入的代价矩阵
+            // 先检查输入再申请临时内存，错误调用可以尽早返回
             if (!costMatrix.IsCreated ||
                 !assignments.IsCreated ||
                 memberCount <= 0 ||
@@ -142,18 +142,18 @@ namespace AnimarsCatcher.Navigation.Grid
 
             try
             {
-            // Hungarian 使用一基索引，零号槽位作为每次增广的虚拟起点
-            // matchedMembers[slot] 保存当前占用该槽位的成员，一对一约束由它集中维护
-            // memberPotentials 和 slotPotentials 保存对偶势，避免反复修改原始代价矩阵
-            // minimumCosts 保存当前交替树到每个未访问槽位的最短约化代价
-            // previousSlots 记录交替树父边，找到空槽后沿它反向翻转匹配
+            // 这个 Hungarian 实现从索引 1 开始，索引 0 用作每轮查找的虚拟起点
+            // matchedMembers 记录槽位当前属于谁，用它保证一名成员对应一个槽位
+            // 两组 potentials 保存算法的对偶势，因此不需要修改原始代价矩阵
+            // minimumCosts 记录搜索树到各个未访问槽位的最低剩余代价
+            // previousSlots 记录搜索路径，找到空槽后可沿路径反向更新匹配
             for (int member = 1; member <= memberCount; member++)
             {
-                // 每轮只加入一个新成员，前面已经建立的匹配作为增广路径起点
+                // 每轮为一名新成员找位置，并在必要时调整之前的匹配
                 matchedMembers[0] = member;
                 for (int slot = 0; slot <= slotCount; slot++)
                 {
-                    // 临时最短路状态不能跨成员复用，势函数和已有匹配则必须保留
+                    // 每名成员都要重新开始路径搜索，但已有匹配和势函数会继续使用
                     minimumCosts[slot] = float.PositiveInfinity;
                     previousSlots[slot] = 0;
                     visitedSlots[slot] = 0;
@@ -162,7 +162,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int currentSlot = 0;
                 do
                 {
-                    // 访问一个已匹配槽位后，继续从其成员向所有未访问槽位松弛
+                    // 如果槽位已有成员，就从那名成员继续检查其他尚未访问的槽位
                     visitedSlots[currentSlot] = 1;
                     int currentMember = matchedMembers[currentSlot];
                     float delta = float.PositiveInfinity;
@@ -185,12 +185,12 @@ namespace AnimarsCatcher.Navigation.Grid
                                             slotPotentials[slot];
                         if (reducedCost < minimumCosts[slot] - 1e-5f)
                         {
-                            // 更短边替换父节点，后续增广会沿这条确定路径回溯
+                            // 找到成本更低的路线时更新父节点，之后会沿这条路线回溯
                             minimumCosts[slot] = reducedCost;
                             previousSlots[slot] = currentSlot;
                         }
 
-                        // 约化代价相同时优先更小槽位，固定跨平台和重复运行结果
+                        // 成本相同时选择索引更小的槽位，保证重复运行得到相同结果
                         if (minimumCosts[slot] < delta - 1e-5f ||
                             (math.abs(minimumCosts[slot] - delta) <= 1e-5f &&
                              (nextSlot == 0 || slot < nextSlot)))
@@ -202,12 +202,12 @@ namespace AnimarsCatcher.Navigation.Grid
 
                     if (nextSlot == 0 || !math.isfinite(delta))
                     {
-                        // 有限完整矩阵不应进入此分支，失败时不发布部分匹配
+                        // 完整且数值有效的矩阵不应走到这里；异常时直接失败，不输出半套结果
                         return false;
                     }
 
-                    // 势函数只按本轮最小余量推进，保持所有约化代价非负
-                    // 已进入交替树的顶点收紧对偶约束，其他槽位同步扣除余量
+                    // 按本轮最小余量更新势函数，使后续比较的剩余代价始终不为负
+                    // 搜索树中的节点收紧约束，其他候选槽位则同步扣除这段余量
                     for (int slot = 0; slot <= slotCount; slot++)
                     {
                         if (visitedSlots[slot] != 0)
@@ -223,10 +223,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
                     currentSlot = nextSlot;
                 }
-                // 空槽意味着增广路径已完成；已占用槽位则继续扩展交替树
+                // 找到空槽即可结束本轮；如果槽位已被占用，就继续扩展搜索路径
                 while (matchedMembers[currentSlot] != 0);
 
-                // 从空槽反向翻转父链，使新成员进入匹配且不制造重复槽位
+                // 从空槽沿父链反向更新归属，让新成员加入且不会与别人共用槽位
                 do
                 {
                     int previousSlot = previousSlots[currentSlot];
@@ -236,13 +236,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 while (currentSlot != 0);
             }
 
-            // 输出先设为无效值，便于检测异常矩阵没有覆盖全部成员的情况
+            // 先把输出设为无效值，便于发现没有为所有成员完成分配的异常情况
             for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
             {
                 assignments[memberIndex] = -1;
             }
 
-            // 内部结构按槽位保存占用者，公开结果转换为逐成员槽位索引
+            // 内部结果按槽位记录成员，这里再转换为每名成员对应的槽位
             for (int slot = 1; slot <= slotCount; slot++)
             {
                 int member = matchedMembers[slot];
@@ -252,7 +252,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
-            // 只有完整匹配才能被 Formation System 原子写回成员 Buffer
+            // 只有完整分配才交给阵型系统，避免成员缓冲区出现一半新、一半旧的槽位
             for (int memberIndex = 0; memberIndex < memberCount; memberIndex++)
             {
                 if (assignments[memberIndex] < 0)
@@ -265,7 +265,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             finally
             {
-                // NativeArray 通过显式 finally 释放，避免 using 变量的只读限制
+                // 在 finally 中统一释放临时数组，确保任何返回路径都不会泄漏内存
                 memberPotentials.Dispose();
                 slotPotentials.Dispose();
                 minimumCosts.Dispose();
@@ -276,9 +276,9 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 计算以全部成员中心为原点的稳定槽位偏移
+        /// 计算一个槽位相对队伍中心的位置，并让每排成员保持居中
         /// </summary>
-        /// <param name="slotIndex">槽位稳定索引</param>
+        /// <param name="slotIndex">槽位索引</param>
         /// <param name="memberCount">当前成员数量</param>
         /// <param name="kind">阵型类型</param>
         /// <param name="configuredColumns">矩形阵型的最大列数</param>
@@ -300,7 +300,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int rowCount = math.min(columns, count - rowStart);
             int column = math.clamp(slotIndex - rowStart, 0, rowCount - 1);
 
-            // 每行按实际成员数重新居中，奇数尾行仍保持横向对称
+            // 每一排按实际人数居中，最后一排人数不足时也不会偏向一侧
             float x = (column - (rowCount - 1) * 0.5f) * horizontalSpacing;
             float meanRowOffset = CalculateMeanRowOffset(
                 count,
@@ -309,7 +309,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float z = -row * longitudinalSpacing - meanRowOffset;
             if (kind == AniSquadFormationKind.Column)
             {
-                // 纵队沿纵向展开但保持横向中心线不变量
+                // 纵队的所有成员都站在中线上，只沿前后方向排开
                 x = 0f;
             }
 
@@ -324,7 +324,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int rowCount = (memberCount + columns - 1) / columns;
             float sum = 0f;
 
-            // 以所有行的实际成员数加权求平均，保证不完整尾行也参与中心校正
+            // 按每排实际人数计算纵向中心，使人数不足的最后一排也参与整体居中
             for (int row = 0; row < rowCount; row++)
             {
                 int countInRow = math.min(columns, memberCount - row * columns);

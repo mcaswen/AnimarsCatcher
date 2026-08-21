@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Core.Fsm
     }
 
     /// <summary>
-    /// 把共享的状态图 Blob 引用附加到运行时实体
+    /// 把共享的状态图 Blob 引用附加到运行时 Entity
     /// </summary>
     public struct FsmGraphRef : IComponentData
     {

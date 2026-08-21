@@ -11,21 +11,20 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 在 Player 构建前拒绝缺失或过期的 Navigation Grid 资产
+    /// 在构建 Player 前检查所有启用场景，阻止缺少导航网格或烘焙结果已过期的构建
     /// </summary>
     internal sealed class NavigationGridBuildValidator : IPreprocessBuildWithReport
     {
-        // 以最早顺序运行让过期 Grid 在耗时构建步骤开始前失败
+        // 尽早执行检查，避免耗时构建开始后才发现导航网格问题
         public int callbackOrder => 0;
 
         public void OnPreprocessBuild(BuildReport report)
         {
-            // 聚合全部启用场景的失败项后一次抛出
-            // 这样开发者无需多次启动构建才能发现后续场景问题
+            // 收集所有启用场景的问题后一次报告，开发者可以一次修复完毕
             var failures = new List<string>();
             EditorBuildSettingsScene[] buildScenes = EditorBuildSettings.scenes;
 
-            // 关闭场景和空路径不会进入 Player 构建，因而跳过校验
+            // 未启用或路径为空的场景不会进入 Player，因此无需检查
             for (int i = 0; i < buildScenes.Length; i++)
             {
                 EditorBuildSettingsScene buildScene = buildScenes[i];
@@ -44,8 +43,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 以 Additive 方式打开场景并恢复调用前的 SceneSetup
-        // 每个 Authoring 独立报告失败原因便于一次修复全部构建阻断项
+        // 临时以 Additive 方式打开场景，检查结束后恢复原有编辑器场景布局
+        // 每个 Authoring 单独报告原因，便于一次找出所有阻断构建的问题
         private static void ValidateScene(string scenePath, List<string> failures)
         {
             Scene scene = SceneManager.GetSceneByPath(scenePath);
@@ -53,13 +52,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             try
             {
-                // 已加载场景直接复用，未加载场景临时 Additive 打开
+                // 已加载场景直接使用，未加载场景临时以 Additive 方式打开
                 if (openedForValidation)
                 {
                     scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
                 }
 
-                // 全局查找后按 Scene 过滤以覆盖禁用 GameObject 上的 Authoring
+                // 全局查找后再按场景筛选，这样禁用 GameObject 上的 Authoring 也不会漏检
                 NavigationGridAuthoring[] authorings =
                     UnityEngine.Object.FindObjectsByType<NavigationGridAuthoring>(
                         FindObjectsInactive.Include,
@@ -87,7 +86,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
             finally
             {
-                // 只关闭由校验器打开的场景，不改变用户原有编辑会话
+                // 只关闭本检查临时打开的场景，不改变用户原有的编辑会话
                 if (openedForValidation && scene.IsValid() && scene.isLoaded)
                 {
                     EditorSceneManager.CloseScene(scene, true);

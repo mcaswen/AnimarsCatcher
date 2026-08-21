@@ -22,7 +22,7 @@ namespace AnimarsCatcher.Networking
             if (!SystemAPI.TryGetSingletonEntity<NetworkStreamInGame>(out var connection))
                 return;
 
-            // 两项关系完成后停止扫描 Ghost，避免输入组每帧遍历实体
+            // 两项关系完成后停止扫描 Ghost，避免输入组每帧遍历 Entity
             if (_cameraIsBinded && _characterIsBinded) return;
 
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
@@ -54,7 +54,7 @@ namespace AnimarsCatcher.Networking
                     }
                 }
 
-                // 主相机实体属于客户端表现状态，不参与服务器权限判定
+                // 主相机 Entity 属于客户端表现状态，不参与服务器权限判定
                 foreach (var (camera, cameraEntity) in SystemAPI.Query<RefRO<MainEntityCameraTag>>()
                         .WithAll<MainEntityCameraTag>()
                         .WithEntityAccess())

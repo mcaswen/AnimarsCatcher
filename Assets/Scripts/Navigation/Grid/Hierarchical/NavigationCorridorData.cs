@@ -4,35 +4,35 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 按宏观路线顺序保存请求经过的 Cluster
+    /// 宏观路线经过的一个寻路分块
     /// </summary>
     [InternalBufferCapacity(8)]
     public struct NavigationCorridorCluster : IBufferElementData
     {
-        // 引用 Grid Blob 中的 Cluster 索引
+        // 对应静态导航网格中的分块索引
         public int ClusterId;
     }
 
     /// <summary>
-    /// 按跨越顺序保存 Corridor 经过的 Portal
+    /// 宏观路线穿过的一个分块入口
     /// </summary>
     [InternalBufferCapacity(8)]
     public struct NavigationCorridorPortal : IBufferElementData
     {
-        // 引用 Grid Blob 中的 Portal 索引
+        // 对应静态导航网格中的入口索引
         public int PortalIndex;
     }
 
     /// <summary>
-    /// 保存端点投影与 Portal 代表点构成的宏观路点
+    /// 由纠正后端点或分块入口代表格子构成的宏观路点
     /// </summary>
     [InternalBufferCapacity(16)]
     public struct NavigationHierarchicalWaypoint : IBufferElementData
     {
-        // 引用路点对应的 Grid Cell 索引
+        // 路点对应的格子索引
         public int CellIndex;
 
-        // 保存 Cell 地面高度上的世界空间位置
+        // 路点贴合烘焙地面后的世界坐标
         public float3 Position;
     }
 }

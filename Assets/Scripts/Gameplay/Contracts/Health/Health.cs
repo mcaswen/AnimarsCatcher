@@ -4,7 +4,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Gameplay.Contracts
 {
     /// <summary>
-    /// 保存服务器权威生命值并同步给客户端
+    /// 保存由服务器维护并同步给客户端的生命值
     /// </summary>
     [GhostComponent]
     public struct Health : IComponentData

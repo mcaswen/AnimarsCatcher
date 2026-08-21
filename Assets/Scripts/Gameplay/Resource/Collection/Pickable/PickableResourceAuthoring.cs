@@ -7,7 +7,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 配置可由 Picker Ani 协作搬运的资源实体
+    /// 配置可由 Picker Ani 协作搬运的资源 Entity
     /// </summary>
     [DisallowMultipleComponent]
     public class PickableResourceAuthoring : MonoBehaviour

@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Presentation.EntityView
     using UnityEngine;
 
     /// <summary>
-    /// 在客户端为带表现配置的实体创建并绑定 GameObject 视图
+    /// 在客户端为带表现配置的 Entity 创建并绑定 GameObject 视图
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -41,10 +41,10 @@ namespace AnimarsCatcher.Presentation.EntityView
 
                 if (prefabReference == null || prefabReference.ViewPrefab == null) continue;
 
-                // 表现对象只在 Client World 创建，服务器保持纯实体状态
+                // 表现对象只在 Client World 创建，服务器保持纯 Entity 状态
                 GameObject spawnedGameObject = Object.Instantiate(prefabReference.ViewPrefab);
 
-                // Prefab 缺少跟随组件时动态补齐，保证实体和表现对象生命周期一致
+                // Prefab 缺少跟随组件时动态补齐，保证 Entity 和表现对象生命周期一致
                 EntityViewFollower follower = spawnedGameObject.GetComponent<EntityViewFollower>() ?? spawnedGameObject.AddComponent<EntityViewFollower>();
 
                 var proxy = spawnedGameObject.GetComponent<WorldCommandTargetProxy>();
@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Presentation.EntityView
                     proxy.Bind(targetEntity);
                 }
 
-                // 显式注入所属世界，避免表现对象通过默认世界访问错误实体
+                // 将所属 World 直接传给表现对象，避免它通过默认 World 访问错误的 Entity
                 follower.Bind(targetEntity, entityManager);
 
                 switch (prefabReference.Kind)

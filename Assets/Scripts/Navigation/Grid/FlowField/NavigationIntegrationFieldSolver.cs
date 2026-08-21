@@ -5,29 +5,29 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 构建 Corridor 内的 Integration Cost 和已验证 Flow Direction
+    /// 从目标反向计算通道内每个格子的最低剩余成本和可行前进方向
     /// </summary>
     public static class NavigationIntegrationFieldSolver
     {
         private const float CostEpsilon = 0.00001f;
 
-        // Integration 从目标反向扩散，成本必须与 A 星步进成本保持同一尺度
-        // Cluster Generation 将搜索严格限制在当前 Corridor 内
-        // 动态 Overlay 同时影响阻挡、额外成本和最终方向选择
-        // 连续平滑方向不能直接输出，最终必须落回一条已验证的离散边
-        // Cell 索引用于所有成本相同情况下的稳定决胜
-        // IntegrationCost 表示从当前 Cell 到目标的剩余成本
-        // 合法后继必须满足 neighbor cost 加有向步进成本等于当前成本
-        // 仅检查 neighbor cost 下降会允许选择总成本更高的绕行边
-        // 动态 ExtraCost 与反向 Dijkstra 一致，统一计入进入 neighbor 的成本
-        // 第一遍只确定最小 Bellman 值和稳定后备后继
-        // 第二遍只混合与最小 Bellman 值等价的方向
-        // 第三遍把连续混合向量投影回等价离散后继
-        // 三遍均只扫描固定八邻域，因此方向构建仍为常数复杂度
-        // 对称方向的加权向量可能严格抵消，不能把这种情况解释为目标 Cell
-        // 抵消时按最小 CellIndex 选择后备边，保持跨 Burst 运行确定性
-        // 只有真实目标 Cell 或损坏的不完整 Field 才允许最终输出零向量
-        // 移动消费者仍需把零向量视为无法继续，而不是任意穿越障碍
+        // Integration Field 从目标反向扩散，使用与 A* 相同的单步成本
+        // 分块 Generation 将计算范围严格限制在当前宏观通道中
+        // 动态障碍会同时影响格子阻挡、附加成本和最终方向
+        // 平滑后的连续方向不能直接输出，最终仍要选中一条已经验证可走的相邻边
+        // 成本相同时使用格子索引决定顺序，保证结果可重复
+        // IntegrationCost 表示从当前格子走到目标还需要的最低成本
+        // 正确的下一格必须满足：下一格剩余成本加这一步成本，等于当前最低成本
+        // 只看剩余成本下降可能选到总成本更高的绕路，因此必须检查完整等式
+        // 动态附加成本与反向 Dijkstra 使用同一口径，计入正向移动所进入的格子
+        // 第一遍找出最低成本和一个可靠的备用下一格
+        // 第二遍只混合成本同样最优的方向，用于减少格子感
+        // 第三遍把混合方向映射回最接近的真实最优相邻格
+        // 每一遍都只检查八个邻居，因此每格的方向计算仍是固定开销
+        // 对称方向可能完全抵消；这种零向量不代表已经到达目标
+        // 抵消时选择索引最小的备用下一格，保证 Burst 重复运行结果一致
+        // 只有目标格子或数据不完整的异常格子才允许最终方向为零
+        // 移动系统遇到零方向必须停下，不能擅自穿过障碍
 
         internal static bool BuildIntegrationField(
             ref NavigationGridBlob grid,
@@ -46,26 +46,26 @@ namespace AnimarsCatcher.Navigation.Grid
             out int expandedCellCount,
             NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
-            // 用 Generation 将 Corridor Cluster 标成反向传播的允许集合
+            // 用本次 Generation 标出通道包含的分块，反向搜索不会走出这个范围
             for (int index = 0; index < corridorClusters.Length; index++)
             {
                 clusterGenerations[corridorClusters[index]] = generation;
             }
 
-            // Corridor 已去重，同一 Cluster 重复写入当前 Generation 也保持幂等
+            // 通道已经去重；即使重复标记同一分块，结果也不会变化
             visitedCells.Clear();
 
             int heapCount = 0;
-            // 从目标反向执行 Dijkstra，使成本表示当前 Cell 到目标的最小代价
+            // 从目标反向执行 Dijkstra，让每个格子的值表示到目标的最低成本
             InitializeCell(targetCellIndex, generation, costs, heapPositions, generations);
-            // 投影目标是反向 Integration 搜索的唯一零成本 Cell
+            // 纠正后的目标格子是反向搜索唯一的零成本起点
             costs[targetCellIndex] = 0f;
             PushCell(targetCellIndex, costs, heap, heapPositions, ref heapCount);
             float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
                 ref grid,
                 request.AgentRadius,
                 request.ClearanceMargin);
-            // 只记录已经确定最短成本的 Cell，写出时无需再扫描整张 Grid
+            // 只记录已经确定最低成本的格子，输出时无需扫描整张导航网格
             while (heapCount > 0)
             {
                 int current = PopCell(costs, heap, heapPositions, ref heapCount);
@@ -96,7 +96,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
                     int predecessorCluster = grid.Cells[predecessor].ClusterId;
-                    // 前驱必须位于 Corridor，并满足与正向移动相同的边约束
+                    // 前驱格子必须在通道内，而且从前驱走到当前格要满足正常移动规则
                     if (predecessorCluster < 0 ||
                         predecessorCluster >= clusterGenerations.Length ||
                         clusterGenerations[predecessorCluster] != generation ||
@@ -113,13 +113,13 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
 
-                    // 前驱首次进入本次 Field 时延迟初始化 Scratch
+                    // 前驱格子在本次计算中首次出现时再初始化临时数据
                     if (generations[predecessor] != generation)
                     {
                         InitializeCell(predecessor, generation, costs, heapPositions, generations);
                     }
 
-                    // 反向松弛仍按正向 predecessor 到 current 的移动成本计算
+                    // 虽然搜索方向反向，单步成本仍按正向从前驱进入当前格来计算
                     float candidate = costs[current] +
                                       NavigationGridCost.CalculateStepCost(
                                           ref grid,
@@ -134,22 +134,22 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
 
-                    // 严格改善后将前驱重新放入开放堆
+                    // 找到更低成本后，把前驱格子重新放入待处理堆
                     costs[predecessor] = candidate;
                     PushCell(predecessor, costs, heap, heapPositions, ref heapCount);
                 }
             }
 
-            // 确定成本的 Cell 数直接作为局部场展开量
+            // 已确定最低成本的格子数就是这次局部场实际展开量
             expandedCellCount = visitedCells.Length;
 
-            // 起点未被反向传播访问时，抽象 Corridor 不能形成实际 Cell 路径
+            // 如果反向搜索到不了起点，说明宏观通道无法落实为实际格子路线
             if (generations[startCellIndex] != generation)
             {
                 return false;
             }
 
-            // 输出顺序来自 Dijkstra 确定顺序，消费者应通过 CellIndex 查询稀疏 Field
+            // 输出是稀疏列表且顺序取决于 Dijkstra，使用方应按 CellIndex 查找
             for (int index = 0; index < visitedCells.Length; index++)
             {
                 int cellIndex = visitedCells[index];
@@ -157,7 +157,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 {
                     CellIndex = cellIndex,
                     IntegrationCost = costs[cellIndex],
-                    // 每个非目标 Cell 都选择一个成本严格下降的合法方向
+                    // 每个非目标格子都必须得到一条合法且保持最低总成本的下一步方向
                     Direction = NavigationIntegrationFieldSolver.CalculateDirection(
                         ref grid,
                         cellIndex,
@@ -185,7 +185,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             if (cellIndex == targetCellIndex)
             {
-                // 目标 Cell 是局部场唯一允许的零方向终点
+                // 只有目标格子可以用零方向表示已经到达
                 return float2.zero;
             }
 
@@ -201,7 +201,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int fallbackNeighbor = -1;
             float2 fallbackDirection = float2.zero;
 
-            // 先找出满足 Bellman 方程的最优后继；仅仅成本下降并不保证整条路径最优
+            // 先找出满足 Bellman 最优条件的下一格；剩余成本下降并不一定代表整条路线最优
             for (int directionIndex = 0; directionIndex < 8; directionIndex++)
             {
                 NavigationGridDirections.GetDirection(
@@ -224,7 +224,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 {
                     continue;
                 }
-                // 当前 Generation 同时限定 Corridor Field 成员和本次成本有效性
+                // Generation 同时确认邻居属于当前通道，且它的成本来自本次计算
                 if (generations[neighbor] != generation ||
                     costs[neighbor] >= currentCost - CostEpsilon ||
                     !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
@@ -262,13 +262,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
-            // 非目标 Cell 没有合法后继说明 Field 不完整，保留零方向让验收立即暴露
+            // 非目标格找不到合法下一步说明 Flow Field 不完整，保留零方向以便验证立即发现问题
             if (fallbackNeighbor < 0)
             {
                 return float2.zero;
             }
 
-            // 第二遍只混合与最优值等价的后继，避免平滑选择更昂贵的下降边
+            // 只混合同样达到最低总成本的下一格，避免平滑后走上更贵的路线
             int bestNeighbor = -1;
             float bestAlignment = float.NegativeInfinity;
             float2 bestDirection = float2.zero;
@@ -326,17 +326,17 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // 成本下降越大的等价后继对平滑期望方向影响越强
+                // 在总成本同样最优的方向中，剩余成本下降更多的方向权重更大
                 smoothedDirection += direction * (currentCost - costs[neighbor]);
             }
 
-            // 对称后继可能完全抵消；稳定后备边保证非目标 Cell 不输出零方向
+            // 多个对称方向可能互相抵消，此时改用第一遍选出的可靠备用方向
             if (math.lengthsq(smoothedDirection) <= CostEpsilon)
             {
                 return fallbackDirection;
             }
 
-            // 连续混合方向不能直接输出，最终仍落回一条已验证的离散最优边
+            // 混合向量只用于选择，最终输出仍对应一条已经验证的最优相邻边
             smoothedDirection = math.normalize(smoothedDirection);
             for (int directionIndex = 0; directionIndex < 8; directionIndex++)
             {
@@ -376,7 +376,7 @@ namespace AnimarsCatcher.Navigation.Grid
                                           dynamicOverlay,
                                           neighbor);
                 float alignment = math.dot(direction, smoothedDirection);
-                // 对齐度相同时选择更小 Cell 索引，保证跨运行的确定性
+                // 与混合方向同样接近时，选择索引更小的格子以保持结果一致
                 if (successorCost > bestBellmanCost + CostEpsilon ||
                     !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
                         ref grid,
@@ -399,7 +399,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 bestDirection = direction;
             }
 
-            // 数值边界下若第二遍没有候选，仍返回第一遍确认过的 Bellman 后继
+            // 浮点边界导致第二遍找不到候选时，回退到第一遍已经确认的最优下一格
             return bestNeighbor >= 0 ? bestDirection : fallbackDirection;
         }
 
@@ -410,7 +410,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int cellIndex,
             out float cost)
         {
-            // 稀疏 Field 没有索引表，单次回退查询顺序扫描当前切片
+            // 稀疏 Flow Field 没有单独索引表，偶发回退查询直接扫描当前切片
             for (int index = 0; index < count; index++)
             {
                 NavigationFlowFieldCell cell = cells[offset + index];
@@ -432,7 +432,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> generations)
         {
-            // 初始化顺序保证 Generation 可见时其成本和堆位置也属于本次搜索
+            // 最后写 Generation，确保标记生效时，成本和堆位置也已属于本次计算
             generations[cellIndex] = generation;
             costs[cellIndex] = float.PositiveInfinity;
             heapPositions[cellIndex] = -1;

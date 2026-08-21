@@ -28,7 +28,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 标识玩家资源 Ghost 实体
+    /// 标识玩家资源 Ghost Entity
     /// </summary>
     public struct PlayerResourceTag : IComponentData {}
 }

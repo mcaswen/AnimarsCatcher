@@ -6,34 +6,34 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 保存由静态 Cell 拓扑派生出的 HPA 星分层导航数据
+    /// 从静态格子地图生成的分层寻路数据
     /// </summary>
     public sealed class NavigationGridHierarchyBuildResult
     {
-        // 保存 Grid 在 X 轴生成的 Cluster 数量
+        // X 方向的寻路分块数
         public int ClusterWidth;
 
-        // 保存 Grid 在 Z 轴生成的 Cluster 数量
+        // Z 方向的寻路分块数
         public int ClusterHeight;
 
-        // 保存按 ClusterId 排列的规则分块
+        // 按编号排列的全部寻路分块
         public NavigationGridClusterData[] Clusters = Array.Empty<NavigationGridClusterData>();
 
-        // 保存按边界扫描顺序排列的连续 Portal
+        // 按边界扫描顺序排列的分块入口
         public NavigationGridPortalData[] Portals = Array.Empty<NavigationGridPortalData>();
 
-        // 保存每个 Portal 两侧对应的抽象节点
+        // 每个入口两侧对应的抽象节点
         public NavigationGridPortalNodeData[] PortalNodes = Array.Empty<NavigationGridPortalNodeData>();
 
-        // 保存由 Portal Node 切片引用的有向边
+        // 各入口节点引用的有向连接
         public NavigationGridAbstractEdgeData[] AbstractEdges = Array.Empty<NavigationGridAbstractEdgeData>();
 
-        // 保存由 Cluster 切片引用的 Portal Node 索引
+        // 每个分块连接到的入口节点索引
         public int[] ClusterPortalNodeIndices = Array.Empty<int>();
     }
 
     /// <summary>
-    /// 从确定性 Grid 拓扑构建 Cluster、Portal 和 HPA 星抽象图
+    /// 将格子地图切成分块，找出相邻分块的入口，并预计算分层寻路图
     /// </summary>
     public static class NavigationGridHierarchyBuilder
     {
@@ -43,14 +43,14 @@ namespace AnimarsCatcher.Navigation.Grid
         private const float ClearanceQuantizationScale = 10_000f;
 
         /// <summary>
-        /// 构建 Portal 区间、Portal 双端节点和 Cluster 内静态成本边
+        /// 构建分块入口、入口两侧节点，以及分块内部的预计算连接
         /// </summary>
-        /// <param name="cells">已经完成邻接、Clearance、Region 和 Cluster 分配的 Cell</param>
+        /// <param name="cells">已完成邻接、可用空间、连通区域和分块编号的格子</param>
         /// <param name="width">Grid 在 X 轴的 Cell 数量</param>
         /// <param name="height">Grid 在 Z 轴的 Cell 数量</param>
         /// <param name="clusterSizeInCells">规则 Cluster 的 Cell 边长</param>
         /// <param name="cellSize">Cell 在 XZ 平面的世界边长</param>
-        /// <returns>可写入 Bake Asset 和运行时 Blob 的稳定分层数据</returns>
+        /// <returns>可写入烘焙资产和运行时 Blob 的分层数据</returns>
         public static NavigationGridHierarchyBuildResult Build(
             NavigationGridCellData[] cells,
             int width,
@@ -58,19 +58,19 @@ namespace AnimarsCatcher.Navigation.Grid
             int clusterSizeInCells,
             float cellSize)
         {
-            // Cell 数量必须与二维 Grid 形状完全对应
+            // 格子总数必须与导航网格宽高一致
             if (cells == null || width <= 0 || height <= 0 || cells.Length != width * height)
             {
                 throw new ArgumentException("Navigation Grid hierarchy input shape is invalid");
             }
 
-            // 分块尺寸和世界步长都必须为正值
+            // 分块边长和格子尺寸都必须大于零
             if (clusterSizeInCells <= 0 || cellSize <= 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(clusterSizeInCells));
             }
 
-            // Cluster 按行主序编号，边缘分块可以小于配置尺寸
+            // 分块按行编号，地图边缘的分块可以小于配置尺寸
             int clusterWidth = (width + clusterSizeInCells - 1) / clusterSizeInCells;
             int clusterHeight = (height + clusterSizeInCells - 1) / clusterSizeInCells;
             NavigationGridClusterData[] clusters = CreateClusters(
@@ -81,25 +81,25 @@ namespace AnimarsCatcher.Navigation.Grid
                 clusterHeight);
 
             var portals = new List<NavigationGridPortalData>();
-            // 先扫描竖直边界，固定 Portal 顺序以稳定资产 Hash
+            // 先扫描竖直边界，再扫描水平边界，让重复烘焙得到相同入口顺序和资产哈希
             for (int boundaryX = clusterSizeInCells;
                  boundaryX < width;
                  boundaryX += clusterSizeInCells)
             {
-                // boundaryX 左右两列分别属于相邻 Cluster
+                // boundaryX 两侧的格子列分别属于左右相邻分块
                 ScanVerticalBoundary(cells, width, height, boundaryX, cellSize, portals);
             }
 
-            // 水平边界接在竖直边界之后，重复烘焙保持相同顺序
+            // 水平边界统一排在竖直边界之后
             for (int boundaryZ = clusterSizeInCells;
                  boundaryZ < height;
                  boundaryZ += clusterSizeInCells)
             {
-                // boundaryZ 下上两行分别属于相邻 Cluster
+                // boundaryZ 两侧的格子行分别属于前后相邻分块
                 ScanHorizontalBoundary(cells, width, height, boundaryZ, cellSize, portals);
             }
 
-            // 每个 Portal 分配两个连续节点，分别归属边界两侧 Cluster
+            // 每个分块入口生成两个连续节点，分别属于边界两侧的分块
             var nodes = new NavigationGridPortalNodeData[portals.Count * 2];
             var nodesByCluster = new List<int>[clusters.Length];
             for (int clusterIndex = 0; clusterIndex < clusters.Length; clusterIndex++)
@@ -107,7 +107,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 nodesByCluster[clusterIndex] = new List<int>();
             }
 
-            // 建立 Cluster 到其 Portal Node 的反向索引
+            // 建立分块到入口节点的索引，运行时可以快速找到分块出口
             for (int portalIndex = 0; portalIndex < portals.Count; portalIndex++)
             {
                 NavigationGridPortalData portal = portals[portalIndex];
@@ -129,14 +129,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 nodesByCluster[portal.ClusterB].Add(nodeB);
             }
 
-            // 每个 Portal Node 独占一个出边列表，最后再扁平化
+            // 先为每个入口节点建立独立出边列表，最后再合并为连续数组
             var outgoingEdges = new List<NavigationGridAbstractEdgeData>[nodes.Length];
             for (int nodeIndex = 0; nodeIndex < nodes.Length; nodeIndex++)
             {
                 outgoingEdges[nodeIndex] = new List<NavigationGridAbstractEdgeData>();
             }
 
-            // 先加入 Portal 跨边，再计算受限于单个 Cluster 的内部边
+            // 先添加穿过入口的连接，再计算同一分块内入口之间的连接
             AddPortalCrossingEdges(portals, outgoingEdges);
             AddClusterConnectionEdges(
                 cells,
@@ -146,7 +146,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 nodesByCluster,
                 outgoingEdges);
 
-            // 将 Cluster 节点索引和 Node 出边固化为 Blob 可用的连续切片
+            // 将分块节点索引和节点出边整理成 Blob 可直接读取的连续片段
             int[] clusterPortalNodeIndices = FlattenClusterNodes(clusters, nodesByCluster);
             NavigationGridAbstractEdgeData[] abstractEdges = FlattenEdges(nodes, outgoingEdges);
             return new NavigationGridHierarchyBuildResult
@@ -169,13 +169,13 @@ namespace AnimarsCatcher.Navigation.Grid
             int clusterHeight)
         {
             var clusters = new NavigationGridClusterData[clusterWidth * clusterHeight];
-            // 外层遍历 Z、内层遍历 X，使 ClusterId 保持行主序
+            // 先遍历 Z 再遍历 X，使分块编号按行排列
             for (int clusterZ = 0; clusterZ < clusterHeight; clusterZ++)
             {
                 for (int clusterX = 0; clusterX < clusterWidth; clusterX++)
                 {
                     int clusterIndex = clusterX + clusterZ * clusterWidth;
-                    // 最大边界采用半开区间，并裁剪到实际 Grid 尺寸
+                    // 分块最大边界不包含端点，并裁剪到实际地图尺寸
                     clusters[clusterIndex] = new NavigationGridClusterData
                     {
                         MinimumX = clusterX * clusterSize,
@@ -197,7 +197,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float cellSize,
             List<NavigationGridPortalData> portals)
         {
-            // runStart 为负表示当前没有正在聚合的 Portal 游程
+            // runStart 为负表示当前还没有开始收集一段连续入口
             int runStart = -1;
             int runEnd = -1;
             int runClusterA = -1;
@@ -206,7 +206,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int runClearanceBucket = -1;
             float runMinimumClearance = float.PositiveInfinity;
 
-            // 末尾哨兵 z 等于 height，用同一分支提交最后一个游程
+            // 扫描末尾增加一个哨兵位置，用同一套逻辑结束最后一段入口
             for (int z = 0; z <= height; z++)
             {
                 int clusterA = -1;
@@ -214,7 +214,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int region = -1;
                 int clearanceBucket = -1;
                 float clearance = 0f;
-                // 哨兵位置不读取 Cell，只让 valid 变为 false 触发提交
+                // 哨兵位置不读取格子，只负责触发当前入口段的提交
                 bool valid = z < height && TryGetBoundaryPair(
                     cells,
                     width,
@@ -228,7 +228,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     out region,
                     out clearanceBucket,
                     out clearance);
-                // Cluster 对、Region 或量化 Clearance 变化都会中断当前游程
+                // 相邻分块、连通区域或可用宽度发生变化时，当前连续入口在此结束
                 bool continues = valid &&
                                  runStart >= 0 &&
                                  clusterA == runClusterA &&
@@ -238,14 +238,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (continues)
                 {
                     runEnd = z;
-                    // Portal Clearance 取区间最小值，对整个通道保持保守
+                    // 入口宽度取整段最窄值，保证任何位置都能满足标记的体型要求
                     runMinimumClearance = Math.Min(runMinimumClearance, clearance);
                     continue;
                 }
 
                 if (runStart >= 0)
                 {
-                    // 先提交旧游程，再开始新区间，保证 Portal 不重叠
+                    // 先结束旧入口段，再从当前位置开始新入口，避免两段重叠
                     AddVerticalPortal(
                         cells,
                         width,
@@ -260,7 +260,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         portals);
                 }
 
-                // 当前 Cell 对成为下一段 Portal 游程的首元素
+                // 当前相邻格子对成为下一段连续入口的起点
                 if (valid)
                 {
                     runStart = z;
@@ -286,7 +286,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float cellSize,
             List<NavigationGridPortalData> portals)
         {
-            // 水平边界复用同一游程状态机，仅旋转扫描轴和邻接方向
+            // 水平边界使用同一套连续入口收集逻辑，只切换扫描轴和邻接方向
             int runStart = -1;
             int runEnd = -1;
             int runClusterA = -1;
@@ -295,7 +295,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int runClearanceBucket = -1;
             float runMinimumClearance = float.PositiveInfinity;
 
-            // 末尾哨兵 x 等于 width，保证尾部 Portal 不被遗漏
+            // 末尾哨兵确保最后一段入口也会被提交
             for (int x = 0; x <= width; x++)
             {
                 int clusterA = -1;
@@ -303,7 +303,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int region = -1;
                 int clearanceBucket = -1;
                 float clearance = 0f;
-                // 哨兵位置跳过 Cell 访问并结束最后一段游程
+                // 到达哨兵时不读取格子，只结束最后一段入口
                 bool valid = x < width && TryGetBoundaryPair(
                     cells,
                     width,
@@ -317,7 +317,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     out region,
                     out clearanceBucket,
                     out clearance);
-                // 只有完整分组键相同的相邻 Cell 对才能合并
+                // 只有相邻分块、连通区域和可用宽度都相同的格子对才能合并为一段入口
                 bool continues = valid &&
                                  runStart >= 0 &&
                                  clusterA == runClusterA &&
@@ -327,14 +327,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (continues)
                 {
                     runEnd = x;
-                    // 最小 Clearance 随区间扩展单调不增
+                    // 入口段越长，其最窄可用空间只会保持或变小
                     runMinimumClearance = Math.Min(runMinimumClearance, clearance);
                     continue;
                 }
 
                 if (runStart >= 0)
                 {
-                    // 按扫描顺序直接提交，避免无序集合影响资产结果
+                    // 按扫描顺序直接添加，避免无序集合改变烘焙结果
                     AddHorizontalPortal(
                         cells,
                         width,
@@ -349,7 +349,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         portals);
                 }
 
-                // 记录新区间的完整分组键和初始 Clearance
+                // 记录新入口段对应的分块、连通区域和初始宽度
                 if (valid)
                 {
                     runStart = x;
@@ -383,15 +383,15 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NavigationGridCellData cellA = cells[cellAIndex];
             NavigationGridCellData cellB = cells[cellBIndex];
-            // Cluster 对与 Region 构成 Portal 游程的拓扑分组键
+            // 只有同一对相邻分块且属于同一连通区域，格子对才可能组成同一入口
             clusterA = cellA.ClusterId;
             clusterB = cellB.ClusterId;
             region = cellA.RegionId;
-            // 边界通道宽度受两侧 Cell 中较窄一侧限制
+            // 边界处的实际宽度由两侧格子中更窄的一侧决定
             clearance = Math.Min(cellA.Clearance, cellB.Clearance);
-            // Clearance 按烘焙精度量化，变化处必须拆分 Portal
+            // 可用空间按烘焙精度量化，宽度等级变化时需要拆成不同入口段
             clearanceBucket = Mathf.RoundToInt(clearance * ClearanceQuantizationScale);
-            // 两侧必须互相声明邻接并属于同一正 Region，单向边不构成 Portal
+            // 两侧格子必须互相可达并属于同一有效连通区域，单向连接不能作为分块入口
             return cellA.Walkable &&
                    cellB.Walkable &&
                    clusterA >= 0 &&
@@ -416,11 +416,11 @@ namespace AnimarsCatcher.Navigation.Grid
             float cellSize,
             List<NavigationGridPortalData> portals)
         {
-            // 偶数长度区间固定取较小 Z，保持代表点选择稳定
+            // 入口长度为偶数时固定选择中间两个位置中 Z 较小的一个，保证结果一致
             int representativeZ = (startZ + endZ) / 2;
             int representativeA = boundaryX - 1 + representativeZ * width;
             int representativeB = boundaryX + representativeZ * width;
-            // Portal 保存两侧完整 Cell 区间和一个稳定代表点
+            // 入口同时记录两侧完整格子范围，并各选一个代表格子供抽象寻路使用
             portals.Add(CreatePortal(
                 cells,
                 representativeA,
@@ -449,11 +449,11 @@ namespace AnimarsCatcher.Navigation.Grid
             float cellSize,
             List<NavigationGridPortalData> portals)
         {
-            // 偶数长度区间固定取较小 X，保持代表点选择稳定
+            // 入口长度为偶数时固定选择中间两个位置中 X 较小的一个
             int representativeX = (startX + endX) / 2;
             int representativeA = representativeX + (boundaryZ - 1) * width;
             int representativeB = representativeX + boundaryZ * width;
-            // 水平 Portal 使用同样的数据布局，仅索引步长不同
+            // 水平边界入口使用相同数据结构，只是格子索引的步长不同
             portals.Add(CreatePortal(
                 cells,
                 representativeA,
@@ -494,9 +494,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 LastCellB = lastB,
                 RepresentativeCellA = representativeA,
                 RepresentativeCellB = representativeB,
-                // 整个 Portal 使用区间内的最小 Clearance
+                // 整个入口使用该区间最窄处的可用空间
                 MinimumClearance = minimumClearance,
-                // 跨边成本按进入目标 Cell 的 TerrainCost 分别计算
+                // 穿过入口的两个方向分别按所进入格子的地形成本计算
                 StaticCostAtoB = cellSize * Math.Max(
                     MinimumTerrainCost,
                     cells[representativeB].TerrainCost),
@@ -515,16 +515,16 @@ namespace AnimarsCatcher.Navigation.Grid
                 NavigationGridPortalData portal = portals[portalIndex];
                 int nodeA = portalIndex * 2;
                 int nodeB = nodeA + 1;
-                // A 到 B 使用进入 B 侧代表 Cell 的静态成本
+                // 从 A 到 B 使用进入 B 侧代表格子的静态成本
                 outgoingEdges[nodeA].Add(new NavigationGridAbstractEdgeData
                 {
                     ToNodeIndex = nodeB,
                     StaticCost = portal.StaticCostAtoB,
                     MinimumClearance = portal.MinimumClearance,
-                    // 路径还原只在跨 Portal 边上推进 Corridor Cluster
+                    // 只有穿过入口的边才表示宏观路线进入了新分块
                     CrossesPortal = true,
                 });
-                // 反向边使用独立成本，但共享同一 Portal Clearance
+                // 反方向有自己的成本，但两方向共用入口最窄空间
                 outgoingEdges[nodeB].Add(new NavigationGridAbstractEdgeData
                 {
                     ToNodeIndex = nodeA,
@@ -544,7 +544,7 @@ namespace AnimarsCatcher.Navigation.Grid
             List<NavigationGridAbstractEdgeData>[] outgoingEdges)
         {
             int cellCount = cells.Length;
-            // 全图尺寸的搜索数组在所有 Cluster 和源 Portal 之间复用
+            // 按整张地图分配搜索数组，并在所有分块和入口起点之间复用
             var costs = new float[cellCount];
             var widths = new float[cellCount];
             var heap = new int[cellCount];
@@ -553,12 +553,12 @@ namespace AnimarsCatcher.Navigation.Grid
             for (int clusterIndex = 0; clusterIndex < nodesByCluster.Length; clusterIndex++)
             {
                 List<int> clusterNodes = nodesByCluster[clusterIndex];
-                // 每个 Portal Node 依次作为 Cluster 内完全图的源节点
+                // 依次从每个入口节点出发，计算它到同分块其他入口的连接
                 for (int sourceListIndex = 0; sourceListIndex < clusterNodes.Count; sourceListIndex++)
                 {
                     int sourceNodeIndex = clusterNodes[sourceListIndex];
                     int sourceCellIndex = nodes[sourceNodeIndex].CellIndex;
-                    // 最短成本只负责路线排序
+                    // 最低移动成本用于比较路线快慢
                     CalculateShortestCosts(
                         cells,
                         width,
@@ -568,7 +568,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         costs,
                         heap,
                         heapPositions);
-                    // 最大瓶颈 Clearance 独立负责运行时体型过滤
+                    // 最宽可行路线单独记录，用于运行时判断角色体型是否能通过
                     CalculateWidestClearance(
                         cells,
                         width,
@@ -583,14 +583,14 @@ namespace AnimarsCatcher.Navigation.Grid
                          targetListIndex++)
                     {
                         int targetNodeIndex = clusterNodes[targetListIndex];
-                        // 完全图不生成节点到自身的零成本边
+                        // 不创建入口节点连接到自身的零成本边
                         if (targetNodeIndex == sourceNodeIndex)
                         {
                             continue;
                         }
 
                         int targetCellIndex = nodes[targetNodeIndex].CellIndex;
-                        // 成本不可达或瓶颈未计算时不生成抽象边
+                        // 两入口不可达或无法确认可用宽度时，不生成抽象连接
                         if (float.IsPositiveInfinity(costs[targetCellIndex]) ||
                             widths[targetCellIndex] < 0f)
                         {
@@ -600,7 +600,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         outgoingEdges[sourceNodeIndex].Add(new NavigationGridAbstractEdgeData
                         {
                             ToNodeIndex = targetNodeIndex,
-                            // 成本和 Clearance 分别取各自最优值，不要求来自同一条 Cell 路径
+                            // 最低成本和最大可用宽度分别预计算；它们不一定来自同一条格子路线
                             StaticCost = costs[targetCellIndex],
                             MinimumClearance = widths[targetCellIndex],
                             CrossesPortal = false,
@@ -620,14 +620,14 @@ namespace AnimarsCatcher.Navigation.Grid
             int[] heap,
             int[] heapPositions)
         {
-            // 每个源 Portal 开始前重置成本，避免复用数组残留旧搜索结果
+            // 从新入口开始搜索前重置成本，避免读取上一个入口留下的数据
             Array.Fill(costs, float.PositiveInfinity);
             Array.Fill(heapPositions, -1);
             int heapCount = 0;
             costs[sourceCellIndex] = 0f;
             IndexedFloatHeap.PushMin(sourceCellIndex, costs, heap, heapPositions, ref heapCount);
 
-            // 非负地形成本允许在当前 Cluster 内使用 Dijkstra
+            // 地形成本都不为负，因此可以在分块内使用 Dijkstra
             while (heapCount > 0)
             {
                 int current = IndexedFloatHeap.PopMin(costs, heap, heapPositions, ref heapCount);
@@ -636,7 +636,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 NavigationNeighborMask mask = cells[current].NeighborMask;
                 for (int directionIndex = 0; directionIndex < 8; directionIndex++)
                 {
-                    // NeighborMask 已包含对角穿角约束
+                    // NeighborMask 已经排除了斜向穿过障碍尖角的情况
                     if ((mask & (NavigationNeighborMask)(1 << directionIndex)) == 0)
                     {
                         continue;
@@ -644,18 +644,18 @@ namespace AnimarsCatcher.Navigation.Grid
 
                     NavigationGridDirections.GetDirection(directionIndex, out int deltaX, out int deltaZ);
                     int neighbor = currentX + deltaX + (currentZ + deltaZ) * width;
-                    // Cluster 边界截断预计算搜索
+                    // 搜索到达分块边界后不再向外扩展
                     if (cells[neighbor].ClusterId != clusterId)
                     {
                         continue;
                     }
 
-                    // 对角步长使用根号二，成本按进入目标 Cell 的 TerrainCost 计算
+                    // 斜走距离按根号二计算，并使用所进入格子的地形成本
                     float distance = cellSize * (deltaX != 0 && deltaZ != 0 ? SquareRootTwo : 1f);
                     float candidate = costs[current] + distance * Math.Max(
                         MinimumTerrainCost,
                         cells[neighbor].TerrainCost);
-                    // 只有严格改善的成本才需要调整最小堆
+                    // 只有找到更低成本时才更新最小堆
                     if (candidate + CostEpsilon >= costs[neighbor])
                     {
                         continue;
@@ -676,15 +676,15 @@ namespace AnimarsCatcher.Navigation.Grid
             int[] heap,
             int[] heapPositions)
         {
-            // 负值表示本次源 Portal 尚未到达该 Cell
+            // 负值表示从当前入口尚未到达该格子
             Array.Fill(widths, -1f);
             Array.Fill(heapPositions, -1);
             int heapCount = 0;
-            // 源 Cell 以自身 Clearance 作为初始瓶颈
+            // 起点路线的初始宽度等于入口代表格子的可用空间
             widths[sourceCellIndex] = cells[sourceCellIndex].Clearance;
             IndexedFloatHeap.PushMax(sourceCellIndex, widths, heap, heapPositions, ref heapCount);
 
-            // 最大堆优先传播当前最宽的候选路径
+            // 使用最大堆优先扩展当前最宽的候选路线
             while (heapCount > 0)
             {
                 int current = IndexedFloatHeap.PopMax(widths, heap, heapPositions, ref heapCount);
@@ -700,24 +700,24 @@ namespace AnimarsCatcher.Navigation.Grid
 
                     NavigationGridDirections.GetDirection(directionIndex, out int deltaX, out int deltaZ);
                     int neighbor = currentX + deltaX + (currentZ + deltaZ) * width;
-                    // Widest Path 与最短成本使用相同的 Cluster 边界
+                    // 最宽路线和最低成本路线都不能越过当前分块边界
                     if (cells[neighbor].ClusterId != clusterId)
                     {
                         continue;
                     }
 
-                    // 路径宽度只能保持或收窄，取沿途 Clearance 最小值
+                    // 一条路线的可用宽度等于沿途最窄格子的空间
                     float candidate = Math.Min(widths[current], cells[neighbor].Clearance);
                     if (deltaX != 0 && deltaZ != 0)
                     {
-                        // 对角瓶颈还要包含两个正交侧 Cell，避免穿过几何尖角
+                        // 斜走时还要计入两侧正交格子，避免把障碍尖角当成宽通道
                         int sideA = currentX + deltaX + currentZ * width;
                         int sideB = currentX + (currentZ + deltaZ) * width;
                         candidate = Math.Min(
                             candidate,
                             Math.Min(cells[sideA].Clearance, cells[sideB].Clearance));
                     }
-                    // 未改善已知瓶颈的候选路径无需重新入堆
+                    // 候选路线没有变宽时，无需再次加入堆
                     if (candidate <= widths[neighbor] + CostEpsilon)
                     {
                         continue;
@@ -734,7 +734,7 @@ namespace AnimarsCatcher.Navigation.Grid
             List<int>[] nodesByCluster)
         {
             int totalCount = 0;
-            // 先统计总量，结果数组只分配一次
+            // 先统计节点索引总数，再一次性分配结果数组
             for (int clusterIndex = 0; clusterIndex < nodesByCluster.Length; clusterIndex++)
             {
                 totalCount += nodesByCluster[clusterIndex].Count;
@@ -745,10 +745,10 @@ namespace AnimarsCatcher.Navigation.Grid
             for (int clusterIndex = 0; clusterIndex < nodesByCluster.Length; clusterIndex++)
             {
                 List<int> clusterNodes = nodesByCluster[clusterIndex];
-                // 节点索引升序写入，使重复烘焙得到相同切片
+                // 节点索引按升序写入，重复烘焙会得到相同数据
                 clusterNodes.Sort();
                 NavigationGridClusterData cluster = clusters[clusterIndex];
-                // Cluster 只保存其在连续索引数组中的偏移和数量
+                // 每个分块只记录自己在连续节点索引数组中的起点和数量
                 cluster.PortalNodeOffset = offset;
                 cluster.PortalNodeCount = clusterNodes.Count;
                 clusters[clusterIndex] = cluster;
@@ -768,7 +768,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int totalCount = 0;
             for (int nodeIndex = 0; nodeIndex < outgoingEdges.Length; nodeIndex++)
             {
-                // 出边按目标索引排序，运行时搜索不依赖 List 插入顺序
+                // 出边按目标节点排序，运行时搜索不依赖列表的插入顺序
                 outgoingEdges[nodeIndex].Sort(CompareEdges);
                 totalCount += outgoingEdges[nodeIndex].Count;
             }
@@ -778,7 +778,7 @@ namespace AnimarsCatcher.Navigation.Grid
             for (int nodeIndex = 0; nodeIndex < outgoingEdges.Length; nodeIndex++)
             {
                 NavigationGridPortalNodeData node = nodes[nodeIndex];
-                // Node 通过偏移和数量直接定位连续出边，无需运行时字典
+                // 节点通过起点和数量直接读取连续出边，无需运行时字典
                 node.EdgeOffset = offset;
                 node.EdgeCount = outgoingEdges[nodeIndex].Count;
                 nodes[nodeIndex] = node;
@@ -795,14 +795,14 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationGridAbstractEdgeData left,
             NavigationGridAbstractEdgeData right)
         {
-            // 目标节点是出边稳定顺序的主键
+            // 先按目标节点索引排列出边
             int targetComparison = left.ToNodeIndex.CompareTo(right.ToNodeIndex);
             if (targetComparison != 0)
             {
                 return targetComparison;
             }
 
-            // 同目标时跨 Portal 边优先，避免依赖插入顺序
+            // 目标相同时，穿过分块入口的连接排在前面
             return right.CrossesPortal.CompareTo(left.CrossesPortal);
         }
 

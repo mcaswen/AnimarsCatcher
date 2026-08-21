@@ -10,7 +10,7 @@ namespace AnimarsCatcher.Gameplay
 
     /// <summary>
     /// 将客户端资源调试 RPC 转换为服务端资源事件
-    /// 保留正式资源应用链路以便联调权限和同步行为
+    /// 调试请求仍使用正式资源流程，便于联调权限和同步行为
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -24,7 +24,7 @@ namespace AnimarsCatcher.Gameplay
             var entityManager = state.EntityManager;
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
-            // 场景未提供 Hub 时创建运行时后备实体
+            // 场景未提供 Hub 时创建运行时后备 Entity
             if (!entityManager.Exists(_hubEntity))
             {
                 _hubEntity = Entity.Null;

@@ -78,7 +78,7 @@ namespace AnimarsCatcher.Gameplay
                 int  targetGhostId   = rpc.ValueRO.TargetGhostId;
                 uint shotId          = rpc.ValueRO.ShotId;
 
-                // 先将客户端提供的 GhostId 映射回服务器权威攻击者实体
+                // 先将客户端提供的 GhostId 映射到服务器上的攻击者 Entity
                 if (!_ghostIdToEntity.TryGetValue(attackerGhostId, out var attackerEntity))
                 {
                     ecb.DestroyEntity(rpcEntity);
@@ -96,7 +96,7 @@ namespace AnimarsCatcher.Gameplay
                 var pending    = _pendingLookup[attackerEntity];
                 var attributes = _attributesLookup[attackerEntity];
 
-                // 攻击模式必须与远程 RPC 链路匹配
+                // 只有远程模式才能通过这类 RPC 结算
                 if (attributes.AttackMode != AniAttackMode.Ranged)
                 {
                     ecb.DestroyEntity(rpcEntity);
@@ -110,7 +110,7 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                // 未命中网络实体时仍需消费本次待结算快照
+                // 未命中网络 Entity 时仍需清除本次待结算攻击记录
                 if (targetGhostId < 0)
                 {
                     ecb.RemoveComponent<AniPendingAttack>(attackerEntity);
@@ -151,7 +151,7 @@ namespace AnimarsCatcher.Gameplay
                     Amount = attributes.AttackDamage,
                 });
 
-                // 待结算快照只能成功消费一次
+                // 每条待结算攻击记录只能成功处理一次
                 ecb.RemoveComponent<AniPendingAttack>(attackerEntity);
                 ecb.DestroyEntity(rpcEntity);
             }

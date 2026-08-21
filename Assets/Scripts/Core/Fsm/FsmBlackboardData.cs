@@ -20,7 +20,7 @@ namespace AnimarsCatcher.Core.Fsm
     }
 
     /// <summary>
-    /// 使用显式类型标签在动态缓冲区中保存可同步的状态机变量
+    /// 使用类型标记在动态缓冲区中保存可同步的状态机变量
     /// </summary>
     [InternalBufferCapacity(4)]
     [GhostComponent]
@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Core.Fsm
         public uint Key;
 
         [GhostField]
-        // 同一结构体复用多种存储槽，读取时必须先匹配此标签
+        // 同一结构体可以保存多种数据，读取前必须先检查类型标记
         public FsmVarType Type;
 
         [GhostField]
@@ -58,7 +58,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 按键在线性缓冲区中查找原始黑板条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">业务定义的变量键</param>
         /// <param name="value">成功时返回原始条目</param>
         /// <returns>找到对应键时返回真</returns>
@@ -81,7 +81,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 读取整数值，键不存在或类型不匹配时返回默认值
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">整数变量键</param>
         /// <param name="defaultValue">读取失败时的默认值</param>
         /// <returns>黑板中的整数或默认值</returns>
@@ -94,7 +94,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 读取浮点值，键不存在或类型不匹配时返回默认值
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">浮点变量键</param>
         /// <param name="defaultValue">读取失败时的默认值</param>
         /// <returns>黑板中的浮点值或默认值</returns>
@@ -107,7 +107,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 读取布尔值，键不存在或类型不匹配时返回默认值
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">布尔变量键</param>
         /// <param name="defaultValue">读取失败时的默认值</param>
         /// <returns>黑板中的布尔值或默认值</returns>
@@ -120,7 +120,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 读取三维向量，键不存在或类型不匹配时返回默认值
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">三维向量变量键</param>
         /// <param name="defaultValue">读取失败时的默认值</param>
         /// <returns>黑板中的三维向量或默认值</returns>
@@ -131,12 +131,12 @@ namespace AnimarsCatcher.Core.Fsm
         }
 
         /// <summary>
-        /// 读取实体引用，键不存在或类型不匹配时返回默认值
+        /// 读取 Entity 引用，键不存在或类型不匹配时返回默认值
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
-        /// <param name="key">实体变量键</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
+        /// <param name="key">Entity 变量键</param>
         /// <param name="defaultValue">读取失败时的默认值</param>
-        /// <returns>黑板中的实体引用或默认值</returns>
+        /// <returns>黑板中的 Entity 引用或默认值</returns>
         public static Entity GetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity defaultValue = default)
         {
             return blackboard.TryGet(key, out var value) &&
@@ -146,7 +146,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 写入整数值，键存在时原位更新，否则追加新条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">整数变量键</param>
         /// <param name="value">需要保存的整数</param>
         [BurstCompile]
@@ -175,7 +175,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 写入浮点值，键存在时原位更新，否则追加新条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">浮点变量键</param>
         /// <param name="value">需要保存的浮点值</param>
         [BurstCompile]
@@ -204,7 +204,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 写入三维向量，键存在时原位更新，否则追加新条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">三维向量变量键</param>
         /// <param name="value">需要保存的三维向量</param>
         public static void SetFloat3(ref this DynamicBuffer<FsmVar> blackboard, uint key, float3 value)
@@ -232,7 +232,7 @@ namespace AnimarsCatcher.Core.Fsm
         /// <summary>
         /// 写入布尔值，键存在时原位更新，否则追加新条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
         /// <param name="key">布尔变量键</param>
         /// <param name="value">需要保存的布尔值</param>
         [BurstCompile]
@@ -259,11 +259,11 @@ namespace AnimarsCatcher.Core.Fsm
         }
 
         /// <summary>
-        /// 写入实体引用，键存在时原位更新，否则追加新条目
+        /// 写入 Entity 引用，键存在时原位更新，否则追加新条目
         /// </summary>
-        /// <param name="blackboard">实体黑板缓冲区</param>
-        /// <param name="key">实体变量键</param>
-        /// <param name="value">需要保存的实体引用</param>
+        /// <param name="blackboard">Entity 黑板缓冲区</param>
+        /// <param name="key">Entity 变量键</param>
+        /// <param name="value">需要保存的 Entity 引用</param>
         public static void SetEntity(ref this DynamicBuffer<FsmVar> blackboard, uint key, Entity value)
         {
             for (int i = 0; i < blackboard.Length; i++)

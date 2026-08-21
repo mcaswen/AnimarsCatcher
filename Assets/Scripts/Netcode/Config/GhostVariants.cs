@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Networking
         [GhostField()]
         public bool IsGrounded;
 
-        // 父实体相关字段用于支持角色站在带 TrackedTransform 的移动平台上
+        // 父 Entity 相关字段用于支持角色站在带 TrackedTransform 的移动平台上
         [GhostField()]
         public Entity ParentEntity;
         [GhostField()]

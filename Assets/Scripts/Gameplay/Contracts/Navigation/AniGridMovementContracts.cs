@@ -51,7 +51,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
         // 紧凑矩形的列数上限，阶段五再改为动态列数
         public int FormationColumnCount;
 
-        // Follow 和 Find 在到达该距离后暂时停止，不承诺战斗站位
+        // Follow 和 Find 在到达该距离后暂时停止，这里不负责安排战斗站位
         public float TargetStoppingDistance;
 
         // 目标附近没有移动速度时维持的阵型前向
@@ -59,7 +59,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
     }
 
     /// <summary>
-    /// 标记尚未由 Squad 生命周期系统消费的指令实体
+    /// 标记尚未由 Squad 生命周期系统处理的指令 Entity
     /// </summary>
     public struct AniSquadCommandRequest : IComponentData
     {

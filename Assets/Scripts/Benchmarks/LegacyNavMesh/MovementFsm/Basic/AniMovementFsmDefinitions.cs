@@ -81,10 +81,10 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         // 表示当前移动目标是否已经到达
         public const uint MoveArrived = 0x0204u;
 
-        // 加入阵型请求的消费版本
+        // 最近一次处理的加入阵型请求版本
         public const uint FormationJoinEventVersion = 0x0401u;
 
-        // 离开阵型请求的消费版本
+        // 最近一次处理的离开阵型请求版本
         public const uint FormationLeaveEventVersion = 0x0402u;
 
         // 当前阵型队长，通常与 PlayerEntity 相同

@@ -12,7 +12,7 @@ namespace AnimarsCatcher.Editor
     using UnityEngine;
 
     /// <summary>
-    /// 验证最终程序集边界、显式引用策略和当前序列化完整性
+    /// 验证最终程序集边界、直接引用规则和当前序列化完整性
     /// </summary>
     public static class AssemblyMigrationStageSevenValidation
     {
@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Editor
         /// </summary>
         public static void RunFromCommandLine()
         {
-            // 先验证编译边界，再运行会打开场景或重建夹具的序列化验收
+            // 先验证编译边界，再运行会打开场景或重建测试数据的序列化检查
             ValidateAssemblyAvailability();
             ValidatePhysicsAuthoringOwnership();
             ValidateAutoReferencedPolicy();
@@ -81,7 +81,7 @@ namespace AnimarsCatcher.Editor
 
         private static void ValidateAutoReferencedPolicy()
         {
-            // 限定 Assets/Scripts，第三方程序集不受项目显式引用策略约束
+            // 只检查 Assets/Scripts，第三方程序集不受项目直接引用规则约束
             string[] assemblyDefinitionGuids = AssetDatabase.FindAssets(
                 "t:AssemblyDefinitionAsset",
                 new[] { "Assets/Scripts" });

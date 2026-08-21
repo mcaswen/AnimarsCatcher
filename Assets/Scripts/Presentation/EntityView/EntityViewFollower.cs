@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Presentation.EntityView
     using UnityEngine.Scripting.APIUpdating;
 
     /// <summary>
-    /// 让托管表现对象跟随 ECS 实体并驱动移动动画
+    /// 让托管表现对象跟随 ECS Entity 并驱动移动动画
     /// </summary>
     [MovedFrom(true, "AnimarsCatcher.Presentation.PlayerView", "AnimarsCatcher.Presentation", "AvatarViewFollower")]
     [DisallowMultipleComponent]
@@ -44,10 +44,10 @@ namespace AnimarsCatcher.Presentation.EntityView
 
 
         /// <summary>
-        /// 绑定需要跟随的实体及其所属 EntityManager
+        /// 绑定需要跟随的 Entity 及其所属 EntityManager
         /// </summary>
-        /// <param name="entity">目标实体</param>
-        /// <param name="entityManager">目标实体所属世界的 EntityManager</param>
+        /// <param name="entity">目标 Entity</param>
+        /// <param name="entityManager">目标 Entity 所属世界的 EntityManager</param>
         public void Bind(Entity entity, EntityManager entityManager)
         {
             _targetEntity = entity;
@@ -66,7 +66,7 @@ namespace AnimarsCatcher.Presentation.EntityView
             _lastRenderPosition = transform.position;
         }
 
-        // 在渲染帧末同步实体姿态并更新移动动画参数
+        // 在渲染帧末同步 Entity 姿态并更新移动动画参数
         private void LateUpdate()
         {
             if (!_isBound)
@@ -74,14 +74,14 @@ namespace AnimarsCatcher.Presentation.EntityView
                 return;
             }
 
-            // 所属 World 已销毁或目标实体失效时同步回收托管视图
+            // 所属 World 已销毁或目标 Entity 失效时同步回收托管视图
             if (_boundWorld == null || !_boundWorld.IsCreated || !_boundEntityManager.Exists(_targetEntity))
             {
                 Destroy(gameObject);
                 return;
             }
 
-            // 生成标记被移除表示实体表现生命周期已经结束
+            // 生成标记被移除表示 Entity 表现生命周期已经结束
             if (!_boundEntityManager.HasComponent<EntityViewSpawnedTag>(_targetEntity))
             {
                 Destroy(gameObject);
@@ -127,7 +127,7 @@ namespace AnimarsCatcher.Presentation.EntityView
             transform.SetPositionAndRotation(currentPosition, targetEntityRotation);
             transform.localScale = new Vector3(scale.x, scale.y, scale.z);
 
-            // 只平滑 Animator 速度，实体位置保持逐帧精确跟随
+            // 只平滑 Animator 速度，Entity 位置保持逐帧精确跟随
             if (_animator != null)
             {
                 float distance = (currentPosition - _lastRenderPosition).magnitude;

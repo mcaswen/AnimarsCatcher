@@ -14,7 +14,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
     }
 
     /// <summary>
-    /// 标识 Legacy 导航基准当前所处的生命周期阶段
+    /// 标识 Legacy 导航基准当前所处的运行阶段
     /// </summary>
     public enum LegacyNavigationBenchmarkPhase : byte
     {
@@ -103,7 +103,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
     }
 
     /// <summary>
-    /// 标识 Harness 创建的非 Ani 辅助实体
+    /// 标识 Harness 创建的非 Ani 辅助 Entity
     /// </summary>
     public struct LegacyNavigationBenchmarkOwnedTag : IComponentData
     {

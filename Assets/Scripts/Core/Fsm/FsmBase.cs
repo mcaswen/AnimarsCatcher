@@ -21,7 +21,7 @@ namespace AnimarsCatcher.Core.Fsm
     public enum ActionId : ushort { None = 0 }
 
     /// <summary>
-    /// 保存实体当前状态、待迁移状态和迁移动作
+    /// 保存 Entity 当前状态、待迁移状态和迁移动作
     /// </summary>
     public struct Fsm : IComponentData
     {
@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Core.Fsm
     }
 
     /// <summary>
-    /// 保存本帧状态机时间、Tick 和实体黑板查询
+    /// 保存本帧状态机时间、Tick 和 Entity 黑板查询
     /// </summary>
     public struct FsmContext : IComponentData
     {

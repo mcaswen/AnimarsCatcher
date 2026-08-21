@@ -3,20 +3,19 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 统一烘焙拓扑使用的稳定八方向编码
+    /// 在烘焙和运行时之间统一八方向邻接关系的编号
     /// </summary>
     public static class NavigationGridDirections
     {
-        // 索引顺序与 NavigationNeighborMask 位布局构成持久数据协议
-        // 调整方向顺序会使旧 Bake Asset 的邻接含义失效
-        // Burst 路径使用固定分支，避免托管数组和静态初始化
+        // 这些编号与 NavigationNeighborMask 的位顺序一一对应
+        // 修改顺序会改变旧烘焙资产中邻接位的含义，因此必须保持不变
+        // 这里使用分支而不是托管数组，确保代码可以在 Burst 中运行
         public static bool TryGetDirectionIndex(
             int deltaX,
             int deltaZ,
             out int directionIndex)
         {
-            // 方向索引必须与烘焙 NeighborMask 的八方向编码完全一致
-            // 非相邻 Cell 返回失败防止平滑和步进成本误用远距离边
+            // 只接受周围八个相邻格子，避免路径平滑或成本计算把远处格子当成一步
             directionIndex = -1;
             if (deltaX == 0 && deltaZ == 1) directionIndex = 0;
             else if (deltaX == 1 && deltaZ == 1) directionIndex = 1;
@@ -31,7 +30,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public static void GetDirection(int directionIndex, out int deltaX, out int deltaZ)
         {
-            // Burst 路径内使用固定分支表避免托管数组和静态初始化
+            // 固定分支既保留编号顺序，也避免 Burst 依赖托管数组
             switch (directionIndex)
             {
                 case 0: deltaX = 0; deltaZ = 1; return;

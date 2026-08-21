@@ -13,20 +13,20 @@ using UnityEngine;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 执行阶段二端点投影、普通 A 星和路径平滑自动验收
+    /// 自动验证端点纠正、普通 A*、路径平滑和异步结果写回
     /// </summary>
     public static class NavigationGridStageTwoValidation
     {
         [MenuItem("Tools/Animars Catcher/Navigation/Run Stage Two Validation")]
-        // 菜单入口复用与批处理完全相同的测试集合
-        // 验收过程只创建临时 World 和 NativeContainer
+        // 编辑器菜单和批处理执行同一组测试
+        // 测试只创建临时 World 和 Native 容器，不修改项目资产
         private static void RunFromMenu()
         {
             RunAll();
         }
 
         /// <summary>
-        /// 供 Unity 批处理执行阶段二完整验收
+        /// 供 Unity Batch Mode 执行阶段二全部验证
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -34,12 +34,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 执行坐标、投影、路径成本、确定性和失败状态验证
+        /// 依次验证坐标转换、端点纠正、路线成本、重复结果和失败状态
         /// </summary>
         public static void RunAll()
         {
-            // 查询契约和失败路径先运行，随后验证成本与异步 System
-            // 每项使用独立 Blob 和 NativeContainer 防止状态串扰
+            // 先检查基础查询和失败情况，再验证成本选择与异步系统
+            // 每项测试使用独立 Blob 和 Native 容器，避免互相影响
             TestCoordinateConversionAndProjection();
             TestRegionRejection();
             TestCornerLineOfSight();
@@ -52,11 +52,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Debug.Log("Navigation Grid 阶段二自动验收通过");
         }
 
-        // 路径 System 只允许注册到 Server 和 Local Simulation World
-        // Client World 不应隐式承担权威寻路工作
+        // 寻路系统只能注册到服务器或本地模拟 World
+        // 纯客户端不能执行只应由服务器负责的寻路逻辑
         private static void TestWorldFilterRegistration()
         {
-            // 读取系统发现列表验证 WorldFilter 在注册阶段已经生效
+            // 读取默认系统列表，直接检查 WorldSystemFilter 是否生效
             IReadOnlyList<Type> serverSystems = DefaultWorldInitialization.GetAllSystems(
                 WorldSystemFilterFlags.ServerSimulation);
             IReadOnlyList<Type> localSystems = DefaultWorldInitialization.GetAllSystems(
@@ -75,7 +75,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "Client World 不应自动注册 ServerNavigationGridPathfindingSystem");
         }
 
-        // 系统列表可能包含不同程序集中的同名类型，因而按 Type 身份比较
+        // 不同程序集可能存在同名类型，因此按 Type 本身比较
         private static bool ContainsSystem(IReadOnlyList<Type> systems, Type targetType)
         {
             for (int i = 0; i < systems.Count; i++)
@@ -89,12 +89,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return false;
         }
 
-        // 验证世界坐标与行主序 Cell 之间的边界和往返契约
-        // 同时覆盖阻挡端点向最近合法 Cell 的稳定投影
+        // 检查世界坐标与格子索引的边界和往返转换
+        // 同时确认落在障碍上的端点会纠正到最合适的附近格子
         private static void TestCoordinateConversionAndProjection()
         {
-            // 使用非零 Bounds 原点确保转换没有世界零点假设
-            // 阻挡中心与等距候选同时验证稳定比较键
+            // 使用不在世界原点的地图，确保坐标转换没有零点假设
+            // 设置多个等距候选，检查最终选择顺序明确
             NavigationGridCellData[] cells = CreateWalkableCells(5, 5);
             SetWalkable(cells, 5, 2, 2, false);
             PrepareCells(cells, 5, 5, 0.5f);
@@ -141,11 +141,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "相同端点投影必须得到稳定 Cell");
         }
 
-        // 起终点位于不同静态 Region 时应在 A 星展开前失败
-        // ExpandedNodeCount 保持零证明预拒绝没有进入搜索热路径
+        // 起终点位于不同静态连通区域时，应在 A* 展开节点前直接失败
+        // 展开数为 0 可以证明搜索没有真正开始
         private static void TestRegionRejection()
         {
-            // 完整阻挡列创建两个 Region 且保持两端点各自可站立
+            // 用一整列障碍分开地图，同时让两端点本身仍可站立
             NavigationGridCellData[] cells = CreateWalkableCells(4, 1);
             cells[2].Height = 2f;
             cells[3].Height = 2f;
@@ -166,12 +166,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(execution.Result.ExpandedNodeCount == 0, "Region 拒绝不应展开 A 星节点");
         }
 
-        // 直线检查必须继承烘焙邻接的禁止穿角规则
-        // 路径平滑不能重新引入 A 星已经避开的非法对角边
+        // 直线检查必须遵守烘焙邻接中禁止斜穿墙角的规则
+        // 路径平滑不能重新加入 A* 已经避开的非法斜向连接
         private static void TestCornerLineOfSight()
         {
-            // 只封锁对角边所需侧格并保留目标 Cell
-            // 直线成本必须失败而不是返回绕行成本
+            // 只封锁斜向移动两侧的格子，目标格子本身保持开放
+            // 直线检查应失败，不能偷偷返回一条绕行成本
             NavigationGridCellData[] cells = CreateWalkableCells(3, 3);
             SetWalkable(cells, 3, 1, 2, false);
             SetWalkable(cells, 3, 2, 1, false);
@@ -192,12 +192,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "直线可见性不能斜穿两个正交阻挡之间的角点");
         }
 
-        // 开放 Grid 上锯齿 Parent 链应收敛为少量直线路径点
-        // 起点和终点必须始终显式保留供下游跟随
+        // 开放地图上的锯齿父节点链应平滑为少量直线路点
+        // 起点和终点必须始终保留，供下游移动使用
         private static void TestOpenGridSmoothing()
         {
-            // 非轴对齐端点促使原始 A 星产生多个八方向节点
-            // 平滑后预期只保留可直连的两个端点
+            // 使用非轴对齐端点，让原始 A* 产生多个八方向节点
+            // 开放地图平滑后应只保留可以直连的起终点
             NavigationGridCellData[] cells = CreateWalkableCells(8, 8);
             PrepareCells(cells, 8, 8, 0.5f);
 
@@ -217,12 +217,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(execution.PathCells[1] == 7 + 6 * 8, "平滑路径必须保留终点 Cell");
         }
 
-        // 相同几何对不同 Agent 半径应选择不同可行通道
-        // 该测试证明运行时 Clearance 约束没有被静态 Region 替代
+        // 同一张地图中，小体型和大体型角色应选择不同通道
+        // 这能确认运行时安全距离检查没有被静态连通区域代替
         private static void TestClearanceChangesRoute()
         {
-            // 双通道地图让小体型走短路，大体型选择宽路
-            // 两次请求共用同一 Blob 证明差异来自运行时半径
+            // 双通道地图让小体型走窄捷径，大体型绕行宽路
+            // 两次请求共用同一 Blob，路线差异只能来自角色半径
             NavigationGridCellData[] cells = CreateWalkableCells(5, 3);
             for (int x = 1; x <= 3; x++)
             {
@@ -258,12 +258,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 高地形成本应使搜索选择更长但总代价更低的绕行路径
-        // 重复执行必须得到完全相同的 Cell 序列和成本
+        // 直线路面成本很高时，搜索应选择距离更长但总成本更低的绕路
+        // 重复执行必须得到相同格子序列和相同成本
         private static void TestTerrainCostAndDeterminism()
         {
-            // 直线路径保持几何可行但提高中间行成本
-            // 连续 generation 验证 Scratch 复用不会改变结果
+            // 中间一行仍可通行，只是地形成本更高
+            // 连续使用不同 Generation，检查复用临时数组不会改变结果
             NavigationGridCellData[] cells = CreateWalkableCells(5, 3);
             for (int x = 1; x <= 3; x++)
             {
@@ -292,11 +292,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(PathsEqual(first.PathCells, third.PathCells), "相同输入第三次路径不稳定");
         }
 
-        // 投影半径内没有合法 Cell 时返回明确端点失败原因
-        // 失败请求不得向共享路径数组写入残留数据
+        // 搜索半径内没有可站立格子时，应返回明确的端点失败原因
+        // 失败请求不能向共享路径数组留下部分数据
         private static void TestProjectionFailure()
         {
-            // 全部 Cell 阻挡并限制半径确保不存在投影候选
+            // 将所有格子设为障碍并限制搜索半径，确保没有可用候选
             NavigationGridCellData[] cells = CreateWalkableCells(3, 3);
             for (int index = 0; index < cells.Length; index++)
             {
@@ -318,11 +318,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "没有合法 Cell 时应返回 StartProjectionFailed");
         }
 
-        // 临时 World 验证请求从 Pending 到 Searching 再到终态的异步链路
-        // 同时覆盖版本匹配 Buffer 写回和 World 销毁时的 NativeContainer 释放
+        // 在临时 World 中检查请求从 Pending、Searching 到最终状态的异步流程
+        // 同时确认版本匹配、路径缓冲区写回和 World 销毁时资源释放
         private static void TestAsynchronousPathfindingSystem()
         {
-            // 使用正式组件和真实 ISystem，World Dispose 同时覆盖持久容器回收
+            // 测试使用正式组件和真实系统，销毁 World 时也会检查持久容器回收
             NavigationGridCellData[] cells = CreateWalkableCells(8, 8);
             PrepareCells(cells, 8, 8, 0.5f);
 
@@ -362,7 +362,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 requestEntity,
                 NavigationPathState.CreatePending(request.Version));
 
-            // 首帧只允许进入 Searching 不能同步完成并写回
+            // 第一帧只能调度为 Searching，不能同步完成并立即写回
             SystemHandle system = world.GetOrCreateSystem<ServerNavigationGridPathfindingSystem>();
             system.Update(world.Unmanaged);
             NavigationPathState pathState =
@@ -371,7 +371,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 pathState.Status == NavigationPathStatus.Searching,
                 "路径系统首帧只能调度后台任务不能同步写回结果");
 
-            // 主动刷新批处理队列只用于缩短编辑器验收等待，不改变运行时 System 逻辑
+            // 主动刷新任务队列只为缩短编辑器测试等待，不改变正式系统逻辑
             JobHandle.ScheduleBatchedJobs();
             for (int updateIndex = 0;
                  updateIndex < 10000 && pathState.Status == NavigationPathStatus.Searching;
@@ -382,7 +382,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 pathState = entityManager.GetComponentData<NavigationPathState>(requestEntity);
             }
 
-            // 终态同时校验状态、版本和端点 Buffer
+            // 完成后同时检查状态、版本、纠正后端点和路径缓冲区
             DynamicBuffer<NavigationPathWaypoint> waypoints =
                 entityManager.GetBuffer<NavigationPathWaypoint>(requestEntity);
             Assert(pathState.Status == NavigationPathStatus.Succeeded, "异步路径系统未完成请求");
@@ -392,8 +392,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(waypoints[1].CellIndex == 7 + 6 * 8, "异步路径终点写回错误");
         }
 
-        // 为纯算法用例分配与生产 Job 相同形状的 Scratch 容器
-        // 每次执行都独立释放资源避免测试间共享状态掩盖错误
+        // 纯算法测试使用与正式后台任务相同形状的临时数组
+        // 每次运行独立创建和释放，避免测试共享状态掩盖问题
         private static PathExecutionResult ExecutePath(
             BlobAssetReference<NavigationGridBlob> grid,
             NavigationPathRequest request,
@@ -466,8 +466,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 创建统一成本和高度的可行走 Grid 作为路径测试基线
-        // 特定用例只修改与目标行为有关的 Cell
+        // 创建高度和成本一致的开放地图作为基线
+        // 各测试只修改与目标行为有关的格子
         private static NavigationGridCellData[] CreateWalkableCells(int width, int height)
         {
             var cells = new NavigationGridCellData[width * height];
@@ -490,7 +490,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return cells;
         }
 
-        // 按生产顺序生成邻接、Cluster 和 Region，避免手工伪造 NeighborMask
+        // 使用正式烘焙算法生成邻接、分块和连通区域，不手工伪造 NeighborMask
         private static void PrepareCells(
             NavigationGridCellData[] cells,
             int width,
@@ -517,8 +517,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             NavigationGridBakingAlgorithms.AssignRegions(cells, width, height);
         }
 
-        // 将托管 Cell 数组转换为与 SubScene 烘焙结果一致的 Blob 结构
-        // Blob 生命周期由调用用例显式释放
+        // 将托管格子数组转换成与 SubScene 烘焙结果相同的 Blob
+        // 每个测试负责释放自己创建的 Blob
         private static BlobAssetReference<NavigationGridBlob> CreateGrid(
             NavigationGridCellData[] cells,
             int width,
@@ -564,7 +564,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return result;
         }
 
-        // RegionId 从一开始连续编号，最大值即当前静态区域数量
+        // 有效区域从 1 连续编号，因此最大 RegionId 就是区域总数
         private static int CountRegions(NavigationGridCellData[] cells)
         {
             int maximumRegion = 0;
@@ -576,8 +576,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return maximumRegion;
         }
 
-        // 统一修改行主序 Cell 的可行走状态和地形成本
-        // 复制写回避免结构体值修改丢失
+        // 按坐标修改格子的可行走状态和地形成本
+        // 结构体先复制再写回，避免修改局部副本后丢失
         private static void SetWalkable(
             NavigationGridCellData[] cells,
             int width,
@@ -591,7 +591,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             cells[index] = cell;
         }
 
-        // 检查路径是否确实绕开指定高成本或阻挡行
+        // 检查最终路线是否确实绕开指定的高成本或阻挡行
         private static bool ContainsCellOutsideRow(int[] path, int width, int row)
         {
             for (int index = 0; index < path.Length; index++)
@@ -605,8 +605,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return false;
         }
 
-        // 确定性要求 Cell 数量和每个位置都完全一致
-        // 不使用集合比较因为路径顺序本身属于结果契约
+        // 重复结果要求路径长度和每个位置都一致
+        // 不能使用集合比较，因为路点顺序也是结果的一部分
         private static bool PathsEqual(int[] left, int[] right)
         {
             if (left.Length != right.Length)
@@ -625,7 +625,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return true;
         }
 
-        // 抛出异常使菜单 Console 和批处理退出码都能暴露失败原因
+        // 失败时抛出异常，让 Console 和批处理退出码都能报告原因
         private static void Assert(bool condition, string message)
         {
             if (!condition)
@@ -636,8 +636,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private readonly struct PathExecutionResult
         {
-            // Scratch 容量严格等于 Cell 数以暴露容量假设和越界
-            // 把值类型结果与已经复制出的路径数组绑定为一个测试返回值
+            // 临时数组容量严格等于格子数，用于发现越界或错误容量假设
+            // 返回值同时保存搜索结果和已经复制出来的路径数组
             public PathExecutionResult(NavigationPathJobResult result, int[] pathCells)
             {
                 Result = result;

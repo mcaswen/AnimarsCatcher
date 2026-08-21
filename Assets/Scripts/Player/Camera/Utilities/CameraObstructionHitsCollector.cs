@@ -25,7 +25,7 @@ namespace AnimarsCatcher.Player
         /// 创建一次相机遮挡查询的命中收集器
         /// </summary>
         /// <param name="followedCharacter">当前跟随角色</param>
-        /// <param name="ignoredEntitiesBuffer">显式忽略的实体列表</param>
+        /// <param name="ignoredEntitiesBuffer">配置为忽略的 Entity 列表</param>
         /// <param name="cameraDirection">相机朝向</param>
         public CameraObstructionHitsCollector(Entity followedCharacter, DynamicBuffer<OrbitCameraIgnoredEntityBufferElement> ignoredEntitiesBuffer, float3 cameraDirection)
         {
@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Player
         }
 
         /// <summary>
-        /// 过滤自身、忽略实体和不可碰撞表面，并记录最近命中
+        /// 过滤自身、忽略 Entity 和不可碰撞表面，并记录最近命中
         /// </summary>
         /// <param name="hit">本次碰撞投射命中</param>
         /// <returns>命中是否参与遮挡计算</returns>

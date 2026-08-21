@@ -6,7 +6,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
-    /// 将场景中的框选 UI 对象注入客户端 ECS 单例
+    /// 将场景中的框选 UI 对象绑定到客户端 ECS 单例
     /// 托管引用只在 Presentation 阶段建立一次
     /// </summary>
     [BurstCompile]
@@ -16,7 +16,7 @@ namespace AnimarsCatcher.Presentation.Selection
     {
         protected override void OnUpdate()
         {
-            // Attached 标签保证场景 UI 只注入一次
+            // Attached 标签保证场景 UI 只绑定一次
             var query = SystemAPI.QueryBuilder()
                 .WithAll<AniSelectionUIAttachedTag>()
                 .Build();
@@ -27,7 +27,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
             var entityManager = EntityManager;
 
-            // 缺少拖拽状态单例时由桥接系统创建
+            // 缺少拖拽状态单例时由当前 UI 绑定系统创建
             Entity dragStateEntity;
             if (!SystemAPI.TryGetSingletonEntity<AniSelectionDragState>(out dragStateEntity))
                 dragStateEntity = entityManager.CreateEntity(typeof(AniSelectionDragState));

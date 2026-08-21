@@ -86,7 +86,7 @@ namespace AnimarsCatcher.Gameplay
         /// 调用已注册条件，标识符未注册时按不满足处理
         /// </summary>
         /// <param name="id">条件标识符</param>
-        /// <param name="entity">正在评估的实体</param>
+        /// <param name="entity">正在评估的 Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>条件函数的评估结果</returns>
         public static bool InvokeCondition(ConditionId id, in Entity entity, in FsmContext context)
@@ -102,7 +102,7 @@ namespace AnimarsCatcher.Gameplay
         /// 调用已注册动作，标识符未注册时保持状态不变
         /// </summary>
         /// <param name="id">动作标识符</param>
-        /// <param name="entity">正在执行动作的实体</param>
+        /// <param name="entity">正在执行动作的 Entity</param>
         /// <param name="fsm">允许动作更新的状态机组件</param>
         /// <param name="context">当前状态机上下文</param>
         public static void InvokeAction(ActionId id, in Entity entity, ref Fsm fsm, in FsmContext context)

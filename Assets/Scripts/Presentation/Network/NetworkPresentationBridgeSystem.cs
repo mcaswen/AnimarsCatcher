@@ -10,7 +10,7 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Presentation.Network
 {
     /// <summary>
-    /// 将网络程序集发布的短生命周期数据通知转交给客户端表现层
+    /// 将网络程序集产生的一次性状态通知转交给客户端表现层
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]

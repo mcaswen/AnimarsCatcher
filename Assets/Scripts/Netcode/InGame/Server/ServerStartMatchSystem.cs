@@ -8,7 +8,7 @@ namespace AnimarsCatcher.Networking
     using Unity.Transforms;
 
     /// <summary>
-    /// 在 Server World 接收开局请求并向所有连接广播权威场景
+    /// 在 Server World 接收开局请求，并向所有连接广播服务器选定的场景
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -80,7 +80,7 @@ namespace AnimarsCatcher.Networking
             // 广播只执行一次，后续由客户端就绪 RPC 推进角色创建阶段
             if (matchStateRW.ValueRO.ClientStartRpcSent == 0)
             {
-                // 逐连接定向发送，避免依赖广播 RPC 的连接过滤语义
+                // 逐个连接定向发送，避免依赖广播 RPC 的连接过滤行为
                 foreach (var (networkId, connectionEntity) in SystemAPI
                             .Query<RefRO<NetworkId>>()
                             .WithEntityAccess())

@@ -14,7 +14,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-            // 构建所有实体共享的不可变状态图
+            // 构建所有 Entity 共享的不可变状态图
             BlobBuilder builder;
             BlobBuilderArray<FsmStateNode> states;
 

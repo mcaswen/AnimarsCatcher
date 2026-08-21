@@ -4,17 +4,17 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 提供动态 Overlay 的无状态差量更新和运行时查询
+    /// 更新并查询动态障碍在导航网格上产生的阻挡、成本和空间影响
     /// </summary>
     public static class NavigationDynamicOverlayAlgorithms
     {
         /// <summary>
-        /// 验证 Overlay Buffer 与当前 Grid Blob 的拓扑尺寸是否一致
+        /// 检查动态障碍缓冲区的大小是否与当前导航网格一致
         /// </summary>
         /// <param name="grid">当前只读 Grid Blob</param>
         /// <param name="cells">逐 Cell 的 Overlay Buffer</param>
         /// <param name="clusters">逐 Cluster 的 Overlay Buffer</param>
-        /// <returns>两个 Buffer 均与 Grid 拓扑一致时返回 true</returns>
+        /// <returns>格子和分块缓冲区都与导航网格大小一致时返回 true</returns>
         public static bool IsShapeValid(
             ref NavigationGridBlob grid,
             DynamicBuffer<NavigationDynamicOverlayCell> cells,
@@ -28,15 +28,15 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 把一个障碍来源的差量合并到指定 Cell
+        /// 将一个动态障碍的新增或移除影响合并到指定格子
         /// </summary>
         /// <param name="cells">逐 Cell 的 Overlay Buffer</param>
         /// <param name="cellIndex">需要更新的 Cell 索引</param>
-        /// <param name="blockCountDelta">阻挡引用计数差量</param>
-        /// <param name="extraCostDelta">额外移动成本差量</param>
-        /// <param name="clearanceReductionDelta">Clearance 减少量差量</param>
-        /// <param name="version">本批次稳定版本</param>
-        /// <returns>Cell 的有效状态发生变化时返回 true</returns>
+        /// <param name="blockCountDelta">阻挡数量的变化，添加为正、移除为负</param>
+        /// <param name="extraCostDelta">移动成本的变化</param>
+        /// <param name="clearanceReductionDelta">可用空间缩减值的变化</param>
+        /// <param name="version">当前更新批次的版本</param>
+        /// <returns>该格子的实际导航状态发生变化时返回 true</returns>
         public static bool ApplyDelta(
             DynamicBuffer<NavigationDynamicOverlayCell> cells,
             int cellIndex,
@@ -77,13 +77,13 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 标记变更 Cell 外围一圈涉及的 Cluster
+        /// 标记变化格子及其周围一圈所涉及的寻路分块
         /// </summary>
         /// <param name="grid">当前只读 Grid Blob</param>
         /// <param name="cellIndex">发生有效变化的 Cell 索引</param>
         /// <param name="clusters">逐 Cluster 的 Overlay Buffer</param>
         /// <param name="version">本批次稳定版本</param>
-        /// <returns>本批次首次标记的 Cluster 数量</returns>
+        /// <returns>本批次新标记的分块数量</returns>
         public static int MarkAffectedClusters(
             ref NavigationGridBlob grid,
             int cellIndex,
@@ -131,10 +131,10 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 生成避开零值的下一个 Overlay 版本
+        /// 生成下一个非零的动态障碍版本号
         /// </summary>
         /// <param name="current">当前版本</param>
-        /// <returns>可用于发布的非零版本</returns>
+        /// <returns>可用于本次更新的版本号</returns>
         public static uint NextVersion(uint current)
         {
             uint next = current + 1u;
@@ -142,7 +142,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 查询指定 Cell 是否存在至少一个阻挡引用
+        /// 检查指定格子是否被一个或多个动态障碍挡住
         /// </summary>
         /// <param name="cells">逐 Cell 的 Overlay Buffer</param>
         /// <param name="cellIndex">待查询的 Cell 索引</param>
@@ -157,12 +157,12 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 合并静态 Clearance 和动态减少量
+        /// 计算扣除动态障碍影响后，格子实际剩余的可用空间
         /// </summary>
         /// <param name="staticCell">Blob 中的静态 Cell</param>
         /// <param name="cells">逐 Cell 的 Overlay Buffer</param>
         /// <param name="cellIndex">待查询的 Cell 索引</param>
-        /// <returns>限制为非负值的有效 Clearance</returns>
+        /// <returns>不会小于零的实际可用空间</returns>
         public static float GetEffectiveClearance(
             ref NavigationGridCell staticCell,
             DynamicBuffer<NavigationDynamicOverlayCell> cells,
@@ -178,7 +178,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 读取限制为非负值的动态移动成本
+        /// 读取格子的动态附加移动成本，并保证结果不小于零
         /// </summary>
         /// <param name="cells">逐 Cell 的 Overlay Buffer</param>
         /// <param name="cellIndex">待查询的 Cell 索引</param>

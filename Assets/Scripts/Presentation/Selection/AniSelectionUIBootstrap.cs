@@ -4,7 +4,7 @@ using UnityEngine.Serialization;
 namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
-    /// 承载客户端框选功能需要注入 ECS 的场景 UI 引用
+    /// 保存客户端框选功能需要传入 ECS 的场景 UI 引用
     /// </summary>
     public class AniSelectionUIBootstrap : MonoBehaviour
     {

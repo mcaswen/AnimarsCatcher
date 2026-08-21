@@ -7,7 +7,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 解析 Follow 和 Find 的动态目标，给路径请求提供稳定目标位置
+    /// 持续读取 Follow 和 Find 目标的当前位置，供队伍重新寻路
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -25,7 +25,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            // Lookup 在每次结构变更后刷新，动态目标解析始终读取当前 Transform
+            // 每帧刷新组件查询，确保读取的是动态目标当前的 Transform
             _transformLookup.Update(ref state);
             foreach (var (command, pathState, entity) in
                      SystemAPI.Query<RefRO<AniSquadCommand>, RefRW<AniSquadPathState>>()
@@ -34,7 +34,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 AniSquadCommand commandValue = command.ValueRO;
                 float3 targetPosition = commandValue.TargetPosition;
 
-                // MoveTo 使用指令快照，动态指令每 Tick 从权威目标刷新位置
+                // MoveTo 使用指令中的固定坐标，动态指令每 Tick 从目标 Entity 刷新位置
                 if (commandValue.Mode != AniSquadCommandMode.MoveTo)
                 {
                     // 目标消失后继续使用旧坐标会伪造成功状态，因此立即终止指令
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     targetPosition = _transformLookup[commandValue.TargetEntity].Position;
                 }
 
-                // Target Entity 也可能产生无效 Transform，不能让非有限值进入路径请求
+                // 目标 Transform 如果包含 NaN 或无穷值，就不能用于寻路
                 if (!VectorMath.IsFinite(targetPosition))
                 {
                     pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
@@ -61,7 +61,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 把 Squad 目标变化转换为现有异步 Flow Field 请求
+    /// 在队伍收到新指令或动态目标移动后，提交相应的异步 Flow Field 请求
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -79,12 +79,12 @@ namespace AnimarsCatcher.Navigation.Grid
             if (!SystemAPI.TryGetSingleton<NavigationGridReference>(out NavigationGridReference gridReference) ||
                 !gridReference.Value.IsCreated)
             {
-                // Grid 尚未发布时保留指令，待数据源就绪后再创建第一个请求
+                // 导航网格尚未加载时先保留指令，等网格可用后再发起寻路
                 return;
             }
 
             float cellSize = math.max(0.1f, gridReference.Value.Value.CellSize);
-            // CellSize 同时作为目标移动阈值和请求投影的最小空间尺度
+            // 动态目标至少跨过一个格子才重新寻路，过滤格子内部的小幅移动
             foreach (var (squad, command, anchor, pathState, request, fieldState, entity) in
                      SystemAPI.Query<
                          RefRO<AniSquad>,
@@ -97,14 +97,13 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 if (pathState.ValueRO.Status == AniSquadMovementStatus.Failed)
                 {
-                    // 失败指令保持终止态，不能因目标仍存在而自动复活
-                    // 只有新指令替换 SubmittedCommandSequence 后才允许恢复
+                    // 已失败的指令不会因为目标仍然存在就自行恢复，只能由新指令替换
                     continue;
                 }
 
                 NavigationPathStatus completedStatus = fieldState.ValueRO.Status;
 
-                // 每个请求版本只计数一次，避免完成结果在后续 Tick 重复累加
+                // 每个请求只统计一次，避免同一个完成结果在后续帧重复计数
                 bool requestFinished =
                     fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion &&
                     pathState.ValueRO.ActiveRequestVersion != 0 &&
@@ -120,7 +119,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     {
                         pathState.ValueRW.SuccessfulFieldRequestCount++;
 
-                        // CacheHit 属于完成请求属性，仅在首次观察该版本时计数
+                        // 缓存命中属于这次请求的结果，也只在首次看到结果时统计
                         if (fieldState.ValueRO.CacheHit != 0)
                         {
                             pathState.ValueRW.CacheHitCount++;
@@ -128,7 +127,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                     else
                     {
-                        // 失败版本只计数一次，报告可区分 Field 失败和未完成请求
+                        // 失败请求同样只统计一次，便于区分“仍在计算”和“计算失败”
                         pathState.ValueRW.FailedFieldRequestCount++;
                     }
                 }
@@ -136,13 +135,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 int cooldown = pathState.ValueRO.RepathCooldownTicks;
                 if (cooldown > 0)
                 {
-                    // 冷却只限制动态目标重规划，新指令仍可立即提交
+                    // 冷却时间只限制动态目标的频繁重算，不会延迟玩家的新指令
                     pathState.ValueRW.RepathCooldownTicks = cooldown - 1;
                 }
 
                 bool newCommand = pathState.ValueRO.SubmittedCommandSequence != command.ValueRO.Sequence;
 
-                // 目标跨越至少一个 Cell 才值得失效当前 Field，过滤亚 Cell 抖动
+                // 目标移动不足一个格子时继续使用当前 Flow Field，避免轻微抖动触发重算
                 float targetDeltaSquared = math.distancesq(
                     pathState.ValueRO.LastSubmittedTargetPosition,
                     pathState.ValueRO.ResolvedTargetPosition);
@@ -150,14 +149,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 bool dynamicTarget = command.ValueRO.Mode != AniSquadCommandMode.MoveTo;
                 bool canRepath = pathState.ValueRO.RepathCooldownTicks <= 0;
 
-                // 新指令、无 Field 或动态目标跨 Cell 是唯一三种重规划原因
-                // 静态 MoveTo 忽略亚 Cell 目标漂移，避免反复销毁成功 Field
+                // 只有新指令、尚无可用 Flow Field，或动态目标跨格移动时才重新请求
+                // 固定坐标的 MoveTo 不会因格子内的微小差异反复重算
                 bool needsRequest = newCommand ||
                                     fieldState.ValueRO.Status == NavigationPathStatus.None ||
                                     (dynamicTarget && targetMoved && canRepath);
                 if (!needsRequest)
                 {
-                    // 已完成或 Holding 的指令不能被旧成功结果重新激活为 Moving
+                    // 已完成或保持跟随的指令不能被旧请求结果重新改回移动状态
                     if (fieldState.ValueRO.Status == NavigationPathStatus.Succeeded &&
                         fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                     {
@@ -171,7 +170,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     else if (fieldState.ValueRO.Status == NavigationPathStatus.Failed &&
                              fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                     {
-                        // 结果版本匹配时才把 Field 失败传播到 Squad，忽略旧请求结果
+                        // 只有当前请求失败才影响队伍；迟到的旧结果直接忽略
                         pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
                     }
 
@@ -180,7 +179,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 uint requestVersion = pathState.ValueRO.ActiveRequestVersion + 1;
 
-                // 零是未发起请求的哨兵值，版本环绕时从一重新开始
+                // 版本号 0 表示从未请求；计数溢出后跳过 0，从 1 重新开始
                 if (requestVersion == 0)
                 {
                     requestVersion = 1;
@@ -194,24 +193,24 @@ namespace AnimarsCatcher.Navigation.Grid
                     clearanceMargin: 0.05f,
                     maximumProjectionRadiusInCells: 16);
 
-                // 新请求从 Anchor 当前 Cell 投影，避免沿用旧指令起点
+                // 新请求从队伍锚点当前所在格子开始，不沿用上一次指令的起点
 
-                // Request 与 Pending State 必须同 Tick 同版本写入，Flow 系统据此认领结果
+                // 请求和等待状态使用同一个版本号，Flow Field 系统才能把结果交还给正确的队伍
                 request.ValueRW = NavigationFlowFieldRequest.Create(pathRequest);
                 fieldState.ValueRW = NavigationFlowFieldState.CreatePending(requestVersion);
                 pathState.ValueRW.SubmittedCommandSequence = command.ValueRO.Sequence;
                 pathState.ValueRW.ActiveRequestVersion = requestVersion;
 
-                // 记录本次目标快照，后续距离比较只针对动态目标变化
+                // 记住本次请求的目标位置，之后用它判断动态目标是否移动得足够远
                 pathState.ValueRW.LastSubmittedTargetPosition =
                     pathState.ValueRO.ResolvedTargetPosition;
 
-                // 八 Tick 冷却限制 Follow/Find 的重规划频率，不影响当前 Field 消费
+                // Follow 和 Find 至少间隔 8 帧才能再次寻路，期间仍沿当前 Flow Field 移动
                 pathState.ValueRW.RepathCooldownTicks = 8;
                 pathState.ValueRW.SettledTicks = 0;
-                // 新请求提交后必须回到 AwaitingPath，Progress 不得消费旧到达状态
+                // 提交新请求后回到等待状态，避免进度系统沿用上一次的到达结果
                 pathState.ValueRW.Status = AniSquadMovementStatus.AwaitingPath;
-                // FieldRequestCount 统计真实提交次数，不统计被冷却过滤的目标变化
+                // 请求计数只记录真正提交的任务，不包含冷却期间被忽略的目标移动
                 pathState.ValueRW.FieldRequestCount++;
             }
         }

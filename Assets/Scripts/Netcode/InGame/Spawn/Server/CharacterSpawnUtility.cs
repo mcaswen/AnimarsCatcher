@@ -7,7 +7,7 @@ namespace AnimarsCatcher.Networking
     using Unity.NetCode;
 
     /// <summary>
-    /// 提供服务器权威角色实例化和出生点选择逻辑
+    /// 提供服务器端角色实例化和出生点选择逻辑
     /// </summary>
     public static class CharacterSpawnUtility
     {
@@ -21,7 +21,7 @@ namespace AnimarsCatcher.Networking
         /// <param name="rotation">出生旋转</param>
         /// <param name="camp">服务器分配阵营</param>
         /// <param name="scale">初始缩放</param>
-        /// <returns>新创建的角色实体</returns>
+        /// <returns>新创建的角色 Entity</returns>
         public static Entity InstantiateAndInitialize(
             ref EntityCommandBuffer entityCommandBuffer,
             Entity prefab,

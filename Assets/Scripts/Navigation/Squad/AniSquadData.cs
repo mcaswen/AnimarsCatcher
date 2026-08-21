@@ -5,7 +5,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 表示 Squad 当前的基础移动状态
+    /// 队伍执行移动指令时所处的阶段
     /// </summary>
     public enum AniSquadMovementStatus : byte
     {
@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存服务器专用 Squad 的稳定身份和成员聚合参数
+    /// 服务器上的队伍信息，以及从全体成员汇总出的移动能力
     /// </summary>
     public struct AniSquad : IComponentData
     {
@@ -30,7 +30,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存指令解析、重规划和到达判定状态
+    /// 记录队伍的寻路请求、动态目标更新和到达进度
     /// </summary>
     public struct AniSquadPathState : IComponentData
     {
@@ -49,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存不绑定具体成员的 Squad 锚点状态
+    /// 队伍的虚拟中心点；阵型和整体移动都以它为参照
     /// </summary>
     public struct AniSquadAnchor : IComponentData
     {
@@ -60,7 +60,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存基础阵型布局和槽位版本
+    /// 记录当前阵型宽度，以及布局和槽位分配是否需要更新
     /// </summary>
     public struct AniSquadFormationState : IComponentData
     {
@@ -78,7 +78,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存 Squad 成员和稳定排序键
+    /// 队伍中的一名成员及其固定排序编号和阵型槽位
     /// </summary>
     [InternalBufferCapacity(16)]
     public struct AniSquadMember : IBufferElementData
@@ -90,7 +90,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存阵型局部空间中的一个槽位
+    /// 阵型中的一个相对位置，并注明该位置更适合哪类成员
     /// </summary>
     [InternalBufferCapacity(16)]
     public struct AniFormationSlot : IBufferElementData
@@ -101,7 +101,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存 Ani 到 Squad 的服务器归属和当前槽位
+    /// 标记一名 Ani 当前属于哪个队伍、占用哪个阵型槽位
     /// </summary>
     public struct AniSquadMembership : IComponentData
     {
@@ -111,7 +111,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存阶段四开阔地移动使用的成员参数
+    /// 一名 Ani 在队伍移动中使用的速度、体型和转向参数
     /// </summary>
     public struct AniMovementConfig : IComponentData
     {
@@ -123,7 +123,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存阵型系统为成员计算的世界空间槽位目标
+    /// 阵型系统为成员计算出的世界坐标目标点
     /// </summary>
     public struct AniSlotTarget : IComponentData
     {
@@ -131,7 +131,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存受速度和加速度约束后的成员期望速度
+    /// 成员在下一次移动提交前希望达到的速度
     /// </summary>
     public struct AniPreferredVelocity : IComponentData
     {
@@ -139,7 +139,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存唯一移动提交系统写回的成员结果
+    /// 记录成员本帧实际采用的速度、槽位误差和提交次数
     /// </summary>
     public struct AniMovementResult : IComponentData
     {

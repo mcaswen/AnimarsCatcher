@@ -6,7 +6,7 @@ using UnityEngine.Scripting.APIUpdating;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 定义 Scene 视图中 Grid 数据的显示模式
+    /// Scene 视图中导航网格的预览方式
     /// </summary>
     public enum NavigationGridGizmoMode
     {
@@ -20,7 +20,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 将地面 Layer 映射为后续路径搜索使用的成本
+    /// 为一组地面 Layer 指定寻路成本
     /// </summary>
     [Serializable]
     public struct NavigationTerrainCostRule
@@ -30,27 +30,27 @@ namespace AnimarsCatcher.Navigation.Grid
         [SerializeField] private float _cost;
 
         /// <summary>
-        /// 创建一个地面 Layer 成本规则
+        /// 创建一条地面 Layer 成本规则
         /// </summary>
         /// <param name="groundLayers">参与匹配的地面 Layer</param>
-        /// <param name="cost">进入匹配 Cell 的基础成本</param>
+        /// <param name="cost">进入匹配格子时使用的基础成本</param>
         public NavigationTerrainCostRule(LayerMask groundLayers, float cost)
         {
             _groundLayers = groundLayers;
             _cost = Mathf.Max(0.01f, cost);
         }
 
-        // 参与匹配的地面 Layer
+        // 这条规则适用的地面 Layer
         public LayerMask GroundLayers => _groundLayers;
 
-        // 匹配后的基础地形成本
+        // 匹配后使用的基础寻路成本
         public float Cost => Mathf.Max(0.01f, _cost);
 
         /// <summary>
-        /// 判断指定 Layer 是否使用当前规则
+        /// 判断指定 Layer 是否属于这条规则
         /// </summary>
         /// <param name="layer">GameObject Layer 索引</param>
-        /// <returns>Layer 位包含在规则中时返回 true</returns>
+        /// <returns>该 Layer 包含在规则中时返回 true</returns>
         public bool Matches(int layer)
         {
             return layer >= 0 && layer < 32 && (_groundLayers.value & (1 << layer)) != 0;
@@ -58,7 +58,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 配置编辑器 Physics Grid 烘焙范围和静态采样参数
+    /// 在场景中配置导航网格的烘焙范围、角色尺寸、地面和静态障碍规则
     /// </summary>
     [DisallowMultipleComponent]
     [MovedFrom(true, "AnimarsCatcher.Animars.Navigation.Grid", "AnimarsCatcher.Navigation", "NavigationGridAuthoring")]
@@ -123,7 +123,7 @@ namespace AnimarsCatcher.Navigation.Grid
         [Min(64)]
         [SerializeField] private int _maximumGizmoCells = 4096;
 
-        // 按完整 Cell 向下对齐后的有效世界包围盒
+        // 对齐到完整格子后的实际烘焙范围
         public Bounds WorldBounds
         {
             get
@@ -137,73 +137,73 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
-        // Inspector 中尚未对齐的原始配置包围盒
+        // Inspector 中配置的原始世界范围
         public Bounds ConfiguredWorldBounds => _worldBounds;
 
-        // 单个 Cell 的世界边长
+        // 单个格子的世界边长
         public float CellSize => _cellSize;
 
-        // 允许作为地面的 Layer
+        // 可以被识别为地面的 Layer
         public LayerMask GroundLayers => _groundLayers;
 
-        // 参与静态占用检测的 Layer
+        // 会阻挡角色通行的静态物体 Layer
         public LayerMask ObstacleLayers => _obstacleLayers;
 
-        // 允许行走的最大坡度角
+        // 角色允许行走的最大坡度
         public float MaximumSlopeDegrees => _maximumSlopeDegrees;
 
-        // 允许建立邻接的最大高度差
+        // 相邻格子可以直接跨越的最大高度差
         public float MaximumStepHeight => _maximumStepHeight;
 
-        // 静态占用采样使用的基准 Agent 半径
+        // 烘焙时采用的基础角色半径
         public float BaseAgentRadius => _baseAgentRadius;
 
-        // 静态占用采样使用的基准 Agent 高度
+        // 烘焙时采用的基础角色高度
         public float BaseAgentHeight => _baseAgentHeight;
 
-        // 每个 Cluster 的 Cell 边长
+        // 每个寻路分块包含的格子边长
         public int ClusterSizeInCells => _clusterSizeInCells;
 
-        // 未匹配规则时使用的地形成本
+        // 地面没有匹配任何规则时使用的成本
         public float DefaultTerrainCost => _defaultTerrainCost;
 
-        // 有序地形成本规则数量
+        // 已配置的地形成本规则数量
         public int TerrainCostRuleCount => _terrainCostRules?.Length ?? 0;
 
-        // 烘焙输出资产
+        // 保存烘焙结果的资产
         public NavigationGridBakeAsset BakeAsset => _bakeAsset;
 
-        // Scene 视图的 Grid 显示模式
+        // Scene 视图使用的预览模式
         public NavigationGridGizmoMode GizmoMode => _gizmoMode;
 
-        // Scene 视图覆盖层透明度
+        // Scene 视图预览颜色的透明度
         public float VisualizationOpacity => _visualizationOpacity;
 
-        // 是否在覆盖层中显示阻挡 Cell
+        // 预览中是否显示不可行走格子
         public bool ShowBlockedCells => _showBlockedCells;
 
-        // 可占用性预览使用的 Agent 半径
+        // 可通行预览采用的角色半径
         public float VisualizedAgentRadius => _visualizedAgentRadius;
 
-        // 可占用性预览使用的额外安全边距
+        // 可通行预览额外保留的安全距离
         public float VisualizedAgentMargin => _visualizedAgentMargin;
 
-        // 是否显示 Cell 邻接连线
+        // 是否绘制格子之间的可达连接
         public bool ShowNeighborLinks => _showNeighborLinks;
 
-        // Scene 视图允许显示的最大 Cell 数量
+        // Scene 视图最多绘制的格子数量
         public int MaximumGizmoCells => _maximumGizmoCells;
 
-        // 按 Cell Size 向下对齐后的 Grid 尺寸
+        // 按格子大小向下对齐后的导航网格尺寸
         public int2 GridDimensions => new int2(
             Mathf.Max(1, Mathf.FloorToInt(_worldBounds.size.x / _cellSize)),
             Mathf.Max(1, Mathf.FloorToInt(_worldBounds.size.z / _cellSize)));
 
         /// <summary>
-        /// 按规则顺序解析指定地面 Layer 的成本
+        /// 按配置顺序查找指定地面 Layer 的寻路成本
         /// </summary>
         /// <param name="layer">地面 Collider 的 GameObject Layer</param>
-        /// <returns>首个匹配规则的成本或默认成本</returns>
+        /// <returns>第一条匹配规则的成本；没有匹配时返回默认成本</returns>
         public float ResolveTerrainCost(int layer)
         {
             if (_terrainCostRules != null)
@@ -221,7 +221,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 按稳定顺序读取地形成本规则
+        /// 按 Inspector 中的配置顺序读取地形成本规则
         /// </summary>
         /// <param name="index">规则序列索引</param>
         /// <returns>对应的地形 Layer 成本规则</returns>
@@ -236,9 +236,9 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 绑定编辑器烘焙创建或更新的输出资产
+        /// 关联编辑器烘焙创建或更新的导航网格资产
         /// </summary>
-        /// <param name="bakeAsset">与当前 Authoring 对应的 Grid 资产</param>
+        /// <param name="bakeAsset">当前场景配置对应的导航网格资产</param>
         public void AssignBakeAsset(NavigationGridBakeAsset bakeAsset)
         {
             _bakeAsset = bakeAsset;

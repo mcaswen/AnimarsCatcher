@@ -237,7 +237,7 @@ namespace AnimarsCatcher.Presentation.UI
 
             _lanDiscoveryClient?.StopListening();
 
-            // 连接请求会在客户端世界异步建立连接实体
+            // 连接请求会在客户端世界异步建立连接 Entity
             ClientNetCodeConnector.RequestConnect(ip, port);
 
             _isSearchingServer = false;

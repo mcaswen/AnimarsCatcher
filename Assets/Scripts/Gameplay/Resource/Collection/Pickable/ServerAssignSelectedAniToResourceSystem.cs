@@ -102,7 +102,7 @@ namespace AnimarsCatcher.Gameplay
                 UnityEngine.Debug.Log(
                     $"[ServerAssignSelectedAniToResourceSystem] Assigned {assignedCount}/{maxCarrier} Picker Ani to carry Resource Entity {resourceEntity.Index} for PlayerRobot Entity {pickupRequest.ValueRO.PlayerRobotEntity.Index}.");
 
-                // 请求只消费一次
+                // 每条请求只处理一次
                 entityCommandBuffer.RemoveComponent<ResourcePickupRequest>(resourceEntity);
             }
 

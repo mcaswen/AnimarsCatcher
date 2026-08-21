@@ -110,7 +110,7 @@ namespace AnimarsCatcher.Presentation.UI
 
         private void OnStartGameClicked()
         {
-            // UI 只发送请求，场景切换由服务器权威流程统一广播
+            // UI 只发送请求，场景切换由服务器确认后统一广播
             HostStartMatchRequestSender.SendStartMatchRequest(_startGameSceneName);
         }
 

@@ -6,8 +6,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 根据 Anchor 前方的静态 Clearance 和动态 Overlay 计算阵型列数
-    /// 收缩立即生效，展开需要连续多个 Tick 满足宽度条件
+    /// 根据队伍前方的可通行宽度调整阵型：遇到窄路立即收拢，空间持续足够时再逐步展开
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -74,7 +73,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     movementStatus == AniSquadMovementStatus.Completed ||
                     movementStatus == AniSquadMovementStatus.Holding)
                 {
-                    // 终态阵型必须保持稳定；新指令或动态重规划会先把状态重置为 AwaitingPath
+                    // 指令结束后保持最终阵型不动；收到新指令或重新寻路时才恢复宽度调整
                     continue;
                 }
 
@@ -83,7 +82,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position));
                 if (targetDistance <= math.max(0.1f, command.ValueRO.TargetStoppingDistance))
                 {
-                    // 目标停止区前方不再存在可消费走廊，边界采样不能据此重塑最终阵型
+                    // 锚点已经进入停止范围时，前方宽度已不能代表下一段路线，不再据此改变阵型
                     continue;
                 }
 

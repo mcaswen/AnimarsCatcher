@@ -74,13 +74,13 @@ namespace AnimarsCatcher.Physics.Authoring
                 Value = TerrainCollider.Create(colliderHeights, size, scale, collisionMethod, filter, material)
             };
 
-            // 注册 Blob 资产以便烘焙缓存和实体间复用
+            // 注册 Blob 资产以便烘焙缓存和 Entity 间复用
             AddBlobAsset(ref collider.Value, out _);
 
             // Dynamic Transform 保留场景 Terrain 的位置变换，不代表碰撞体会参与动力学
             var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent(entity, collider);
-            // 显式加入默认 Physics World 并建立复合碰撞键到实体的映射缓冲
+            // 将地形加入默认 Physics World，并建立复合碰撞键到 Entity 的映射缓冲区
             AddSharedComponent(entity, new PhysicsWorldIndex());
             AddBuffer<PhysicsColliderKeyEntityPair>(entity);
 

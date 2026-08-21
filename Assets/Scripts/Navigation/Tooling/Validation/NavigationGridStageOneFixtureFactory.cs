@@ -8,19 +8,19 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 创建可重复生成的阶段一 Grid 烘焙验收场景
+    /// 创建包含平地、坡度、台阶、窄平台和障碍的固定导航网格烘焙测试场景
     /// </summary>
     public static class NavigationGridStageOneFixtureFactory
     {
-        // 阶段一固定验收场景路径
+        // 阶段一固定测试场景路径
         public const string ScenePath = "Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity";
 
-        // 阶段一固定验收资产路径
+        // 阶段一固定烘焙资产路径
         public const string BakeAssetPath =
             "Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset";
 
         [MenuItem("Tools/Animars Catcher/Navigation/Create Stage One Fixture")]
-        // 菜单入口创建固定夹具并将结果场景设为当前编辑对象
+        // 菜单命令重建测试场景，并将它设为当前编辑场景
         private static void CreateFromMenu()
         {
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo())
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 供批处理命令创建或刷新固定验收场景
+        /// 供批处理命令创建或刷新固定测试场景
         /// </summary>
         public static void CreateFromCommandLine()
         {
@@ -40,13 +40,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 重建固定几何并生成与其匹配的 Grid 资产
+        /// 从空场景重建固定几何，并生成与之匹配的导航网格资产
         /// </summary>
         /// <returns>场景中的 NavigationGridAuthoring</returns>
         public static NavigationGridAuthoring CreateOrUpdateFixture()
         {
-            // 每次都从空场景重建以避免人工编辑逐渐改变固定输入
-            // 已存在 Bake Asset 会原地更新并保持提交中的 GUID
+            // 每次从空场景重建，避免人工修改逐渐污染固定输入
+            // 已有烘焙资产会原地更新，保持版本库中的 GUID 不变
             EnsureFolder("Assets/Scenes/Benchmarks");
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -59,7 +59,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 throw new InvalidOperationException("阶段一夹具需要 Ground 和 Default Layer");
             }
 
-            // 环境和 Navigation 分根节点便于人工检查 Hierarchy 与采样来源
+            // 环境几何和导航配置使用不同根节点，方便在 Hierarchy 中人工检查
             var environmentRoot = new GameObject("Environment");
             CreateGroundGeometry(environmentRoot.transform, groundLayer);
             CreateObstacleGeometry(environmentRoot.transform, obstacleLayer);
@@ -70,7 +70,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 navigationRoot.AddComponent<NavigationGridAuthoring>();
             ConfigureAuthoring(authoring, groundLayer, obstacleLayer);
 
-            // 预先绑定历史资产让 Bake Utility 选择原地更新路径
+            // 如果已有历史资产，先绑定它，让烘焙工具原地更新
             NavigationGridBakeAsset existingAsset =
                 AssetDatabase.LoadAssetAtPath<NavigationGridBakeAsset>(BakeAssetPath);
             if (existingAsset != null)
@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 throw new InvalidOperationException("无法保存阶段一 Grid 验收场景");
             }
 
-            // 场景先保存再同步 Physics 保证几何 Hash 和采样读取稳定身份
+            // 先保存场景再同步 Physics，使几何哈希和物理采样都能读取固定对象路径
             Physics.SyncTransforms();
             NavigationGridBakeAsset bakeAsset = NavigationGridBakeUtility.Bake(authoring);
             if (AssetDatabase.GetAssetPath(bakeAsset) != BakeAssetPath && existingAsset == null)
@@ -99,8 +99,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return authoring;
         }
 
-        // 地面夹具覆盖平地、斜坡、台阶和窄平台等基础采样情况
-        // 所有几何使用固定尺寸和 Transform 保证 Hash 可重复
+        // 地面包含平地、斜坡、台阶和窄平台，覆盖基础可行走采样情况
+        // 所有物体使用固定名称、尺寸和 Transform，让重复生成得到相同哈希
         private static void CreateGroundGeometry(Transform parent, int layer)
         {
             CreateBox(
@@ -144,8 +144,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 parent);
         }
 
-        // 障碍夹具覆盖独立阻挡、角点和通道 Clearance
-        // Layer 与地面分离以验证配置筛选和体积查询
+        // 障碍布局覆盖独立障碍、墙角和狭窄通道
+        // 障碍与地面使用不同 Layer，用于检查筛选规则和角色体积检测
         private static void CreateObstacleGeometry(Transform parent, int layer)
         {
             CreateBox(
@@ -181,7 +181,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 parent);
         }
 
-        // 固定光照只服务人工查看，不参与 Navigation 采样和 Hash
+        // 固定光照只用于人工查看，不参与导航采样和几何哈希
         private static void CreateLighting(Transform parent)
         {
             var lightObject = new GameObject("Directional Light");
@@ -192,8 +192,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             light.intensity = 1f;
         }
 
-        // 统一创建带 BoxCollider 的场景几何并立即写入稳定名称
-        // Transform 参数在创建时一次设置避免中间状态触发无关脏标记
+        // 统一创建带 BoxCollider 的几何，并立即设置固定名称和 Transform
         private static GameObject CreateBox(
             string name,
             Vector3 position,
@@ -202,8 +201,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             int layer,
             Transform parent)
         {
-            // Cube Primitive 自带 BoxCollider 可直接参与正式采样链路
-            // 删除 MeshRenderer 会改变人工可见性，因而保留默认可视网格
+            // Cube Primitive 自带 BoxCollider，可以直接进入正式物理采样
+            // 保留 MeshRenderer，方便开发者在场景中查看测试几何
             GameObject gameObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             gameObject.name = name;
             gameObject.layer = layer;
@@ -218,15 +217,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return gameObject;
         }
 
-        // Authoring 参数与阶段一验收断言保持同一份固定契约
-        // SerializedObject 写入保证私有序列化字段沿用正式 Inspector 路径
+        // Authoring 参数与阶段一断言使用同一组固定值
+        // 通过 SerializedObject 写入私有字段，走与 Inspector 相同的序列化路径
         private static void ConfigureAuthoring(
             NavigationGridAuthoring authoring,
             int groundLayer,
             int obstacleLayer)
         {
-            // 通过 SerializedProperty 写入可覆盖字段改名和 Inspector 序列化路径问题
-            // 每项值都对应阶段一文档中的固定验收参数
+            // 使用 SerializedProperty 可以同时检查字段名称和 Inspector 序列化配置是否仍然有效
             var serializedObject = new SerializedObject(authoring);
             serializedObject.FindProperty("_worldBounds").boundsValue = new Bounds(
                 new Vector3(0f, 3f, 0f),
@@ -247,7 +245,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        // 测试场景目录逐级创建并允许重复执行
+        // 测试场景目录按需逐级创建，重复执行不会报错
         private static void EnsureFolder(string folderPath)
         {
             string[] segments = folderPath.Split('/');

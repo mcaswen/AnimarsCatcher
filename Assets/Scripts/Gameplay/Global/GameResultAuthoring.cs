@@ -6,7 +6,7 @@ using UnityEngine.Scripting.APIUpdating;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在场景中声明唯一的对局结果实体
+    /// 在场景中声明唯一的对局结果 Entity
     /// </summary>
     [MovedFrom(true, "AnimarsCatcher.Gameplay", "AnimarsCatcher.Gameplay", "GameResultRegistry")]
     public class GameResultAuthoring : MonoBehaviour

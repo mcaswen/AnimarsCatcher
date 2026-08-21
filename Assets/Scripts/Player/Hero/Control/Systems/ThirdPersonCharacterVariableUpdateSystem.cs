@@ -78,11 +78,11 @@ namespace AnimarsCatcher.Player
             /// <summary>
             /// 在处理 Chunk 前确保 KCC 临时集合已创建
             /// </summary>
-            /// <param name="chunk">当前实体块</param>
-            /// <param name="unfilteredChunkIndex">未过滤实体块索引</param>
+            /// <param name="chunk">当前 Entity 块</param>
+            /// <param name="unfilteredChunkIndex">未过滤 Entity 块索引</param>
             /// <param name="useEnabledMask">是否使用启用掩码</param>
-            /// <param name="chunkEnabledMask">实体块启用掩码</param>
-            /// <returns>是否继续执行当前实体块</returns>
+            /// <param name="chunkEnabledMask">Entity 块启用掩码</param>
+            /// <returns>是否继续执行当前 Entity 块</returns>
             public bool OnChunkBegin(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
                 BaseContext.EnsureCreationOfTmpCollections();
@@ -90,13 +90,13 @@ namespace AnimarsCatcher.Player
             }
 
             /// <summary>
-            /// 完成当前实体块的可变姿态更新
+            /// 完成当前 Entity 块的可变姿态更新
             /// </summary>
-            /// <param name="chunk">当前实体块</param>
-            /// <param name="unfilteredChunkIndex">未过滤实体块索引</param>
+            /// <param name="chunk">当前 Entity 块</param>
+            /// <param name="unfilteredChunkIndex">未过滤 Entity 块索引</param>
             /// <param name="useEnabledMask">是否使用启用掩码</param>
-            /// <param name="chunkEnabledMask">实体块启用掩码</param>
-            /// <param name="chunkWasExecuted">实体块是否已执行</param>
+            /// <param name="chunkEnabledMask">Entity 块启用掩码</param>
+            /// <param name="chunkWasExecuted">Entity 块是否已执行</param>
             public void OnChunkEnd(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask, bool chunkWasExecuted)
             { }
         }

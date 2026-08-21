@@ -6,7 +6,7 @@ using Unity.Entities;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 标记因生命值耗尽而触发过攻击目标清理的实体
+    /// 标记因生命值耗尽而触发过攻击目标清理的 Entity
     /// </summary>
     public struct AniTargetCleanedTag : IComponentData
     {
@@ -52,12 +52,12 @@ namespace AnimarsCatcher.Gameplay
 
                 bool shouldClear = false;
 
-                // 空实体或无目标类别属于不完整状态
+                // 空 Entity 或无目标类别属于不完整状态
                 if (targetEntity == Entity.Null || kind == AniAttackTargetKind.None)
                 {
                     shouldClear = true;
                 }
-                // 已销毁实体引用不能继续进入后续查询
+                // 已销毁 Entity 引用不能继续进入后续查询
                 else if (!entityManager.Exists(targetEntity))
                 {
                     shouldClear = true;

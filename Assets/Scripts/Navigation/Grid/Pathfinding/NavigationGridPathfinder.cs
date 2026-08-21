@@ -5,7 +5,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 提供不依赖 World 和主线程 API 的确定性 Grid 路径算法
+    /// 执行纯格子 A* 寻路，不依赖 ECS World 或主线程 API，可直接在 Burst 任务中运行
     /// </summary>
     public static class NavigationGridPathfinder
     {
@@ -49,7 +49,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NavigationPathRequest request = jobRequest.Request;
 
-            // 先构造完整失败结果，提前返回只需覆盖已确定的原因
+            // 先准备完整的失败结果，后续任何提前返回只需填写具体原因
             NavigationPathJobResult result = CreateFailureResult(
                 jobRequest.Entity,
                 request.Version,
@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 端点分别投影到合法节点，让上层能区分两端的输入问题
+            // 起点和终点分别纠正到可站立格子，便于准确报告是哪一端无效
             if (!NavigationGridQuery.TryProjectToNearestCell(
                     ref grid,
                     request.StartPosition,
@@ -104,8 +104,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 result.FailureReason = NavigationPathFailureReason.NoPath;
                 return result;
             }
-            // 静态 Region 不同必然无路，可以在分配 Open Set 前立即拒绝
-            // RegionId 只表达静态 Blob 连通性，动态 Overlay 将在后续阶段增加二次判定
+            // 起终点不在同一个静态连通区域时必然无路，可以在开始 A* 前直接返回
+            // RegionId 只反映烘焙地图；动态障碍仍会在实际搜索每一步时检查
             if (grid.Cells[startCellIndex].RegionId <= 0 ||
                 grid.Cells[startCellIndex].RegionId != grid.Cells[endCellIndex].RegionId)
             {
@@ -113,11 +113,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 记录共享输出数组的起始偏移后才能安全服务批量请求
+            // 先记下本条路径在共享输出数组中的起点，批量请求才能各自找到结果
             int pathOffset = pathCells.Length;
             if (startCellIndex == endCellIndex)
             {
-                // 同 Cell 请求仍返回一个路径点，让下游不需要处理空成功路径
+                // 起终点在同一格时仍返回一个路径点，下游无需处理“成功但路径为空”
                 pathCells.Add(startCellIndex);
                 result.Status = NavigationPathStatus.Succeeded;
                 result.FailureReason = NavigationPathFailureReason.None;
@@ -126,7 +126,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 首次触碰节点时按 generation 初始化，避免每次请求清空整张 Grid
+            // 只在本次搜索首次访问节点时初始化它，避免每次请求清空整张网格的临时数组
             InitializeNode(
                 startCellIndex,
                 generation,
@@ -152,8 +152,8 @@ namespace AnimarsCatcher.Navigation.Grid
             bool found = false;
             int expandedNodeCount = 0;
 
-            // 每轮展开最小 F Cost 节点，一致启发函数保证 Closed 节点无需重开
-            // ExpandedNodeCount 只统计真正从 Open Set 弹出的节点
+            // 每轮展开总成本最低的节点；一致启发函数保证关闭后的节点无需重新打开
+            // ExpandedNodeCount 只统计真正从待搜索集合中取出的节点
             while (heapCount > 0)
             {
                 int currentIndex = NavigationAStarOpenSet.PopHeap(
@@ -173,7 +173,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int currentX = currentIndex % grid.Width;
                 int currentZ = currentIndex / grid.Width;
                 byte neighborMask = grid.Cells[currentIndex].NeighborMask;
-                // 固定从北方向开始顺时针展开，相同输入保持稳定访问次序
+                // 相邻格子固定从北向开始顺时针检查，相同输入会得到相同访问顺序
                 for (int directionIndex = 0; directionIndex < 8; directionIndex++)
                 {
                     if ((neighborMask & (1 << directionIndex)) == 0)
@@ -203,7 +203,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
 
-                    // generation 不匹配表示数组槽位仍属于更早请求，其中数据不可读取
+                    // generation 不匹配说明数组里还是旧请求的数据，必须先重新初始化
                     bool unseen = nodeGenerations[neighborIndex] != generation;
                     if (unseen)
                     {
@@ -217,11 +217,11 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                     else if (heapPositions[neighborIndex] < 0)
                     {
-                        // 可采纳且一致的启发函数下 Closed 节点不需要重新打开
+                        // 当前启发函数一致，已关闭的节点无需再次加入搜索
                         continue;
                     }
 
-                    // 松弛候选成本使用当前最优 G Cost 加单边真实成本
+                    // 新候选成本等于到当前节点的最低成本加上这一步的实际成本
                     float tentativeCost = gCosts[currentIndex] + NavigationGridCost.CalculateStepCost(
                         ref grid,
                         currentIndex,
@@ -231,11 +231,11 @@ namespace AnimarsCatcher.Navigation.Grid
                         dynamicOverlay);
                     tentativeCost += NavigationGridCost.GetDynamicExtraCost(dynamicOverlay, neighborIndex);
                     bool lowerCost = tentativeCost < gCosts[neighborIndex] - CostEpsilon;
-                    // 相同成本使用较小 Parent Index 使重建路径不依赖先后松弛偶然性
+                    // 成本相同时选择索引更小的父节点，避免路径受检查先后影响
                     bool stableParent =
                         math.abs(tentativeCost - gCosts[neighborIndex]) <= CostEpsilon &&
                         (parents[neighborIndex] < 0 || currentIndex < parents[neighborIndex]);
-                    // 成本没有改善且稳定 Parent 也不更优时保持原路径树
+                    // 成本没有降低、父节点顺序也没有改善时，保留原来的路径树
                     if (!lowerCost && !stableParent)
                     {
                         continue;
@@ -256,7 +256,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                     else
                     {
-                        // 节点只会降低 G Cost 因此现有 Heap 节点只需向上修复
+                        // 已在堆中的节点只会降低成本，因此向上调整即可
                         NavigationAStarOpenSet.SiftUp(
                             heapPositions[neighborIndex],
                             endCellIndex,
@@ -270,7 +270,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             result.ExpandedNodeCount = expandedNodeCount;
 
-            // 搜索结束后复用 Heap 重建父链，失败时不向共享路径追加部分结果
+            // 搜索成功后复用临时堆数组重建父链；重建失败时不输出残缺路径
             if (!found || !NavigationPathSmoothing.AppendSmoothedPath(
                     ref grid,
                     request,
@@ -287,7 +287,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
-            // 成功结果只在平滑路径完整写入后一次性发布
+            // 平滑后的路径全部写完后才发布成功结果
             result.Status = NavigationPathStatus.Succeeded;
             result.FailureReason = NavigationPathFailureReason.None;
             result.PathOffset = pathOffset;
@@ -301,8 +301,7 @@ namespace AnimarsCatcher.Navigation.Grid
             uint requestVersion,
             NavigationPathFailureReason failureReason)
         {
-            // 失败结果统一初始化所有可观测字段
-            // 调用方可以直接写回而不依赖默认值残留或前一请求状态
+            // 失败结果会明确初始化所有可见字段，调用方可以直接写回，不会混入上一次请求的数据
             return new NavigationPathJobResult
             {
                 Entity = entity,
@@ -326,7 +325,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<int> heapPositions,
             NativeArray<int> nodeGenerations)
         {
-            // Generation 标记槽位归属，其余值恢复为未发现节点状态
+            // Generation 标记这些数组值属于哪次搜索，其余字段重置为“尚未发现”
             nodeGenerations[cellIndex] = generation;
             gCosts[cellIndex] = float.PositiveInfinity;
             parents[cellIndex] = -1;

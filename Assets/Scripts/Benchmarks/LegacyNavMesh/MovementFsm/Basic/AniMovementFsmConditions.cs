@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 判断外部命令是否要求进入空闲状态
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>命令模式为空闲时返回真</returns>
         [BurstCompile]
@@ -27,7 +27,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 判断外部命令是否要求进入跟随状态
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>命令模式为跟随时返回真</returns>
         [BurstCompile]
@@ -39,9 +39,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         }
 
         /// <summary>
-        /// 判断外部命令是否要求寻敌且目标实体有效
+        /// 判断外部命令是否要求寻敌且目标 Entity 有效
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>命令模式为寻敌且目标非空时返回真</returns>
         [BurstCompile]
@@ -60,7 +60,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 判断外部命令是否要求移动到指定位置
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>命令模式为定点移动时返回真</returns>
         [BurstCompile]
@@ -74,9 +74,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         /// <summary>
         /// 判断寻敌目标引用是否已经清空
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
-        /// <returns>目标实体为空时返回真</returns>
+        /// <returns>目标 Entity 为空时返回真</returns>
         [BurstCompile]
         public static bool IsTargetGone(in Entity entity, in FsmContext context)
         {
@@ -86,9 +86,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         }
 
         /// <summary>
-        /// 判断移动规划系统是否已将实体标记为到达
+        /// 判断移动规划系统是否已将 Entity 标记为到达
         /// </summary>
-        /// <param name="entity">正在评估的 Ani 实体</param>
+        /// <param name="entity">正在评估的 Ani Entity</param>
         /// <param name="context">当前状态机上下文</param>
         /// <returns>到达标记为真时返回真</returns>
         [BurstCompile]

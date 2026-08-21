@@ -9,7 +9,7 @@ namespace AnimarsCatcher.Player
     using UnityEngine;
 
     /// <summary>
-    /// 在客户端预测与服务器权威世界中移动简化角色
+    /// 在客户端预测 World 和服务器模拟 World 中移动简化角色
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation | WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(PredictedSimulationSystemGroup))]

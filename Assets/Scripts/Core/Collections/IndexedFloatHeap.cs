@@ -4,7 +4,7 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Core
 {
     /// <summary>
-    /// 提供使用节点索引和反向位置数组的稳定浮点键二叉堆
+    /// 提供可按节点索引快速定位的浮点键二叉堆，并固定相同键值的弹出顺序
     /// </summary>
     public static class IndexedFloatHeap
     {
@@ -323,7 +323,7 @@ namespace AnimarsCatcher.Core
 
         private static bool IsHigher(int left, int right, float[] values, float epsilon)
         {
-            // 最大堆同样固定平局顺序，避免相同代价下出现非确定性
+            // 最大堆也按节点索引处理相同键值，保证每次运行的弹出顺序一致
             return values[left] > values[right] + epsilon ||
                    (math.abs(values[left] - values[right]) <= epsilon && left < right);
         }

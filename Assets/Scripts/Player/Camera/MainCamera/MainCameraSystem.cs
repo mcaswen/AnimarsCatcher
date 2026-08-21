@@ -9,7 +9,7 @@ namespace AnimarsCatcher.Player
     using Unity.Transforms;
 
     /// <summary>
-    /// 在客户端表现阶段把主相机同步到当前主相机实体
+    /// 在客户端表现阶段把主相机同步到当前主相机 Entity
     /// </summary>
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     public partial class MainCameraSystem : SystemBase
@@ -33,7 +33,7 @@ namespace AnimarsCatcher.Player
 
             if (MainGameObjectCamera.Instance != null)
             {
-                // 查询结果使用临时数组，确保遍历期间实体集合保持稳定
+                // 查询结果使用临时数组，确保遍历期间 Entity 集合保持稳定
                 using NativeArray<Entity> entities = _cameraEntityQuery.ToEntityArray(Allocator.Temp);
 
                 foreach (Entity mainEntityCamera in entities)

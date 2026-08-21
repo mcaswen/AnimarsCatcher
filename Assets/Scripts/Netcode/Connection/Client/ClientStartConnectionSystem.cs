@@ -36,7 +36,7 @@ namespace AnimarsCatcher.Networking
             state.Enabled = false;
         }
 
-        // 同时检查连接、连接请求和握手状态，防止创建重复连接实体
+        // 同时检查连接、连接请求和握手状态，防止创建重复连接 Entity
         private bool AlreadyConnectedOrConnecting(ref SystemState state)
         {
             if (SystemAPI.HasSingleton<NetworkId>())

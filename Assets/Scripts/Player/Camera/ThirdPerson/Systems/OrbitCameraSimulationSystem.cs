@@ -67,11 +67,11 @@ namespace AnimarsCatcher.Player
                     float3 targetUp = targetWorldTransform.Up();
                     float3 targetPosition = targetWorldTransform.Translation();
 
-                    // 先让平面前方向适配目标的上方向以及父实体旋转
+                    // 先让平面前方向适配目标的上方向以及父 Entity 旋转
                     {
                         quaternion tmpPlanarRotation = MathUtilities.CreateRotationWithUpPriority(targetUp, orbitCamera.PlanarForward);
 
-                        // 角色站在旋转平台上时继承父实体的平面旋转
+                        // 角色站在旋转平台上时继承父 Entity 的平面旋转
                         if (orbitCamera.RotateWithCharacterParent &&
                             KinematicCharacterBodyLookup.TryGetComponent(cameraControl.FollowedCharacterEntity, out KinematicCharacterBody characterBody))
                         {

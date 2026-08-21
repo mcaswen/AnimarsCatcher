@@ -74,7 +74,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     moveIntent.ValueRW.DesiredVelocity = desiredVelocity;
                 }
 
-                // 路径点索引属于权威状态，仅由服务端推进
+                // 路径点索引只能由服务端推进，客户端只读取同步结果
                 if (!isServer)
                     continue;
 

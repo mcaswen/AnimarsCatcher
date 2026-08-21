@@ -49,7 +49,7 @@ namespace AnimarsCatcher.Gameplay
                 gameResult.Winner = winner;
                 entityCommandBuffer.SetComponent(gameResultEntity, gameResult);
 
-                // 标记已毁基地，阻止其他系统重复处理同一生命周期
+                // 标记已经摧毁的基地，防止其他系统再次处理
                 if (!SystemAPI.HasComponent<BaseDestroyedTag>(baseEntity))
                 {
                     entityCommandBuffer.AddComponent<BaseDestroyedTag>(baseEntity);
@@ -82,7 +82,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 标记已经触发过胜负结算的基地实体
+    /// 标记已经触发过胜负结算的基地 Entity
     /// </summary>
     public struct BaseDestroyedTag : IComponentData {}
 }

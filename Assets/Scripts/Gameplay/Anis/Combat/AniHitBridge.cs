@@ -20,7 +20,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 在线程安全队列中桥接 Blaster 视图射线和 ECS 客户端系统
+    /// 通过线程安全队列把 Blaster 视图射线结果传给 ECS 客户端系统
     /// </summary>
     public static class AniHitBridge
     {

@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Gameplay
                 idToIndex.TryAdd(owners[i].NetworkId, i);
             }
 
-            // 消费食物增量并在处理后清空缓冲区
+            // 应用全部食物增量，处理完成后清空缓冲区
             foreach (var buffer in SystemAPI.Query<DynamicBuffer<FoodResourceDeltaEvent>>())
             {
                 for (int i = 0; i < buffer.Length; i++)
@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Gameplay
                 buffer.Clear();
             }
 
-            // 消费水晶增量并在处理后清空缓冲区
+            // 应用全部水晶增量，处理完成后清空缓冲区
             foreach (var buffer in SystemAPI.Query<DynamicBuffer<CrystalResourceDeltaEvent>>())
             {
                 for (int i = 0; i < buffer.Length; i++)

@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Player
                 if (!playInput.ValueRO.LeftMousePressed.IsSet(networkTime.ServerTick.SerializedData))
                     continue;
 
-                // 版本号让射线和 RPC 系统可以独立判断是否已经消费
+                // 版本号让射线和 RPC 系统分别判断这次点击是否已经处理
                 request.ValueRW.Version += 1;
                 request.ValueRW.ScreenPosition = playInput.ValueRO.MousePosition;
 

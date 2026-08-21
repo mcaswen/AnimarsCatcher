@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Networking
         public static AniMovementBackend Current => Parse(Environment.GetCommandLineArgs());
 
         /// <summary>
-        /// 解析启动参数，未指定时在正式切换前沿用 Legacy 基线
+        /// 解析启动参数，未指定时继续使用 Legacy 后端
         /// </summary>
         /// <param name="arguments">进程启动参数</param>
         /// <returns>需要启用的移动后端</returns>

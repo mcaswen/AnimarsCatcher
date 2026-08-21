@@ -48,7 +48,7 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                // 从预制体读取资源总量并分摊到各掉落实体
+                // 从预制体读取资源总量并分摊到各掉落 Entity
                 PickableResource prefabPickable =
                     SystemAPI.GetComponent<PickableResource>(stone.PickablePrefab);
 

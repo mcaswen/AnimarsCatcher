@@ -11,7 +11,7 @@ namespace AnimarsCatcher.Player
     /// </summary>
     public struct CharacterBoxGeometry : IComponentData
     {
-        // 相对实体原点的本地偏移
+        // 相对 Entity 原点的本地偏移
         public float3 Center;
         public float3 HalfExtents;
     }

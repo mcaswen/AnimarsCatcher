@@ -83,7 +83,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 return;
             }
 
-            // 导出标记在成功写盘后设置，防止后续 Tick 生成重复结果
+            // 结果文件保存成功后再设置导出标记，防止后续 Tick 重复生成结果
             ExportResult(ref state, config, benchmarkState.ValueRO, samples);
             benchmarkState.ValueRW.ResultExported = 1;
 

@@ -5,7 +5,7 @@ using Unity.Entities;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 在 Grid Benchmark 的采样窗口开始记录 Flow Field 系统计时
+    /// 在正式采样窗口内，记录 Flow Field 系统更新前的时间点
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -29,8 +29,8 @@ namespace AnimarsCatcher.Navigation.Grid
 
             RefRW<NavigationGridBenchmarkState> benchmarkState =
                 SystemAPI.GetSingletonRW<NavigationGridBenchmarkState>();
-            // Benchmark System 已递增 Tick，因此开区间排除全部预热 Tick
-            // 结果导出发生在下一 Tick，闭区间仍会保留最后一个采样 Tick
+            // 基准系统已经递增帧数，因此这里用开区间排除全部预热帧
+            // 报告在下一帧导出，闭区间会保留最后一个正式采样帧
             bool shouldRecord =
                 benchmarkState.ValueRO.ResultExported == 0 &&
                 benchmarkState.ValueRO.Tick >
@@ -46,7 +46,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 在 Flow Field 系统更新后保存主线程样本
+    /// 在 Flow Field 系统更新后记录本次主线程耗时
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -77,7 +77,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             long elapsedTimestamp =
                 Stopwatch.GetTimestamp() - benchmarkState.ValueRO.FlowFieldStartTimestamp;
-            // 样本只包围 Flow Field System 的主线程调度与写回，不包含 Worker Job 执行时间
+            // 样本只统计 Flow Field 系统在主线程上的调度和写回，不包含后台任务运行时间
             DynamicBuffer<NavigationGridBenchmarkTimingSample> samples =
                 SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkTimingSample>();
             samples.Add(new NavigationGridBenchmarkTimingSample

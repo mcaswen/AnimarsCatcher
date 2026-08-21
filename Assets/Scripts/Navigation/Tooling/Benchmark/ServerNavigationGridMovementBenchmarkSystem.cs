@@ -14,7 +14,7 @@ using Debug = UnityEngine.Debug;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 把统一 Benchmark 回放适配为阶段四 Squad 移动指令
+    /// 按固定回放创建队伍移动指令，验证到达结果并记录完整服务器帧性能
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
@@ -34,8 +34,8 @@ namespace AnimarsCatcher.Navigation.Grid
             state.RequireForUpdate<NavigationGridBenchmarkConfig>();
             state.RequireForUpdate<NavigationGridReference>();
 
-            // 查询只保存 Benchmark 标记和 Transform，成员组件会在指令消费时结构化添加
-            // 查询本身由 SystemState 持有，不在 OnDestroy 手工释放
+            // 初始查询只要求基准标记和 Transform，队伍生命周期系统处理指令时会补齐移动组件
+            // EntityQuery 由 SystemState 管理，不需要在 OnDestroy 中手动释放
             _agentQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridMovementBenchmarkAni>(),
                 ComponentType.ReadOnly<LocalTransform>());
@@ -47,8 +47,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
             if (config.Workload != NavigationGridBenchmarkWorkload.SquadMovement)
             {
-                // PathAndField 工作负载由旧系统处理，两个 Benchmark 入口互不消费状态
-                // 共享配置实体允许两个 System 同时注册而不互相推进 Tick
+                // PathAndField 模式由另一个基准系统处理，两个入口不会同时推进同一份状态
                 return;
             }
 
@@ -62,8 +61,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 SystemAPI.GetSingleton<NavigationGridMovementBenchmarkState>();
             if (benchmarkState.Completed != 0)
             {
-                // Completed 只表示固定窗口已到达，真正导出前仍需读取当前 Squad 状态
-                // 固定终止 Tick 后仍执行了一轮 Runtime，导出前复核终态没有回退
+                // Completed 表示固定时间窗口已经结束，导出前仍要读取队伍的最新状态
+                // 结束帧后运行时又更新了一轮，因此再次确认完成状态没有回退
                 if (!TryGetTerminalState(ref state, out bool failed) || failed)
                 {
                     FailBenchmark(
@@ -75,11 +74,11 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 if (benchmarkState.ResultExported == 0)
                 {
-                    // 结果只导出一次，避免后续 Tick 覆盖同一时间戳文件
+                    // 每次运行只导出一次，避免后续帧重复写入同一结果
                     ExportResult(ref state, config, benchmarkState);
                     benchmarkState.ResultExported = 1;
                     state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
-                    // 导出完成后禁用 System，避免相同状态重复写文件
+                    // 导出完成后禁用系统，防止重复写文件
                     state.Enabled = false;
                 }
 
@@ -92,33 +91,32 @@ namespace AnimarsCatcher.Navigation.Grid
                     SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkCommand>(true);
                 if (initialCommands.IsEmpty)
                 {
-                    // 没有回放命令时无法定义目标，直接生成失败结果并停止系统
+                    // 回放没有任何命令时无法确定移动目标，直接生成失败报告并停止
                     FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动 Benchmark 命令回放为空");
                     return;
                 }
 
                 CreateAgents(ref state, config);
 
-                // 先写回初始化状态，再创建指令，防止结构变更后下一 Tick 重复生成成员
-                // 该写回必须早于第一个 SubmitCommand 产生的指令实体
+                // 先记录已经初始化，再创建指令 Entity，避免结构变化后下一帧重复生成成员
                 benchmarkState.Initialized = 1;
                 benchmarkState.NextCommandSequence = 1;
                 state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
                 Debug.Log($"[NavigationBenchmark] 已创建 {config.AgentCount} 个 Grid Benchmark Ani");
             }
 
-            // 创建 Ani 会改变 Archetype，复制 Buffer 后再进行指令结构变更
-            // NativeArray 副本的生命周期覆盖整个命令提交循环
+            // 创建 Ani 会改变 Entity 结构，因此先复制回放命令，再进行后续结构变更
+            // NativeArray 副本在本轮所有指令提交完成后释放
             using NativeArray<NavigationGridBenchmarkCommand> commands =
                 SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkCommand>(true)
                     .ToNativeArray(Allocator.Temp);
             int sampleTick = benchmarkState.Tick - config.WarmupTicks;
-            // Replay Tick 从 Warmup 归零，命令时间不会受启动预热影响
+            // 预热结束后回放帧从 0 开始，命令时间不受启动过程影响
             while (sampleTick >= 0 &&
                    benchmarkState.NextCommandIndex < commands.Length &&
                    commands[benchmarkState.NextCommandIndex].Tick == sampleTick)
             {
-                // 一个回放 Tick 可以包含多个命令，按原序号逐个转入 Squad 指令
+                // 同一回放帧可以包含多条命令，按原顺序逐条转成队伍指令
                 SubmitCommand(
                     ref state,
                     config,
@@ -130,21 +128,21 @@ namespace AnimarsCatcher.Navigation.Grid
             benchmarkState.Tick++;
             int sampleEndTick = config.WarmupTicks + config.SampleTicks;
             int terminationTick = sampleEndTick + MaximumSettlementTicks;
-            // 采样窗口和收敛窗口共享同一个逻辑 Tick，不受渲染帧或批处理次数影响
-            // Tick 先递增再比较，使 Tick=0 的命令包含在采样窗口
+            // 采样和等待队伍站稳共用同一个服务器帧计数，不受渲染帧率影响
+            // 帧数在末尾递增，确保第 0 帧提交的命令属于采样窗口
             if (benchmarkState.Tick >= sampleEndTick)
             {
                 bool terminal = TryGetTerminalState(ref state, out bool failed);
                 if (failed)
                 {
-                    // 终态失败必须保留原因并停止后续写入
+                    // 一旦队伍进入失败状态，就保留原因并停止后续采样
                     FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动出现失败的 Squad 路径");
                     return;
                 }
 
                 if (terminal && benchmarkState.CompletionTick == 0)
                 {
-                    // 首次完成只用于诊断，不再让异步调度时机提前结束基准
+                    // 首次完成帧仅用于诊断，不会因异步任务完成早晚而提前结束固定窗口
                     benchmarkState.CompletionTick = benchmarkState.Tick;
                 }
 
@@ -152,12 +150,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 {
                     if (!terminal)
                     {
-                        // 固定窗口结束仍未收敛属于功能失败，不能导出不完整性能样本
+                        // 固定窗口结束后队伍仍未站稳属于功能失败，不能当作有效性能样本
                         FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动在固定终止 Tick 未完成");
                         return;
                     }
 
-                    // Completed 只在固定 Tick 写入，下一轮 Runtime 后再复核并导出
+                    // 只在固定结束帧标记 Completed，下一轮运行时更新后再复核和导出
                     benchmarkState.Completed = 1;
                 }
             }
@@ -188,8 +186,8 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             int count = math.max(1, config.AgentCount);
 
-            // 位置由共享输入算法生成，保证 Legacy 与 Grid 使用完全相同的起点
-            // count 的下限保证零 Ani 配置仍能产生可诊断的最小夹具
+            // 起点由共享算法生成，保证 Legacy 与 Grid 后端使用完全相同的位置
+            // 即使配置人数为 0 也至少创建一个成员，以便输出可诊断结果
             for (int agentIndex = 0; agentIndex < count; agentIndex++)
             {
                 float3 position = NavigationBenchmarkInputAlgorithms.CalculateSpawnPosition(
@@ -202,13 +200,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity aniEntity = state.EntityManager.CreateEntity(
                     typeof(LocalTransform),
                     typeof(NavigationGridMovementBenchmarkAni));
-                // Transform 先写入确定性起点，指令消费后才添加移动组件
+                // 先把 Transform 放到固定起点，移动组件由队伍生命周期系统处理指令时添加
                 state.EntityManager.SetComponentData(
                     aniEntity,
                     LocalTransform.FromPositionRotation(position, quaternion.identity));
                 state.EntityManager.SetComponentData(
                     aniEntity,
-                    // AgentIndex 是跨查询稳定键，不能改用 Entity.Index
+                    // AgentIndex 用于跨运行识别同一成员，不能改用可能变化的 Entity.Index
                     new NavigationGridMovementBenchmarkAni { AgentIndex = agentIndex });
             }
         }
@@ -223,14 +221,14 @@ namespace AnimarsCatcher.Navigation.Grid
             using NativeArray<Entity> agents = GetSortedAgents(ref state);
             if (agents.Length < config.AgentCount)
             {
-                // 少于配置数量会改变回放负载，必须终止而不能静默降档
+                // 实际成员少于配置值会改变工作负载，因此明确失败而不是悄悄降低规模
                 throw new InvalidOperationException(
                     $"Grid Benchmark Ani 数量不足，期望 {config.AgentCount}，实际 {agents.Length}");
             }
 
             float3 targetPosition = config.SpawnOrigin + command.TargetOffset;
 
-            // Benchmark 只提交 MoveTo，Forward 由起点到目标的水平投影确定
+            // 基准只提交 MoveTo，队伍朝向由起点指向目标的水平方向确定
             float3 forward = targetPosition - config.SpawnOrigin;
             forward = PlanarMath.NormalizeXZOrDefault(
                 forward,
@@ -239,7 +237,7 @@ namespace AnimarsCatcher.Navigation.Grid
             Entity commandEntity = entityManager.CreateEntity(
                 typeof(AniSquadCommandRequest),
                 typeof(AniSquadCommand));
-            // Request Tag 与 Command 同时创建，生命周期查询不会看到半成品指令
+            // 创建 Entity 时同时写入请求标记和指令数据，避免生命周期系统读到不完整的指令
             entityManager.SetComponentData(commandEntity, new AniSquadCommand
             {
                 Sequence = NextCommandSequence(ref benchmarkState),
@@ -256,7 +254,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<AniSquadCommandMember> members =
                 entityManager.AddBuffer<AniSquadCommandMember>(commandEntity);
 
-            // 成员按 AgentIndex 排序写入，确保回放跨 World 的槽位分配一致
+            // 成员按 AgentIndex 排序加入指令，使不同 World 中的初始槽位分配一致
             for (int index = 0; index < config.AgentCount; index++)
             {
                 int stableId = entityManager
@@ -272,7 +270,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 });
             }
 
-            // AppliedCommandCount 与回放命令一一对应，不按成员数量放大
+            // AppliedCommandCount 统计队伍指令数，不会按成员数重复累加
             benchmarkState.AppliedCommandCount++;
         }
 
@@ -280,7 +278,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NativeArray<Entity> agents = _agentQuery.ToEntityArray(Allocator.Temp);
 
-            // 查询顺序受 Archetype 和创建时机影响，不能直接作为稳定成员顺序
+            // 查询顺序会受 Archetype 和创建时机影响，不能直接用作成员固定顺序
             for (int index = 1; index < agents.Length; index++)
             {
                 Entity value = agents[index];
@@ -300,7 +298,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 agents[insertion + 1] = value;
             }
 
-            // 返回临时数组的所有权给 SubmitCommand，调用方在指令完成后释放
+            // 临时成员数组交给 SubmitCommand 使用，调用方在指令创建后负责释放
             return agents;
         }
 
@@ -309,15 +307,15 @@ namespace AnimarsCatcher.Navigation.Grid
             failed = false;
             bool foundSquad = false;
 
-            // 所有 Squad 都必须进入完成或 Follow Holding，任一失败立即终止
-            // 当前夹具只创建一队，但扫描结构支持将来多队伍回放
+            // 所有队伍都必须完成或进入 Follow 等待状态，任一队伍失败都会终止基准
+            // 当前只创建一支队伍，但检查流程也支持以后扩展为多队回放
             foreach (RefRO<AniSquadPathState> pathState in
                      SystemAPI.Query<RefRO<AniSquadPathState>>())
             {
                 foundSquad = true;
                 if (pathState.ValueRO.Status == AniSquadMovementStatus.Failed)
                 {
-                    // 发现任一失败 Squad 即可结束检查，不等待其他 Squad
+                    // 发现失败队伍后立即返回，不必等待其他队伍
                     failed = true;
                     return true;
                 }
@@ -325,12 +323,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (pathState.ValueRO.Status != AniSquadMovementStatus.Completed &&
                     pathState.ValueRO.Status != AniSquadMovementStatus.Holding)
                 {
-                    // 仍有活动 Squad，继续收敛而不是提前导出部分结果
+                    // 仍有队伍在移动时继续等待，不提前导出部分结果
                     return false;
                 }
             }
 
-            // 没有生成任何 Squad 时不能视为成功终态
+            // 没有创建出任何队伍时不能判定为成功
             return foundSquad;
         }
 
@@ -339,7 +337,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             uint sequence = benchmarkState.NextCommandSequence++;
 
-            // 零保留给未初始化序号，计数器环绕时跳过零
+            // 0 保留为未初始化序号，计数溢出后跳过 0
             if (benchmarkState.NextCommandSequence == 0)
             {
                 benchmarkState.NextCommandSequence = 1;
@@ -358,8 +356,8 @@ namespace AnimarsCatcher.Navigation.Grid
             int arrivedCount = 0;
             float totalFormationError = 0f;
 
-            // 从成员结果聚合到达率、间距和阵型误差，避免再次遍历 Squad Buffer
-            // 统计只选择带 Benchmark 标记的 Ani，不混入场景中的正式单位
+            // 直接从成员结果汇总到达率和阵型误差，不再重复遍历队伍缓冲区
+            // 只统计带基准标记的 Ani，不混入场景中的正式单位
             foreach (var (transform, movementConfig, result) in
                      SystemAPI.Query<
                              RefRO<LocalTransform>,
@@ -373,18 +371,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (result.ValueRO.DistanceToSlot <= movementConfig.ValueRO.ArrivalRadius &&
                     math.lengthsq(result.ValueRO.AppliedVelocity) <= 0.0225f)
                 {
-                    // 到达率同时要求位置和速度满足门限，单纯穿过目标不算完成
+                    // 到达成员必须同时靠近槽位并基本停稳，单纯经过目标不算完成
                     arrivedCount++;
                 }
             }
 
-            // 路径请求统计按 Squad 汇总，验证一条指令只创建一个上下文
+            // 寻路请求按队伍汇总，用于确认一条队伍指令只创建一份寻路上下文
             int squadCount = 0;
             int pathRequestCount = 0;
             int pathSuccessCount = 0;
             int pathFailureCount = 0;
             int cacheHitCount = 0;
-            // PathState 只存在于 Squad 实体，因此这些计数天然按队伍聚合
+            // PathState 只挂在队伍 Entity 上，因此这些计数本身就是按队汇总的
             foreach (RefRO<AniSquadPathState> pathState in
                      SystemAPI.Query<RefRO<AniSquadPathState>>())
             {
@@ -397,8 +395,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             float minimumUnitSpacing = StatisticsMath.CalculateMinimumPairwiseDistance(positions);
 
-            // Tick 样本复制后排序，原始顺序仍保留在 JSON 供回放分析
-            // 排序副本用于百分位，原数组维持发生顺序用于尖峰定位
+            // 复制并排序样本用于计算百分位，原始顺序仍写入 JSON 以定位具体帧尖峰
             DynamicBuffer<NavigationGridMovementBenchmarkTimingSample> samples =
                 SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkTimingSample>();
             double[] tickMilliseconds = new double[samples.Length];
@@ -420,13 +417,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 BuildStateTraceReport(config.RecordMovementTrace != 0);
             NavigationGridMovementBenchmarkAgentTraceReport[] agentTrace =
                 BuildAgentTraceReport(config.RecordMovementTrace != 0);
-            // 诊断轨迹只在显式开启时复制到托管报告，正式样本不承担额外序列化成本
+            // 只有开启逐帧诊断时才把数据复制到报告，正式性能采样不会增加这部分序列化开销
 
-            // 百分位和原始样本同时写出，避免只看平均值掩盖长尾 Tick
+            // 同时写出百分位和原始样本，避免平均值掩盖偶发的慢帧
             var report = new NavigationGridMovementBenchmarkReport
             {
-                // FormatVersion 用于后续字段扩展时区分兼容解析方式
-                // 报告字段保持纯值，避免序列化 Entity 或 NativeContainer
+                // FormatVersion 用于以后扩展字段时选择兼容的解析方式
+                // 报告只包含普通值，不序列化 Entity 或 NativeContainer
                 FormatVersion = 4,
                 Backend = AniMovementBackend.ClearanceGrid.ToString(),
                 Workload = NavigationGridBenchmarkWorkload.SquadMovement.ToString(),
@@ -490,12 +487,12 @@ namespace AnimarsCatcher.Navigation.Grid
 
             string directory = Path.GetFullPath("BenchmarkResults/GridNavigation");
 
-            // 结果目录不属于 Unity 资产，使用时间戳区分同一提交的多次测量
+            // 结果目录不属于 Unity 资产，使用时间戳区分同一提交的多次运行
             Directory.CreateDirectory(directory);
             string path = Path.Combine(
                 directory,
                 $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
-            // 文件名带 Ani 数量和 UTC 时间，便于跨后端结果并列归档
+            // 文件名包含 Ani 数量和 UTC 时间，便于并列归档不同后端结果
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
             Debug.Log(
                 $"[NavigationBenchmark] Grid 群体移动结果已生成：" +
@@ -515,7 +512,7 @@ namespace AnimarsCatcher.Navigation.Grid
             var report = new NavigationGridMovementBenchmarkStateTraceReport[trace.Length];
             for (int index = 0; index < trace.Length; index++)
             {
-                // Buffer 元素保持纯值，导出阶段不再依赖 Entity 或 NativeContainer 生命周期
+                // 轨迹缓冲区只保存普通值，导出时不再依赖 Entity 或 Native 容器的生命周期
                 NavigationGridMovementBenchmarkStateTrace sample = trace[index];
                 report[index] = new NavigationGridMovementBenchmarkStateTraceReport
                 {
@@ -563,7 +560,7 @@ namespace AnimarsCatcher.Navigation.Grid
             var report = new NavigationGridMovementBenchmarkAgentTraceReport[trace.Length];
             for (int index = 0; index < trace.Length; index++)
             {
-                // Agent 轨迹按稳定序号排序，便于跨运行比较同一成员
+                // 成员轨迹按 AgentIndex 排序，便于跨运行比较同一成员
                 NavigationGridMovementBenchmarkAgentTrace sample = trace[index];
                 report[index] = new NavigationGridMovementBenchmarkAgentTraceReport
                 {
@@ -591,20 +588,20 @@ namespace AnimarsCatcher.Navigation.Grid
             Entity benchmarkEntity,
             string reason)
         {
-            // 失败路径仍导出当前样本，便于定位失败发生在固定窗口的哪一刻
+            // 失败时仍导出已经采集的样本，便于定位问题发生在哪一帧
             NavigationGridMovementBenchmarkState benchmarkState =
                 state.EntityManager.GetComponentData<NavigationGridMovementBenchmarkState>(
                     benchmarkEntity);
 
-            // Failed 与 Completed 同时写入，让验证器能读取失败原因后停止等待
+            // 同时写入 Failed 和 Completed，让验证器读取原因后立即停止等待
             benchmarkState.Failed = 1;
             benchmarkState.Completed = 1;
             benchmarkState.FailureReason = new FixedString128Bytes(reason);
             state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
-            // Editor Play Mode 中 Application.Quit 不一定终止外层 Editor，先写失败报告供 Runner 收尾
+            // Editor Play Mode 中 Application.Quit 不一定关闭编辑器，因此先写失败报告供运行器收尾
             if (benchmarkState.ResultExported == 0)
             {
-                // 先写报告再禁用 System，批处理 Runner 才能可靠观察失败原因
+                // 先写报告再禁用系统，批处理运行器才能可靠读取失败原因
                 ExportResult(
                     ref state,
                     SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>(),
@@ -616,7 +613,7 @@ namespace AnimarsCatcher.Navigation.Grid
             state.Enabled = false;
             if (Application.isBatchMode)
             {
-                // Batchmode 需要非零退出码，Editor 手工运行则只停止当前 Benchmark System
+                // Batchmode 失败时返回非零退出码，编辑器手动运行只停止当前基准系统
                 Application.Quit(1);
             }
         }
@@ -632,11 +629,11 @@ namespace AnimarsCatcher.Navigation.Grid
             public int WarmupTicks;
             public int SampleTicks;
             public bool MovementTraceRecorded;
-            // 诊断轨迹为空数组表示本次运行未开启额外采样
+            // 诊断轨迹为空数组表示本次运行没有开启逐帧额外采样
             public NavigationGridMovementBenchmarkStateTraceReport[] StateTrace;
             public NavigationGridMovementBenchmarkAgentTraceReport[] AgentTrace;
             public int FirstCompletionTick;
-            // 终止 Tick 是输入窗口和固定收敛上限的确定性组合
+            // 结束帧由回放输入窗口和固定的站稳等待上限共同决定
             public int TerminationTick;
             public bool Failed;
             public string FailureReason;
@@ -715,7 +712,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 在完整 Server Simulation Tick 起点记录阶段四样本
+    /// 在一帧完整服务器模拟开始时记录时间和托管内存基线
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true)]
@@ -740,7 +737,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 SystemAPI.GetSingletonRW<NavigationGridMovementBenchmarkState>();
             int sampleTick = benchmarkState.ValueRO.Tick - config.WarmupTicks;
 
-            // 只在初始化后且处于采样窗口记录，Warmup 不混入性能统计
+            // 只在初始化完成且处于正式窗口时记录，预热帧不计入性能结果
             bool shouldRecord = benchmarkState.ValueRO.Initialized != 0 &&
                                 sampleTick >= 0 &&
                                 sampleTick < config.SampleTicks;
@@ -752,14 +749,14 @@ namespace AnimarsCatcher.Navigation.Grid
 
             benchmarkState.ValueRW.FrameStartTimestamp = Stopwatch.GetTimestamp();
 
-            // 同一线程的分配差值比全局 GC 计数更接近服务器 Tick 成本
+            // 使用同一线程的分配增量，比全局 GC 计数更接近本帧实际开销
             benchmarkState.ValueRW.FrameStartAllocatedBytes =
                 GC.GetAllocatedBytesForCurrentThread();
         }
     }
 
     /// <summary>
-    /// 在完整 Server Simulation Tick 末尾保存阶段四样本
+    /// 在一帧完整服务器模拟结束时记录耗时和托管内存增量
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
@@ -807,14 +804,14 @@ namespace AnimarsCatcher.Navigation.Grid
 
             long elapsedTimestamp =
                 Stopwatch.GetTimestamp() - benchmarkState.ValueRO.FrameStartTimestamp;
-            // Stopwatch 和 GC 采样必须来自同一线程，避免把其他线程开销混入结果
+            // 计时和内存分配采样必须来自同一线程，避免混入其他线程开销
             long allocatedBytes = Math.Max(
                 0L,
                 GC.GetAllocatedBytesForCurrentThread() -
                 benchmarkState.ValueRO.FrameStartAllocatedBytes);
 
-            // 结束采样只追加不可变样本，报告导出时再计算百分位
-            // RecordCurrentTick 在写入后清零，保证每次 Start 只配对一次 End
+            // 每帧结束时只追加原始样本，百分位留到导出报告时计算
+            // 写入后清除 RecordCurrentTick，保证每次开始采样只对应一次结束
             DynamicBuffer<NavigationGridMovementBenchmarkTimingSample> samples =
                 SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkTimingSample>();
             samples.Add(new NavigationGridMovementBenchmarkTimingSample
@@ -843,7 +840,7 @@ namespace AnimarsCatcher.Navigation.Grid
                          RefRO<AniSquadAnchor>,
                          DynamicBuffer<AniSquadMember>>())
             {
-                // 当前回放只创建一个 Squad，槽位越界直接保留在诊断结果中
+                // 当前回放只创建一支队伍，槽位索引越界会直接记录到诊断结果
                 if (squadCount++ > 0)
                 {
                     continue;
@@ -856,7 +853,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 float maximumMemberDistance = 0f;
                 float maximumMemberSpeedSquared = 0f;
 
-                // 轨迹聚合与 Progress 使用同一位置和速度门限，避免诊断结果改变功能定义
+                // 诊断统计使用与到达判断相同的位置和速度阈值，保证两者定义一致
                 for (int index = 0; index < members.Length; index++)
                 {
                     int slotIndex = members[index].SlotIndex;
@@ -896,7 +893,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                 }
 
-                // Anchor 和成员判定分开记录，用于区分队伍已到位但编队尚未收敛的情况
+                // 锚点和成员状态分开记录，可以看出队伍中心已到目标但成员尚未站稳的情况
                 float anchorDistanceToTarget = math.length(
                     PlanarMath.FlattenY(
                         pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position));
@@ -948,7 +945,7 @@ namespace AnimarsCatcher.Navigation.Grid
                          RefRO<LocalTransform>,
                          RefRO<AniMovementResult>>())
             {
-                // AgentIndex 是唯一稳定排序键，实体查询顺序不作为回放证据
+                // AgentIndex 是成员轨迹的固定排序键，Entity 查询顺序不用于比较回放结果
                 agentTrace.Add(new NavigationGridMovementBenchmarkAgentTrace
                 {
                     Tick = tick,

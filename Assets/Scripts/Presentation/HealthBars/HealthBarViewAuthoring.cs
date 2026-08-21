@@ -7,7 +7,7 @@ using UnityEngine.Scripting.APIUpdating;
 namespace AnimarsCatcher.Presentation.HealthBars
 {
     /// <summary>
-    /// 配置实体对应的血条 GameObject 预制体和世界偏移
+    /// 配置 Entity 对应的血条 GameObject 预制体和世界偏移
     /// </summary>
     [DisallowMultipleComponent]
     [MovedFrom(true, "AnimarsCatcher.Presentation.HealthUI", "AnimarsCatcher.Presentation", "HealthBarViewAuthoring")]

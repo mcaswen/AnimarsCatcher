@@ -28,7 +28,7 @@ namespace AnimarsCatcher.Networking
         public static bool IsDedicatedServer => Current == NetworkRunRole.DedicatedServer;
 
         /// <summary>
-        /// 显式设置当前运行角色并记录来源
+        /// 设置当前运行角色并记录设置来源
         /// </summary>
         /// <param name="role">目标网络角色</param>
         /// <param name="reason">设置角色的来源</param>

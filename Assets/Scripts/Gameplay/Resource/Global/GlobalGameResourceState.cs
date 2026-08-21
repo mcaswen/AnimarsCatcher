@@ -13,7 +13,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 标识唯一的全局比赛资源实体
+    /// 标识唯一的全局比赛资源 Entity
     /// </summary>
     public struct GlobalGameResourceTag : IComponentData { }
 }

@@ -19,11 +19,11 @@ public struct ResourceCarryAssignment : IComponentData
 }
 
 /// <summary>
-/// 分配给单个 Ani 的资源实体和站位槽命令
+/// 分配给单个 Ani 的资源 Entity 和站位槽命令
 /// </summary>
 public struct AniCarryResourceOrder : IComponentData
 {
-    // 需要协助搬运的资源实体
+    // 需要协助搬运的资源 Entity
     [GhostField]
     public Entity ResourceEntity;
 
@@ -40,7 +40,7 @@ public struct AniCarryResourceOrder : IComponentData
 public struct AniCommandLockedTag : IComponentData, IEnableableComponent {}
 
 /// <summary>
-/// 标识已经进入移动阶段的资源实体
+/// 标识已经进入移动阶段的资源 Entity
 /// </summary>
 [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
 public struct ResourceCarryingTag : IComponentData {}

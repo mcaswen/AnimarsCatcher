@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace AnimarsCatcher.Presentation.UI
 {
     /// <summary>
-    /// 通过正式资源请求链路注入调试资源变化
+    /// 通过与正式玩法相同的请求流程提交调试资源变化
     /// </summary>
     public class DebugResourcePanelController : MonoBehaviour
     {

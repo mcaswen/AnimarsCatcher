@@ -5,7 +5,7 @@ using UnityEngine.Scripting.APIUpdating;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 保存编辑器 Physics 采样生成的可检查 Grid 数据
+    /// 保存编辑器从场景物理几何中烘焙出的导航网格和分层寻路数据
     /// </summary>
     [CreateAssetMenu(
         fileName = "SO_NavigationGrid",
@@ -13,10 +13,10 @@ namespace AnimarsCatcher.Navigation.Grid
     [MovedFrom(true, "AnimarsCatcher.Animars.Navigation.Grid", "AnimarsCatcher.Navigation", "NavigationGridBakeAsset")]
     public sealed class NavigationGridBakeAsset : ScriptableObject
     {
-        // 当前可读取的 Grid 数据格式版本
+        // 当前代码支持的数据格式版本
         public const int CurrentDataVersion = 3;
 
-        // 当前 Grid 烘焙工具版本
+        // 当前导航网格烘焙工具版本
         public const string CurrentToolVersion = "1.2.0";
 
         [SerializeField] private string _sourceSceneGuid = string.Empty;
@@ -43,77 +43,77 @@ namespace AnimarsCatcher.Navigation.Grid
         [SerializeField] private NavigationGridAbstractEdgeData[] _abstractEdges = Array.Empty<NavigationGridAbstractEdgeData>();
         [SerializeField] private int[] _clusterPortalNodeIndices = Array.Empty<int>();
 
-        // 以下属性提供只读检查入口，资产内容只能由完整烘焙结果整体替换
-        // 来源场景的稳定 GUID
+        // 以下属性仅供查看；资产内容只能由一次完整烘焙整体替换
+        // 来源场景的 GUID
         public string SourceSceneGuid => _sourceSceneGuid;
 
-        // 来源场景的项目相对路径
+        // 来源场景在项目中的相对路径
         public string SourceScenePath => _sourceScenePath;
 
-        // 参与采样的场景几何 Hash
+        // 参与采样的场景几何哈希
         public string GeometryHash => _geometryHash;
 
-        // Authoring 参数 Hash
+        // 烘焙配置参数哈希
         public string ParameterHash => _parameterHash;
 
-        // 最终 Cell 数据 Hash
+        // 完整烘焙结果的内容哈希
         public string DataHash => _dataHash;
 
-        // 生成当前资产的工具版本
+        // 生成该资产时使用的工具版本
         public string ToolVersion => _toolVersion;
 
-        // 当前资产的数据格式版本
+        // 该资产的数据格式版本
         public int DataVersion => _dataVersion;
 
-        // Grid 覆盖的世界包围盒
+        // 导航网格覆盖的世界范围
         public Bounds WorldBounds => _worldBounds;
 
-        // 单个 Cell 的世界边长
+        // 单个格子的世界边长
         public float CellSize => _cellSize;
 
-        // 生成基础可行走图时使用的 Agent 半径
+        // 烘焙基础可行走区域时采用的角色半径
         public float BaseAgentRadius => _baseAgentRadius;
 
-        // 生成基础可行走图时使用的 Agent 高度
+        // 烘焙基础可行走区域时采用的角色高度
         public float BaseAgentHeight => _baseAgentHeight;
 
-        // Grid 在世界 X 轴上的 Cell 数量
+        // X 方向的格子数
         public int Width => _width;
 
-        // Grid 在世界 Z 轴上的 Cell 数量
+        // Z 方向的格子数
         public int Height => _height;
 
-        // 每个 Cluster 的 Cell 边长
+        // 每个寻路分块包含的格子边长
         public int ClusterSizeInCells => _clusterSizeInCells;
 
-        // Grid 在 X 轴生成的 Cluster 数量
+        // X 方向的分块数
         public int ClusterWidth => _clusterWidth;
 
-        // Grid 在 Z 轴生成的 Cluster 数量
+        // Z 方向的分块数
         public int ClusterHeight => _clusterHeight;
 
-        // 静态连通区域数量
+        // 静态连通区域数
         public int RegionCount => _regionCount;
 
-        // 当前资产保存的 Cell 数量
+        // 资产中的格子数
         public int CellCount => _cells?.Length ?? 0;
 
-        // 当前资产保存的 Cluster 数量
+        // 资产中的寻路分块数
         public int ClusterCount => _clusters?.Length ?? 0;
 
-        // 当前资产保存的 Portal 数量
+        // 资产中的分块入口数
         public int PortalCount => _portals?.Length ?? 0;
 
-        // 当前资产保存的 Portal Node 数量
+        // 资产中的入口节点数
         public int PortalNodeCount => _portalNodes?.Length ?? 0;
 
-        // 当前资产保存的抽象有向边数量
+        // 资产中的抽象有向连接数
         public int AbstractEdgeCount => _abstractEdges?.Length ?? 0;
 
-        // 当前资产保存的 Cluster 节点索引数量
+        // 分块引用的入口节点索引总数
         public int ClusterPortalNodeIndexCount => _clusterPortalNodeIndices?.Length ?? 0;
 
-        // 资产结构和版本是否可供 Baker 使用
+        // 资产结构和版本是否能被当前 Baker 读取
         public bool IsUsable =>
             _dataVersion == CurrentDataVersion &&
             string.Equals(_toolVersion, CurrentToolVersion, StringComparison.Ordinal) &&
@@ -142,10 +142,10 @@ namespace AnimarsCatcher.Navigation.Grid
             IsValidHash(_dataHash);
 
         /// <summary>
-        /// 按稳定一维索引读取 Cell
+        /// 按一维索引读取格子
         /// </summary>
         /// <param name="index">Cell 的行主序索引</param>
-        /// <returns>对应的可检查 Cell 数据</returns>
+        /// <returns>对应的格子烘焙数据</returns>
         public NavigationGridCellData GetCell(int index)
         {
             if (_cells == null)
@@ -157,37 +157,37 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 按稳定索引读取 Cluster
+        /// 按索引读取寻路分块
         /// </summary>
         public NavigationGridClusterData GetCluster(int index) => _clusters[index];
 
         /// <summary>
-        /// 按稳定索引读取 Portal
+        /// 按索引读取分块入口
         /// </summary>
         public NavigationGridPortalData GetPortal(int index) => _portals[index];
 
         /// <summary>
-        /// 按稳定索引读取 Portal Node
+        /// 按索引读取入口节点
         /// </summary>
         public NavigationGridPortalNodeData GetPortalNode(int index) => _portalNodes[index];
 
         /// <summary>
-        /// 按稳定索引读取抽象有向边
+        /// 按索引读取抽象图中的有向连接
         /// </summary>
         public NavigationGridAbstractEdgeData GetAbstractEdge(int index) => _abstractEdges[index];
 
         /// <summary>
-        /// 按连续切片索引读取 Cluster 的 Portal Node
+        /// 从连续索引表中读取某个分块连接的入口节点
         /// </summary>
         public int GetClusterPortalNodeIndex(int index) => _clusterPortalNodeIndices[index];
 
         /// <summary>
-        /// 判断指定半径是否能占用目标 Cell
+        /// 判断指定体型的角色能否安全站在目标格子中
         /// </summary>
         /// <param name="index">Cell 的行主序索引</param>
         /// <param name="agentRadius">Agent 世界半径</param>
         /// <param name="margin">额外安全边距</param>
-        /// <returns>Cell 可行走且 Clearance 足够时返回 true</returns>
+        /// <returns>格子可行走且可用空间足够时返回 true</returns>
         public bool CanAgentOccupy(int index, float agentRadius, float margin = 0f)
         {
             NavigationGridCellData cell = GetCell(index);
@@ -198,9 +198,9 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 用一次完整烘焙结果替换资产内容
+        /// 使用新的完整烘焙结果替换资产中的所有数据
         /// </summary>
-        /// <param name="result">已经完成算法处理和 Hash 计算的烘焙结果</param>
+        /// <param name="result">已经完成连通计算、分层构建和哈希计算的烘焙结果</param>
         public void ApplyBakeResult(NavigationGridBakeResult result)
         {
             if (result == null)
@@ -258,11 +258,11 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 在编辑器烘焙流程与可检查资产之间传递完整结果
+    /// 编辑器烘焙流程生成的完整结果，可一次性写入 NavigationGridBakeAsset
     /// </summary>
     public sealed class NavigationGridBakeResult
     {
-        // 来源场景和数据版本元数据
+        // 来源场景、工具版本和内容哈希
         public string SourceSceneGuid = string.Empty;
         public string SourceScenePath = string.Empty;
         public string GeometryHash = string.Empty;
@@ -271,7 +271,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public string ToolVersion = NavigationGridBakeAsset.CurrentToolVersion;
         public int DataVersion = NavigationGridBakeAsset.CurrentDataVersion;
 
-        // Grid 形状和基础 Agent 参数
+        // 导航网格尺寸和基础角色参数
         public Bounds WorldBounds;
         public float CellSize;
         public float BaseAgentRadius;
@@ -283,7 +283,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public int ClusterHeight;
         public int RegionCount;
 
-        // 可直接写入资产的 Cell 与分层图数组
+        // 可直接写入资产的格子数据和分层寻路数组
         public NavigationGridCellData[] Cells = Array.Empty<NavigationGridCellData>();
         public NavigationGridClusterData[] Clusters = Array.Empty<NavigationGridClusterData>();
         public NavigationGridPortalData[] Portals = Array.Empty<NavigationGridPortalData>();

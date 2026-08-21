@@ -61,7 +61,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
-            // Query 固定系统读取的 Grid 和完整请求实体形状
+            // Query 固定系统读取的 Grid 和完整请求 Entity 形状
             _gridQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>());
             _requestQuery = state.GetEntityQuery(
@@ -73,12 +73,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 ComponentType.ReadWrite<NavigationFlowFieldCell>());
             _nextGeneration = 1;
             _cacheVersion = 1;
-            // Persistent 工作列表和缓存由当前 World 的 System 独占
+            // 可跨帧复用的工作列表和缓存只属于当前 World 中的这个系统
             _cacheEntries = new NativeList<NavigationFlowFieldCacheEntry>(64, Allocator.Persistent);
-            // Corridor 和 Field 缓存分别保存键切片和值切片
+            // 缓存将通道分块和 Flow Field 数据分别连续保存
             _cacheCorridorClusters = new NativeList<int>(128, Allocator.Persistent);
             _cacheFlowCells = new NativeList<NavigationFlowFieldCell>(256, Allocator.Persistent);
-            // 工作列表跨请求复用，但每次 Build 都会清除逻辑长度
+            // 临时列表在请求之间复用，每次构建前都会清空现有内容
             _workVisitedCells = new NativeList<int>(256, Allocator.Persistent);
             _workCorridorClusters = new NativeList<int>(16, Allocator.Persistent);
             _workCorridorPortals = new NativeList<int>(16, Allocator.Persistent);
@@ -87,50 +87,50 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            // 活动批次优先于新请求处理
+            // 先检查正在运行的批次，再考虑调度新请求
             if (_activeJobScheduled)
             {
                 if (!_activeJobHandle.IsCompleted)
                 {
-                    // 未完成时保留 Persistent 输入输出，避免主线程同步等待
+                    // 后台任务未完成时保留所有输入输出到下一帧，不阻塞主线程等待
                     return;
                 }
 
-                // Handle 完成后才能读取共享输出并释放批次容器
+                // 只有任务完成后才能读取输出或释放本批容器
                 _activeJobHandle.Complete();
-                // 写回发生在释放活动批次容器之前
+                // 先将结果写回 ECS，再释放活动批次的容器
                 ApplyActiveResults(ref state);
                 SetFlowJobActivity(ref state, false);
                 DisposeActiveBatch();
-                // 留出一个无读者 Tick 让 Overlay 优先发布，避免持续请求使差量长期饥饿
+                // 每批完成后留一帧给动态障碍层更新，避免连续请求让它一直无法写入
                 return;
             }
 
             if (_requestQuery.IsEmptyIgnoreFilter)
             {
-                // 没有请求时不读取 Grid 单例
+                // 没有等待处理的请求时，不必查询导航网格单例
                 return;
             }
 
             int gridCount = _gridQuery.CalculateEntityCount();
             if (gridCount == 0)
             {
-                // 场景 Grid 尚未加载时保留 Pending 请求
+                // 场景导航网格尚未加载时保留 Pending，请求稍后可以继续执行
                 return;
             }
 
             if (gridCount != 1)
             {
-                // World 内多个 Grid 会让缓存版本和 Cell 索引失去唯一语义，必须整体拒绝
+                // 同一 World 出现多张导航网格时，格子索引和缓存版本无法确定归属，因此拒绝本轮请求
                 FailPendingRequests(ref state, NavigationPathFailureReason.InvalidGrid);
                 return;
             }
 
-            // 唯一 Grid 的 Blob 引用是本批次所有索引的共同命名空间
+            // 本批所有格子和节点索引都以这张唯一导航网格为准
             Entity gridEntity = _gridQuery.GetSingletonEntity();
             NavigationGridReference gridReference = state.EntityManager.GetComponentData<
                 NavigationGridReference>(gridEntity);
-            // 实体存在但 Blob 未创建同样属于无效 Grid
+            // Entity 存在但 Blob 未创建同样属于无效 Grid
             if (!gridReference.Value.IsCreated)
             {
                 FailPendingRequests(ref state, NavigationPathFailureReason.InvalidGrid);
@@ -142,11 +142,11 @@ namespace AnimarsCatcher.Navigation.Grid
                     gridEntity,
                     isReadOnly: true).IsEmpty)
             {
-                // 差量等待发布时不启动新读者，Overlay 将在所有活动批次退出后优先更新
+                // 有动态障碍变化等待写入时不启动新任务，让障碍层先更新
                 return;
             }
 
-            // Grid Hash 变化必须先让旧缓存失效
+            // 导航网格内容哈希变化后，先清空旧缓存再处理请求
             NavigationDynamicOverlayState overlayState =
                 state.EntityManager.HasComponent<NavigationDynamicOverlayState>(gridEntity)
                     ? state.EntityManager.GetComponentData<NavigationDynamicOverlayState>(gridEntity)
@@ -168,7 +168,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 gridReference.Value,
                 overlayClusters.IsCreated ? overlayClusters.AsNativeArray() : default,
                 overlayState.Version);
-            // 当前没有活动批次，调度后共享 Scratch 仍只有一个写入者
+            // 只有在没有活动批次时才调度，因此共享临时数组始终只有一个写入任务
             SchedulePendingRequests(
                 ref state,
                 gridReference.Value,
@@ -181,12 +181,12 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             if (_activeJobScheduled)
             {
-                // World 销毁是唯一允许主动等待未完成 Job 的路径
+                // 系统销毁时必须主动等待未完成任务，确保可以安全释放 Native 容器
                 _activeJobHandle.Complete();
                 SetFlowJobActivity(ref state, false);
             }
 
-            // 先释放批次和 Scratch，再释放跨批次缓存与工作列表
+            // 先释放当前批次和临时数组，再清理跨批次缓存与工作列表
             DisposeActiveBatch();
             DisposeScratch();
             if (_cacheEntries.IsCreated) _cacheEntries.Dispose();
@@ -206,10 +206,10 @@ namespace AnimarsCatcher.Navigation.Grid
             Unity.Entities.Hash128 dataHash = grid.Value.DataHash;
             if (_scratchCellCount == 0 || !_cacheGridHash.Equals(dataHash))
             {
-                // DataHash 覆盖 Cell 和分层数据，变化后旧 Field 的所有索引与成本均不可复用
+                // DataHash 覆盖格子和分层数据；一旦变化，旧 Flow Field 的索引与成本都不能复用
                 _cacheGridHash = dataHash;
                 ClearCache();
-                // 版本递增让仍携带旧版本的结果无法伪装成缓存命中
+                // 清理缓存时递增版本，旧结果不会被误认为当前缓存命中
                 _cacheVersion++;
                 if (_cacheVersion == 0)
                 {
@@ -225,7 +225,7 @@ namespace AnimarsCatcher.Navigation.Grid
             else if (_cacheEntries.Length >= 64 ||
                      _cacheFlowCells.Length > math.max(256, grid.Value.Cells.Length * 4))
             {
-                // 缓存采用整代回收而非切片搬移，保证活动 Job 持有的偏移在批次内稳定
+                // 缓存整代清空而不搬移数据，后台任务持有的切片起点在整个批次内保持不变
                 ClearCache();
                 _cacheVersion++;
             }
@@ -240,7 +240,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             using NativeArray<Entity> requestEntities = _requestQuery.ToEntityArray(Allocator.Temp);
             using var pendingEntities = new NativeList<Entity>(requestEntities.Length, Allocator.Temp);
-            // Query 还包含 Searching 和终态实体，只收集 Pending 请求
+            // Query 还会返回 Searching 和已经结束的 Entity，这里只收集 Pending 请求
             for (int index = 0; index < requestEntities.Length; index++)
             {
                 Entity entity = requestEntities[index];
@@ -251,18 +251,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
-            // 没有新增版本时不创建空 Job
+            // 没有等待请求时不创建空的后台任务
             if (pendingEntities.IsEmpty)
             {
                 return;
             }
 
-            // Entity Index 和 Version 排序固定请求顺序，进而固定共享输出切片与缓存版本分配
+            // 按 Entity 的 Index 和 Version 排序，固定请求处理顺序、输出切片位置和缓存版本分配
             SortEntities(pendingEntities);
 
-            // 单批上限同时限制 Job 独占时间和下一帧的主线程写回量
+            // 单批数量上限同时控制后台任务耗时和下一帧主线程写回工作量
             int batchCount = math.min(MaximumRequestsPerBatch, pendingEntities.Length);
-            // Scratch 只按 Grid 拓扑扩容，不随请求数量重新分配
+            // 临时数组只按导航网格尺寸扩容，不随每批请求数重新分配
             EnsureScratchCapacity(
                 grid.Value.Cells.Length,
                 grid.Value.Clusters.Length,
@@ -277,7 +277,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 ? overlayClusters.AsNativeArray()
                 : default;
             _activeOverlayVersion = overlayVersion;
-            // 请求和结果数组使用相同下标形成固定一一对应
+            // 请求与结果数组使用相同下标，保持一一对应
             _activeRequests = new NativeArray<NavigationFlowFieldJobRequest>(
                 batchCount,
                 Allocator.Persistent,
@@ -286,11 +286,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 batchCount,
                 Allocator.Persistent,
                 NativeArrayOptions.UninitializedMemory);
-            // 输出列表容量只是初始估计，NativeList 仍可按实际 Corridor 增长
+            // 输出容量只是预估值，NativeList 会按实际通道长度继续增长
             _activeCorridorClusters = new NativeList<int>(batchCount * 8, Allocator.Persistent);
             _activeCorridorPortals = new NativeList<int>(batchCount * 8, Allocator.Persistent);
             _activeWaypointCells = new NativeList<int>(batchCount * 16, Allocator.Persistent);
-            // Field 初始容量按每请求一个 Cluster 估算，跨 Cluster 时允许扩容
+            // Flow Field 初始容量按每条请求一个分块估算，跨分块路线可以继续扩容
             _activeFlowCells = new NativeList<NavigationFlowFieldCell>(
                 math.max(64, batchCount * grid.Value.ClusterSizeInCells * grid.Value.ClusterSizeInCells),
                 Allocator.Persistent);
@@ -298,7 +298,7 @@ namespace AnimarsCatcher.Navigation.Grid
             for (int batchIndex = 0; batchIndex < batchCount; batchIndex++)
             {
                 Entity entity = pendingEntities[batchIndex];
-                // 调度前复制请求，Job 不再读取可能变化的 ECS 组件
+                // 调度前复制请求，后台任务不再读取可能变化的 ECS 组件
                 NavigationFlowFieldRequest request =
                     state.EntityManager.GetComponentData<NavigationFlowFieldRequest>(entity);
                 _activeRequests[batchIndex] = new NavigationFlowFieldJobRequest
@@ -308,7 +308,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 };
                 NavigationFlowFieldState fieldState =
                     state.EntityManager.GetComponentData<NavigationFlowFieldState>(entity);
-                // 捕获版本并切换 Searching，写回时据此拒绝过期结果
+                // 记录版本并将状态改为 Searching，写回时用版本检查结果是否过期
                 fieldState.Status = NavigationPathStatus.Searching;
                 fieldState.FailureReason = NavigationPathFailureReason.None;
                 fieldState.RequestVersion = request.PathRequest.Version;
@@ -324,11 +324,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 fieldState.CacheHit = 0;
                 fieldState.DynamicOverlayVersion = overlayVersion;
                 state.EntityManager.SetComponentData(entity, fieldState);
-                // 清除上一版本 Buffer，Searching 状态不暴露旧路径数据
+                // 清空上一版本的结果缓冲区，计算期间不会对外暴露旧路线
                 ClearResultBuffers(state.EntityManager, entity);
             }
 
-            // Job 取得共享输出与 Scratch 的唯一写权限
+            // 后台任务独占共享输出列表和临时数组的写权限
             var job = new NavigationGridFlowFieldJob
             {
                 Grid = grid,
@@ -362,9 +362,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 DynamicOverlayVersion = _activeOverlayVersion,
                 GenerationStart = _nextGeneration,
             };
-            // 动态宏观边可能为每个 Portal Node 使用独立局部代，批次间不得重叠
+            // 动态通道成本可能为每个通道节点使用独立 Generation，不同批次不能重叠使用编号区间
             _nextGeneration += batchCount * generationStride;
-            // 私有句柄负责跨 Tick 轮询，System Dependency 同时让 ECS 在结构变化前等待读取者
+            // 私有句柄用于跨帧检查完成状态；System Dependency 保证 ECS 结构变化前等待读取结束
             _activeJobHandle = job.Schedule(state.Dependency);
             state.Dependency = _activeJobHandle;
             _activeJobScheduled = true;
@@ -377,7 +377,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 NavigationFlowFieldJobResult result = _activeResults[resultIndex];
                 Entity entity = result.Entity;
-                // Job 运行期间实体可能已经销毁或改变组件形状
+                // Job 运行期间 Entity 可能已经销毁或改变组件形状
                 if (!state.EntityManager.Exists(entity) ||
                     !state.EntityManager.HasComponent<NavigationFlowFieldRequest>(entity) ||
                     !state.EntityManager.HasComponent<NavigationFlowFieldState>(entity))
@@ -393,11 +393,11 @@ namespace AnimarsCatcher.Navigation.Grid
                     fieldState.RequestVersion != result.RequestVersion ||
                     currentRequest.PathRequest.Version != result.RequestVersion)
                 {
-                    // 实体复用、取消或新请求覆盖后都不能把旧批次结果写入当前 Buffer
+                    // Entity 复用、取消或新请求覆盖后都不能把旧批次结果写入当前 Buffer
                     continue;
                 }
 
-                // 访问共享列表前必须先验证全部输出切片边界
+                // 读取共享输出前先检查所有切片范围是否有效
                 bool validRanges = IsRangeValid(
                                        result.CorridorClusterOffset,
                                        result.CorridorClusterCount,
@@ -414,12 +414,12 @@ namespace AnimarsCatcher.Navigation.Grid
                                        result.FieldOffset,
                                        result.FieldCount,
                                        _activeFlowCells.Length);
-                // 无论成功或失败都先清除可能存在的旧 Buffer
+                // 无论本次成功还是失败，都先清空可能残留的旧结果
                 ClearResultBuffers(state.EntityManager, entity);
-                // 只有四类切片都有效时才写回成功结果
+                // 通道分块、入口、宏观路点和 Flow Field 四类切片全部有效时才写回成功结果
                 if (result.Status == NavigationPathStatus.Succeeded && validRanges)
                 {
-                    // Cluster Buffer 保存宏观路线覆盖范围
+                    // 分块缓冲区记录宏观路线经过的范围
                     DynamicBuffer<NavigationCorridorCluster> clusters =
                         state.EntityManager.GetBuffer<NavigationCorridorCluster>(entity);
                     for (int index = 0; index < result.CorridorClusterCount; index++)
@@ -431,7 +431,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         });
                     }
 
-                    // Portal Buffer 保存相邻 Cluster 之间的实际跨越顺序
+                    // 入口缓冲区记录路线穿过相邻分块的实际顺序
                     DynamicBuffer<NavigationCorridorPortal> portals =
                         state.EntityManager.GetBuffer<NavigationCorridorPortal>(entity);
                     for (int index = 0; index < result.CorridorPortalCount; index++)
@@ -443,7 +443,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         });
                     }
 
-                    // 宏观路点在写回时由 CellIndex 转换为世界位置
+                    // 写回宏观路点时，将格子索引转换为地面世界坐标
                     DynamicBuffer<NavigationHierarchicalWaypoint> waypoints =
                         state.EntityManager.GetBuffer<NavigationHierarchicalWaypoint>(entity);
                     for (int index = 0; index < result.HierarchicalWaypointCount; index++)
@@ -459,7 +459,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         });
                     }
 
-                    // 稀疏 Field 保留 Job 计算的 CellIndex、成本和方向
+                    // 稀疏 Flow Field 原样保留后台任务算出的格子索引、成本和方向
                     DynamicBuffer<NavigationFlowFieldCell> field =
                         state.EntityManager.GetBuffer<NavigationFlowFieldCell>(entity);
                     for (int index = 0; index < result.FieldCount; index++)
@@ -468,13 +468,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                 }
 
-                // Buffer 全部写完后再提交终态，避免观察到半写入结果
+                // 所有缓冲区写完后才更新最终状态，外部不会看到半套结果
                 fieldState.Status = validRanges ? result.Status : NavigationPathStatus.Failed;
-                // 损坏切片统一映射为 InvalidGrid，不保留部分结果
+                // 任一切片损坏都按 InvalidGrid 失败处理，不保留部分结果
                 fieldState.FailureReason = validRanges
                     ? result.FailureReason
                     : NavigationPathFailureReason.InvalidGrid;
-                // 统计字段和缓存版本与终态一起提交
+                // 搜索统计和缓存版本与最终状态一起写回
                 fieldState.CacheVersion = result.CacheVersion;
                 fieldState.DynamicOverlayVersion = result.DynamicOverlayVersion;
                 fieldState.ProjectedStartCellIndex = result.ProjectedStartCellIndex;
@@ -503,13 +503,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity entity = entities[index];
                 NavigationFlowFieldState fieldState =
                     state.EntityManager.GetComponentData<NavigationFlowFieldState>(entity);
-                // Searching 请求由活动批次持有，这里只终止尚未认领的 Pending 请求
+                // Searching 请求由活动批次负责；这里只终止尚未调度的 Pending 请求
                 if (fieldState.Status != NavigationPathStatus.Pending)
                 {
                     continue;
                 }
 
-                // Pending 失败不改变 RequestVersion，调用方仍能对应原请求
+                // Pending 请求失败时保留原版本号，调用方仍能对应到原始请求
                 fieldState.Status = NavigationPathStatus.Failed;
                 fieldState.FailureReason = failureReason;
                 fieldState.ProjectedStartCellIndex = -1;
@@ -521,7 +521,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private void EnsureScratchCapacity(int cellCount, int clusterCount, int nodeCount)
         {
-            // 请求数量不影响 Scratch，形状一致时直接复用
+            // 临时数组与请求数量无关；导航网格尺寸没变时直接复用
             if (_scratchCellCount == cellCount &&
                 _scratchClusterCount == clusterCount &&
                 _scratchNodeCount == nodeCount &&
@@ -530,10 +530,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
-            // 先释放旧拓扑对应的数组，再按新形状分配
+            // 导航网格尺寸变化时，先释放旧数组，再按新尺寸分配
             DisposeScratch();
 
-            // Cell 成本、堆和 Generation 共享同一 Cell 索引空间
+            // 格子成本、堆位置和 Generation 都使用同一套格子索引
             _cellCosts = new NativeArray<float>(cellCount, Allocator.Persistent);
             _cellHeap = new NativeArray<int>(cellCount, Allocator.Persistent);
             _cellHeapPositions = new NativeArray<int>(cellCount, Allocator.Persistent);
@@ -541,12 +541,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 cellCount,
                 Allocator.Persistent,
                 NativeArrayOptions.ClearMemory);
-            // Cluster Generation 只用于标记当前 Corridor 成员
+            // 分块 Generation 只用来标记当前通道包含哪些分块
             _clusterGenerations = new NativeArray<int>(
                 clusterCount,
                 Allocator.Persistent,
                 NativeArrayOptions.ClearMemory);
-            // 抽象搜索数组按 Portal Node 数量分配
+            // 抽象搜索数组按通道节点数量分配
             _abstractCosts = new NativeArray<float>(nodeCount, Allocator.Persistent);
             _abstractEndCosts = new NativeArray<float>(nodeCount, Allocator.Persistent);
             _abstractParents = new NativeArray<int>(nodeCount, Allocator.Persistent);
@@ -560,31 +560,31 @@ namespace AnimarsCatcher.Navigation.Grid
             _scratchClusterCount = clusterCount;
             _scratchNodeCount = nodeCount;
             _nextGeneration = 1;
-            // Grid 形状变化后旧缓存中的所有 Cell 和 Node 索引都失效
+            // 导航网格尺寸变化后，旧缓存中的格子和节点索引全部失效
             ClearCache();
         }
 
         private void EnsureGenerationCapacity(int requiredGenerations)
         {
-            // 正常路径只推进计数器，不清空与 Grid 等长的标记数组
+            // 正常情况下只递增 Generation，不必每批清空与整张网格等长的标记数组
             if (_nextGeneration > 0 && _nextGeneration <= int.MaxValue - requiredGenerations)
             {
                 return;
             }
 
-            // 即将回绕时清零标记，避免旧 Generation 再次变为有效值
+            // 计数即将溢出时清空标记，防止旧 Generation 与新请求编号重复
             for (int index = 0; index < _cellGenerations.Length; index++)
             {
                 _cellGenerations[index] = 0;
             }
             for (int index = 0; index < _clusterGenerations.Length; index++)
             {
-                // Cluster 和 Cell 使用独立标记数组，必须同时重置
+                // 格子和分块使用不同标记数组，溢出时需要一起清空
                 _clusterGenerations[index] = 0;
             }
             for (int index = 0; index < _abstractGenerations.Length; index++)
             {
-                // Portal Node 标记也参与同一全局 Generation 计数
+                // 通道节点标记共用同一个 Generation 计数，也要同步清空
                 _abstractGenerations[index] = 0;
             }
             _nextGeneration = 1;
@@ -607,7 +607,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static bool IsRangeValid(int offset, int count, int totalLength)
         {
-            // 空切片允许负一偏移，非空切片必须完整落在列表内
+            // 空切片可以使用 -1 作为起点；非空切片必须完整位于列表范围内
             return count == 0
                 ? offset >= -1
                 : offset >= 0 && count > 0 && offset + count <= totalLength;
@@ -615,7 +615,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void SortEntities(NativeList<Entity> entities)
         {
-            // 批次很小，插入排序避免额外容器并保持确定性
+            // 单批请求数较小，使用原地插入排序可以避免额外容器并固定顺序
             for (int index = 1; index < entities.Length; index++)
             {
                 Entity value = entities[index];
@@ -637,7 +637,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private void DisposeActiveBatch()
         {
-            // 活动批次容器只在 Job 完成或 World 销毁后释放
+            // 活动批次容器只能在后台任务完成或 World 销毁后释放
             if (_activeRequests.IsCreated) _activeRequests.Dispose();
             if (_activeResults.IsCreated) _activeResults.Dispose();
             if (_activeCorridorClusters.IsCreated) _activeCorridorClusters.Dispose();
@@ -675,7 +675,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     CalculateOverlaySignature(entry, overlayClusters) !=
                     entry.DynamicOverlaySignature)
                 {
-                    // Corridor/Field 切片允许保留在尾部，缓存元数据移除后不会再被读取
+                    // 删除缓存索引后，尾部残留的通道和 Flow Field 数据不会再被读取，换代时会统一回收
                     _cacheEntries.RemoveAtSwapBack(entryIndex);
                 }
             }
@@ -724,7 +724,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private void DisposeScratch()
         {
-            // Scratch 数组没有独立 Job 句柄，释放前由调用方保证批次已完成
+            // 临时数组没有单独的任务句柄，调用方必须确认活动批次结束后再释放
             if (_cellCosts.IsCreated) _cellCosts.Dispose();
             if (_cellHeap.IsCreated) _cellHeap.Dispose();
             if (_cellHeapPositions.IsCreated) _cellHeapPositions.Dispose();

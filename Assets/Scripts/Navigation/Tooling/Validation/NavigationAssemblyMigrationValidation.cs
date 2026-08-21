@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 验证 Navigation 程序集迁移后的类型和烘焙资产引用
+    /// 检查导航代码拆分程序集后，场景脚本和烘焙资产引用是否仍然有效
     /// </summary>
     public static class NavigationAssemblyMigrationValidation
     {
@@ -19,7 +19,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private const string EditorAssemblyName = "AnimarsCatcher.Navigation.Editor";
 
         /// <summary>
-        /// 验证程序集迁移后的场景脚本与烘焙资产序列化引用
+        /// 检查固定测试场景和资产能否正确反序列化到新的导航程序集
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -48,8 +48,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 固定资产必须反序列化为新程序集中的目标类型
-        // 数据版本与内容可用性同时验证迁移没有只保留空壳引用
+        // 固定资产必须加载为新程序集中的正确类型
+        // 同时检查版本和内容，避免迁移后只剩一个看似有效的空引用
         private static void ValidateBakeAsset()
         {
             NavigationGridBakeAsset bakeAsset =
@@ -63,8 +63,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "烘焙资产脚本没有迁移到 Navigation 程序集");
         }
 
-        // 场景中的 MonoBehaviour 引用必须解析到 Navigation 程序集
-        // 加载后同时检查 Missing Script 和 Bake Asset 绑定
+        // 场景中的 MonoBehaviour 必须能解析到导航程序集
+        // 场景加载后同时检查 Missing Script 和烘焙资产绑定
         private static void ValidateScene()
         {
             Scene scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
@@ -96,7 +96,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "场景 Authoring 脚本没有迁移到 Navigation 程序集");
         }
 
-        // 统一抛出异常让命令行验证通过退出码报告失败
+        // 验证失败时抛出异常，让命令行进程通过退出码报告问题
         private static void Assert(bool condition, string message)
         {
             if (!condition)

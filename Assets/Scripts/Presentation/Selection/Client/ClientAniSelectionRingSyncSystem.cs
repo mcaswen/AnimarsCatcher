@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Presentation.Selection
 
                 var ring = entityCommandBuffer.Instantiate(config.Prefab);
 
-                // 设为 Ani 子实体以自动跟随位置和生命周期
+                // 设为 Ani 子 Entity 以自动跟随位置和生命周期
                 entityCommandBuffer.AddComponent(ring, new Parent { Value = aniEntity });
                 entityCommandBuffer.AddComponent(ring, new LocalTransform
                 {
@@ -48,10 +48,10 @@ namespace AnimarsCatcher.Presentation.Selection
                     Scale    = 1f
                 });
 
-                // 保存引用作为幂等标记
+                // 保存光圈引用，后续可用它判断是否已经创建
                 entityCommandBuffer.AddComponent(aniEntity, new SelectionRingReference { RingEntity = ring });
 
-                // 加入 LinkedEntityGroup 让父实体销毁时级联清理
+                // 加入 LinkedEntityGroup 让父 Entity 销毁时级联清理
                 if (!state.EntityManager.HasBuffer<LinkedEntityGroup>(aniEntity))
                     entityCommandBuffer.AddBuffer<LinkedEntityGroup>(aniEntity);
 

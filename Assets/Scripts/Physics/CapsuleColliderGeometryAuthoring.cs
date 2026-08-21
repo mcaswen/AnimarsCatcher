@@ -11,7 +11,7 @@ namespace AnimarsCatcher.Physics.Authoring
     /// </summary>
     public struct CapsuleColliderGeometry : IComponentData
     {
-        // 相对实体原点的本地偏移
+        // 相对 Entity 原点的本地偏移
         public float3 Center;
         public float  Radius;
         public float  Height;
@@ -33,7 +33,7 @@ namespace AnimarsCatcher.Physics.Authoring
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-                // 显式来源便于复用子对象 Collider，未配置时退回同对象组件
+                // 配置 ColliderSource 后可以复用子对象 Collider，未配置时读取当前对象上的组件
                 var capsule = authoring._sourceCollider != null
                     ? authoring._sourceCollider
                     : authoring.GetComponent<CapsuleCollider>();
@@ -44,7 +44,7 @@ namespace AnimarsCatcher.Physics.Authoring
                     return;
                 }
 
-                // 规范化非法 Inspector 输入，运行时始终得到有效胶囊几何
+            // 修正无效的 Inspector 输入，确保运行时始终得到可用的胶囊体尺寸
                 float radius = capsule.radius;
                 float height = Mathf.Max(capsule.height, radius * 2f);
 

@@ -146,7 +146,7 @@ namespace AnimarsCatcher.Presentation.UI
             }
         }
 
-        // 创建本地账号并将用户名回填到登录表单
+        // 创建本地账号，并把用户名填入登录表单
         private void OnRegisterClicked()
         {
             string userName = _registerUserNameInput != null ? _registerUserNameInput.text : string.Empty;

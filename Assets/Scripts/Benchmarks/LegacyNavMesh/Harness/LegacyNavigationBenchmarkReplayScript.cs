@@ -81,7 +81,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         }
 
         /// <summary>
-        /// 写入由固定夹具生成器维护的随机种子和命令序列
+        /// 写入由固定测试数据生成器维护的随机种子和命令序列
         /// </summary>
         /// <param name="randomSeed">跨运行保持一致的随机种子</param>
         /// <param name="commands">按 Tick 递增排列的命令</param>

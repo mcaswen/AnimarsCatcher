@@ -15,7 +15,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 在线程安全队列中桥接 MonoBehaviour 动画事件和 ECS 客户端系统
+    /// 通过线程安全队列把 MonoBehaviour 动画事件传给 ECS 客户端系统
     /// </summary>
     public static class AniAttackEventBridge
     {

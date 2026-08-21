@@ -16,7 +16,7 @@ public struct FragileCrystal : IComponentData
     [GhostField]
     public int TotalDropResourceAmount;
 
-    // 将总量拆分成的可拾取实体数量
+    // 将总量拆分成的可拾取 Entity 数量
     [GhostField]
     public int DropPieceCount;
 

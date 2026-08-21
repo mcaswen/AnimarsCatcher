@@ -4,24 +4,24 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 统一移动、地形、Clearance、Overlay 和启发式成本
+    /// 集中计算路径搜索用到的步进、地形、空间余量和动态障碍成本
     /// </summary>
     public static class NavigationGridCost
     {
         private const float MinimumTerrainCost = 0.01f;
         private const float SquareRootTwo = 1.41421356237f;
 
-        // Terrain Cost 下限同时用于真实步进和启发函数，保持启发式可采纳
-        // 对角距离常量必须与八方向邻接的几何长度完全一致
-        // Clearance 惩罚始终非负，因此不会破坏 A 星最短路径条件
-        // 动态额外成本只在目标 Cell 计入，避免同一步重复收费
-        // 本类不判断边是否合法，通行性统一由 Traversal 提供
+        // 地形成本下限同时用于实际步进和启发函数，保证启发值不会高估真实成本
+        // 对角步长必须与八方向格子的实际几何距离一致
+        // 空间不足的惩罚始终为非负值，不会破坏 A* 的最短路径条件
+        // 一步移动只计算目标格子的动态附加成本，避免重复计费
+        // 本类只负责算成本；能否通行统一交给 NavigationGridTraversal 判断
         public static float CalculateRequiredClearance(
             ref NavigationGridBlob grid,
             float agentRadius,
             float clearanceMargin)
         {
-            // 烘焙已包含 BaseAgentRadius，运行时只计算更大体型和安全边距的增量
+            // 烘焙已经为基础角色半径预留空间，运行时只补上更大体型和额外安全距离
             return math.max(0f, agentRadius - grid.BaseAgentRadius) +
                    math.max(0f, clearanceMargin);
         }
@@ -50,15 +50,15 @@ namespace AnimarsCatcher.Navigation.Grid
             float clearancePenaltyWeight,
             NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
         {
-            // 边成本由几何距离、地形权重和低 Clearance 惩罚组成
-            // 所有项保持非负是启发函数可采纳和 G Cost 单调增长的前提
+            // 每一步的成本由移动距离、地形权重和狭窄空间惩罚组成
+            // 所有项目都必须非负，才能保证累计成本只增不减且启发函数有效
             int fromX = fromCellIndex % grid.Width;
             int fromZ = fromCellIndex / grid.Width;
             int toX = toCellIndex % grid.Width;
             int toZ = toCellIndex / grid.Width;
             bool diagonal = fromX != toX && fromZ != toZ;
             float distance = grid.CellSize * (diagonal ? SquareRootTwo : 1f);
-            // 使用目标 Cell 成本使每条有向边只采样一次，并与 A 星和直线检查保持一致
+            // 使用目标格子的地形和动态成本，让 A* 与直线检查采用同一计算规则
             NavigationGridCell targetCell = grid.Cells[toCellIndex];
             float reduction = dynamicOverlay.IsCreated &&
                               toCellIndex >= 0 &&
@@ -67,7 +67,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 : 0f;
             float effectiveClearance = math.max(0f, targetCell.Clearance - reduction);
             float extraClearance = math.max(0f, effectiveClearance - requiredClearance);
-            // 通道越宽比例越接近零，惩罚连续衰减而不会形成新的硬阻挡
+            // 通道越宽，惩罚越接近零；它只影响路线偏好，不会额外制造不可通行区域
             float clearanceRatio = grid.CellSize / (grid.CellSize + extraClearance);
             float weightedTerrainCost =
                 math.max(MinimumTerrainCost, targetCell.TerrainCost) +
@@ -99,8 +99,8 @@ namespace AnimarsCatcher.Navigation.Grid
             int deltaZ = math.abs(toZ - fromZ);
             int diagonalSteps = math.min(deltaX, deltaZ);
             int straightSteps = math.max(deltaX, deltaZ) - diagonalSteps;
-            // Terrain Cost 下限同为 MinimumTerrainCost，因此该估价不会高估真实成本
-            // Clearance 惩罚始终非负，不加入启发函数仍保持可采纳性
+            // 启发函数使用与实际步进相同的最低地形成本，因此不会高估剩余路程
+            // 狭窄空间惩罚不会为负，省略它仍可保持启发函数安全有效
             return grid.CellSize * MinimumTerrainCost *
                    (diagonalSteps * SquareRootTwo + straightSteps);
         }

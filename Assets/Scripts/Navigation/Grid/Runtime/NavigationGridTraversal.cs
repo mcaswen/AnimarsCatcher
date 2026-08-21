@@ -4,17 +4,17 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 统一静态拓扑、Clearance 和动态 Overlay 通行规则
+    /// 集中判断格子和相邻边是否允许指定体型的角色通过
     /// </summary>
     public static class NavigationGridTraversal
     {
         private const float CostEpsilon = 0.00001f;
 
-        // NeighborMask 是静态边合法性的唯一来源，运行时不能重建拓扑
-        // 大体型占用在烘焙基础半径之上只计算额外 Clearance
-        // 对角移动还要验证两个正交侧边，防止从障碍角点挤过
-        // 动态 BlockCount 覆盖静态可行走结果，ExtraCost 不改变可行走性
-        // 所有索引访问前必须先通过统一形状和边界检查
+        // 静态邻接关系只读取烘焙好的 NeighborMask，运行时不临时重建地图连接
+        // 基础角色半径已经包含在烘焙结果中，大体型只检查超出的空间需求
+        // 对角移动还要检查两侧正交格子，防止角色从障碍物尖角挤过去
+        // 动态 BlockCount 会直接阻挡格子；ExtraCost 只让路线更贵，不改变能否通行
+        // 读取任何格子前都先检查导航网格尺寸和索引范围
         public static bool IsDynamicCellBlocked(
             NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
             int cellIndex)
@@ -45,7 +45,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 按距离、地形成本、Clearance 和 Cell Index 稳定投影到邻近合法 Cell
+        /// 在附近寻找角色可以站立的格子，并优先选择更近、更适合通行的位置
         /// </summary>
         /// <param name="grid">运行时只读 Grid</param>
         /// <param name="worldPosition">待投影世界坐标</param>
@@ -53,7 +53,7 @@ namespace AnimarsCatcher.Navigation.Grid
         /// <param name="clearanceMargin">额外安全边距</param>
         /// <param name="maximumRadiusInCells">允许向外搜索的最大 Cell 半径</param>
         /// <param name="projectedCellIndex">输出投影后的 Cell 索引</param>
-        /// <returns>搜索范围内存在合法 Cell 时返回 true</returns>
+        /// <returns>在搜索范围内找到可站立格子时返回 true</returns>
         public static bool CanAgentOccupyDynamic(
             ref NavigationGridBlob grid,
             int cellIndex,
@@ -146,7 +146,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float agentRadius,
             float clearanceMargin)
         {
-            // NeighborMask 约束静态几何，CanAgentOccupy 再应用当前体型
+            // NeighborMask 先确认静态地图允许这一步，再按当前角色体型检查空间
             if (!NavigationGridDirections.TryGetDirectionIndex(deltaX, deltaZ, out int directionIndex) ||
                 (grid.Cells[fromCellIndex].NeighborMask & (1 << directionIndex)) == 0 ||
                 !CanAgentOccupy(ref grid, toCellIndex, agentRadius, clearanceMargin))
@@ -159,7 +159,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return true;
             }
 
-            // 大体型对角移动还要占用两个正交侧边，防止从低 Clearance 角点挤过
+            // 大体型斜走时两侧格子也必须容得下，避免贴着狭窄墙角穿过
             int fromX = fromCellIndex % grid.Width;
             int fromZ = fromCellIndex / grid.Width;
             int sideXCellIndex = fromX + deltaX + fromZ * grid.Width;
@@ -178,8 +178,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public static bool IsGridShapeValid(ref NavigationGridBlob grid)
         {
-            // Blob 尺寸和 Cell 数必须完全一致
-            // 非正 CellSize 会破坏距离成本和坐标转换
+            // Blob 中记录的宽高必须与格子总数一致，格子尺寸也必须大于零
             return grid.Width > 0 &&
                    grid.Height > 0 &&
                    grid.CellSize > 0f &&
@@ -188,7 +187,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public static bool IsInside(int x, int z, int width, int height)
         {
-            // 坐标边界在转换为行主序索引前统一验证
+            // 先检查 X、Z 范围，再换算成一维索引，避免越界访问
             return x >= 0 && x < width && z >= 0 && z < height;
         }
     }

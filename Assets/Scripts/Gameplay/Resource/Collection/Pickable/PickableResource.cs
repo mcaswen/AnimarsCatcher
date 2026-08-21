@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 搬运 Ani 相对资源实体的局部站位槽
+    /// 搬运 Ani 相对资源 Entity 的局部站位槽
     /// </summary>
     public struct PickableResourceCarrierSlot : IBufferElementData
     {
@@ -49,7 +49,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 标识可被 Picker 交互系统选中的资源实体
+    /// 标识可被 Picker 交互系统选中的资源 Entity
     /// </summary>
     [GhostComponent(SendTypeOptimization = GhostSendType.AllClients)]
     public struct PickableResourceTag : IComponentData {}

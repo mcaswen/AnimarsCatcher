@@ -10,20 +10,20 @@ using UnityEngine.SceneManagement;
 namespace AnimarsCatcher.Navigation.Grid.Editor
 {
     /// <summary>
-    /// 执行阶段一 Grid 算法与编辑器烘焙自动验收
+    /// 自动验证基础格子连接、安全距离、编辑器烘焙和资产过期检测
     /// </summary>
     public static class NavigationGridStageOneValidation
     {
         [MenuItem("Tools/Animars Catcher/Navigation/Run Stage One Validation")]
-        // 菜单入口允许开发者在当前编辑会话内执行完整验收
-        // 交互入口会保留用户拒绝保存场景时的退出选择
+        // 编辑器菜单可在当前会话中执行完整测试
+        // 如果用户拒绝保存场景，操作会直接退出
         private static void RunFromMenu()
         {
             RunAll();
         }
 
         /// <summary>
-        /// 供 Unity 批处理执行阶段一完整验收
+        /// 供 Unity Batch Mode 执行阶段一全部验证
         /// </summary>
         public static void RunFromCommandLine()
         {
@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
-        /// 执行纯算法、确定性和过期检测验证
+        /// 依次验证基础算法、重复烘焙结果和资产过期检测
         /// </summary>
         public static void RunAll()
         {
@@ -51,12 +51,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 内部入口不弹出交互对话框供批处理和菜单流程共同复用
-        // 每项测试只依赖固定输入并在失败时抛出明确原因
+        // 内部入口不弹窗，可由菜单和批处理共同调用
+        // 每项测试都使用固定输入，失败时抛出明确原因
         private static void RunAllInternal()
         {
-            // 纯算法测试先运行，固定场景测试随后验证完整编辑器链路
-            // 排序让基础拓扑失败不会被后续资产错误掩盖
+            // 先检查纯算法，再用固定场景验证完整编辑器烘焙流程
+            // 基础连接问题会先暴露，不会被后续资产错误掩盖
             TestCornerCutting();
             TestStepHeightAndRegions();
             TestClearanceAndAgentRadii();
@@ -75,12 +75,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Debug.Log("Navigation Grid 阶段一自动验收通过");
         }
 
-        // 验证对角邻接不会跨越两个正交阻挡形成的角点
-        // 该约束直接保护大规模单位不会从墙角漏出
+        // 检查斜向连接不会穿过两个正交障碍形成的墙角
+        // 这条规则防止角色从墙角挤出可行走区域
         private static void TestCornerCutting()
         {
-            // 小型 Grid 封锁两个正交侧边并检查中心对角位
-            // 目标 Cell 保持 Walkable 以隔离穿角规则
+            // 在小地图中封锁斜向移动两侧格子，再检查中心到对角格的连接
+            // 对角目标本身保持可行走，确保失败原因只来自穿角规则
             NavigationGridCellData[] cells = CreateWalkableCells(3, 3);
             SetWalkable(cells, 3, 1, 2, false);
             SetWalkable(cells, 3, 2, 1, false);
@@ -92,12 +92,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "两个正交阻挡之间不能生成对角邻接");
         }
 
-        // 验证高度断层会切断连接并形成不同静态 Region
-        // 同时覆盖允许高度差边界上的可达情况
+        // 检查过高台阶会切断连接并分成不同连通区域
+        // 同时确认高度差降到允许范围后能够重新连通
         private static void TestStepHeightAndRegions()
         {
-            // 单列高度断层把规则平面切成两个不可互达区域
-            // 降低断层后重新计算应恢复单一 Region
+            // 用一列高度断层将平面分为两个区域
+            // 降低断层高度并重算后应恢复为一个区域
             NavigationGridCellData[] cells = CreateWalkableCells(4, 1);
             SetHeight(cells, 2, 2f);
             SetHeight(cells, 3, 2f);
@@ -115,12 +115,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "不可跨越高度边必须限制两侧 Clearance");
         }
 
-        // 验证距离场不会高估障碍附近和 Grid 边界的可用空间
-        // 不同 Agent 半径必须在同一烘焙结果上得到不同占用结论
+        // 检查安全距离不会高估障碍附近和地图边缘的可用空间
+        // 同一烘焙结果应能对不同角色半径给出不同通行判断
         private static void TestClearanceAndAgentRadii()
         {
-            // 中央障碍用于验证距离随 Cell 间距递增
-            // 边界断言验证外围补阻挡参与同一距离场
+            // 中央障碍用于检查距离随格子间隔增加
+            // 地图边缘检查确认外部空间也被视为障碍
             NavigationGridCellData[] cells = CreateWalkableCells(5, 5);
             NavigationGridBakingAlgorithms.BuildConnectivity(cells, 5, 5, 0.5f);
             NavigationEuclideanDistanceTransform.Calculate(cells, 5, 5, 1f);
@@ -147,11 +147,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "对角阻挡的 Clearance 不能高估到方形角点的距离");
         }
 
-        // 验证大 Grid 可视化会按预算增加采样步长
-        // 小 Grid 仍应保持逐 Cell 显示以便检查烘焙细节
+        // 检查大地图预览会根据显示预算增加抽样步长
+        // 小地图仍应逐格显示，便于查看烘焙细节
         private static void TestVisualizationSampling()
         {
-            // 同时覆盖平方 Grid 和长条 Grid 防止偏轴样本数超限
+            // 同时测试方形和长条地图，避免单轴过长导致样本数超限
             AssertVisualizationSampleLimit(48, 36, 4096);
             AssertVisualizationSampleLimit(4096, 32, 2048);
             AssertVisualizationSampleLimit(2000, 2000, 4096);
@@ -163,8 +163,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(fullResolutionStride == 1, "显示上限足够时覆盖层不应降低采样分辨率");
         }
 
-        // 使用与 Renderer 相同的步长公式验证最终采样数上界
-        // 该测试防止编辑器 Gizmo 因尺寸增长退化为全量绘制
+        // 使用与预览绘制器相同的公式检查最终样本数
+        // 防止大地图 Gizmo 意外退化为全量绘制
         private static void AssertVisualizationSampleLimit(
             int width,
             int height,
@@ -181,12 +181,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(sampleCount <= maximumCells, "覆盖层二维抽样数量不得超过显示上限");
         }
 
-        // 固定场景同时包含平地、障碍、斜坡、窄边和高度断层
-        // 对烘焙资产执行结构 Hash 区域和代表 Cell 的综合断言
+        // 固定场景包含平地、障碍、斜坡、窄平台和高度断层
+        // 综合检查资产结构、哈希、连通区域和代表格子
         private static void TestFixtureData(NavigationGridAuthoring authoring)
         {
-            // 先校验资产新鲜度再读取 Cell 防止过期数据产生误导断言
-            // 代表坐标覆盖固定夹具中的主要语义区域
+            // 先确认资产没有过期，再读取格子，避免对旧数据做出误导判断
+            // 选取的坐标覆盖固定场景中的主要地形区域
             NavigationGridBakeAsset bakeAsset = authoring.BakeAsset;
             Assert(bakeAsset != null && bakeAsset.IsUsable, "阶段一夹具必须生成可用资产");
             Assert(bakeAsset.RegionCount >= 2, "固定夹具必须包含静态孤岛");
@@ -244,11 +244,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             AssertBoundaryCellsBlocked(bakeAsset);
         }
 
-        // 外围 Cell 应因基础角色体积越出采样范围而被保守阻挡
-        // 这项断言保护 Grid 边缘不会被当成无限开放空间
+        // 地图最外圈应因角色体积伸出烘焙范围而判定为不可站立
+        // 这样地图边缘不会被误认为外侧仍有无限开放空间
         private static void AssertBoundaryCellsBlocked(NavigationGridBakeAsset bakeAsset)
         {
-            // 四条边分别遍历避免只验证角点而遗漏长边中段
+            // 分别遍历四条边，不能只检查角点而漏掉边缘中段
             for (int x = 0; x < bakeAsset.Width; x++)
             {
                 Assert(!bakeAsset.GetCell(x).Walkable, "Grid 南边界必须拒绝基础 Agent");
@@ -265,11 +265,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 相同场景和参数连续烘焙必须产生相同几何与数据 Hash
-        // 该测试捕获对象枚举顺序和浮点尾差造成的非确定性
+        // 相同场景和配置连续烘焙必须产生相同几何哈希和内容哈希
+        // 用于发现对象遍历顺序或浮点尾差造成的不一致
         private static void TestRepeatedBakeHash(NavigationGridAuthoring authoring)
         {
-            // 保存首轮摘要后再次执行完整物理采样和资产覆盖
+            // 保存第一次结果后再次执行完整物理采样和资产更新
             NavigationGridBakeAsset firstAsset = NavigationGridBakeUtility.Bake(authoring);
             string firstHash = firstAsset.DataHash;
             NavigationGridBakeAsset secondAsset = NavigationGridBakeUtility.Bake(authoring);
@@ -278,11 +278,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "相同输入重复烘焙必须得到相同 Data Hash");
         }
 
-        // 暂时移除绑定资产后新鲜度校验必须明确报告缺失
-        // 测试结束恢复原引用避免污染固定场景
+        // 暂时移除绑定资产，过期检查应明确报告资产缺失
+        // 测试结束后恢复原引用，避免污染固定场景
         private static void TestMissingAssetDetection(NavigationGridAuthoring authoring)
         {
-            // 使用 finally 恢复引用保证断言失败也不会污染场景
+            // 在 finally 中恢复引用，即使断言失败也不会留下修改
             NavigationGridBakeAsset originalAsset = authoring.BakeAsset;
             Scene scene = authoring.gameObject.scene;
 
@@ -305,12 +305,12 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 构建门禁必须拒绝场景中缺失或过期的 Grid 资产
-        // 通过固定夹具验证失败信息包含可定位的场景路径
+        // 构建检查必须拒绝导航资产缺失或过期的场景
+        // 错误信息还应包含可定位的场景路径
         private static void AssertBuildValidatorRejectsFixture()
         {
-            // 临时篡改参数制造可恢复的过期资产并调用构建门禁
-            // 测试结束恢复配置和场景脏状态
+            // 临时修改配置让资产过期，再调用正式构建检查
+            // 测试结束后恢复配置和场景脏状态
             EditorBuildSettingsScene[] originalScenes = EditorBuildSettings.scenes;
             var validationScenes = new List<EditorBuildSettingsScene>(originalScenes)
             {
@@ -341,11 +341,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 修改参与 Parameter Hash 的配置后资产必须立即判定过期
-        // 恢复参数后再次校验确保测试不留下脏状态
+        // 修改参与参数哈希的配置后，资产必须立即被判定为过期
+        // 恢复参数后再次检查，确保测试没有留下错误状态
         private static void TestParameterStaleDetection(NavigationGridAuthoring authoring)
         {
-            // 选择 CellSize 变化同时覆盖尺寸与采样参数摘要
+            // 修改格子大小，同时覆盖地图尺寸和采样参数变化
             Scene scene = authoring.gameObject.scene;
             var serializedObject = new SerializedObject(authoring);
             SerializedProperty property = serializedObject.FindProperty("_maximumStepHeight");
@@ -370,11 +370,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 移动参与烘焙的 Collider 后 Geometry Hash 必须变化
-        // 该测试覆盖 Transform 变化传播到几何依赖摘要的链路
+        // 移动参与烘焙的 Collider 后，几何哈希必须变化
+        // 用于确认 Transform 修改能传递到场景几何摘要
         private static void TestGeometryStaleDetection(NavigationGridAuthoring authoring)
         {
-            // 移动固定障碍且不改变 Authoring 以隔离 Geometry Hash
+            // 只移动固定障碍，不修改 Authoring，确保变化只来自场景几何
             Scene scene = authoring.gameObject.scene;
             GameObject obstacle = GameObject.Find("Obstacle_Corridor_West");
             Assert(obstacle != null, "固定夹具缺少用于过期检测的障碍");
@@ -396,11 +396,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
-        // 优先打开已提交夹具，保证本地和批处理使用同一输入
-        // 缺失时重新生成使验证入口具备可恢复性
+        // 优先打开版本库中的固定场景，确保本地和批处理使用同一输入
+        // 场景缺失时自动重建，测试仍可继续
         private static NavigationGridAuthoring OpenOrCreateFixture()
         {
-            // Single 模式打开避免其他场景 Collider 干扰 Physics
+            // 使用 Single 模式打开，避免其他场景的 Collider 干扰物理采样
             SceneAsset sceneAsset =
                 AssetDatabase.LoadAssetAtPath<SceneAsset>(NavigationGridStageOneFixtureFactory.ScenePath);
             if (sceneAsset == null)
@@ -427,11 +427,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             throw new InvalidOperationException("阶段一夹具场景缺少 NavigationGridAuthoring");
         }
 
-        // 构造无障碍规则数组作为纯算法测试的最小基线
-        // 每个 Cell 使用相同法线、高度和地形成本，消除无关变量
+        // 创建没有障碍的规则格子数组作为纯算法基线
+        // 所有格子使用相同法线、高度和成本，排除无关变量
         private static NavigationGridCellData[] CreateWalkableCells(int width, int height)
         {
-            // 默认 Clearance 足够大使拓扑测试不受体型过滤影响
+            // 默认安全距离设得足够大，让连接测试不受角色体型影响
             var cells = new NavigationGridCellData[width * height];
             for (int i = 0; i < cells.Length; i++)
             {
@@ -448,8 +448,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             return cells;
         }
 
-        // 通过复制写回修改结构体数组中的 Walkable 状态
-        // 辅助方法统一行主序索引计算减少测试自身错误
+        // 先复制结构体再修改并写回数组
+        // 辅助方法统一计算一维索引，减少测试代码自身出错
         private static void SetWalkable(
             NavigationGridCellData[] cells,
             int width,
@@ -463,7 +463,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             cells[index] = cell;
         }
 
-        // 只修改目标 Cell 高度以隔离台阶连接测试变量
+        // 只修改目标格子高度，让台阶连接测试只有一个变量
         private static void SetHeight(
             NavigationGridCellData[] cells,
             int index,
@@ -474,7 +474,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             cells[index] = cell;
         }
 
-        // 验收失败使用 InvalidOperationException 让 Unity 批处理返回非零结果
+        // 验证失败时抛出 InvalidOperationException，让 Unity 批处理返回非零退出码
         private static void Assert(bool condition, string message)
         {
             if (!condition)

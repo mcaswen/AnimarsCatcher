@@ -22,7 +22,7 @@ namespace AnimarsCatcher.Presentation.Anis
         [FormerlySerializedAs("AttackTriggerName")]
         [SerializeField] private string _attackTriggerName = "Attack";
 
-        // 记录最近消费的攻击序号，避免同一请求重复触发动画
+        // 记录最近处理的攻击序号，避免同一请求重复触发动画
         private uint _lastConsumedShotId;
 
         private Animator _animator;
@@ -40,10 +40,10 @@ namespace AnimarsCatcher.Presentation.Anis
         }
 
         /// <summary>
-        /// 绑定视图对应的 ECS 实体和世界生命周期
+        /// 绑定视图对应的 ECS Entity 及其所属 World
         /// </summary>
-        /// <param name="entity">视图跟随的网络实体</param>
-        /// <param name="entityManager">实体所属世界的管理器</param>
+        /// <param name="entity">视图跟随的网络 Entity</param>
+        /// <param name="entityManager">Entity 所属世界的管理器</param>
         public void Bind(Entity entity, EntityManager entityManager)
         {
             _targetEntity = entity;
@@ -66,7 +66,7 @@ namespace AnimarsCatcher.Presentation.Anis
 
             var fire = _boundEntityManager.GetComponentData<AniAttackFireRequest>(_targetEntity);
 
-            // ShotId 同时承担新事件检测和重复消费保护
+            // 通过 ShotId 判断是否出现新攻击，并防止重复处理同一次攻击
             if (fire.ShotId == 0 || fire.ShotId == _lastConsumedShotId)
                 return;
 

@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Presentation.Selection
     }
 
     /// <summary>
-    /// 客户端选中光圈实体预制体配置
+    /// 客户端选中光圈 Entity 预制体配置
     /// </summary>
     public struct SelectionRingPrefabConfig : IComponentData
     {
@@ -40,7 +40,7 @@ namespace AnimarsCatcher.Presentation.Selection
     }
 
     /// <summary>
-    /// Ani 实体当前关联的选中光圈引用
+    /// Ani Entity 当前关联的选中光圈引用
     /// </summary>
     public struct SelectionRingReference : IComponentData
     {

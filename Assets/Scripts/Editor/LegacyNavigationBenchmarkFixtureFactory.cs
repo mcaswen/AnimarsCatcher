@@ -41,7 +41,7 @@ namespace AnimarsCatcher.Editor
         }
 
         /// <summary>
-        /// 供 Unity 批处理创建或刷新阶段零固定夹具
+        /// 供 Unity 批处理创建或刷新阶段零固定测试数据
         /// </summary>
         public static void CreateFromCommandLine()
         {
@@ -80,7 +80,7 @@ namespace AnimarsCatcher.Editor
         {
             LegacyNavigationBenchmarkReplayScript replayScript =
                 AssetDatabase.LoadAssetAtPath<LegacyNavigationBenchmarkReplayScript>(ReplayAssetPath);
-            // 复用固定 GUID 的资产，避免刷新夹具后场景引用失效
+            // 复用固定 GUID 的资产，避免刷新测试数据后场景引用失效
             if (replayScript == null)
             {
                 replayScript = ScriptableObject.CreateInstance<LegacyNavigationBenchmarkReplayScript>();

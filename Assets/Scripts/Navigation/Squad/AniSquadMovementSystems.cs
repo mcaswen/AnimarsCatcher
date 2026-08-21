@@ -8,7 +8,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 沿 Squad 的局部 Flow Field 推进独立 Anchor
+    /// 让队伍锚点沿当前 Flow Field 向目标移动，并在接近目标时减速
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -26,7 +26,7 @@ namespace AnimarsCatcher.Navigation.Grid
             if (!SystemAPI.TryGetSingleton<NavigationGridReference>(out NavigationGridReference gridReference) ||
                 !gridReference.Value.IsCreated)
             {
-                // 没有已发布的 Grid 时不推进 Anchor，避免用默认 Blob 产生越界 Cell
+                // 导航网格尚未加载时不移动锚点，避免访问未初始化的格子数据
                 return;
             }
 
@@ -43,12 +43,12 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 float3 targetVelocity = float3.zero;
 
-                // 只有当前请求版本成功且指令仍在移动，Flow Direction 才能驱动 Anchor
+                // 只有当前寻路请求成功且队伍仍在移动时，Flow Field 方向才会推动锚点
                 bool fieldReady = fieldState.ValueRO.Status == NavigationPathStatus.Succeeded &&
                                   fieldState.ValueRO.RequestVersion ==
                                   pathState.ValueRO.ActiveRequestVersion;
 
-                // 失败、完成和 Holding 状态都冻结 Anchor，动态 Follow 由规划系统重新提交
+                // 寻路失败、指令完成或保持跟随时锚点停下；目标再次移动后由规划系统重新寻路
                 if (fieldReady &&
                     pathState.ValueRO.Status != AniSquadMovementStatus.Failed &&
                     pathState.ValueRO.Status != AniSquadMovementStatus.Completed &&
@@ -61,10 +61,10 @@ namespace AnimarsCatcher.Navigation.Grid
                         2,
                         out int currentCellIndex))
                 {
-                    // 投影失败时不写入 CurrentCellIndex，保留上次合法 Cell
+                    // 找不到有效格子时保留上一次位置，不让无效索引覆盖当前状态
                     anchor.ValueRW.CurrentCellIndex = currentCellIndex;
 
-                    // 先按目标距离计算制动速度，再用 Field 方向投影到可行走网格
+                    // 先根据剩余距离算出应有速度，再让速度方向服从 Flow Field 的可行路线
                     float3 brakingVelocity = AniSquadSteeringAlgorithms.CalculateAnchorVelocity(
                         anchor.ValueRO.Position,
                         pathState.ValueRO.ResolvedTargetPosition,
@@ -81,7 +81,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             math.lengthsq(flowDirection) > 1e-6f;
                         if (hasFlowDirection)
                         {
-                            // Flow 只提供方向，速度大小由到达制动和 Squad 最小能力决定
+                            // Flow Field 只负责指路，速度大小由制动距离和全队移动能力决定
                             targetVelocity = flowDirection * math.length(brakingVelocity);
                         }
                         else
@@ -95,7 +95,7 @@ namespace AnimarsCatcher.Navigation.Grid
                                 grid.CellSize;
                             if (targetDistance <= fallbackRange)
                             {
-                                // 终点 Cell 的平滑方向可能抵消为零，只在一格范围内回退到目标方向
+                                // 终点附近的平滑方向可能互相抵消；只在一格范围内直接朝目标补最后一段
                                 targetVelocity =
                                     PlanarMath.NormalizeXZOrDefault(
                                         pathState.ValueRO.ResolvedTargetPosition -
@@ -106,26 +106,26 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                 }
 
-                // 无可用方向时 targetVelocity 保持零，MoveTowards 会按加速度平滑制动
+                // 没有可用方向时目标速度为零，锚点会按加速度限制逐渐停下
                 float maximumVelocityDelta =
                     math.max(0f, squad.ValueRO.MinimumMaxAcceleration) * deltaTime;
 
-                // Anchor 速度按加速度上限渐进，避免 Field 方向切换造成瞬时速度跳变
+                // 锚点速度逐步接近目标速度，避免路线转向时突然改变速度
                 float3 velocity = VectorMath.MoveTowards(
                     anchor.ValueRO.Velocity,
                     targetVelocity,
                     maximumVelocityDelta);
                 float3 position = anchor.ValueRO.Position + velocity * deltaTime;
 
-                // 先计算连续位置，再尝试投影到合法 Cell，投影失败时保留上一步高度
-                // 位置更新仍遵守 DeltaTime，验收和生产 Tick 使用同一积分模型
+                // 先计算连续移动后的位置，再贴回合法格子；投影失败时保留原来的地面高度
+                // 所有位移都乘以 DeltaTime，验证环境和正式运行使用同一套移动方式
                 if (NavigationGridQuery.TryWorldToCell(
                         ref grid,
                         position,
                         out _,
                         out int nextCellIndex))
                 {
-                    // 位置可能落在 Cell 内部，沿 Grid 高度回写保持 Anchor 与地面一致
+                    // 锚点可以停在格子内部，但 Y 坐标始终贴合该格子的烘焙地面高度
                     position.y = NavigationGridQuery.GetCellWorldPosition(
                         ref grid,
                         nextCellIndex).y;
@@ -134,11 +134,11 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 anchor.ValueRW.Position = position;
                 anchor.ValueRW.Velocity = velocity;
-                // Position 和 Velocity 必须来自同一积分结果，避免 Progress 看到混合帧
+                // 位置和速度一起写回，避免进度系统读到不同帧的数据
                 float3 flatVelocity = PlanarMath.FlattenY(velocity);
                 if (math.lengthsq(flatVelocity) > 1e-5f)
                 {
-                    // 有有效水平速度时朝运动方向转向，停止后保留指令指定朝向
+                    // 移动时朝向速度方向；停下后保留指令要求的最终朝向
                     anchor.ValueRW.Forward = math.normalize(flatVelocity);
                 }
                 else
@@ -151,7 +151,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             0.1f,
                             command.ValueRO.TargetStoppingDistance))
                     {
-                        // 在 Progress 判定前发布最终朝向，使成员先收敛到最终旋转后的槽位
+                        // 在判断到达前先切换到最终朝向，让成员有时间站到旋转后的正确槽位
                         anchor.ValueRW.Forward = math.normalizesafe(
                             command.ValueRO.DesiredForward,
                             new float3(0f, 0f, 1f));
@@ -162,7 +162,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 根据 Anchor 前馈速度和槽位误差生成成员期望速度
+    /// 让每名成员跟随队伍整体速度，同时修正自己与阵型槽位的偏差
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -188,7 +188,7 @@ namespace AnimarsCatcher.Navigation.Grid
             _pathStateLookup.Update(ref state);
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            // 成员只读取所属 Squad 的 Anchor 和路径状态，避免每 Ani 复制一份路径结果
+            // 成员共享所属队伍的锚点和寻路结果，不为每个 Ani 重复保存一份路径
             foreach (var (transform, membership, config, slotTarget, preferredVelocity) in
                      SystemAPI.Query<
                          RefRO<LocalTransform>,
@@ -210,8 +210,8 @@ namespace AnimarsCatcher.Navigation.Grid
                         config.ValueRO.MaxSpeed);
                 }
 
-                // 成员速度仍受自身加速度限制，阵型误差不会瞬移修正
-                // 缺少 Anchor 时 targetVelocity 保持零并自然减速
+                // 成员仍受自身加速度限制，不会为了追槽位而瞬移
+                // 找不到队伍锚点时目标速度保持为零，让成员自然减速
                 preferredVelocity.ValueRW.Value = VectorMath.MoveTowards(
                     preferredVelocity.ValueRO.Value,
                     targetVelocity,
@@ -221,7 +221,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 提交 Grid 后端的开阔地位移，并独占 Ani 权威 Transform 写入
+    /// 把计算后的速度应用到 Ani，并作为导航模块唯一写入位置和旋转的系统
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -240,7 +240,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            // Grid 后端的权威 Transform 只在此处写入，碰撞阶段只能改输入速度
+            // 导航模块只在这里写 Transform；碰撞处理只能调整输入速度，不能另行改位置
             foreach (var (transform, config, slotTarget, preferredVelocity, result) in
                      SystemAPI.Query<
                          RefRW<LocalTransform>,
@@ -252,17 +252,17 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 float3 velocity = preferredVelocity.ValueRO.Value;
 
-                // 移动模型只在水平面工作，保留 Transform 原有高度
+                // 队伍移动只处理水平位移，角色原有高度保持不变
                 velocity = PlanarMath.FlattenY(velocity);
                 LocalTransform nextTransform = transform.ValueRO;
                 nextTransform.Position += velocity * deltaTime;
 
-                // 位置写入仍使用上一步 Transform，旋转只由当前速度增量决定
+                // 先从当前 Transform 计算新位置，旋转则根据本帧实际速度更新
 
                 float speedSquared = math.lengthsq(velocity);
                 if (speedSquared > 1e-5f)
                 {
-                    // 用最大角速度限制旋转插值，避免低速抖动放大朝向变化
+                    // 用最大角速度限制转向，避免低速时的速度抖动造成朝向跳变
                     quaternion targetRotation = quaternion.LookRotationSafe(
                         math.normalize(velocity),
                         math.up());
@@ -270,7 +270,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         nextTransform.Rotation,
                         new float3(0f, 0f, 1f));
 
-                    // 点积夹紧后再求角度，避免浮点误差让 acos 返回 NaN
+                    // 先把点积限制在合法范围，再计算夹角，避免浮点误差产生 NaN
                     float dot = math.clamp(
                         math.dot(currentForward, math.normalize(velocity)),
                         -1f,
@@ -286,22 +286,22 @@ namespace AnimarsCatcher.Navigation.Grid
                         interpolation);
                 }
 
-                // 统一写回位置、速度和提交计数，供验收与后续网络同步读取
+                // 一次写回位置、实际速度和提交次数，供进度判断和网络同步读取
                 transform.ValueRW = nextTransform;
 
-                // 槽位误差从已提交位置计算，Progress 不会读取提交前的旧距离
+                // 使用移动后的新位置计算槽位误差，进度系统不会读到上一帧的距离
                 float3 slotOffset = slotTarget.ValueRO.Position - nextTransform.Position;
                 slotOffset = PlanarMath.FlattenY(slotOffset);
                 result.ValueRW.AppliedVelocity = velocity;
                 result.ValueRW.DistanceToSlot = math.length(slotOffset);
-                // CommitCount 是唯一 Transform 写入者的单调证据，不在其他系统递增
+                // CommitCount 只在这里递增，用于确认位置确实由唯一的提交系统写入
                 result.ValueRW.CommitCount++;
             }
         }
     }
 
     /// <summary>
-    /// 根据 Anchor 和全部成员槽位误差提交指令到达状态
+    /// 综合队伍锚点和所有成员的状态，判断移动指令是否真正完成
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
@@ -329,8 +329,8 @@ namespace AnimarsCatcher.Navigation.Grid
             _slotTargetLookup.Update(ref state);
             _velocityLookup.Update(ref state);
 
-            // Progress 只读取上一链路写入的结果，不直接修改成员 Transform
-            // Lookup 全部刷新后再遍历，保证死亡成员不会被旧引用判定为到达
+            // 本系统只读取移动结果，不修改成员 Transform
+            // 先刷新所有组件查询，避免已销毁成员的旧引用影响到达判断
             foreach (var (command, anchor, pathState, fieldState, members) in
                      SystemAPI.Query<
                          RefRO<AniSquadCommand>,
@@ -344,14 +344,14 @@ namespace AnimarsCatcher.Navigation.Grid
                     currentStatus == AniSquadMovementStatus.Completed ||
                     currentStatus == AniSquadMovementStatus.Holding)
                 {
-                    // 终态只由新指令或动态目标重规划解除，成员表现不能让结果自行复活
+                    // 完成或失败状态只能由新指令或动态目标重规划解除，不会因成员晃动自行恢复
                     continue;
                 }
 
                 if (fieldState.ValueRO.Status == NavigationPathStatus.Failed &&
                     fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                 {
-                    // 当前版本明确失败时终止指令，防止继续消费旧 Field
+                    // 当前寻路请求失败后立即终止指令，避免继续使用旧 Flow Field
                     pathState.ValueRW.Status = AniSquadMovementStatus.Failed;
                     pathState.ValueRW.SettledTicks = 0;
                     continue;
@@ -360,13 +360,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (fieldState.ValueRO.Status == NavigationPathStatus.Pending ||
                     fieldState.ValueRO.Status == NavigationPathStatus.Searching)
                 {
-                    // Field 尚未完成时保持等待状态，避免把未准备好的 Anchor 当作移动失败
+                    // Flow Field 仍在计算时保持等待，不把尚未开始移动误判为失败
                     pathState.ValueRW.Status = AniSquadMovementStatus.AwaitingPath;
                     pathState.ValueRW.SettledTicks = 0;
                     continue;
                 }
 
-                // Anchor 到达使用解析后的动态目标，而不是指令中的初始位置快照
+                // 对 Follow 和 Find 使用目标当前坐标判断锚点是否到达，而不是最初下令时的位置
                 float3 targetOffset =
                     pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position;
                 targetOffset = PlanarMath.FlattenY(targetOffset);
@@ -374,25 +374,25 @@ namespace AnimarsCatcher.Navigation.Grid
                                      math.max(0.1f, command.ValueRO.TargetStoppingDistance);
                 bool membersArrived = AreMembersSettled(members);
 
-                // Anchor 到达不代表阵型到达，必须同时满足所有成员误差和速度阈值
+                // 锚点到达不等于全队到达；所有成员还必须靠近槽位并基本停稳
                 if (!anchorArrived || !membersArrived)
                 {
-                    // Anchor 和全部槽位都到达前，任何一项偏离都会重置稳定计数
+                    // 锚点或任一成员不满足条件时，连续稳定帧数重新计数
                     pathState.ValueRW.Status = AniSquadMovementStatus.Moving;
                     pathState.ValueRW.SettledTicks = 0;
                     continue;
                 }
 
-                // 只有 Anchor 和所有成员同时满足门限时才累积稳定 Tick
+                // 只有锚点和所有成员同时满足条件，才累计稳定帧数
                 int settledTicks = pathState.ValueRO.SettledTicks + 1;
                 pathState.ValueRW.SettledTicks = settledTicks;
                 if (settledTicks < 5)
                 {
-                    // 连续多个 Tick 满足条件才确认到达，过滤速度和浮点边界抖动
+                    // 连续多帧都稳定后才确认到达，避免速度或浮点误差让状态来回切换
                     continue;
                 }
 
-                // Follow 到达后保持跟随，其余一次性指令进入完成态
+                // Follow 到达后进入等待跟随；其他一次性移动指令直接完成
                 pathState.ValueRW.Status = command.ValueRO.Mode == AniSquadCommandMode.Follow
                     ? AniSquadMovementStatus.Holding
                     : AniSquadMovementStatus.Completed;
@@ -403,7 +403,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             if (members.IsEmpty)
             {
-                // 空 Squad 不应被判定为到达，生命周期会在下一次清理中销毁它
+                // 没有成员的队伍不能算作到达，生命周期系统会清理它
                 return false;
             }
 
@@ -415,7 +415,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     !_slotTargetLookup.HasComponent(aniEntity) ||
                     !_velocityLookup.HasComponent(aniEntity))
                 {
-                    // 任一成员缺少运行时组件都表示槽位状态不完整
+                    // 任一成员缺少位置、目标或移动结果，就说明当前阵型状态不完整
                     return false;
                 }
 
@@ -425,7 +425,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (math.length(slotOffset) > _configLookup[aniEntity].ArrivalRadius ||
                     math.lengthsq(_velocityLookup[aniEntity].Value) > 0.0225f)
                 {
-                    // 同时约束位置误差和残余速度，防止成员经过目标后仍被算作稳定
+                    // 同时检查位置和剩余速度，避免成员只是掠过槽位就被判定为站稳
                     return false;
                 }
             }

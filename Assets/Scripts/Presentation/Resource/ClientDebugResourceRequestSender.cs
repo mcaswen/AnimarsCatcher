@@ -7,7 +7,7 @@ using UnityEngine;
 namespace AnimarsCatcher.Presentation.Resource
 {
     /// <summary>
-    /// 在客户端世界创建资源变更 RPC 实体
+    /// 在客户端世界创建资源变更 RPC Entity
     /// </summary>
     public static class ClientDebugResourceRequestSender
     {
@@ -37,7 +37,7 @@ namespace AnimarsCatcher.Presentation.Resource
 
                 var connection = query.GetSingletonEntity();
 
-                // RPC 实体和目标连接必须创建在同一个客户端世界
+                // RPC Entity 和目标连接必须创建在同一个客户端世界
                 var rpcEntity = entityManager.CreateEntity();
                 entityManager.AddComponentData(rpcEntity, new DebugAdjustResourceRpc
                 {

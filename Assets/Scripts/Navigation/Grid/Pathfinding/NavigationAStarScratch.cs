@@ -3,7 +3,7 @@ using Unity.Collections;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// A* 批次可复用 Scratch 的所有权描述，实际生命周期仍由 Pathfinding System 管理
+    /// A* 批量搜索时重复使用的临时数组；内存由寻路系统统一管理
     /// </summary>
     public struct NavigationAStarScratch
     {

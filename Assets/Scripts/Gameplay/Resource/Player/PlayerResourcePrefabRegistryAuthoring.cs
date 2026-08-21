@@ -31,7 +31,7 @@ namespace AnimarsCatcher.Gameplay
     }
 
     /// <summary>
-    /// 保存玩家资源 Ghost 预制体实体
+    /// 保存玩家资源 Ghost 预制体 Entity
     /// </summary>
     public struct PlayerResourceGhostPrefabReference : IComponentData
     {

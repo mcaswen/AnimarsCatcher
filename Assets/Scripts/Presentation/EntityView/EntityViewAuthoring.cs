@@ -5,7 +5,7 @@ namespace AnimarsCatcher.Presentation.EntityView
     using UnityEngine.Scripting.APIUpdating;
 
     /// <summary>
-    /// 配置实体对应的托管表现 Prefab 和表现类别
+    /// 配置 Entity 对应的托管表现 Prefab 和表现类别
     /// </summary>
     [MovedFrom(true, "AnimarsCatcher.Presentation.PlayerView", "AnimarsCatcher.Presentation", "AvatarViewAuthoring")]
     [DisallowMultipleComponent]

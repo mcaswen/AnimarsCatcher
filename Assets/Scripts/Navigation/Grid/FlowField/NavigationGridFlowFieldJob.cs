@@ -7,90 +7,90 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 将稳定排序后的实体与分层路径请求传入单个 Job 批次
+    /// 将稳定排序后的 Entity 与分层路径请求传入单个 Job 批次
     /// </summary>
     public struct NavigationFlowFieldJobRequest
     {
-        // 保存结果写回时使用的实体标识
+        // 保存结果写回时使用的 Entity 标识
         public Entity Entity;
 
-        // 保存本批次只读的路径与局部场请求
+        // 调度时复制的只读 Flow Field 请求
         public NavigationFlowFieldRequest Request;
     }
 
     /// <summary>
-    /// 描述单个请求在共享输出列表中的切片和可观察统计
+    /// 一条 Flow Field 请求的结果，以及它在各共享输出列表中的位置
     /// </summary>
     public struct NavigationFlowFieldJobResult
     {
-        // 保存结果所属的请求实体
+        // 保存结果所属的请求 Entity
         public Entity Entity;
 
-        // 保存调度时捕获的请求版本，用于拒绝旧结果
+        // 调度时的请求版本，用于阻止旧结果覆盖新请求
         public uint RequestVersion;
 
-        // 保存请求完成后的统一路径状态
+        // 请求完成后的路径状态
         public NavigationPathStatus Status;
 
-        // 保存失败时的稳定原因
+        // 请求失败的原因
         public NavigationPathFailureReason FailureReason;
 
-        // 保存起点投影后的 Cell 索引
+        // 起点纠正后的格子索引
         public int ProjectedStartCellIndex;
 
-        // 保存终点投影后的 Cell 索引
+        // 终点纠正后的格子索引
         public int ProjectedEndCellIndex;
 
-        // 指向本批次 Corridor Cluster 共享列表的切片起点
+        // 通道分块在本批共享列表中的起点
         public int CorridorClusterOffset;
 
-        // 保存 Corridor Cluster 切片长度
+        // 通道分块数量
         public int CorridorClusterCount;
 
-        // 指向本批次 Corridor Portal 共享列表的切片起点
+        // 分块入口在本批共享列表中的起点
         public int CorridorPortalOffset;
 
-        // 保存 Corridor Portal 切片长度
+        // 分块入口数量
         public int CorridorPortalCount;
 
-        // 指向本批次宏观路点共享列表的切片起点
+        // 宏观路点在本批共享列表中的起点
         public int HierarchicalWaypointOffset;
 
-        // 保存宏观路点切片长度
+        // 宏观路点数量
         public int HierarchicalWaypointCount;
 
-        // 指向本批次局部 Field 共享列表的切片起点
+        // 局部 Flow Field 在本批共享列表中的起点
         public int FieldOffset;
 
-        // 保存局部 Field 切片长度
+        // 局部 Flow Field 格子数量
         public int FieldCount;
 
-        // 保存 HPA 星抽象搜索展开节点数量
+        // 分层寻路展开的抽象节点数
         public int AbstractExpandedNodeCount;
 
-        // 保存 Integration 搜索展开 Cell 数量
+        // Integration Field 展开的格子数
         public int IntegrationExpandedCellCount;
 
-        // 保存宏观路线累计静态成本
+        // 宏观路线的累计静态成本
         public float TotalCost;
 
-        // 保存命中或新建的缓存版本
+        // 命中或新建的缓存版本
         public uint CacheVersion;
 
-        // 保存本次请求使用的动态 Overlay 版本
+        // 本次计算使用的动态障碍版本
         public uint DynamicOverlayVersion;
 
-        // 表示结果是否直接复用了缓存 Field
+        // 是否直接复用了缓存中的 Flow Field
         public byte CacheHit;
     }
 
     /// <summary>
-    /// 在单个确定性批次内构建 HPA 星 Corridor 与局部 Flow Field
+    /// 在一个后台批次中依次构建分层通道和局部 Flow Field
     /// </summary>
     [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.Standard)]
     public struct NavigationGridFlowFieldJob : IJob
     {
-        // 保存本批次共享且只读的静态 Grid Blob
+        // 本批次共用的只读静态导航网格
         [ReadOnly]
         public BlobAssetReference<NavigationGridBlob> Grid;
 
@@ -105,100 +105,97 @@ namespace AnimarsCatcher.Navigation.Grid
         public NativeArray<NavigationDynamicOverlayCluster> DynamicOverlayClusters;
         public uint DynamicOverlayVersion;
 
-        // 保存与 Requests 相同下标的结果描述
+        // 与 Requests 一一对应的结果数组
         public NativeArray<NavigationFlowFieldJobResult> Results;
 
-        // 累积全部请求的 Corridor Cluster 切片
+        // 整个批次输出的通道分块
         public NativeList<int> CorridorClusters;
 
-        // 累积全部请求的 Corridor Portal 切片
+        // 整个批次输出的分块入口
         public NativeList<int> CorridorPortals;
 
-        // 累积全部请求的宏观路点 Cell 切片
+        // 整个批次输出的宏观路点格子
         public NativeList<int> HierarchicalWaypointCells;
 
-        // 累积全部请求的局部 Field 切片
+        // 整个批次输出的局部 Flow Field
         public NativeList<NavigationFlowFieldCell> FlowCells;
 
-        // 保存按 Generation 懒初始化的 Cell 搜索成本
+        // 按 Generation 延迟初始化的格子搜索成本
         public NativeArray<float> CellCosts;
 
-        // 保存 Cell 搜索二叉堆节点
+        // 格子搜索使用的二叉堆
         public NativeArray<int> CellHeap;
 
-        // 保存 Cell 到二叉堆位置的反向索引
+        // 从格子索引反查其在二叉堆中的位置
         public NativeArray<int> CellHeapPositions;
 
-        // 保存 Cell Scratch 最近一次有效的 Generation
+        // 每个格子临时数据所属的最近一次 Generation
         public NativeArray<int> CellGenerations;
 
-        // 保存 Corridor Cluster 去重使用的 Generation
+        // 通道分块去重使用的 Generation
         public NativeArray<int> ClusterGenerations;
 
-        // 保存抽象节点从起点侧累计的成本
+        // 从起点到各抽象节点的累计成本
         public NativeArray<float> AbstractCosts;
 
-        // 保存抽象节点到终点侧的局部连接成本
+        // 各抽象节点到终点的局部连接成本
         public NativeArray<float> AbstractEndCosts;
 
-        // 保存抽象路径重建使用的父节点索引
+        // 重建抽象路线时使用的父节点
         public NativeArray<int> AbstractParents;
 
-        // 保存抽象搜索二叉堆节点
+        // 抽象节点搜索使用的二叉堆
         public NativeArray<int> AbstractHeap;
 
-        // 保存抽象节点到二叉堆位置的反向索引
+        // 从抽象节点反查其在二叉堆中的位置
         public NativeArray<int> AbstractHeapPositions;
 
-        // 保存抽象节点 Scratch 最近一次有效的 Generation
+        // 每个抽象节点临时数据所属的最近一次 Generation
         public NativeArray<int> AbstractGenerations;
 
-        // 复用为局部搜索实际访问 Cell 的临时列表
+        // 记录一次局部搜索实际访问过的格子，可在请求之间复用
         public NativeList<int> WorkVisitedCells;
 
-        // 复用为单个请求 Corridor Cluster 的临时列表
+        // 构建单条请求通道时复用的分块列表
         public NativeList<int> WorkCorridorClusters;
 
-        // 复用为单个请求 Corridor Portal 的临时列表
+        // 构建单条请求通道时复用的入口列表
         public NativeList<int> WorkCorridorPortals;
 
-        // 复用为 HPA 星父链反转前的抽象节点列表
+        // 反转分层寻路父节点链时复用的临时列表
         public NativeList<int> WorkNodeChain;
 
-        // 保存跨批次复用的缓存元数据
+        // 可跨批次复用的缓存索引
         public NativeList<NavigationFlowFieldCacheEntry> CacheEntries;
 
-        // 保存全部缓存项引用的 Corridor 切片
+        // 所有缓存项引用的通道分块
         public NativeList<int> CacheCorridorClusters;
 
-        // 保存全部缓存项引用的 Field 切片
+        // 所有缓存项引用的 Flow Field 数据
         public NativeList<NavigationFlowFieldCell> CacheFlowCells;
 
-        // 保存本批次新建缓存使用的起始版本
+        // 本批次新缓存项使用的起始版本号
         public uint CacheVersion;
 
-        // 保存本批次可分配的第一个 Scratch Generation
+        // 本批次分配临时 Generation 的起点
         public int GenerationStart;
 
         internal static int CalculateGenerationStride(int portalNodeCount, uint overlayVersion)
         {
-            // 初始 Overlay 沿用四代快速路径；发生过动态修改后为每个 Portal Node
-            // 预留独立局部搜索代，并把 Integration Field 放在该范围之后
-            // 第零代同时用于抽象节点和起点 Cluster，两者位于不同 Scratch 数组
-            // 第一代保存终点 Cluster 的反向局部成本
-            // 第二代起按 Portal Node 索引保存动态内部边成本
-            // Portal Node 范围之后的一代专属于 Integration Field
-            // Stride 至少为四，保持无 Portal Grid 和既有测试夹具的代际契约
+            // 动态障碍从未变化时只需要 4 个 Generation
+            // 发生过动态变化后，每个通道节点都要有独立的局部搜索 Generation，
+            // 最后再留一个给 Integration Field。起点、终点和抽象搜索分别使用前几个编号
+            // 即使地图没有通道节点也至少返回 4，保证临时数组编号规则不变
             return overlayVersion > 1u ? math.max(4, portalNodeCount + 3) : 4;
         }
 
         /// <summary>
-        /// 按输入顺序构建结果，保证共享输出列表切片稳定且不并发写入
+        /// 按输入顺序处理整批请求，让各结果在共享列表中的位置明确且不会并发冲突
         /// </summary>
         [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.Standard)]
         public void Execute()
         {
-            // 单 Job 顺序处理是共享 NativeList 与缓存的所有权前提，改为并行 Job 前必须拆分输出和缓存写入
+            // 当前任务依次处理请求，因此可以安全共享 NativeList 和缓存；若改为并行，必须先拆分写入目标
             CorridorClusters.Clear();
             CorridorPortals.Clear();
             HierarchicalWaypointCells.Clear();

@@ -8,7 +8,7 @@ using Unity.Collections;
 namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
-    /// 一次屏幕框选拖拽的运行时边沿状态
+    /// 保存一次屏幕框选拖拽的按下、移动和释放状态
     /// </summary>
     public struct AniSelectionDragState : IComponentData
     {
@@ -17,7 +17,7 @@ namespace AnimarsCatcher.Presentation.Selection
         public byte IsDragging;
         // 仅在释放发生的帧为一
         public byte IsReleased;
-        // 用于检测输入边沿的上一帧右键状态
+        // 保存上一帧右键状态，用于判断本帧是按下还是释放
         public byte PreviousRightHeld;
     }
 
@@ -32,7 +32,7 @@ namespace AnimarsCatcher.Presentation.Selection
     }
 
     /// <summary>
-    /// 标识框选 UI 引用已完成注入
+    /// 标识框选 UI 引用已经绑定到 ECS
     /// </summary>
     public struct AniSelectionUIAttachedTag : IComponentData {}
 

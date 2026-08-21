@@ -105,7 +105,7 @@ namespace AnimarsCatcher.Presentation.UI
             }
         }
 
-        // 通过共享 UI 输入锁桥接演出状态，避免直接依赖玩家输入系统
+        // 通过共享 UI 输入锁传递演出状态，避免直接依赖玩家输入系统
         private void SetInputEnabled(bool enabled)
         {
             if (enabled)

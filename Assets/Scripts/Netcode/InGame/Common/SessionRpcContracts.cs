@@ -26,7 +26,7 @@ namespace AnimarsCatcher.Networking
     }
 
     /// <summary>
-    /// 由服务器广播给客户端的权威开局通知
+    /// 由服务器广播给客户端的正式开局通知
     /// </summary>
     public struct StartMatchNotificationRpc : IRpcCommand
     {

@@ -51,7 +51,7 @@ namespace AnimarsCatcher.Presentation.Network
     }
 
     /// <summary>
-    /// 描述客户端收到的权威对局开始通知
+    /// 描述客户端收到的服务器开局通知
     /// </summary>
     public readonly struct MatchStartedEvent
     {
@@ -66,7 +66,7 @@ namespace AnimarsCatcher.Presentation.Network
     }
 
     /// <summary>
-    /// 描述权威对局结束通知
+    /// 描述服务器确认的对局结束通知
     /// </summary>
     public readonly struct MatchEndedEvent
     {

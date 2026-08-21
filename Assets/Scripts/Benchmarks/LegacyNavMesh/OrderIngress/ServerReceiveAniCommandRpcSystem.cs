@@ -21,7 +21,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     {
         private BufferLookup<FsmVar> _blackboardLookup;
 
-        // 每帧重建 GhostId 到服务器权威 Ani 实体的映射
+        // 每帧重建 GhostId 到服务器 Ani Entity 的映射
         private NativeParallelHashMap<int, Entity> _aniByGhostId;
 
         public void OnCreate(ref SystemState state)
@@ -42,7 +42,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         {
             _blackboardLookup.Update(ref state);
 
-            // GhostId 会随网络实体生命周期变化，因此每帧从权威世界重建映射
+            // GhostId 会随网络 Entity 的创建和销毁变化，因此每帧从服务器 World 重建映射
             _aniByGhostId.Clear();
 
             foreach (var (ghostInstance, aniAttributes, entity) in
@@ -76,7 +76,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
                 if (!SystemAPI.HasComponent<NetworkId>(connection))
                 {
-                    // 来源连接已经失效的 RPC 也必须消费，不能留到下一帧重试
+                    // 来源连接已经失效的 RPC 也必须丢弃，不能留到下一帧重试
                     entityCommandBuffer.DestroyEntity(rpcEntity);
                     continue;
                 }
@@ -87,7 +87,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 Entity             targetEntity = rpc.ValueRO.TargetEntity;
                 float3             targetWorldPosition = rpc.ValueRO.TargetWorldPosition;
 
-                // 需要实体目标的命令在目标失效时整体拒绝，避免写入悬空引用
+                // 需要 Entity 目标的命令在目标失效时整体拒绝，避免写入悬空引用
                 if ((targetKind == WorldCommandTargetKind.Ani ||
                      targetKind == WorldCommandTargetKind.Resource ||
                      targetKind == WorldCommandTargetKind.Player) &&

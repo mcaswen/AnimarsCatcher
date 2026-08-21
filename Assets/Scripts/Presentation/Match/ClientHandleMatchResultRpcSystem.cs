@@ -7,7 +7,7 @@ using Unity.Collections;
 namespace AnimarsCatcher.Presentation.Match
 {
     /// <summary>
-    /// 在客户端消费服务器胜负 RPC 并转换为本地界面结果
+    /// 在客户端处理服务器胜负 RPC，并转换为本地界面结果
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -38,7 +38,7 @@ namespace AnimarsCatcher.Presentation.Match
                 bool isWin = (localCamp == rpc.ValueRO.Winner);
                 MatchResultUIBridge.ShowMatchResult(isWin);
 
-                // RPC 实体只允许消费一次
+                // 每个 RPC Entity 只处理一次
                 ecb.DestroyEntity(entity);
             }
 
