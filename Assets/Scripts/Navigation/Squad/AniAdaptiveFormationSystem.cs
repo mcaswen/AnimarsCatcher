@@ -56,14 +56,34 @@ namespace AnimarsCatcher.Navigation.Grid
                 ? entityManager.GetComponentData<NavigationDynamicOverlayState>(gridEntity).Version
                 : 1u;
 
-            foreach (var (squad, anchor, formation, members) in SystemAPI.Query<
+            foreach (var (squad, command, anchor, pathState, formation, members) in SystemAPI.Query<
                          RefRO<AniSquad>,
+                         RefRO<AniSquadCommand>,
                          RefRO<AniSquadAnchor>,
+                         RefRO<AniSquadPathState>,
                          RefRW<AniSquadFormationState>,
                          DynamicBuffer<AniSquadMember>>())
             {
                 if (members.IsEmpty)
                 {
+                    continue;
+                }
+
+                AniSquadMovementStatus movementStatus = pathState.ValueRO.Status;
+                if (movementStatus == AniSquadMovementStatus.Failed ||
+                    movementStatus == AniSquadMovementStatus.Completed ||
+                    movementStatus == AniSquadMovementStatus.Holding)
+                {
+                    // 终态阵型必须保持稳定；新指令或动态重规划会先把状态重置为 AwaitingPath
+                    continue;
+                }
+
+                float targetDistance = math.length(
+                    PlanarMath.FlattenY(
+                        pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position));
+                if (targetDistance <= math.max(0.1f, command.ValueRO.TargetStoppingDistance))
+                {
+                    // 目标停止区前方不再存在可消费走廊，边界采样不能据此重塑最终阵型
                     continue;
                 }
 
@@ -80,12 +100,20 @@ namespace AnimarsCatcher.Navigation.Grid
                     formation.ValueRO.ColumnCount,
                     1,
                     members.Length);
+                int configuredColumns = math.clamp(
+                    formation.ValueRO.ConfiguredColumnCount > 0
+                        ? formation.ValueRO.ConfiguredColumnCount
+                        : currentColumns,
+                    1,
+                    members.Length);
                 int rowCount = math.max(1, (members.Length + currentColumns - 1) / currentColumns);
                 float formationDepth = rowCount * 1.6f;
-                float lookDistance = math.max(
-                    grid.CellSize,
-                    speed * ExpectedReformTime + formationDepth);
-                int sampleCount = math.max(1, (int)math.ceil(lookDistance / grid.CellSize));
+                float lookDistance = math.min(
+                    targetDistance,
+                    math.max(grid.CellSize, speed * ExpectedReformTime + formationDepth));
+                int sampleCount = math.max(
+                    0,
+                    (int)math.floor(lookDistance / grid.CellSize));
 
                 for (int sampleIndex = 0; sampleIndex <= sampleCount; sampleIndex++)
                 {
@@ -140,6 +168,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     usableWidth,
                     maximumAgentRadius * 2f,
                     HorizontalGap);
+                desiredColumns = math.min(desiredColumns, configuredColumns);
 
                 int activeColumns = currentColumns;
                 int stableTicks = formation.ValueRO.WidthStableTicks;

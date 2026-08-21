@@ -16,6 +16,22 @@ namespace AnimarsCatcher.Navigation.Grid
         // 抽象边仍按 MinimumClearance 过滤，保证大体型请求不会穿过窄门
         // 相同成本使用稳定节点索引决胜，避免不同运行得到不同 Corridor
         // Solver 只写 Native 容器，不读取 World 或管理 ECS 请求生命周期
+        // 静态内部边只在当前 Cluster 没有有效 Overlay 值时作为快速路径
+        // 动态阻挡可能切断两个 Portal 之间的静态内部边
+        // 动态 ExtraCost 也可能让另一组 Cluster 成为更便宜的宏观路线
+        // 因此受影响 Cluster 必须从当前 Portal 重新执行局部 Dijkstra
+        // 局部重算同时处理 BlockCount、ExtraCost 和 ClearanceReduction
+        // 每个源 Portal 使用独立 Cell Generation，不能共享上一个源的成本
+        // Generation 由 Portal Node 索引稳定派生，不依赖抽象堆弹出顺序
+        // Integration Field 使用所有 Portal 局部 Generation 之后的单独代
+        // OverlayVersion 为初始值时不扫描 Cluster，保留无动态修改的性能路径
+        // 障碍移除后版本不会回退，所以还需检查当前 Cell 是否仍有有效值
+        // Cluster 扫描只覆盖规则分块边界，不会退化为每条抽象边扫描全图
+        // 同一个抽象节点只在确定最短成本并弹出时执行一次局部重算
+        // 跨 Portal 边是单个真实 Cell 步进，直接调用统一成本与通行规则
+        // Cluster 内边若在动态局部搜索中不可达，就从抽象候选中剔除
+        // 最终 Integration Field 仍会再次验证选定 Corridor 的逐 Cell 可达性
+        // 抽象层只负责路线选择，不向移动层暴露未验证的动态边
 
         internal static bool TryBuildAbstractCorridor(
             ref NavigationGridBlob grid,
@@ -40,7 +56,8 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<int> corridorPortals,
             ref NativeList<int> nodeChain,
             out int expandedNodeCount,
-            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            bool dynamicOverlayMayBeActive)
         {
             expandedNodeCount = 0;
             int abstractGeneration = generationStart;
@@ -157,6 +174,30 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
                 }
 
+                // 发生过 Overlay 更新后，仅受影响值仍非零的 Cluster 重算真实局部边
+                // 每个源 Portal 使用由节点索引决定的独立 Generation，避免 Scratch 串代
+                bool useDynamicLocalCosts = dynamicOverlayMayBeActive &&
+                                            HasActiveDynamicOverlayInCluster(
+                                                ref grid,
+                                                currentNode.ClusterId,
+                                                dynamicOverlay);
+                int dynamicLocalGeneration = generationStart + 2 + current;
+                if (useDynamicLocalCosts)
+                {
+                    RunLocalCosts(
+                        ref grid,
+                        currentNode.CellIndex,
+                        currentNode.ClusterId,
+                        request,
+                        false,
+                        dynamicLocalGeneration,
+                        cellCosts,
+                        cellHeap,
+                        cellHeapPositions,
+                        cellGenerations,
+                        dynamicOverlay);
+                }
+
                 for (int edgeIndex = 0; edgeIndex < currentNode.EdgeCount; edgeIndex++)
                 {
                     NavigationGridAbstractEdge edge =
@@ -196,14 +237,62 @@ namespace AnimarsCatcher.Navigation.Grid
                         continue;
                     }
 
-                    // 额外 Clearance 只形成软惩罚，不改变已经通过的可达性判断
-                    float extraClearance = math.max(0f, edge.MinimumClearance - requiredClearance);
-                    float clearancePenalty = math.max(0f, request.ClearancePenaltyWeight) *
-                                             grid.CellSize /
-                                             (grid.CellSize + extraClearance);
+                    float edgeCost;
+                    if (edge.CrossesPortal != 0)
+                    {
+                        int currentCell = currentNode.CellIndex;
+                        int deltaX = targetCell % grid.Width - currentCell % grid.Width;
+                        int deltaZ = targetCell / grid.Width - currentCell / grid.Width;
+                        if (!NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
+                                ref grid,
+                                currentCell,
+                                targetCell,
+                                deltaX,
+                                deltaZ,
+                                request.AgentRadius,
+                                request.ClearanceMargin,
+                                dynamicOverlay))
+                        {
+                            continue;
+                        }
+
+                        // Portal 跨边只有一步，直接使用运行时统一成本即可纳入动态代价
+                        edgeCost = NavigationGridCost.CalculateStepCost(
+                                       ref grid,
+                                       currentCell,
+                                       targetCell,
+                                       requiredClearance,
+                                       request.ClearancePenaltyWeight,
+                                       dynamicOverlay) +
+                                   NavigationGridCost.GetDynamicExtraCost(
+                                       dynamicOverlay,
+                                       targetCell);
+                    }
+                    else if (useDynamicLocalCosts)
+                    {
+                        // 内部边必须在当前 Overlay 下真实可达，不能复用穿过新障碍的静态成本
+                        if (cellGenerations[targetCell] != dynamicLocalGeneration)
+                        {
+                            continue;
+                        }
+
+                        edgeCost = cellCosts[targetCell];
+                    }
+                    else
+                    {
+                        // 静态快速路径保留烘焙成本与原有 Clearance 软惩罚语义
+                        float extraClearance = math.max(
+                            0f,
+                            edge.MinimumClearance - requiredClearance);
+                        float clearancePenalty = math.max(0f, request.ClearancePenaltyWeight) *
+                                                 grid.CellSize /
+                                                 (grid.CellSize + extraClearance);
+                        edgeCost = math.max(0f, edge.StaticCost) +
+                                   clearancePenalty * grid.CellSize;
+                    }
+
                     float candidateCost = abstractCosts[current] +
-                                          math.max(0f, edge.StaticCost) +
-                                          clearancePenalty * grid.CellSize;
+                                          math.max(0f, edgeCost);
                     // 稳定排序的出边配合严格改善判断，保持等价路线的确定性
                     if (candidateCost >= abstractCosts[target] - CostEpsilon)
                     {
@@ -259,6 +348,38 @@ namespace AnimarsCatcher.Navigation.Grid
 
             // 未落到目标 Cluster 表示父链引用了不完整的抽象拓扑
             return currentCluster == endCluster;
+        }
+
+        private static bool HasActiveDynamicOverlayInCluster(
+            ref NavigationGridBlob grid,
+            int clusterId,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+        {
+            if (!dynamicOverlay.IsCreated ||
+                dynamicOverlay.Length < grid.Cells.Length ||
+                clusterId < 0 ||
+                clusterId >= grid.Clusters.Length)
+            {
+                return false;
+            }
+
+            NavigationGridCluster cluster = grid.Clusters[clusterId];
+            // 版本可能在障碍移除后继续增长，因此以当前 Cell 值判定是否需要重算
+            for (int z = cluster.MinimumZ; z < cluster.MaximumZExclusive; z++)
+            {
+                for (int x = cluster.MinimumX; x < cluster.MaximumXExclusive; x++)
+                {
+                    NavigationDynamicOverlayCell overlay = dynamicOverlay[x + z * grid.Width];
+                    if (overlay.BlockCount > 0 ||
+                        overlay.ExtraCost > 0f ||
+                        overlay.ClearanceReduction > 0f)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static void RunLocalCosts(

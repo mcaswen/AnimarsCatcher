@@ -136,6 +136,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 request.AgentRadius,
                 request.ClearanceMargin);
             int abstractExpandedNodeCount = 0;
+            bool dynamicOverlayMayBeActive = dynamicOverlayVersion > 1u;
             // 同 Cluster 请求跳过抽象图，只生成该 Cluster 的局部 Field
             if (startCluster == endCluster)
             {
@@ -165,7 +166,8 @@ namespace AnimarsCatcher.Navigation.Grid
                          ref workCorridorPortals,
                          ref workNodeChain,
                          out abstractExpandedNodeCount,
-                         dynamicOverlay))
+                         dynamicOverlay,
+                         dynamicOverlayMayBeActive))
             {
                 result.FailureReason = NavigationPathFailureReason.NoPath;
                 return result;
@@ -219,7 +221,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 ref cacheCorridorClusters,
                 ref cacheFlowCells,
                 ref flowCells);
-            int integrationGeneration = generationStart + 2;
+            int integrationGeneration = generationStart +
+                                        (dynamicOverlayMayBeActive
+                                            ? grid.PortalNodes.Length + 2
+                                            : 2);
             // 只有缓存未命中时才在 Corridor 内反向生成 Integration Field
             if (!cacheHit)
             {

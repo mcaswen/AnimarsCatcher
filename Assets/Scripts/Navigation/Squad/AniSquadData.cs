@@ -65,6 +65,7 @@ namespace AnimarsCatcher.Navigation.Grid
     public struct AniSquadFormationState : IComponentData
     {
         public AniSquadFormationKind Kind;
+        public int ConfiguredColumnCount;
         public int ColumnCount;
         public int DesiredColumnCount;
         public byte NarrowPath;

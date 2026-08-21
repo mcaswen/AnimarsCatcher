@@ -267,7 +267,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 grid.Value.Cells.Length,
                 grid.Value.Clusters.Length,
                 grid.Value.PortalNodes.Length);
-            EnsureGenerationCapacity(batchCount * 4);
+            int generationStride = NavigationGridFlowFieldJob.CalculateGenerationStride(
+                grid.Value.PortalNodes.Length,
+                overlayVersion);
+            EnsureGenerationCapacity(batchCount * generationStride);
             _activeGrid = grid;
             _activeOverlay = overlay.IsCreated ? overlay.AsNativeArray() : default;
             _activeOverlayClusters = overlayClusters.IsCreated
@@ -359,8 +362,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 DynamicOverlayVersion = _activeOverlayVersion,
                 GenerationStart = _nextGeneration,
             };
-            // 每个请求使用四个连续 Generation，批次间不得重叠
-            _nextGeneration += batchCount * 4;
+            // 动态宏观边可能为每个 Portal Node 使用独立局部代，批次间不得重叠
+            _nextGeneration += batchCount * generationStride;
             // 私有句柄负责跨 Tick 轮询，System Dependency 同时让 ECS 在结构变化前等待读取者
             _activeJobHandle = job.Schedule(state.Dependency);
             state.Dependency = _activeJobHandle;

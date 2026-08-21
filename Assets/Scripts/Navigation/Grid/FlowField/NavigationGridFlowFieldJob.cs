@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
 
 namespace AnimarsCatcher.Navigation.Grid
 {
@@ -179,6 +180,18 @@ namespace AnimarsCatcher.Navigation.Grid
         // 保存本批次可分配的第一个 Scratch Generation
         public int GenerationStart;
 
+        internal static int CalculateGenerationStride(int portalNodeCount, uint overlayVersion)
+        {
+            // 初始 Overlay 沿用四代快速路径；发生过动态修改后为每个 Portal Node
+            // 预留独立局部搜索代，并把 Integration Field 放在该范围之后
+            // 第零代同时用于抽象节点和起点 Cluster，两者位于不同 Scratch 数组
+            // 第一代保存终点 Cluster 的反向局部成本
+            // 第二代起按 Portal Node 索引保存动态内部边成本
+            // Portal Node 范围之后的一代专属于 Integration Field
+            // Stride 至少为四，保持无 Portal Grid 和既有测试夹具的代际契约
+            return overlayVersion > 1u ? math.max(4, portalNodeCount + 3) : 4;
+        }
+
         /// <summary>
         /// 按输入顺序构建结果，保证共享输出列表切片稳定且不并发写入
         /// </summary>
@@ -205,12 +218,15 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             ref NavigationGridBlob grid = ref Grid.Value;
+            int generationStride = CalculateGenerationStride(
+                grid.PortalNodes.Length,
+                DynamicOverlayVersion);
             for (int requestIndex = 0; requestIndex < Requests.Length; requestIndex++)
             {
                 Results[requestIndex] = NavigationFlowFieldSolver.Build(
                     ref grid,
                     Requests[requestIndex],
-                    GenerationStart + requestIndex * 4,
+                    GenerationStart + requestIndex * generationStride,
                     CacheVersion,
                     ref CorridorClusters,
                     ref CorridorPortals,

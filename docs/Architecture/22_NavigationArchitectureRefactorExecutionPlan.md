@@ -7,7 +7,7 @@
 - 性能基线：[Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 - 执行记录：[Navigation 重构执行报告（2026-08-20）](Reports/NavigationRefactor-Execution-20260820.md)
 
-> 状态：R1-R5 已落地并通过结构与 Stage 1-5 验证；R6 算法和性能复审待执行
+> 状态：R1-R6 已完成并通过结构、算法、Stage 1-5 与 32/64/128 双轮基准验收
 >
 > 范围：`Assets/Scripts/Navigation` 当前 57 个 C# 文件
 >
@@ -64,10 +64,10 @@ Assets/Scripts/Navigation/Grid/
 - R1-R5 已执行，旧的三个大算法入口和按 Unity 类型划分的目录已移除
 - Stage 1-5、Unity 编译、程序集边界、注释规范、GUID 唯一性和 Missing Script 检查均通过
 - 最终代码的两轮 Stage3 Benchmark 确定性字段一致，且无 Job 安全异常
-- Stage4 Squad Benchmark 两轮均 4/4 路径成功，但到达率为 0 且终态写入数不一致，已登记为 R6 Review
+- Stage4 Squad Benchmark 已固定为 1440 Tick；32/64/128 双轮均 4/4 路径成功并全员到达
 - namespace migration 按计划保留为独立后续工作，本轮未混入目录和职责重构
 
-完整证据、环境信息和残留风险见执行报告；R1-R5 的结构完成不代表 R6 算法与性能复审已经完成。
+完整证据、环境信息和 R6 逐项结论见执行报告；namespace migration 继续作为独立后续工作。
 
 ## 3. 目标结构
 
@@ -379,14 +379,16 @@ R6 只能在 R1-R5 的结构验收全部通过后开始。它是问题评估阶�
 
 ### 复审清单
 
-- 动态 Overlay 使静态 Corridor 失效时是否需要重新选择 Corridor
-- Dynamic Extra Cost 是否影响宏观 Corridor 选择
-- Flow Direction 平滑向量抵消为零时的 fallback
-- 离散平滑是否可能牺牲 Bellman 最优 successor
-- Hierarchy Builder 中最短成本与最大 Clearance 路径的抽象边语义
-- Path smoothing 最坏复杂度
-- Cache hit 后 Field copy 和 start-cost 线性查询
-- Cache eviction 策略
+- [x] 动态 Overlay 使静态 Corridor 失效时是否需要重新选择 Corridor
+- [x] Dynamic Extra Cost 是否影响宏观 Corridor 选择
+- [x] Flow Direction 平滑向量抵消为零时的 fallback
+- [x] 离散平滑是否可能牺牲 Bellman 最优 successor
+- [x] Hierarchy Builder 中最短成本与最大 Clearance 路径的抽象边语义
+- [x] Path smoothing 最坏复杂度
+- [x] Cache hit 后 Field copy 和 start-cost 线性查询
+- [x] Cache eviction 策略
+
+R6 已完成。动态 Corridor、Extra Cost、Bellman 后继、零向量 fallback 和缓存换代均有独立 Stage3 夹具；Hierarchy、Smoothing 和线性缓存操作已明确语义、复杂度与性能边界。最终证据见执行报告。
 
 每个问题必须先有独立复现、指标和行为预期，再决定是否创建算法修复任务。R6 的算法修改应单独提交，并重新运行 R0 中保存的全部基线。
 
@@ -473,11 +475,10 @@ Squad 在哪里？       → Squad
 
 ## 15. 当前下一步
 
-下一步进入 R6 复审，不再继续扩大本轮结构改动：
+R1-R6 已结束。下一步若继续 Navigation 工作，应从独立范围开始：
 
-1. 为 Stage4 Benchmark 建立“固定 Server Tick 后停止”的独立复现，排除基准终止时机漂移
-2. 定位 32 Ani 在 720 个采样 Tick 后到达率仍为 0 的原因，并明确预期到达窗口
-3. 修复前先保存槽位、Anchor、Path State 和 Transform 写入序列，再决定是否创建算法修复任务
-4. R6 结论稳定后补跑 32/64/128 Squad Benchmark；namespace migration 仍使用独立提交
+1. namespace migration 使用独立提交，不改写 R1-R6 的结构与算法证据
+2. 只有长路径 Smoothing 或超大 Field cache-copy 的 P95 实测越界时，才引入窗口或索引结构
+3. 新增动态 Overlay 场景时复用 Stage3 的 Corridor 重选夹具，并保留 32/64/128 固定窗口回归
 
-R6 不得把未复现的问题修复、Benchmark 指标改定义或 namespace 迁移混入 R1-R5 的结构结果。
+R6 没有把未复现问题、到达阈值放宽或 namespace migration 混入既有结构提交。

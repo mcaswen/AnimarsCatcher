@@ -39,6 +39,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             // 先验证纯算法，再验证 World 接线和异步生命周期
             TestHierarchyBakeDeterminism();
             TestHierarchicalReachabilityFieldAndCache();
+            TestDynamicOverlayReselectsCorridor();
+            TestFlowDirectionBellmanFallback();
+            TestCacheCapacityRecycles();
             TestPortalClearanceFiltering();
             TestWorldFilterRegistration();
             TestAsynchronousFlowFieldSystem();
@@ -151,7 +154,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
 
             // 最后逐 Cell 验证方向落在合法且成本下降的邻居上
-            ValidateDescendingDirections(ref grid.Value, flow, 0, integrationCosts);
+            ValidateDescendingDirections(ref grid.Value, flow, 0, integrationCosts, request);
         }
 
         private static void TestPortalClearanceFiltering()
@@ -203,6 +206,172 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     requiredClearance,
                     "HPA 星选择了 Clearance 不足的 Portal");
             }
+        }
+
+        private static void TestDynamicOverlayReselectsCorridor()
+        {
+            // 三乘三 Cluster 提供穿过中央、绕上方和绕下方三类宏观候选
+            // 起终点位于中间一行，静态最短路线应穿过中央 Cluster
+            // 动态墙只切断中央 Cluster 内部，不封闭其 Portal 代表 Cell
+            // 旧实现因此会先选择静态 Corridor，再在 Integration 阶段失败
+            // 修复后的抽象搜索应在失败前看到内部边不可达并选择外围路线
+            // ExtraCost 夹具保持所有 Cell 可达，只改变路线的相对总成本
+            // 两个夹具分别覆盖“必须重选”和“应当重选”两种语义
+            const int Width = 12;
+            const int Height = 12;
+            const int ClusterSize = 4;
+            NavigationGridCellData[] cells = CreateWalkableCells(Width, Height);
+            PrepareCells(cells, Width, Height, ClusterSize, 1f);
+            using BlobAssetReference<NavigationGridBlob> grid =
+                CreateGrid(cells, Width, Height, ClusterSize);
+            NavigationPathRequest request = NavigationPathRequest.Create(
+                new float3(1.5f, 0f, 5.5f),
+                new float3(10.5f, 0f, 5.5f),
+                0.35f,
+                21,
+                maximumProjectionRadiusInCells: 0,
+                clearancePenaltyWeight: 0f);
+            FlowExecutionResult baseline = ExecuteFlowBatch(
+                grid,
+                new[] { NavigationFlowFieldRequest.Create(request) });
+            Assert(baseline.Results[0].Status == NavigationPathStatus.Succeeded,
+                "动态 Corridor 夹具的静态基线失败");
+
+            // 在中央 Cluster 内建立贯穿墙；Portal 代表 Cell 保持开放，专门复现静态内部边失效
+            var blockedOverlay = new NavigationDynamicOverlayCell[Width * Height];
+            for (int z = 4; z < 8; z++)
+            {
+                blockedOverlay[5 + z * Width] = new NavigationDynamicOverlayCell
+                {
+                    BlockCount = 1,
+                    Version = 2,
+                };
+            }
+
+            FlowExecutionResult blocked = ExecuteFlowBatch(
+                grid,
+                new[] { NavigationFlowFieldRequest.Create(request) },
+                blockedOverlay,
+                2);
+            Assert(blocked.Results[0].Status == NavigationPathStatus.Succeeded,
+                "中央动态墙存在替代路线时不应沿失效静态 Corridor 返回失败");
+            Assert(!CorridorEquals(baseline, blocked),
+                "动态墙未触发宏观 Corridor 重选");
+
+            // 高额非阻挡成本也必须影响宏观选择，不能只在选定 Corridor 的 Field 内生效
+            var expensiveOverlay = new NavigationDynamicOverlayCell[Width * Height];
+            for (int z = 4; z < 8; z++)
+            {
+                for (int x = 4; x < 8; x++)
+                {
+                    expensiveOverlay[x + z * Width] = new NavigationDynamicOverlayCell
+                    {
+                        ExtraCost = 100f,
+                        Version = 2,
+                    };
+                }
+            }
+
+            FlowExecutionResult expensive = ExecuteFlowBatch(
+                grid,
+                new[] { NavigationFlowFieldRequest.Create(request) },
+                expensiveOverlay,
+                2);
+            Assert(expensive.Results[0].Status == NavigationPathStatus.Succeeded,
+                "动态额外成本夹具应保持可达");
+            Assert(!CorridorEquals(baseline, expensive),
+                "动态额外成本未参与宏观 Corridor 选择");
+        }
+
+        private static void TestFlowDirectionBellmanFallback()
+        {
+            // 单 Cluster 排除 HPA Corridor 对方向结果的影响
+            // 中心到目标的直线被一个 Cell 阻断，左右绕行完全对称
+            // 中心的东西后继拥有相同 Bellman 总成本和相反单位向量
+            // 平滑和为零时仍必须选择一条真实下降边
+            // CellIndex 决胜规定西侧索引更小，因此期望方向固定为负 X
+            // 夹具通过完整 Flow Job 生成 Integration Cost，不注入人工 Scratch
+            const int Width = 5;
+            NavigationGridCellData[] cells = CreateWalkableCells(Width, Width);
+            // 目标正南方的静态障碍让中心 Cell 产生东西两个对称最优后继
+            SetWalkable(cells, Width, 2, 1, false);
+            PrepareCells(cells, Width, Width, Width, 1f);
+            using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, Width, Width, Width);
+            NavigationPathRequest request = NavigationPathRequest.Create(
+                new float3(2.5f, 0f, 2.5f),
+                new float3(2.5f, 0f, 0.5f),
+                0.35f,
+                22,
+                maximumProjectionRadiusInCells: 0,
+                clearancePenaltyWeight: 0f);
+            FlowExecutionResult flow = ExecuteFlowBatch(
+                grid,
+                new[] { NavigationFlowFieldRequest.Create(request) });
+            Assert(flow.Results[0].Status == NavigationPathStatus.Succeeded,
+                "对称 Flow Direction 夹具构建失败");
+            const int Center = 12;
+            bool foundCenter = false;
+            for (int index = 0; index < flow.Results[0].FieldCount; index++)
+            {
+                NavigationFlowFieldCell fieldCell =
+                    flow.FlowCells[flow.Results[0].FieldOffset + index];
+                if (fieldCell.CellIndex != Center)
+                {
+                    continue;
+                }
+
+                foundCenter = true;
+                Assert(math.lengthsq(fieldCell.Direction) > 0.5f,
+                    "对称 Bellman 后继抵消后输出了零方向");
+                Assert(math.all(fieldCell.Direction == new float2(-1f, 0f)),
+                    "对称 Bellman 后继未稳定选择较小 Cell 索引");
+            }
+
+            Assert(foundCenter, "对称 Flow Direction 夹具未输出中心 Cell");
+        }
+
+        private static void TestCacheCapacityRecycles()
+        {
+            // 单 Cluster 让 65 个请求共享 Corridor，却拥有不同目标 Cell 缓存键
+            // 前 64 项恰好填满固定容量，不应提前换代
+            // 第 65 项触发整代回收并作为新一代第一项写入
+            // 第 66 项重复第 65 项，CacheHit 是新目标已经被接纳的外部证据
+            // 所有断言只读取公开 Job Result，不跨程序集访问内部缓存容器
+            // 该夹具同时覆盖换代后的 Field 切片范围和目标成本查询
+            const int Width = 9;
+            NavigationGridCellData[] cells = CreateWalkableCells(Width, Width);
+            PrepareCells(cells, Width, Width, Width, 1f);
+            using BlobAssetReference<NavigationGridBlob> grid = CreateGrid(cells, Width, Width, Width);
+            var requests = new NavigationFlowFieldRequest[66];
+            // 前 65 个目标填满并换代；最后一个请求重复第 65 个目标，必须命中新一代
+            for (int target = 0; target <= 64; target++)
+            {
+                int x = target % Width;
+                int z = target / Width;
+                NavigationPathRequest request = NavigationPathRequest.Create(
+                    new float3(0.5f, 0f, 0.5f),
+                    new float3(x + 0.5f, 0f, z + 0.5f),
+                    0.35f,
+                    (uint)(100 + target),
+                    maximumProjectionRadiusInCells: 0,
+                    clearancePenaltyWeight: 0f);
+                requests[target] = NavigationFlowFieldRequest.Create(request);
+            }
+
+            requests[65] = NavigationFlowFieldRequest.Create(
+                NavigationPathRequest.Create(
+                    new float3(0.5f, 0f, 0.5f),
+                    new float3(1.5f, 0f, 7.5f),
+                    0.35f,
+                    200,
+                    maximumProjectionRadiusInCells: 0,
+                    clearancePenaltyWeight: 0f));
+            FlowExecutionResult flow = ExecuteFlowBatch(grid, requests);
+            Assert(flow.Results[64].Status == NavigationPathStatus.Succeeded,
+                "缓存换代触发请求失败");
+            Assert(flow.Results[65].Status == NavigationPathStatus.Succeeded &&
+                   flow.Results[65].CacheHit != 0,
+                "缓存达到容量后没有回收并接纳新目标");
         }
 
         private static void TestWorldFilterRegistration()
@@ -379,8 +548,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             ref NavigationGridBlob grid,
             FlowExecutionResult flow,
             int resultIndex,
-            Dictionary<int, float> integrationCosts)
+            Dictionary<int, float> integrationCosts,
+            NavigationPathRequest request)
         {
+            // 方向合法性分三层验证：非零、离散邻接、Bellman 最优
+            // 下降断言防止形成局部环，Bellman 断言防止选择次优下降边
+            // 当前夹具没有 Overlay，所以 successor cost 不包含动态额外项
+            // 动态成本的同一公式由 Corridor 重选夹具覆盖
             NavigationFlowFieldJobResult result = flow.Results[resultIndex];
             for (int index = 0; index < result.FieldCount; index++)
             {
@@ -407,12 +581,26 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Assert(
                     neighborCost < fieldCell.IntegrationCost - 0.00001f,
                     "平滑后 Flow Direction 未保持 Integration Cost 下降");
+                float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
+                    ref grid,
+                    request.AgentRadius,
+                    request.ClearanceMargin);
+                float successorCost = neighborCost + NavigationGridCost.CalculateStepCost(
+                    ref grid,
+                    fieldCell.CellIndex,
+                    neighbor,
+                    requiredClearance,
+                    request.ClearancePenaltyWeight);
+                Assert(math.abs(successorCost - fieldCell.IntegrationCost) <= 0.0001f,
+                    "Flow Direction 未保持 Bellman 最优后继");
             }
         }
 
         private static FlowExecutionResult ExecuteFlowBatch(
             BlobAssetReference<NavigationGridBlob> grid,
-            NavigationFlowFieldRequest[] requests)
+            NavigationFlowFieldRequest[] requests,
+            NavigationDynamicOverlayCell[] overlayCells = null,
+            uint overlayVersion = 1)
         {
             // Scratch 长度与运行时 System 使用相同的 Cell、Cluster 和 Node 维度
             int cellCount = grid.Value.Cells.Length;
@@ -456,6 +644,33 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 NativeArrayOptions.ClearMemory);
             try
             {
+                if (overlayCells != null)
+                {
+                    // 托管输入先复制到与生产 Job 相同形状的 NativeArray
+                    // Cluster 版本只标记当前确有非零动态值的分块
+                    // 全局 OverlayVersion 大于初始值才启用动态宏观边路径
+                    // AffectedCellCount 在夹具中只承担诊断，不参与算法选择
+                    Assert(overlayCells.Length == cellCount, "测试 Overlay 长度与 Grid 不一致");
+                    for (int cellIndex = 0; cellIndex < cellCount; cellIndex++)
+                    {
+                        NavigationDynamicOverlayCell overlayCell = overlayCells[cellIndex];
+                        dynamicOverlay[cellIndex] = overlayCell;
+                        if (overlayCell.BlockCount <= 0 &&
+                            overlayCell.ExtraCost <= 0f &&
+                            overlayCell.ClearanceReduction <= 0f)
+                        {
+                            continue;
+                        }
+
+                        int clusterIndex = grid.Value.Cells[cellIndex].ClusterId;
+                        NavigationDynamicOverlayCluster cluster =
+                            dynamicOverlayClusters[clusterIndex];
+                        cluster.Version = overlayVersion;
+                        cluster.AffectedCellCount++;
+                        dynamicOverlayClusters[clusterIndex] = cluster;
+                    }
+                }
+
                 // 数组顺序就是 Job 的稳定批次顺序
                 for (int index = 0; index < requests.Length; index++)
                 {
@@ -497,7 +712,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     GenerationStart = 1,
                     DynamicOverlay = dynamicOverlay,
                     DynamicOverlayClusters = dynamicOverlayClusters,
-                    DynamicOverlayVersion = 1,
+                    DynamicOverlayVersion = overlayVersion,
                 };
                 // 测试同步等待只用于读取结果，不代表运行时 System 会阻塞主线程
                 JobHandle handle = job.Schedule();
@@ -540,6 +755,32 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 results.Dispose();
                 jobRequests.Dispose();
             }
+        }
+
+        private static bool CorridorEquals(
+            FlowExecutionResult left,
+            FlowExecutionResult right)
+        {
+            // 结果切片可能位于共享数组的任意偏移，比较时必须使用各自 Offset
+            // Cluster 顺序属于 Corridor 语义，集合相同但顺序不同仍视为重选
+            // Portal 和 Waypoint 会随 Cluster 序列派生，无需在此重复比较
+            NavigationFlowFieldJobResult leftResult = left.Results[0];
+            NavigationFlowFieldJobResult rightResult = right.Results[0];
+            if (leftResult.CorridorClusterCount != rightResult.CorridorClusterCount)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < leftResult.CorridorClusterCount; index++)
+            {
+                if (left.CorridorClusters[leftResult.CorridorClusterOffset + index] !=
+                    right.CorridorClusters[rightResult.CorridorClusterOffset + index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static PathExecutionResult ExecuteOrdinaryPath(

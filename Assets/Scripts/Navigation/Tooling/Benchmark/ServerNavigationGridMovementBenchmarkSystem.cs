@@ -24,7 +24,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private const float AgentMaximumSpeed = 8f;
         private const float AgentMaximumAcceleration = 32f;
         private const int FormationColumnCount = 8;
-        private const int MaximumSettlementTicks = 600;
+        internal const int MaximumSettlementTicks = 600;
 
         private EntityQuery _agentQuery;
 
@@ -53,10 +53,26 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             Entity benchmarkEntity = SystemAPI.GetSingletonEntity<NavigationGridBenchmarkConfig>();
+            if (config.RecordMovementTrace != 0)
+            {
+                EnsureTraceBuffers(ref state, benchmarkEntity);
+            }
+
             NavigationGridMovementBenchmarkState benchmarkState =
                 SystemAPI.GetSingleton<NavigationGridMovementBenchmarkState>();
             if (benchmarkState.Completed != 0)
             {
+                // Completed 只表示固定窗口已到达，真正导出前仍需读取当前 Squad 状态
+                // 固定终止 Tick 后仍执行了一轮 Runtime，导出前复核终态没有回退
+                if (!TryGetTerminalState(ref state, out bool failed) || failed)
+                {
+                    FailBenchmark(
+                        ref state,
+                        benchmarkEntity,
+                        "Grid 群体移动在固定终止 Tick 后未保持完成状态");
+                    return;
+                }
+
                 if (benchmarkState.ResultExported == 0)
                 {
                     // 结果只导出一次，避免后续 Tick 覆盖同一时间戳文件
@@ -113,32 +129,57 @@ namespace AnimarsCatcher.Navigation.Grid
 
             benchmarkState.Tick++;
             int sampleEndTick = config.WarmupTicks + config.SampleTicks;
-            // 采样计数只负责结束窗口，实际完成还需等待 Squad 状态稳定
+            int terminationTick = sampleEndTick + MaximumSettlementTicks;
+            // 采样窗口和收敛窗口共享同一个逻辑 Tick，不受渲染帧或批处理次数影响
             // Tick 先递增再比较，使 Tick=0 的命令包含在采样窗口
             if (benchmarkState.Tick >= sampleEndTick)
             {
-                // 采样窗口结束后仍等待 Anchor 和成员进入稳定态，避免只统计路径完成
-                // 最长等待由 MaximumSettlementTicks 限制，超时按功能失败处理
-                if (TryGetTerminalState(ref state, out bool failed))
+                bool terminal = TryGetTerminalState(ref state, out bool failed);
+                if (failed)
                 {
-                    if (failed)
+                    // 终态失败必须保留原因并停止后续写入
+                    FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动出现失败的 Squad 路径");
+                    return;
+                }
+
+                if (terminal && benchmarkState.CompletionTick == 0)
+                {
+                    // 首次完成只用于诊断，不再让异步调度时机提前结束基准
+                    benchmarkState.CompletionTick = benchmarkState.Tick;
+                }
+
+                if (benchmarkState.Tick >= terminationTick)
+                {
+                    if (!terminal)
                     {
-                        // 终态失败必须保留原因并停止后续写入
-                        FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动出现失败的 Squad 路径");
+                        // 固定窗口结束仍未收敛属于功能失败，不能导出不完整性能样本
+                        FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动在固定终止 Tick 未完成");
                         return;
                     }
 
+                    // Completed 只在固定 Tick 写入，下一轮 Runtime 后再复核并导出
                     benchmarkState.Completed = 1;
-                }
-                else if (benchmarkState.Tick >= sampleEndTick + MaximumSettlementTicks)
-                {
-                    // 收敛超时说明移动链路卡住，不能把未完成结果当作性能样本
-                    FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动在收敛期限内未完成");
-                    return;
                 }
             }
 
             state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
+        }
+
+        private static void EnsureTraceBuffers(ref SystemState state, Entity benchmarkEntity)
+        {
+            if (!state.EntityManager.HasBuffer<NavigationGridMovementBenchmarkStateTrace>(
+                    benchmarkEntity))
+            {
+                state.EntityManager.AddBuffer<NavigationGridMovementBenchmarkStateTrace>(
+                    benchmarkEntity);
+            }
+
+            if (!state.EntityManager.HasBuffer<NavigationGridMovementBenchmarkAgentTrace>(
+                    benchmarkEntity))
+            {
+                state.EntityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(
+                    benchmarkEntity);
+            }
         }
 
         private static void CreateAgents(
@@ -375,18 +416,32 @@ namespace AnimarsCatcher.Navigation.Grid
             Array.Sort(sortedTickMilliseconds);
             Array.Sort(sortedAllocatedBytes);
 
+            NavigationGridMovementBenchmarkStateTraceReport[] stateTrace =
+                BuildStateTraceReport(config.RecordMovementTrace != 0);
+            NavigationGridMovementBenchmarkAgentTraceReport[] agentTrace =
+                BuildAgentTraceReport(config.RecordMovementTrace != 0);
+            // 诊断轨迹只在显式开启时复制到托管报告，正式样本不承担额外序列化成本
+
             // 百分位和原始样本同时写出，避免只看平均值掩盖长尾 Tick
             var report = new NavigationGridMovementBenchmarkReport
             {
                 // FormatVersion 用于后续字段扩展时区分兼容解析方式
                 // 报告字段保持纯值，避免序列化 Entity 或 NativeContainer
-                FormatVersion = 1,
+                FormatVersion = 4,
                 Backend = AniMovementBackend.ClearanceGrid.ToString(),
                 Workload = NavigationGridBenchmarkWorkload.SquadMovement.ToString(),
                 AgentCount = config.AgentCount,
                 RandomSeed = config.RandomSeed,
                 WarmupTicks = config.WarmupTicks,
                 SampleTicks = config.SampleTicks,
+                MovementTraceRecorded = config.RecordMovementTrace != 0,
+                StateTrace = stateTrace,
+                AgentTrace = agentTrace,
+                FirstCompletionTick = benchmarkState.CompletionTick,
+                TerminationTick = config.WarmupTicks + config.SampleTicks +
+                                  MaximumSettlementTicks,
+                Failed = benchmarkState.Failed != 0,
+                FailureReason = benchmarkState.FailureReason.ToString(),
                 AppliedCommandCount = benchmarkState.AppliedCommandCount,
                 SquadCount = squadCount,
                 PathRequestCount = pathRequestCount,
@@ -447,11 +502,96 @@ namespace AnimarsCatcher.Navigation.Grid
                 $"到达={arrivedCount}/{config.AgentCount}，结果={path}");
         }
 
-        private static void FailBenchmark(
+        private NavigationGridMovementBenchmarkStateTraceReport[] BuildStateTraceReport(
+            bool enabled)
+        {
+            if (!enabled)
+            {
+                return Array.Empty<NavigationGridMovementBenchmarkStateTraceReport>();
+            }
+
+            DynamicBuffer<NavigationGridMovementBenchmarkStateTrace> trace =
+                SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkStateTrace>();
+            var report = new NavigationGridMovementBenchmarkStateTraceReport[trace.Length];
+            for (int index = 0; index < trace.Length; index++)
+            {
+                // Buffer 元素保持纯值，导出阶段不再依赖 Entity 或 NativeContainer 生命周期
+                NavigationGridMovementBenchmarkStateTrace sample = trace[index];
+                report[index] = new NavigationGridMovementBenchmarkStateTraceReport
+                {
+                    Tick = sample.Tick,
+                    SquadId = sample.SquadId,
+                    PathStatus = sample.PathStatus,
+                    BenchmarkFailed = sample.BenchmarkFailed != 0,
+                    ActiveRequestVersion = sample.ActiveRequestVersion,
+                    SettledTicks = sample.SettledTicks,
+                    MemberCount = sample.MemberCount,
+                    AssignedSlotCount = sample.AssignedSlotCount,
+                    InvalidSlotCount = sample.InvalidSlotCount,
+                    ArrivedCount = sample.ArrivedCount,
+                    AnchorArrived = sample.AnchorArrived != 0,
+                    MembersArrived = sample.MembersArrived != 0,
+                    AnchorDistanceToTarget = sample.AnchorDistanceToTarget,
+                    MaximumMemberDistance = sample.MaximumMemberDistance,
+                    MaximumMemberSpeedSquared = sample.MaximumMemberSpeedSquared,
+                    TransformWriteCount = sample.TransformWriteCount,
+                    TargetPosition = sample.TargetPosition,
+                    AnchorPosition = sample.AnchorPosition,
+                    AnchorVelocity = sample.AnchorVelocity,
+                    AnchorCellIndex = sample.AnchorCellIndex,
+                };
+            }
+
+            Array.Sort(
+                report,
+                (left, right) => left.Tick != right.Tick
+                    ? left.Tick.CompareTo(right.Tick)
+                    : left.SquadId.CompareTo(right.SquadId));
+            return report;
+        }
+
+        private NavigationGridMovementBenchmarkAgentTraceReport[] BuildAgentTraceReport(
+            bool enabled)
+        {
+            if (!enabled)
+            {
+                return Array.Empty<NavigationGridMovementBenchmarkAgentTraceReport>();
+            }
+
+            DynamicBuffer<NavigationGridMovementBenchmarkAgentTrace> trace =
+                SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkAgentTrace>();
+            var report = new NavigationGridMovementBenchmarkAgentTraceReport[trace.Length];
+            for (int index = 0; index < trace.Length; index++)
+            {
+                // Agent 轨迹按稳定序号排序，便于跨运行比较同一成员
+                NavigationGridMovementBenchmarkAgentTrace sample = trace[index];
+                report[index] = new NavigationGridMovementBenchmarkAgentTraceReport
+                {
+                    Tick = sample.Tick,
+                    AgentIndex = sample.AgentIndex,
+                    SlotIndex = sample.SlotIndex,
+                    SlotTargetPosition = sample.SlotTargetPosition,
+                    TransformPosition = sample.TransformPosition,
+                    AppliedVelocity = sample.AppliedVelocity,
+                    DistanceToSlot = sample.DistanceToSlot,
+                    CommitCount = sample.CommitCount,
+                };
+            }
+
+            Array.Sort(
+                report,
+                (left, right) => left.Tick != right.Tick
+                    ? left.Tick.CompareTo(right.Tick)
+                    : left.AgentIndex.CompareTo(right.AgentIndex));
+            return report;
+        }
+
+        private void FailBenchmark(
             ref SystemState state,
             Entity benchmarkEntity,
             string reason)
         {
+            // 失败路径仍导出当前样本，便于定位失败发生在固定窗口的哪一刻
             NavigationGridMovementBenchmarkState benchmarkState =
                 state.EntityManager.GetComponentData<NavigationGridMovementBenchmarkState>(
                     benchmarkEntity);
@@ -459,7 +599,19 @@ namespace AnimarsCatcher.Navigation.Grid
             // Failed 与 Completed 同时写入，让验证器能读取失败原因后停止等待
             benchmarkState.Failed = 1;
             benchmarkState.Completed = 1;
+            benchmarkState.FailureReason = new FixedString128Bytes(reason);
             state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
+            // Editor Play Mode 中 Application.Quit 不一定终止外层 Editor，先写失败报告供 Runner 收尾
+            if (benchmarkState.ResultExported == 0)
+            {
+                // 先写报告再禁用 System，批处理 Runner 才能可靠观察失败原因
+                ExportResult(
+                    ref state,
+                    SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>(),
+                    benchmarkState);
+                benchmarkState.ResultExported = 1;
+                state.EntityManager.SetComponentData(benchmarkEntity, benchmarkState);
+            }
             Debug.LogError($"[NavigationBenchmark] {reason}");
             state.Enabled = false;
             if (Application.isBatchMode)
@@ -479,6 +631,15 @@ namespace AnimarsCatcher.Navigation.Grid
             public int RandomSeed;
             public int WarmupTicks;
             public int SampleTicks;
+            public bool MovementTraceRecorded;
+            // 诊断轨迹为空数组表示本次运行未开启额外采样
+            public NavigationGridMovementBenchmarkStateTraceReport[] StateTrace;
+            public NavigationGridMovementBenchmarkAgentTraceReport[] AgentTrace;
+            public int FirstCompletionTick;
+            // 终止 Tick 是输入窗口和固定收敛上限的确定性组合
+            public int TerminationTick;
+            public bool Failed;
+            public string FailureReason;
             public int AppliedCommandCount;
             public int SquadCount;
             public int PathRequestCount;
@@ -512,6 +673,44 @@ namespace AnimarsCatcher.Navigation.Grid
             public double[] TickMilliseconds;
             public long[] MainThreadAllocatedBytes;
             public string Notes;
+        }
+
+        [Serializable]
+        private sealed class NavigationGridMovementBenchmarkStateTraceReport
+        {
+            public int Tick;
+            public uint SquadId;
+            public byte PathStatus;
+            public bool BenchmarkFailed;
+            public uint ActiveRequestVersion;
+            public int SettledTicks;
+            public int MemberCount;
+            public int AssignedSlotCount;
+            public int InvalidSlotCount;
+            public int ArrivedCount;
+            public bool AnchorArrived;
+            public bool MembersArrived;
+            public float AnchorDistanceToTarget;
+            public float MaximumMemberDistance;
+            public float MaximumMemberSpeedSquared;
+            public long TransformWriteCount;
+            public float3 TargetPosition;
+            public float3 AnchorPosition;
+            public float3 AnchorVelocity;
+            public int AnchorCellIndex;
+        }
+
+        [Serializable]
+        private sealed class NavigationGridMovementBenchmarkAgentTraceReport
+        {
+            public int Tick;
+            public int AgentIndex;
+            public int SlotIndex;
+            public float3 SlotTargetPosition;
+            public float3 TransformPosition;
+            public float3 AppliedVelocity;
+            public float DistanceToSlot;
+            public uint CommitCount;
         }
     }
 
@@ -574,17 +773,35 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            if (SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>().Workload !=
-                NavigationGridBenchmarkWorkload.SquadMovement)
+            NavigationGridBenchmarkConfig config =
+                SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
+            if (config.Workload != NavigationGridBenchmarkWorkload.SquadMovement)
             {
                 return;
             }
 
             RefRW<NavigationGridMovementBenchmarkState> benchmarkState =
                 SystemAPI.GetSingletonRW<NavigationGridMovementBenchmarkState>();
-            if (benchmarkState.ValueRO.RecordCurrentTick == 0)
+            bool recordTiming = benchmarkState.ValueRO.RecordCurrentTick != 0;
+            int traceEndTick = config.WarmupTicks + config.SampleTicks +
+                               ServerNavigationGridMovementBenchmarkSystem.MaximumSettlementTicks;
+            bool recordTrace = config.RecordMovementTrace != 0 &&
+                               benchmarkState.ValueRO.Initialized != 0 &&
+                               benchmarkState.ValueRO.ResultExported == 0 &&
+                               benchmarkState.ValueRO.Tick > 0 &&
+                               benchmarkState.ValueRO.Tick <= traceEndTick;
+            if (!recordTiming && !recordTrace)
             {
-                // Start 未标记的 Tick 可能处于 Warmup 或结束状态，不能写入空样本
+                return;
+            }
+
+            if (recordTrace)
+            {
+                RecordMovementTrace(ref state, benchmarkState.ValueRO);
+            }
+
+            if (!recordTiming)
+            {
                 return;
             }
 
@@ -607,6 +824,143 @@ namespace AnimarsCatcher.Navigation.Grid
                 MainThreadAllocatedBytes = allocatedBytes,
             });
             benchmarkState.ValueRW.RecordCurrentTick = 0;
+        }
+
+        private void RecordMovementTrace(
+            ref SystemState state,
+            NavigationGridMovementBenchmarkState benchmarkState)
+        {
+            int tick = benchmarkState.Tick;
+            DynamicBuffer<NavigationGridMovementBenchmarkStateTrace> stateTrace =
+                SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkStateTrace>();
+            int squadCount = 0;
+
+            foreach (var (squad, command, pathState, anchor, members) in
+                     SystemAPI.Query<
+                         RefRO<AniSquad>,
+                         RefRO<AniSquadCommand>,
+                         RefRO<AniSquadPathState>,
+                         RefRO<AniSquadAnchor>,
+                         DynamicBuffer<AniSquadMember>>())
+            {
+                // 当前回放只创建一个 Squad，槽位越界直接保留在诊断结果中
+                if (squadCount++ > 0)
+                {
+                    continue;
+                }
+
+                int assignedSlotCount = 0;
+                int invalidSlotCount = 0;
+                long transformWriteCount = 0;
+                int arrivedCount = 0;
+                float maximumMemberDistance = 0f;
+                float maximumMemberSpeedSquared = 0f;
+
+                // 轨迹聚合与 Progress 使用同一位置和速度门限，避免诊断结果改变功能定义
+                for (int index = 0; index < members.Length; index++)
+                {
+                    int slotIndex = members[index].SlotIndex;
+                    if (slotIndex >= 0 && slotIndex < members.Length)
+                    {
+                        assignedSlotCount++;
+                    }
+                    else
+                    {
+                        invalidSlotCount++;
+                    }
+
+                    Entity aniEntity = members[index].Ani;
+                    if (!state.EntityManager.HasComponent<AniMovementResult>(aniEntity))
+                    {
+                        continue;
+                    }
+
+                    AniMovementResult result =
+                        state.EntityManager.GetComponentData<AniMovementResult>(aniEntity);
+                    transformWriteCount += result.CommitCount;
+                    maximumMemberDistance = math.max(
+                        maximumMemberDistance,
+                        result.DistanceToSlot);
+                    maximumMemberSpeedSquared = math.max(
+                        maximumMemberSpeedSquared,
+                        math.lengthsq(result.AppliedVelocity));
+                    if (state.EntityManager.HasComponent<AniMovementConfig>(aniEntity))
+                    {
+                        AniMovementConfig movementConfig =
+                            state.EntityManager.GetComponentData<AniMovementConfig>(aniEntity);
+                        if (result.DistanceToSlot <= movementConfig.ArrivalRadius &&
+                            math.lengthsq(result.AppliedVelocity) <= 0.0225f)
+                        {
+                            arrivedCount++;
+                        }
+                    }
+                }
+
+                // Anchor 和成员判定分开记录，用于区分队伍已到位但编队尚未收敛的情况
+                float anchorDistanceToTarget = math.length(
+                    PlanarMath.FlattenY(
+                        pathState.ValueRO.ResolvedTargetPosition - anchor.ValueRO.Position));
+                bool anchorArrived = anchorDistanceToTarget <=
+                                     math.max(0.1f, command.ValueRO.TargetStoppingDistance);
+                bool membersArrived = arrivedCount == members.Length && members.Length > 0;
+
+                stateTrace.Add(new NavigationGridMovementBenchmarkStateTrace
+                {
+                    Tick = tick,
+                    SquadId = squad.ValueRO.SquadId,
+                    PathStatus = (byte)pathState.ValueRO.Status,
+                    BenchmarkFailed = benchmarkState.Failed,
+                    ActiveRequestVersion = pathState.ValueRO.ActiveRequestVersion,
+                    SettledTicks = pathState.ValueRO.SettledTicks,
+                    MemberCount = members.Length,
+                    AssignedSlotCount = assignedSlotCount,
+                    InvalidSlotCount = invalidSlotCount,
+                    ArrivedCount = arrivedCount,
+                    AnchorArrived = (byte)(anchorArrived ? 1 : 0),
+                    MembersArrived = (byte)(membersArrived ? 1 : 0),
+                    AnchorDistanceToTarget = anchorDistanceToTarget,
+                    MaximumMemberDistance = maximumMemberDistance,
+                    MaximumMemberSpeedSquared = maximumMemberSpeedSquared,
+                    TransformWriteCount = transformWriteCount,
+                    TargetPosition = pathState.ValueRO.ResolvedTargetPosition,
+                    AnchorPosition = anchor.ValueRO.Position,
+                    AnchorVelocity = anchor.ValueRO.Velocity,
+                    AnchorCellIndex = anchor.ValueRO.CurrentCellIndex,
+                });
+            }
+
+            if (squadCount == 0)
+            {
+                stateTrace.Add(new NavigationGridMovementBenchmarkStateTrace
+                {
+                    Tick = tick,
+                    BenchmarkFailed = benchmarkState.Failed,
+                });
+            }
+
+            DynamicBuffer<NavigationGridMovementBenchmarkAgentTrace> agentTrace =
+                SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkAgentTrace>();
+            foreach (var (benchmarkAni, membership, slotTarget, transform, result) in
+                     SystemAPI.Query<
+                         RefRO<NavigationGridMovementBenchmarkAni>,
+                         RefRO<AniSquadMembership>,
+                         RefRO<AniSlotTarget>,
+                         RefRO<LocalTransform>,
+                         RefRO<AniMovementResult>>())
+            {
+                // AgentIndex 是唯一稳定排序键，实体查询顺序不作为回放证据
+                agentTrace.Add(new NavigationGridMovementBenchmarkAgentTrace
+                {
+                    Tick = tick,
+                    AgentIndex = benchmarkAni.ValueRO.AgentIndex,
+                    SlotIndex = membership.ValueRO.SlotIndex,
+                    SlotTargetPosition = slotTarget.ValueRO.Position,
+                    TransformPosition = transform.ValueRO.Position,
+                    AppliedVelocity = result.ValueRO.AppliedVelocity,
+                    DistanceToSlot = result.ValueRO.DistanceToSlot,
+                    CommitCount = result.ValueRO.CommitCount,
+                });
+            }
         }
     }
 }

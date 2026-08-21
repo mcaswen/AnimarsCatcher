@@ -178,13 +178,38 @@ namespace AnimarsCatcher.Editor
                     continue;
                 }
 
-                Finish(0, $"Navigation Benchmark 结果已生成：{files[i]}");
+                bool failed = false;
+                try
+                {
+                    // Runner 只读取报告状态，不重新解释移动指标或到达阈值
+                    BenchmarkResultStatus status = JsonUtility.FromJson<BenchmarkResultStatus>(
+                        File.ReadAllText(files[i]));
+                    failed = status != null && status.Failed;
+                }
+                catch (Exception exception)
+                {
+                    Finish(1, $"无法读取 Navigation Benchmark 结果：{files[i]}，{exception.Message}");
+                    return;
+                }
+
+                Finish(
+                    failed ? 1 : 0,
+                    failed
+                        ? $"Navigation Benchmark 报告功能失败：{files[i]}"
+                        : $"Navigation Benchmark 结果已生成：{files[i]}");
                 return;
             }
         }
 
+        [Serializable]
+        private sealed class BenchmarkResultStatus
+        {
+            public bool Failed;
+        }
+
         private static void Finish(int exitCode, string message)
         {
+            // 先关闭轮询再切换 Play Mode，避免域重载后重复消费同一报告
             SessionState.SetBool(ActiveKey, false);
             EditorApplication.update -= Poll;
 

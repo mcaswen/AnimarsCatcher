@@ -32,6 +32,9 @@ namespace AnimarsCatcher.Navigation.Grid
         // 指定执行确定性回放的采样 Tick 数量
         public int SampleTicks;
 
+        // 表示是否记录 R6 群体移动诊断轨迹，默认关闭以保持性能基线不受影响
+        public byte RecordMovementTrace;
+
         // 指定请求起点阵列每行的最大数量
         public int SpawnColumnCount;
 
@@ -110,19 +113,50 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationGridMovementBenchmarkState : IComponentData
     {
+        // 保存统一回放已经推进的 Server Tick 数量
         public int Tick;
+
+        // 指向下一条尚未转发到 Squad 生命周期的回放命令
         public int NextCommandIndex;
+
+        // 记录已提交的 Squad MoveTo 命令数量
         public int AppliedCommandCount;
+
+        // 记录首次满足终态的 Tick，固定终止前只作为诊断信息
+        public int CompletionTick;
+
+        // 保存固定终止 Tick 的到达成员数量
         public int FinalArrivalCount;
+
+        // 保存固定终止 Tick 的有效成员数量
         public int FinalMemberCount;
+
+        // 为回放命令分配不会使用零值的稳定序号
         public uint NextCommandSequence;
+
+        // 保存当前完整 Server Tick 的计时起点
         public long FrameStartTimestamp;
+
+        // 保存当前完整 Server Tick 的托管分配起点
         public long FrameStartAllocatedBytes;
+
+        // 表示 Ani 和第一条回放命令是否已经创建
         public byte Initialized;
+
+        // 表示固定终止 Tick 已到达并等待下一轮导出
         public byte Completed;
+
+        // 表示报告是否已经写入磁盘
         public byte ResultExported;
+
+        // 表示本 Tick 末尾是否需要追加计时样本
         public byte RecordCurrentTick;
+
+        // 表示固定窗口未满足功能终态
         public byte Failed;
+
+        // 保存失败报告供批处理 Runner 返回非零退出码
+        public FixedString128Bytes FailureReason;
     }
 
     /// <summary>
@@ -131,8 +165,109 @@ namespace AnimarsCatcher.Navigation.Grid
     [InternalBufferCapacity(0)]
     public struct NavigationGridMovementBenchmarkTimingSample : IBufferElementData
     {
+        // 保存完整 Server Simulation Tick 的墙钟耗时
         public double ServerSimulationMilliseconds;
+
+        // 保存同一 Tick 主线程托管分配的增量
         public long MainThreadAllocatedBytes;
+    }
+
+    /// <summary>
+    /// 保存 R6 每个 Server Tick 的 Squad 状态诊断轨迹
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridMovementBenchmarkStateTrace : IBufferElementData
+    {
+        // 轨迹采样对应的统一 Server Tick
+        public int Tick;
+
+        // 当前 Squad 的稳定身份
+        public uint SquadId;
+
+        // 记录 Squad Path State 的枚举值
+        public byte PathStatus;
+
+        // 表示采样时 Benchmark 已进入失败状态
+        public byte BenchmarkFailed;
+
+        // 记录当前 Squad 消费的 Flow Field 请求版本
+        public uint ActiveRequestVersion;
+
+        // 记录连续满足到达条件的 Tick 数量
+        public int SettledTicks;
+
+        // 保存当前 Squad 成员总数
+        public int MemberCount;
+
+        // 保存通过范围检查的槽位数量
+        public int AssignedSlotCount;
+
+        // 保存越界或无效的槽位数量
+        public int InvalidSlotCount;
+
+        // 保存同时满足成员位置和速度门限的数量
+        public int ArrivedCount;
+
+        // 表示 Anchor 是否进入指令停止半径
+        public byte AnchorArrived;
+
+        // 表示全部成员是否同时进入到达门限
+        public byte MembersArrived;
+
+        // 保存 Anchor 到解析目标的水平距离
+        public float AnchorDistanceToTarget;
+
+        // 保存成员到各自槽位的最大距离
+        public float MaximumMemberDistance;
+
+        // 保存成员应用速度平方的最大值
+        public float MaximumMemberSpeedSquared;
+
+        // 保存所有成员累计的唯一 Transform 提交次数
+        public long TransformWriteCount;
+
+        // 保存该 Tick 使用的解析目标位置
+        public float3 TargetPosition;
+
+        // 保存该 Tick 的 Anchor 世界位置
+        public float3 AnchorPosition;
+
+        // 保存该 Tick 的 Anchor 水平速度
+        public float3 AnchorVelocity;
+
+        // 保存该 Tick 的合法 Grid Cell 索引
+        public int AnchorCellIndex;
+    }
+
+    /// <summary>
+    /// 保存 R6 每个 Server Tick 的成员槽位和 Transform 提交轨迹
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridMovementBenchmarkAgentTrace : IBufferElementData
+    {
+        // 轨迹采样对应的统一 Server Tick
+        public int Tick;
+
+        // 保存跨查询稳定的 Benchmark Ani 序号
+        public int AgentIndex;
+
+        // 保存成员当前分配的阵型槽位
+        public int SlotIndex;
+
+        // 保存该成员的世界槽位目标
+        public float3 SlotTargetPosition;
+
+        // 保存唯一 Commit 写回后的 Transform 位置
+        public float3 TransformPosition;
+
+        // 保存该 Tick 实际应用的水平速度
+        public float3 AppliedVelocity;
+
+        // 保存提交后到槽位的水平距离
+        public float DistanceToSlot;
+
+        // 保存该成员累计的唯一 Transform 提交次数
+        public uint CommitCount;
     }
 
     /// <summary>

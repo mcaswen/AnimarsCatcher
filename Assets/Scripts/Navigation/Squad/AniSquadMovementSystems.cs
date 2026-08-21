@@ -71,14 +71,38 @@ namespace AnimarsCatcher.Navigation.Grid
                         squad.ValueRO.MinimumMaxSpeed,
                         squad.ValueRO.MinimumMaxAcceleration,
                         command.ValueRO.TargetStoppingDistance);
-                    if (math.lengthsq(brakingVelocity) > 1e-6f &&
-                        AniSquadSteeringAlgorithms.TryGetFlowDirection(
-                            field,
-                            currentCellIndex,
-                        out float3 flowDirection))
+                    if (math.lengthsq(brakingVelocity) > 1e-6f)
                     {
-                        // Flow 只提供方向，速度大小由到达制动和 Squad 最小能力决定
-                        targetVelocity = flowDirection * math.length(brakingVelocity);
+                        bool hasFlowDirection =
+                            AniSquadSteeringAlgorithms.TryGetFlowDirection(
+                                field,
+                                currentCellIndex,
+                                out float3 flowDirection) &&
+                            math.lengthsq(flowDirection) > 1e-6f;
+                        if (hasFlowDirection)
+                        {
+                            // Flow 只提供方向，速度大小由到达制动和 Squad 最小能力决定
+                            targetVelocity = flowDirection * math.length(brakingVelocity);
+                        }
+                        else
+                        {
+                            float targetDistance = math.length(
+                                PlanarMath.FlattenY(
+                                    pathState.ValueRO.ResolvedTargetPosition -
+                                    anchor.ValueRO.Position));
+                            float fallbackRange =
+                                math.max(0.1f, command.ValueRO.TargetStoppingDistance) +
+                                grid.CellSize;
+                            if (targetDistance <= fallbackRange)
+                            {
+                                // 终点 Cell 的平滑方向可能抵消为零，只在一格范围内回退到目标方向
+                                targetVelocity =
+                                    PlanarMath.NormalizeXZOrDefault(
+                                        pathState.ValueRO.ResolvedTargetPosition -
+                                        anchor.ValueRO.Position,
+                                        float3.zero) * math.length(brakingVelocity);
+                            }
+                        }
                     }
                 }
 
@@ -117,13 +141,21 @@ namespace AnimarsCatcher.Navigation.Grid
                     // 有有效水平速度时朝运动方向转向，停止后保留指令指定朝向
                     anchor.ValueRW.Forward = math.normalize(flatVelocity);
                 }
-                else if (pathState.ValueRO.Status == AniSquadMovementStatus.Completed ||
-                         pathState.ValueRO.Status == AniSquadMovementStatus.Holding)
+                else
                 {
-                    // 完成后不再跟随残余速度，恢复指令的稳定朝向
-                    anchor.ValueRW.Forward = math.normalizesafe(
-                        command.ValueRO.DesiredForward,
-                        new float3(0f, 0f, 1f));
+                    float targetDistance = math.length(
+                        PlanarMath.FlattenY(
+                            pathState.ValueRO.ResolvedTargetPosition - position));
+                    if (pathState.ValueRO.Status != AniSquadMovementStatus.Failed &&
+                        targetDistance <= math.max(
+                            0.1f,
+                            command.ValueRO.TargetStoppingDistance))
+                    {
+                        // 在 Progress 判定前发布最终朝向，使成员先收敛到最终旋转后的槽位
+                        anchor.ValueRW.Forward = math.normalizesafe(
+                            command.ValueRO.DesiredForward,
+                            new float3(0f, 0f, 1f));
+                    }
                 }
             }
         }
@@ -307,6 +339,15 @@ namespace AnimarsCatcher.Navigation.Grid
                          RefRO<NavigationFlowFieldState>,
                          DynamicBuffer<AniSquadMember>>())
             {
+                AniSquadMovementStatus currentStatus = pathState.ValueRO.Status;
+                if (currentStatus == AniSquadMovementStatus.Failed ||
+                    currentStatus == AniSquadMovementStatus.Completed ||
+                    currentStatus == AniSquadMovementStatus.Holding)
+                {
+                    // 终态只由新指令或动态目标重规划解除，成员表现不能让结果自行复活
+                    continue;
+                }
+
                 if (fieldState.ValueRO.Status == NavigationPathStatus.Failed &&
                     fieldState.ValueRO.RequestVersion == pathState.ValueRO.ActiveRequestVersion)
                 {

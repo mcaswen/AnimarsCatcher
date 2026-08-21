@@ -16,6 +16,18 @@ namespace AnimarsCatcher.Navigation.Grid
         // 动态 Overlay 同时影响阻挡、额外成本和最终方向选择
         // 连续平滑方向不能直接输出，最终必须落回一条已验证的离散边
         // Cell 索引用于所有成本相同情况下的稳定决胜
+        // IntegrationCost 表示从当前 Cell 到目标的剩余成本
+        // 合法后继必须满足 neighbor cost 加有向步进成本等于当前成本
+        // 仅检查 neighbor cost 下降会允许选择总成本更高的绕行边
+        // 动态 ExtraCost 与反向 Dijkstra 一致，统一计入进入 neighbor 的成本
+        // 第一遍只确定最小 Bellman 值和稳定后备后继
+        // 第二遍只混合与最小 Bellman 值等价的方向
+        // 第三遍把连续混合向量投影回等价离散后继
+        // 三遍均只扫描固定八邻域，因此方向构建仍为常数复杂度
+        // 对称方向的加权向量可能严格抵消，不能把这种情况解释为目标 Cell
+        // 抵消时按最小 CellIndex 选择后备边，保持跨 Burst 运行确定性
+        // 只有真实目标 Cell 或损坏的不完整 Field 才允许最终输出零向量
+        // 移动消费者仍需把零向量视为无法继续，而不是任意穿越障碍
 
         internal static bool BuildIntegrationField(
             ref NavigationGridBlob grid,
@@ -181,8 +193,15 @@ namespace AnimarsCatcher.Navigation.Grid
             int cellZ = cellIndex / grid.Width;
             float currentCost = costs[cellIndex];
             float2 smoothedDirection = float2.zero;
+            float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
+                ref grid,
+                request.AgentRadius,
+                request.ClearanceMargin);
+            float bestBellmanCost = float.PositiveInfinity;
+            int fallbackNeighbor = -1;
+            float2 fallbackDirection = float2.zero;
 
-            // 先混合所有合法下降邻居，得到更平滑的期望方向
+            // 先找出满足 Bellman 方程的最优后继；仅仅成本下降并不保证整条路径最优
             for (int directionIndex = 0; directionIndex < 8; directionIndex++)
             {
                 NavigationGridDirections.GetDirection(
@@ -221,21 +240,35 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // 成本下降越大的邻居对平滑方向影响越强
-                float costDrop = currentCost - costs[neighbor];
-                smoothedDirection += math.normalizesafe(new float2(deltaX, deltaZ)) * costDrop;
+                float successorCost = costs[neighbor] +
+                                      NavigationGridCost.CalculateStepCost(
+                                          ref grid,
+                                          cellIndex,
+                                          neighbor,
+                                          requiredClearance,
+                                          request.ClearancePenaltyWeight,
+                                          dynamicOverlay) +
+                                      NavigationGridCost.GetDynamicExtraCost(
+                                          dynamicOverlay,
+                                          neighbor);
+                float2 direction = math.normalizesafe(new float2(deltaX, deltaZ));
+                if (successorCost < bestBellmanCost - CostEpsilon ||
+                    (math.abs(successorCost - bestBellmanCost) <= CostEpsilon &&
+                     (fallbackNeighbor < 0 || neighbor < fallbackNeighbor)))
+                {
+                    bestBellmanCost = successorCost;
+                    fallbackNeighbor = neighbor;
+                    fallbackDirection = direction;
+                }
             }
 
-            // 没有合法下降邻居时返回零，验收会将非目标零方向视为失败
-            if (math.lengthsq(smoothedDirection) <= CostEpsilon)
+            // 非目标 Cell 没有合法后继说明 Field 不完整，保留零方向让验收立即暴露
+            if (fallbackNeighbor < 0)
             {
                 return float2.zero;
             }
 
-            // 连续混合方向不能直接输出，否则可能穿过未验证的离散边
-            smoothedDirection = math.normalize(smoothedDirection);
-
-            // 从合法下降邻居中选择最接近平滑方向的一条离散边
+            // 第二遍只混合与最优值等价的后继，避免平滑选择更昂贵的下降边
             int bestNeighbor = -1;
             float bestAlignment = float.NegativeInfinity;
             float2 bestDirection = float2.zero;
@@ -262,10 +295,89 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
                 float2 direction = math.normalizesafe(new float2(deltaX, deltaZ));
-                float alignment = math.dot(direction, smoothedDirection);
-                // 对齐度相同时选择更小 Cell 索引，保证跨运行的确定性
                 if (generations[neighbor] != generation ||
                     costs[neighbor] >= currentCost - CostEpsilon ||
+                    !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
+                        ref grid,
+                        cellIndex,
+                        neighbor,
+                        deltaX,
+                        deltaZ,
+                        request.AgentRadius,
+                        request.ClearanceMargin,
+                        dynamicOverlay))
+                {
+                    continue;
+                }
+
+                float successorCost = costs[neighbor] +
+                                      NavigationGridCost.CalculateStepCost(
+                                          ref grid,
+                                          cellIndex,
+                                          neighbor,
+                                          requiredClearance,
+                                          request.ClearancePenaltyWeight,
+                                          dynamicOverlay) +
+                                      NavigationGridCost.GetDynamicExtraCost(
+                                          dynamicOverlay,
+                                          neighbor);
+                if (successorCost > bestBellmanCost + CostEpsilon)
+                {
+                    continue;
+                }
+
+                // 成本下降越大的等价后继对平滑期望方向影响越强
+                smoothedDirection += direction * (currentCost - costs[neighbor]);
+            }
+
+            // 对称后继可能完全抵消；稳定后备边保证非目标 Cell 不输出零方向
+            if (math.lengthsq(smoothedDirection) <= CostEpsilon)
+            {
+                return fallbackDirection;
+            }
+
+            // 连续混合方向不能直接输出，最终仍落回一条已验证的离散最优边
+            smoothedDirection = math.normalize(smoothedDirection);
+            for (int directionIndex = 0; directionIndex < 8; directionIndex++)
+            {
+                NavigationGridDirections.GetDirection(
+                    directionIndex,
+                    out int deltaX,
+                    out int deltaZ);
+                int neighborX = cellX + deltaX;
+                int neighborZ = cellZ + deltaZ;
+                if (!NavigationGridTraversal.IsInside(
+                        neighborX,
+                        neighborZ,
+                        grid.Width,
+                        grid.Height))
+                {
+                    continue;
+                }
+
+                int neighbor = neighborX + neighborZ * grid.Width;
+                if (generations[neighbor] != generation ||
+                    costs[neighbor] >= currentCost - CostEpsilon ||
+                    NavigationGridTraversal.IsDynamicCellBlocked(dynamicOverlay, neighbor))
+                {
+                    continue;
+                }
+
+                float2 direction = math.normalizesafe(new float2(deltaX, deltaZ));
+                float successorCost = costs[neighbor] +
+                                      NavigationGridCost.CalculateStepCost(
+                                          ref grid,
+                                          cellIndex,
+                                          neighbor,
+                                          requiredClearance,
+                                          request.ClearancePenaltyWeight,
+                                          dynamicOverlay) +
+                                      NavigationGridCost.GetDynamicExtraCost(
+                                          dynamicOverlay,
+                                          neighbor);
+                float alignment = math.dot(direction, smoothedDirection);
+                // 对齐度相同时选择更小 Cell 索引，保证跨运行的确定性
+                if (successorCost > bestBellmanCost + CostEpsilon ||
                     !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
                         ref grid,
                         cellIndex,
@@ -287,8 +399,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 bestDirection = direction;
             }
 
-            // 返回已验证的单位八方向，移动层不会跨越未验证边
-            return bestDirection;
+            // 数值边界下若第二遍没有候选，仍返回第一遍确认过的 Bellman 后继
+            return bestNeighbor >= 0 ? bestDirection : fallbackDirection;
         }
 
         internal static bool TryGetIntegrationCost(

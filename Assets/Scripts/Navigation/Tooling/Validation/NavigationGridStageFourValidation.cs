@@ -124,6 +124,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 typeof(ServerAniCommandIngressSystem),
                 typeof(AniSquadLifecycleSystem),
                 typeof(AniSquadAnchorAdvanceSystem),
+                typeof(AniAdaptiveFormationSystem),
                 typeof(AniFormationLayoutSystem),
                 typeof(AniFormationAssignmentSystem),
                 typeof(AniPreferredVelocitySystem),
@@ -150,6 +151,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             AssertUpdatedBefore<AniSquadPathRequestSystem, ServerNavigationGridFlowFieldSystem>();
             // 路径结果必须先完成，Anchor 才能读取当前 Field 方向
             AssertUpdatedAfter<AniSquadAnchorAdvanceSystem, ServerNavigationGridFlowFieldSystem>();
+            AssertUpdatedAfter<AniAdaptiveFormationSystem, AniSquadAnchorAdvanceSystem>();
+            AssertUpdatedBefore<AniAdaptiveFormationSystem, AniFormationLayoutSystem>();
             AssertUpdatedAfter<AniFormationLayoutSystem, AniSquadAnchorAdvanceSystem>();
             AssertUpdatedAfter<AniFormationAssignmentSystem, AniFormationLayoutSystem>();
             AssertUpdatedAfter<AniSlotTargetSystem, AniFormationAssignmentSystem>();
@@ -248,6 +251,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
             entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkTimingSample>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkStateTrace>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(configEntity);
 
             // 所有 Buffer 必须在获取命令句柄前创建，避免后续结构变更使句柄失效
             DynamicBuffer<NavigationGridBenchmarkCommand> commands =
@@ -270,6 +275,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 SpawnSpacing = 1.25f,
                 SpawnOrigin = new float3(105f, 0.57f, 44.43f),
                 AgentRadius = 0.35f,
+                RecordMovementTrace = 1,
             });
 
             // 夹具先发布共享 Grid，再创建请求；顺序与生产 Benchmark 的资源依赖一致
@@ -282,6 +288,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             SystemHandle pathRequest = world.GetOrCreateSystem<AniSquadPathRequestSystem>();
             SystemHandle flow = world.GetOrCreateSystem<ServerNavigationGridFlowFieldSystem>();
             SystemHandle anchor = world.GetOrCreateSystem<AniSquadAnchorAdvanceSystem>();
+            SystemHandle adaptive = world.GetOrCreateSystem<AniAdaptiveFormationSystem>();
             SystemHandle layout = world.GetOrCreateSystem<AniFormationLayoutSystem>();
             SystemHandle assignment = world.GetOrCreateSystem<AniFormationAssignmentSystem>();
             SystemHandle slotTarget = world.GetOrCreateSystem<AniSlotTargetSystem>();
@@ -329,6 +336,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
                 // 先完成异步 Job 调度，再运行依赖 Field 的 Anchor 和表现链路
                 anchor.Update(world.Unmanaged);
+                adaptive.Update(world.Unmanaged);
                 layout.Update(world.Unmanaged);
                 assignment.Update(world.Unmanaged);
                 slotTarget.Update(world.Unmanaged);
@@ -361,6 +369,16 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 squadEntity);
             Assert(pathState.Status == AniSquadMovementStatus.Completed, "Squad 未提交完成状态");
 
+            int configuredColumnCount = math.min(8, agentCount);
+            AniSquadFormationState formation = entityManager.GetComponentData<
+                AniSquadFormationState>(squadEntity);
+            Assert(
+                formation.ConfiguredColumnCount == configuredColumnCount,
+                "Squad 没有持久保存指令配置列数");
+            Assert(
+                formation.ColumnCount == configuredColumnCount,
+                "开阔地完成态阵型意外缩列");
+
             // 同一指令的路径请求必须保持 Squad 级别，与成员数解耦
             Assert(pathState.FieldRequestCount == 1, "路径与 Field 请求数量没有按 Squad 增长");
             Assert(pathState.SuccessfulFieldRequestCount == 1, "Squad Field 请求没有成功完成");
@@ -387,6 +405,34 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 // CommitCount 是唯一 Transform 写入所有权的可观测证据
                 Assert(movementResult.CommitCount > 0, "Ani 没有经过唯一 Commit System 写入");
             }
+
+            // 完成后继续执行生产链路，防止 Anchor 朝向复位使自适应阵型重新布局并复活指令
+            for (int stabilityTick = 0; stabilityTick < 30; stabilityTick++)
+            {
+                world.SetTime(new TimeData((1080 + stabilityTick) * DeltaTime, DeltaTime));
+                target.Update(world.Unmanaged);
+                pathRequest.Update(world.Unmanaged);
+                flow.Update(world.Unmanaged);
+                JobHandle.ScheduleBatchedJobs();
+                anchor.Update(world.Unmanaged);
+                adaptive.Update(world.Unmanaged);
+                layout.Update(world.Unmanaged);
+                assignment.Update(world.Unmanaged);
+                slotTarget.Update(world.Unmanaged);
+                preferredVelocity.Update(world.Unmanaged);
+                commit.Update(world.Unmanaged);
+                progress.Update(world.Unmanaged);
+
+                pathState = entityManager.GetComponentData<AniSquadPathState>(squadEntity);
+                Assert(
+                    pathState.Status == AniSquadMovementStatus.Completed,
+                    "完成态 Squad 被成员或阵型更新重新激活");
+            }
+
+            formation = entityManager.GetComponentData<AniSquadFormationState>(squadEntity);
+            Assert(
+                formation.ColumnCount == configuredColumnCount,
+                "完成态稳定窗口内阵型列数发生变化");
 
             using EntityQuery pendingCommands = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniSquadCommandRequest>());

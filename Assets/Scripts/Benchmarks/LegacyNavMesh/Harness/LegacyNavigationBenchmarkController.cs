@@ -240,6 +240,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
             entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkTimingSample>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkStateTrace>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(configEntity);
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 Workload = workload,
@@ -251,6 +253,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 SpawnSpacing = math.max(0.1f, _spawnSpacing),
                 SpawnOrigin = _spawnOrigin,
                 AgentRadius = 0.35f,
+                // 诊断开关只影响 Grid 轨迹，不改变 Legacy 基线配置
+                RecordMovementTrace = (byte)(IsMovementTraceRequested() ? 1 : 0),
                 GitCommit = new FixedString64Bytes(GetGitCommit()),
                 MapSceneHash = new FixedString128Bytes(_mapSceneHash),
                 ReplayScriptHash = new FixedString128Bytes(_replayScript.ComputeHash()),
@@ -330,6 +334,24 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             }
 
             return "working-tree";
+        }
+
+        private static bool IsMovementTraceRequested()
+        {
+            // 使用启动参数控制诊断，避免把调试状态写入共享场景资产
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                if (string.Equals(
+                        arguments[index],
+                        "-grid-benchmark-trace",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

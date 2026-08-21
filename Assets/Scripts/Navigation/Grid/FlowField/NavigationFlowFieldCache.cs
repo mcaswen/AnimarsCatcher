@@ -15,6 +15,14 @@ namespace AnimarsCatcher.Navigation.Grid
         // Corridor Hash 只承担初筛，命中后仍逐项核对完整 Cluster 序列
         // 输出始终复制到当前批次列表，不能暴露跨批次缓存容器的切片
         // Overlay 签名只覆盖 Corridor 内 Cluster，保留局部失效语义
+        // 缓存上限同时限制 Entry 数和长期保留的切片代数
+        // 命中时的 Field copy 是 ECS Buffer 独立所有权所必需的线性操作
+        // start-cost 查询仍是当前 Field 切片内的单次线性扫描
+        // 容量换代不会影响已经复制到当前 Job 输出的结果
+        // 整代清理也会回收局部失效后遗留但不再被 Entry 引用的旧切片
+        // 新一代立即接纳触发换代的目标，避免缓存永久冻结在首批请求
+        // 该策略不是 LRU，不维护访问时间，也不引入每次命中的写操作
+        // 64 项以内保持原有追加和确定性命中顺序
 
         internal static bool TryAppendCachedField(
             int targetCellIndex,
@@ -98,10 +106,19 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<NavigationFlowFieldCell> cacheFlowCells,
             uint dynamicOverlaySignature)
         {
-            // 空 Field 或达到容量上限时跳过缓存，当前请求结果仍保持有效
-            if (cacheEntries.Length >= MaximumCacheEntries || fieldCount <= 0)
+            // 空 Field 不进入缓存，当前请求结果仍保持有效
+            if (fieldCount <= 0)
             {
                 return;
+            }
+
+            // 容量满时按代整体回收；命中结果已复制到批次输出，不持有这些切片
+            // 这种有界代际淘汰避免缓存被前 64 个目标永久冻结，也同步回收失效切片
+            if (cacheEntries.Length >= MaximumCacheEntries)
+            {
+                cacheEntries.Clear();
+                cacheCorridorClusters.Clear();
+                cacheFlowCells.Clear();
             }
 
             // 缓存只追加切片，不搬移可能正被当前批次引用的数据

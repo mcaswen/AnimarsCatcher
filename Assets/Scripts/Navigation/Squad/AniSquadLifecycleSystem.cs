@@ -242,11 +242,13 @@ namespace AnimarsCatcher.Navigation.Grid
                 math.max(1, command.FormationColumnCount),
                 math.max(1, members.Length));
             if (formation.Kind != command.Formation ||
+                formation.ConfiguredColumnCount != requestedColumnCount ||
                 formation.ColumnCount != requestedColumnCount ||
                 !reused)
             {
                 // 阵型类型或列数变化会使所有局部偏移失效
                 formation.Kind = command.Formation;
+                formation.ConfiguredColumnCount = requestedColumnCount;
                 formation.ColumnCount = requestedColumnCount;
                 formation.DesiredColumnCount = requestedColumnCount;
                 formation.WidthStableTicks = 0;
@@ -394,6 +396,9 @@ namespace AnimarsCatcher.Navigation.Grid
             entityManager.SetComponentData(squadEntity, new AniSquadFormationState
             {
                 Kind = command.Formation,
+                ConfiguredColumnCount = math.min(
+                    math.max(1, command.FormationColumnCount),
+                    math.max(1, members.Length)),
                 ColumnCount = math.min(
                     math.max(1, command.FormationColumnCount),
                     math.max(1, members.Length)),
