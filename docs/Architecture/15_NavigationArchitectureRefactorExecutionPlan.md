@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-- 架构基线：[Navigation 模块架构重构方案](21.NavigationArchitectureRefactor.md)
+- 架构基线：[Navigation 模块架构重构方案](14_NavigationArchitectureRefactor.md)
 - 行为基线：[Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - 性能基线：[Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 - 执行记录：[Navigation 重构执行报告（2026-08-20）](Reports/NavigationRefactor-Execution-20260820.md)
@@ -11,24 +11,24 @@
 >
 > 范围：`Assets/Scripts/Navigation` 当前 57 个 C# 文件
 >
-> 原则：只改变职责边界、文件组织和 API 形态，不改变导航行为、Burst/DOTS 数据布局、缓存语义或性能策略
+> 原则：R1～R5 只改变职责边界、文件组织和 API 形态；R6 只在独立复现后修改算法与终态行为，并执行完整回归
 
 ## 1. 文档定位
 
-`21.NavigationArchitectureRefactor.md` 定义最终架构和重构规则，本文定义如何安全落地。两份文档的关系是：
+`14_NavigationArchitectureRefactor.md` 定义最终架构和重构规则，本文定义如何安全落地。两份文档的关系是：
 
 ```text
-21.NavigationArchitectureRefactor.md
+14_NavigationArchitectureRefactor.md
     最终目录、职责、依赖和禁止事项
             ↓
-22.NavigationArchitectureRefactorExecutionPlan.md
+15_NavigationArchitectureRefactorExecutionPlan.md
     阶段任务、执行顺序、验证、提交和回滚
             ↓
 10_GridMovementStagesAndAcceptance.md
     行为验收和正式移动后端门禁
 ```
 
-本文不重新设计 A*、HPA、Flow Field、Overlay 或 Squad 行为。执行中如果发现算法问题，先记录为 R6 Review 项，不在 R1-R5 的结构提交中修复。
+R1～R5 不重新设计 A*、HPA、Flow Field、Overlay 或 Squad 行为。执行中发现的算法问题先记录为 R6 Review 项，独立复现后才在 R6 修复，不混入此前的结构提交。
 
 ## 2. 当前基线
 
@@ -71,7 +71,7 @@ Assets/Scripts/Navigation/Grid/
 
 ## 3. 目标结构
 
-最终结构以 21 号文档为准，执行时按以下垂直切片落地：
+最终结构以 14 号文档为准，执行时按以下垂直切片落地：
 
 ```text
 Assets/Scripts/Navigation/
@@ -137,8 +137,8 @@ Stage 1-5 使用各自的 `RunFromCommandLine` 入口，Benchmark 使用 09 号�
 
 - [x] 结构快照和调用点清单已保存
 - [x] Stage 1-5 全部通过
-- [ ] 两次相同输入得到相同 Cell 路径、Corridor、Field 和槽位结果
-- [ ] Benchmark 基线结果可读且包含环境元数据
+- [x] 两次相同输入得到相同 Cell 路径、Corridor、Field 和槽位结果
+- [x] Benchmark 基线结果可读且包含环境元数据
 - [x] Unity 编译、注释检查和程序集审计通过
 
 ## 6. R1：Shared Runtime Rules
@@ -189,7 +189,7 @@ Grid/Runtime/NavigationDynamicOverlayView.cs  (可选)
 - [x] Runtime 四类规则有唯一实现
 - [x] Flow Field 和 HPA 不再依赖 PathAlgorithms
 - [x] Squad 公共 Grid 查询不再依赖 PathAlgorithms
-- [ ] 原有行为输出和 Benchmark 无非预期变化
+- [x] 原有行为输出和 Benchmark 无非预期变化
 
 ## 7. R2：A* Vertical Slice
 
@@ -241,7 +241,7 @@ NavigationPathJobResult FindPath(
 
 - [x] `NavigationGridPathAlgorithms` 不再存在
 - [x] A* 不再持有 Query、Traversal、Cost 的实现
-- [ ] A* 输出格式和性能基线保持一致
+- [x] A* 输出格式和性能基线保持一致
 - [x] Pathfinding 可以被单独阅读和验证
 
 ## 8. R3：HPA / Flow Field 分离
@@ -368,7 +368,7 @@ Navigation/Squad/AniSquadMovementSystems.cs
 
 ### R5 退出条件
 
-- [x] 目标目录结构与 21 号文档一致
+- [x] 目标目录结构与 14 号文档一致
 - [x] Benchmark Data 不存在于 FlowField Runtime Data
 - [x] Editor/Validation/Benchmark 不进入运行时切片
 - [x] 旧目录和旧大类不再被引用
@@ -452,11 +452,11 @@ R6: algorithm or performance fixes, only after review
 ### 行为和性能
 
 - [x] Stage 1-5 全部通过
-- [ ] A*、Corridor、Field、Overlay、Squad 输出与基线一致
-- [ ] deterministic tie-breaking 保持
-- [ ] 无新增 GC allocation
+- [x] R1～R5 的 A*、Corridor、Field、Overlay、Squad 行为保持基线，R6 变更均有独立复现和预期断言
+- [x] deterministic tie-breaking 保持
+- [x] 无新增 GC allocation
 - [x] NativeContainer 所有权和 Cache 生命周期保持
-- [ ] Benchmark 无非预期退化
+- [x] Benchmark 无非预期退化
 
 ### 可读性
 

@@ -16,8 +16,8 @@
 
 最终结果：
 
-- 269 个 C# 脚本全部处于明确 asmdef 覆盖范围
-- 项目 asmdef 保持 13 个，asmref 从 9 个降为 0
+- 331 个 C# 文件全部处于明确 asmdef 覆盖范围
+- 项目 asmdef 为 15 个，asmref 为 0
 - 动画、Timeline、音频和 Terrain 资源均保留原 .meta GUID
 - Assets/Resource 已删除
 - 正式场景、SubScene、Benchmark 和 Legacy 场景已分区
@@ -33,6 +33,9 @@
 ~~~text
 Assets/Scripts/
 ├── Core/
+│   ├── Collections/
+│   ├── Fsm/
+│   └── Math/
 ├── Gameplay/
 │   ├── Anis/
 │   │   ├── Combat/
@@ -51,24 +54,41 @@ Assets/Scripts/
 │       ├── Player/
 │       └── Spawn/
 ├── Navigation/
-│   └── Grid/
+│   ├── Grid/
+│   │   ├── Static/
+│   │   ├── Runtime/
+│   │   ├── Overlay/
+│   │   ├── Pathfinding/
+│   │   ├── Hierarchical/
+│   │   └── FlowField/
+│   ├── Squad/
+│   └── Tooling/
+│       ├── Editor/
+│       ├── Validation/
+│       └── Benchmark/
 ├── Player/
 ├── Netcode/
 ├── Presentation/
 │   ├── Account/
 │   ├── Anis/
 │   ├── Audio/
-│   ├── Camera/
-│   ├── Health/
+│   ├── Cameras/
+│   ├── EntityView/
+│   ├── HealthBars/
+│   ├── InputLock/
+│   ├── Lan/
 │   ├── Match/
+│   ├── Network/
 │   ├── Player/
+│   ├── Resource/
+│   ├── Room/
 │   ├── Selection/
-│   └── UI/
+│   ├── UI/
+│   └── Vfx/
 ├── Physics/
 │   └── Terrain/
 ├── Benchmarks/
-├── Editor/
-└── Tools/
+└── Editor/
 ~~~
 
 Tools/TransferCodeToTxt.ps1 已移到仓库根 Tools，不再由 Unity 导入。
@@ -196,7 +216,7 @@ Presentation 按 Account、Anis、Health、Match、Player、Selection、UI 等�
 
 Gameplay/Anis 保留 Combat、FSM、Perception 和 Spawn 等稳定边界；Gameplay/Resource 改为 Global、Player、Collection 和 Spawn。Player 保留输入、相机、角色控制和客户端生命周期目录，单文件职责层级直接压平到所属功能。
 
-当前物理统计为 Gameplay 76 个脚本、33 个子目录，Player 42 个脚本、19 个子目录，Presentation 63 个脚本、24 个子目录。最深源码路径从 `Assets/Scripts` 起包含文件名共 6 段，对应战斗分型等明确边界。
+脚本层级收敛完成时的物理统计为 Gameplay 76 个脚本、33 个子目录，Player 42 个脚本、19 个子目录，Presentation 63 个脚本、24 个子目录。后续功能开发继续增加了文件；当前模块数量以架构总览和仓库扫描为准。
 
 脚本目录压平阶段的 C# 内容改动为零，Git 将脚本与脚本 `.meta` 全部识别为 100% rename。删除内容仅为空目录对应的文件夹 `.meta`。
 
@@ -229,8 +249,8 @@ Unity Asset Pipeline 对主迁移批次记录为 120 项移动、44 项删除和
 
 已完成：
 
-- 程序集审计通过，269 个脚本全部覆盖，13 个 asmdef，0 个 asmref
-- 注释规范检查通过，注释率 17.21%
+- 程序集审计通过，当前 331 个脚本全部覆盖，15 个 asmdef，0 个 asmref
+- 迁移提交当时的注释规范检查通过，后续注释质量由当前门禁重新计算，不沿用历史比例
 - Unity Asset Pipeline 已识别 395 项移动并完成脚本编译，Editor.log 没有新增编译或导入错误
 - 全项目 .meta GUID 无重复
 - Build Settings 中三个场景路径与 GUID 一致

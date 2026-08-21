@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 描述 Grid 移动目标架构，09 记录性能基准方法，10 同时记录阶段计划和实际进度，11 记录程序集迁移方案，19 合并记录阶段零至最终收紧的实施与验收结果。Grid 烘焙、端点投影、普通 A*、HPA* Corridor 和局部 Flow Field 已经实现；阵型、避碰和正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 记录 Grid 移动的目标、基准和功能阶段，11 至 13 记录程序集与目录迁移，14 至 15 记录 Navigation 的现行架构以及 R0～R6 执行过程。Grid 烘焙、普通 A*、HPA Corridor、局部 Flow Field、动态 Overlay、Squad 移动和自适应矩形阵型已经实现；阶段五正式场景验收、阶段六避碰与世界碰撞、阶段七资源迁移与正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 269 个 `Assets/Scripts` 手写脚本，全部进入 13 个项目自定义程序集。项目业务代码不再编译到 `Assembly-CSharp`，13 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
+仓库中目前有 331 个 `Assets/Scripts` C# 文件，全部进入 15 个项目自定义程序集，项目 asmref 为 0。项目业务代码不再编译到 `Assembly-CSharp`，15 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
 
@@ -36,9 +36,10 @@
 9. [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)：查看 Legacy 基线、后端互斥、命令回放和对比指标
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
-12. [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
-13. [文件夹迁移实施记录](20_FolderMigrationPlan.md)：查看最终目录、阶段提交、关键决策、验收结果和回滚顺序
-14. [Navigation 架构重构规划与执行](22_NavigationArchitectureRefactorExecutionPlan.md)：按 21 号架构基线执行 Navigation 的 R0-R6 结构重构、验证和回滚
+12. [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)：查看阶段零基线、各阶段边界决策、序列化处理、历史验收、最终依赖图和当前门禁
+13. [文件夹迁移实施记录](13_FolderMigrationPlan.md)：查看最终目录、阶段提交、关键决策、验收结果和回滚顺序
+14. [Navigation 模块架构重构方案](14_NavigationArchitectureRefactor.md)：查看当前目录、职责、依赖方向、API 边界和后续 namespace 策略
+15. [Navigation 架构重构规划与执行](15_NavigationArchitectureRefactorExecutionPlan.md)：查看 R0～R6 的执行顺序、验证矩阵、回滚边界和最终验收结果
 
 ## 3. 总体运行架构
 

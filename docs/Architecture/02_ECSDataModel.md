@@ -55,8 +55,8 @@ flowchart LR
 
 ### 3.2 Ani 与基地
 
-- **Ani Ghost** 来自 `PFB_Ani_*_Entity`。它通常包含 `AniAttributes`、Picker 或 Blaster 类型 Tag、`Camp`、`Health`、FSM 数据、`FsmVar` Buffer、导航组件、`NavWaypoint` Buffer、`AniMoveIntent` 和攻击状态
-- Ani 的 FSM、寻路、移动规划、目标感知和伤害规则由服务器执行。客户端主要接收插值结果，并更新朝向、动画、选择效果和 View
+- **Ani Ghost** 来自 `PFB_Ani_*_Entity`。它通常包含 `AniAttributes`、Picker 或 Blaster 类型 Tag、`Camp`、`Health`、FSM 数据、Legacy 导航组件和攻击状态；Grid 后端运行时还会维护 `AniSquadMembership`、`AniMovementConfig`、`AniSlotTarget`、`AniPreferredVelocity` 与 `AniMovementResult`
+- Ani 的 FSM、寻路、移动规划、目标感知和伤害规则由服务器执行。当前 Grid 与 Legacy 移动后端互斥，客户端主要接收插值结果，并更新朝向、动画、选择效果和 View
 - **Base Ghost** 从 `BaseSpawnPoint` 生成。它使用 `BaseTag`、Big 或 Small 类型 Tag、`Camp`、`Health`、`RangedAttackableTag` 和 `BaseWorldAABB` 等组件表达阵营、体型、可攻击性和空间范围
 - 基地生命值和败北判定由服务器维护，客户端只负责显示血条和最终结果
 
@@ -84,11 +84,11 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 
 ### 4.1 静态配置
 
-静态配置由 Baker 写入，运行时通常只读。例如 `AniAttributes`、`AniPhysicsConfig`、`NavAgent` 和 `PickableResource`。如果一项数据需要在运行时频繁变化，就不应继续把它当作静态配置使用。
+静态配置由 Baker 写入，运行时通常只读。例如 `AniAttributes`、`AniPhysicsConfig`、`NavigationGridReference` 和 `PickableResource`。`NavAgent` 属于仍由 Legacy 后端使用的静态配置。如果一项数据需要在运行时频繁变化，就不应继续把它当作静态配置使用。
 
 ### 4.2 运行时状态
 
-运行时状态由 System 跨帧维护，例如 `AniAttackState`、`NavSteering`、`ServerMatchStartState` 和 `ResourceCarryAssignment`。它们描述“对象当前正在做什么”，而不是“对象初始应该是什么”。
+运行时状态由 System 跨帧维护，例如 `AniAttackState`、`AniSquadPathState`、`AniSquadFormationState`、`ServerMatchStartState` 和 `ResourceCarryAssignment`。`NavSteering` 是 Legacy 后端的运行时状态。它们描述“对象当前正在做什么”，而不是“对象初始应该是什么”。
 
 ### 4.3 网络同步状态
 
@@ -97,7 +97,7 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 ### 4.4 输入与一次性请求
 
 - `InputCommand : ICommandData` 用于逐 Network Tick 的连续输入，支持客户端预测和回滚
-- `AniFormationJoinRequest`、`ResourcePickupRequest` 以及 RPC Entity 属于一次性请求，处理完成后应移除或销毁
+- `AniSquadCommandRequest`、`ResourcePickupRequest` 以及 RPC Entity 属于一次性请求，处理完成后应移除或销毁；`AniFormationJoinRequest` 只属于 Legacy 链路
 
 连续输入和一次性业务请求不应混用。前者需要保留 Tick 历史，后者只需要被可靠地消费一次。
 
@@ -114,7 +114,9 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 
 - `InputCommand` 挂在玩家角色 Ghost 上，保存 NetCode 输入历史，并参与预测和回滚
 - `FsmVar` 挂在 Ani 上，作为 FSM 黑板保存命令模式、目标和导航状态
-- `NavWaypoint` 挂在 Ani 上，保存服务器 NavMesh 规划得到的路径点
+- `NavWaypoint` 挂在 Ani 上，保存 Legacy NavMesh 规划得到的路径点
+- `AniSquadCommandMember` 保存通过服务器权限校验的指令成员快照，`AniSquadMember` 和 `AniFormationSlot` 保存当前 Squad 成员与阵型槽位
+- `NavigationPathWaypoint` 保存 Grid 完整路径结果，`NavigationCorridorCluster`、`NavigationCorridorPortal` 和 `NavigationFlowFieldCell` 保存 Squad 共享的 Corridor 与局部 Field
 - `DamageEvent` 挂在可受伤 Entity 上，保存待结算伤害。当前命中链路使用 `AddBuffer` 写入时会替换已有 Buffer 内容，因此不能可靠汇总同一结算周期内的多次命中
 - `PickableResourceCarrierSlot` 挂在可搬运资源上，保存 Picker 相对资源的搬运站位
 - `FoodResourceDeltaEvent` 和 `CrystalResourceDeltaEvent` 位于资源事件 Hub，记录指定 `NetworkId` 的资源增量
@@ -182,26 +184,25 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Rpc[ServerReceiveAniCommandRpcSystem]
-    Formation[AniFormationJoinRequestSystem<br/>AniFormationManagementSystem]
-    Fsm[FsmEvaluate -> ApplyTransition -> Tick]
-    Planner[AniMovementPlannerSystem]
-    Nav[ServerNavMeshPlannerSystem]
-    Follow[NavFollowIntentSystem]
-    Move[AniPhysicsMoveSystem]
+    Rpc[AniCommandRpc]
+    Backend{AniMovementBackendConfig}
+    GridIngress[ServerAniCommandIngressSystem]
+    Squad[AniSquad Lifecycle / Target / Path]
+    Field[HPA Corridor / Flow Field]
+    GridMove[Anchor / Formation / Slot / Commit / Progress]
+    LegacyIngress[ServerReceiveAniCommandRpcSystem]
+    Legacy[Blackboard / FSM / Formation / NavMesh / PhysicsMove]
     Combat[Attack Cleanup -> Sense -> Fire]
 
-    Rpc --> Fsm
-    Rpc --> Formation
-    Fsm --> Planner
-    Formation --> Planner
-    Planner --> Nav --> Follow --> Move
-    Fsm --> Combat
+    Rpc --> Backend
+    Backend -->|ClearanceGrid| GridIngress --> Squad --> Field --> GridMove
+    Backend -->|LegacyNavMesh| LegacyIngress --> Legacy
+    Legacy --> Combat
 ```
 
-服务器收到移动命令后，会更新 Ani 的 FSM 和编队请求。FSM 与编队结果共同影响移动规划，之后依次产生 NavMesh 路径、跟随意图和实际物理移动。攻击相关 System 也从 FSM 状态出发，完成目标感知、冷却和开火。
+服务器收到移动命令后，只让当前后端消费 RPC。Grid 链路把合法成员写入一个 Squad 上下文，再依次解析目标、生成共享路径和 Field、推进 Anchor、调整矩形阵型、分配槽位并由唯一 Commit System 写入位移。Legacy 链路继续通过 Blackboard、FSM、旧阵型、逐 Ani NavMesh 和物理移动执行。攻击相关 System 仍从现有 FSM 状态出发，完成目标感知、冷却和开火。
 
-这张图表示业务期望链路。只有代码中明确声明的 `UpdateAfter` 或 `UpdateBefore` 才是强制顺序。当前 Planner、Nav Planner 和 Follow 之间仍有顺序缺口，见 [已知边界](07_KnownRisks.md)。
+Grid 链路已通过 `AniGridCommandIngressSystemGroup`、`AniGridRuntimeSystemGroup`、`UpdateAfter` 和 `UpdateBefore` 固定顺序。Legacy 的 Planner、Nav Planner 和 Follow 之间仍有顺序缺口，见 [已知边界](07_KnownRisks.md)。
 
 服务器的 Ani、战斗、资源、出生和胜负逻辑主要运行在 `SimulationSystemGroup`。客户端的自动连接、View 生成和输入锁同步主要运行在 `InitializationSystemGroup`。
 

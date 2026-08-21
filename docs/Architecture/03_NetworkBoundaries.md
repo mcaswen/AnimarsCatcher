@@ -63,7 +63,7 @@ Ghost Snapshot 用于持续复制服务器权威状态，例如 `Health`、`Camp
 - 分配 `NetworkId`、阵营和出生点
 - 创建玩家角色、Ani、基地和资源
 - 运行玩家角色的权威 KCC 模拟，并通过快照校正客户端预测
-- 复核 Ani 的所有权，更新选择状态、FSM、编队、寻路和移动意图
+- 复核 Ani 的所有权，并由当前启用的 Grid 或 Legacy 后端更新 Squad/FSM、阵型、寻路和移动意图
 - 决定 Ani 感知目标、攻击冷却和 `ShotId`
 - 校验动画命中候选，写入 `DamageEvent` 并结算 `Health` 和死亡
 - 处理资源刷新、搬运、交付和玩家资源变化
@@ -91,7 +91,7 @@ Ani、基地和资源主要采用服务器权威、客户端插值的方式。�
 
 - `SpawnAniRequestRpc` 从 Client 发往 Server，由 `ServerSpawnAnisSystem` 接收，用于请求生成两类 Ani
 - `AniSelectionRequestRpc` 从 Client 发往 Server，由 `ServerApplyAniSelectionRpcSystem` 接收，携带选中 Ani 的 GhostId 列表
-- `AniCommandRpc` 从 Client 发往 Server，由 `ServerReceiveAniCommandRpcSystem` 接收，携带目标位置和选中 Ani 快照
+- `AniCommandRpc` 从 Client 发往 Server，携带目标位置和选中 Ani 快照。Grid 后端由 `ServerAniCommandIngressSystem` 消费并生成 `AniSquadCommand`，Legacy 后端由 `ServerReceiveAniCommandRpcSystem` 消费并更新旧 Blackboard；两个入口通过后端 Tag 互斥
 
 ### 4.3 战斗、资源与比赛结果
 

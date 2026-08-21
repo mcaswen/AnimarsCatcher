@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段七实现完成，Unity 最终总验收待许可证连接恢复
+> 状态：阶段零至阶段七实现完成；当前静态审计覆盖 331 个脚本、15 个 asmdef 和 0 个 asmref，旧 Stage Seven Unity 总验收入口仍需补登记 Navigation Benchmark 与 Validation 程序集
 >
 > 本文合并原阶段零至阶段六验收文档，并记录阶段七最终结构
 >
@@ -12,10 +12,11 @@
 
 这次迁移的目标不是增加 asmdef 数量，而是把原本依赖目录和约定维持的模块边界变成编译器可以检查的单向依赖。
 
-最终结果如下：
+截至 2026-08-22，当前结果如下：
 
-- 269 个 `Assets/Scripts` 手写脚本全部进入明确的项目程序集
-- 13 个项目 asmdef 全部使用稳定 GUID 和根命名空间
+- 331 个 `Assets/Scripts` C# 文件全部进入明确的项目程序集
+- 15 个项目 asmdef 全部使用稳定 GUID 和根命名空间
+- 项目 asmref 为 0
 - 全项目不存在全局命名空间业务脚本
 - Runtime、Editor、Authoring 和 Benchmark 不再混合编译
 - 项目 asmdef 的 `Auto Referenced` 全部关闭
@@ -84,7 +85,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass `
 
 ### 3.1 第一轮边界
 
-第一轮把当前位于 `Assets/Scripts/Navigation/Grid` 的代码整体迁入同一程序集，覆盖：
+第一轮把当时位于 `Assets/Scripts/Navigation/Grid` 的代码整体迁入同一程序集，覆盖：
 
 - Grid 运行时数据和算法
 - Job 与路径 System
@@ -361,7 +362,7 @@ DOTween 核心是预编译 DLL，但 `DOFade`、`DOAnchorPos` 等扩展来自 Mo
 - 旧 Physics 探测和移动
 - 依赖 NavMesh 的资源搬运适配
 
-Benchmark 只依赖 Core、Gameplay Contracts、Gameplay 和 Player。Core、Gameplay、Navigation、Player、Networking 和 Presentation 都不能引用 Benchmark。
+阶段六完成时，Benchmark 只依赖 Core、Gameplay Contracts、Gameplay 和 Player。后续为了在同一 Harness 中运行 Grid 工作负载，当前 Legacy Benchmark 还显式依赖 Navigation 与 Navigation Benchmark；正式 Runtime 程序集仍不能反向引用 Legacy Benchmark。
 
 ### 8.2 当前运行事实
 
@@ -372,7 +373,7 @@ Benchmark 只依赖 Core、Gameplay Contracts、Gameplay 和 Player。Core、Gam
 - Picker 与 Blaster Ani Prefab 仍有 `AniPhysicsAuthoring`
 - 多个可拾取资源 Prefab 仍有 `NavAgentAuthoring`
 
-因此 Benchmark 仍是活动实现基线，不能直接禁用。正式 Grid 后端切换、Prefab 拆分和后端互斥继续由 Grid 移动计划管理。
+因此 Benchmark 仍是活动实现基线，不能直接禁用。后端互斥已经完成；正式 Grid 后端切换和 Prefab 清理继续由 Grid 移动计划管理。
 
 ### 8.3 命名空间与依赖
 
@@ -415,7 +416,7 @@ Benchmark 只依赖 Core、Gameplay Contracts、Gameplay 和 Player。Core、Gam
 
 ### 9.2 Navigation Editor 拆分
 
-Navigation 的物理采样、可视化和验收工具进入 `AnimarsCatcher.Navigation.Editor`。
+阶段七当时把 Navigation 的物理采样、可视化和验收工具统一放入 `AnimarsCatcher.Navigation.Editor`。后续 Navigation 架构重构又把自动夹具和 Benchmark 消费者分别拆入 `AnimarsCatcher.Navigation.Validation` 与 `AnimarsCatcher.Navigation.Benchmark`，Editor 只保留采样、Inspector、可视化和构建校验。
 
 运行时 Baker 不再调用 Editor Bake Utility，只验证固定 Bake Asset 是否可用。场景与烘焙结果的新鲜度由 Editor 构建门禁负责，从而消除 Runtime 到 Editor 的反向依赖。
 
@@ -434,19 +435,13 @@ Networking 原有 6 个 Runtime 脚本通过 `UNITY_EDITOR` 读取 Multiplayer P
 
 ### 9.4 Auto Referenced 与未使用引用
 
-13 个项目 asmdef 全部关闭 `Auto Referenced`。跨模块访问必须使用显式 GUID 引用。
+15 个项目 asmdef 全部关闭 `Auto Referenced`。跨模块访问必须使用显式 GUID 引用。
 
 Presentation 没有使用 `Unity.Networking.Transport`，阶段七删除了该直接引用。DOTween Modules 和 Unity Physics Sample 属于第三方或 Sample 文件，不纳入项目 asmdef 的批量修改范围。
 
-### 9.5 asmref 保留理由
+### 9.5 asmref 清理结果
 
-阶段七没有机械删除全部 asmref。现有 9 个 asmref 都表达长期的多目录程序集归属：
-
-- Anis、Base、Camp、Global、Health 和 Resource 共同编译进 Gameplay
-- MonoBehaviour 和 UI 共同编译进 Presentation
-- Terrain 与 Physics 共同编译进 Physics Authoring
-
-这些目录具有相同生命周期和允许依赖。审计禁止使用 asmref 隐藏循环依赖、跨越 Runtime 与 Editor 或绕过模块所有权。
+阶段七完成时曾保留 9 个用于多目录归属的 asmref。后续文件夹迁移把相关脚本收拢到对应 asmdef 覆盖范围后，这 9 个 asmref 已全部删除。当前项目 asmref 为 0，审计仍禁止用 asmref 隐藏循环依赖、跨越 Runtime 与 Editor 或绕过模块所有权。
 
 ## 10. 最终程序集划分
 
@@ -462,7 +457,9 @@ Presentation 没有使用 `Unity.Networking.Transport`，阶段七删除了该�
 
 编辑器与烘焙边界包括：
 
-- `AnimarsCatcher.Navigation.Editor`：Grid 采样、可视化、构建校验和自动验收
+- `AnimarsCatcher.Navigation.Editor`：Grid 采样、Inspector、可视化和构建校验
+- `AnimarsCatcher.Navigation.Validation`：Stage 1～5、R6 算法夹具和结构回归
+- `AnimarsCatcher.Navigation.Benchmark`：Path/Field 与 Squad Benchmark 工作负载和结果导出
 - `AnimarsCatcher.Networking.Editor`：读取 NetCode Multiplayer PlayMode 配置并写入运行时配置桥
 - `AnimarsCatcher.Player.Editor`：Input System 编辑器检查
 - `AnimarsCatcher.Physics.Authoring`：胶囊体和 Terrain Collider 烘焙
@@ -485,6 +482,8 @@ flowchart TD
     Presentation[Presentation]
     Legacy[Benchmarks.LegacyNavigation]
     NavEditor[Navigation.Editor]
+    NavValidation[Navigation.Validation]
+    NavBenchmark[Navigation.Benchmark]
     NetEditor[Networking.Editor]
     PlayerEditor[Player.Editor]
     Physics[Physics.Authoring]
@@ -508,11 +507,20 @@ flowchart TD
     Legacy --> Contracts
     Legacy --> Gameplay
     Legacy --> Navigation
+    Legacy --> NavBenchmark
     Legacy --> Player
 
     NavEditor --> Navigation
     NavEditor --> Gameplay
     NavEditor --> Contracts
+    NavBenchmark --> Navigation
+    NavBenchmark --> Core
+    NavBenchmark --> Contracts
+    NavValidation --> Navigation
+    NavValidation --> NavEditor
+    NavValidation --> NavBenchmark
+    NavValidation --> Gameplay
+    NavValidation --> Contracts
     NetEditor --> Networking
     PlayerEditor --> Player
 
@@ -523,6 +531,7 @@ flowchart TD
     ProjectEditor --> Presentation
     ProjectEditor --> Legacy
     ProjectEditor --> NavEditor
+    ProjectEditor --> NavValidation
     ProjectEditor --> Physics
 ```
 
@@ -553,9 +562,9 @@ Navigation 只依赖 Core 和 Gameplay.Contracts，不依赖 Gameplay、Player �
 - 项目依赖符合允许列表
 - 不存在直接双向依赖、全局命名空间或陈旧基线
 
-`AssemblyMigrationStageSevenValidation` 串联此前阶段验收，并额外检查：
+`AssemblyMigrationStageSevenValidation` 负责串联迁移期阶段验收，但当前仍保留迁移完成时的 13 程序集清单。由于后来增加了 `AnimarsCatcher.Navigation.Benchmark` 和 `AnimarsCatcher.Navigation.Validation`，它的 asmdef 数量断言尚未同步，当前不能作为 15 程序集总验收入口。修正该入口后应继续检查：
 
-- 13 个项目程序集均被 Unity 发现
+- 15 个项目程序集均被 Unity 发现
 - Physics Authoring 代表类型位于正确程序集
 - 全部项目 asmdef 关闭 `Auto Referenced`
 - Player Editor、Networking Editor 和 Navigation Editor 存在
@@ -574,17 +583,16 @@ Navigation 只依赖 Core 和 Gameplay.Contracts，不依赖 Gameplay、Player �
 - Windows Client 构建
 - Windows Dedicated Server 构建
 
-阶段七当前已完成：
+迁移阶段完成后，当前仓库已经验证：
 
-- 程序集迁移审计通过，269 个脚本全部归属
+- 程序集迁移审计通过，331 个脚本全部归属 15 个 asmdef，0 个 asmref
 - 全局命名空间、Warning、严重问题、循环依赖和边界违规均为 0
-- 注释规范检查通过，总注释率为 17.21%
-- Networking Runtime 通过 Unity 同款 Roslyn、Entities 和 NetCode Source Generator 编译
-- Networking Editor、Presentation 去依赖版本和最终 Editor 验收入口通过 Unity 同款 Roslyn 编译
+- Navigation R6 的 Stage 1～5、结构检查、算法夹具和 32/64/128 双轮基准全部通过
+- 15 个实际项目 `.csproj` 均可独立完成编译，0 个错误
 
-阶段七无界面 Unity 总验收当前被本机 Unity Licensing Client 的 IPC 重连阻塞，日志没有出现 C# 编译错误。恢复许可证连接后仍需执行：
+当前仍需完成：
 
-1. `AssemblyMigrationStageSevenValidation.RunFromCommandLine`
+1. 把 Navigation Benchmark 与 Validation 加入 `AssemblyMigrationStageSevenValidation`，再运行该入口
 2. Windows Client 构建
 3. Windows Dedicated Server 构建
 

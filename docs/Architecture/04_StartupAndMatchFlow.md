@@ -37,6 +37,8 @@ flowchart TD
 2. Host 同时创建 Server World 和 Client World，需要使用 `-host`
 3. Dedicated Server 只创建 Server World，需要使用 `-dedicated`
 
+每个新建 World 都会调用 `AniMovementBackendWorldUtility.ConfigureWorld` 写入唯一的移动后端配置。`-movement-backend=grid` 或 `-movement-backend=clearance-grid` 选择 Grid，`-movement-backend=legacy` 选择 Legacy；未指定时默认使用 Legacy。`AniMovementBackendGuardSystem` 会拒绝配置缺失、重复或两个后端 Tag 同时存在的 World。
+
 Bootstrap 只决定 World 的种类，不会直接替业务选择地址并建立连接。服务器监听和客户端连接仍由菜单或调试入口显式发起。
 
 ## 3. 创建房间和加入房间

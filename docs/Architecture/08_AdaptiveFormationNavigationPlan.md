@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一至阶段四已完成；阶段五运行时主体已实现，场景验收与阶段六及后续能力尚未完成
+> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成，阶段五正式场景退出条件、阶段六与阶段七尚未完成
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -44,22 +44,22 @@ MoveTo、Follow、Find、资源搬运等高层业务语义可以保留，但低�
 
 ## 2. 代码边界
 
-目标代码建议放在：
+当前代码位于：
 
 ```text
 Assets/Scripts/Navigation/
-├── Common/
 ├── Grid/
-│   ├── Algorithms/
-│   ├── Authoring/
-│   ├── Baking/
-│   ├── Components/
-│   ├── Editor/
-│   ├── Jobs/
-│   ├── Systems/
-│   └── Utilities/
-└── Presentation/
-
+│   ├── Static/
+│   ├── Runtime/
+│   ├── Overlay/
+│   ├── Pathfinding/
+│   ├── Hierarchical/
+│   └── FlowField/
+├── Squad/
+└── Tooling/
+    ├── Editor/
+    ├── Validation/
+    └── Benchmark/
 ```
 
 旧实现已经移动到 `Assets/Scripts/Benchmarks/LegacyNavMesh`，作为可执行性能基线保留。它不属于正式 Grid 架构，也不是 `Obsolete`。新旧后端的对比方法见 [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)，实施阶段和退出条件见 [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)。
@@ -68,7 +68,7 @@ Assets/Scripts/Navigation/
 
 ### 3.1 Authoring 配置
 
-新增 `NavigationGridAuthoring`，配置：
+`NavigationGridAuthoring` 当前配置：
 
 - 世界 Bounds
 - Cell Size
@@ -220,7 +220,7 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 普通 A* 是后续 HPA* 的正确性对照。不能一开始只实现复杂分层算法，否则路径错误难以定位。
 
-当前实现位于 `NavigationGridPathAlgorithms`、`NavigationGridPathfindingJob` 和 `ServerNavigationGridPathfindingSystem`：
+当前实现由 `NavigationGridQuery`、`NavigationGridTraversal`、`NavigationGridCost`、`NavigationGridPathfinder`、`NavigationAStarOpenSet`、`NavigationPathSmoothing`、`NavigationGridPathfindingJob` 和 `ServerNavigationGridPathfindingSystem` 分担：
 
 - 请求先按距离、Terrain Cost、Clearance 和 Cell Index 投影到稳定合法端点
 - 起终点 Region 不一致时不展开 Open Set，直接返回 `RegionMismatch`
@@ -231,7 +231,7 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 - `ServerNavigationGridPathfindingSystem` 每批最多处理 32 个请求，搜索在 Burst Job 中执行，主线程只在 Handle 已完成后写回结果
 - `Version`、`Searching` 和 `Cancelled` 状态用于丢弃过期结果，路径点写入 `NavigationPathWaypoint` Buffer
 
-这一阶段仍不包含动态 Overlay、HPA*、Flow Field、阵型或 Ani Transform 写入。普通 A* 保留为后续分层搜索的正确性基准，不应在阶段三被删除。
+普通 A* 层本身不处理动态 Overlay 生命周期、HPA、Flow Field、阵型或 Ani Transform 写入。它继续作为分层搜索的正确性基准，由后续层通过共享 Runtime 和 Overlay 规则组合使用。
 
 ### 5.3 HPA* Cluster Corridor
 
@@ -244,7 +244,7 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 宏观路径以 Squad 为单位计算，不为每个成员重复搜索。
 
-当前阶段三实现已经提供抽象图搜索、Cluster/Portal Corridor 和路径质量/可达性对照。现阶段 Benchmark 直接为每个测试请求生成 Corridor 与 Field；阶段四接入 Squad 后改为按 Squad 共享请求，不为成员重复规划。
+当前实现已经提供抽象图搜索、Cluster/Portal Corridor 和路径质量/可达性对照。Path/Field Benchmark 直接为每个测试请求生成 Corridor 与 Field；Squad 运行时按队伍共享请求，不为成员重复规划。
 
 ### 5.4 局部 Integration 与 Flow Field
 
@@ -259,13 +259,13 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 它不是全地图 Flow Field，只覆盖当前 Corridor。只有目标、Corridor 或相关 Overlay 版本变化时才重建。
 
-当前缓存键包含 Grid Data Hash、目标 Cell、体型 Clearance、代价参数和 Corridor Hash。动态 Overlay 与局部 Cluster 版本失效仍属于阶段五，当前阶段只处理静态 Grid 版本。
+当前缓存键包含 Grid Data Hash、目标 Cell、体型 Clearance、代价参数、Corridor Hash 和相关 Cluster 版本。动态 Overlay 已接入局部 Corridor 重选、运行时成本和缓存失效；无关 Cluster 变化不会使当前 Field 失效。
 
 ## 6. Squad 与自适应阵型
 
 ### 6.1 Squad Entity
 
-每次有效移动命令创建或更新服务器专用 Squad Entity，建议包含：
+每次有效移动命令创建或更新服务器专用 Squad Entity，当前包含：
 
 - `AniSquad`：拥有者、稳定 SquadId 和成员版本
 - `AniSquadCommand`：指令类型、目标 Cell、目标 Entity 和指令版本
@@ -280,15 +280,15 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 ### 6.2 单个 Ani
 
-单个 Ani 建议保存：
+单个 Ani 当前保存：
 
 - `AniSquadMembership`
 - `AniMovementConfig`
 - `AniSlotTarget`
 - `AniPreferredVelocity`
-- `AniAvoidedVelocity`
 - `AniMovementResult`
-- `AniStuckState`
+
+阶段六接入避碰与受阻恢复时，再增加 `AniAvoidedVelocity`、`AniStuckState` 等状态，不提前把未实现契约写入当前 Entity。
 
 高层 FSM 可以表达 Idle、MoveTo、Follow、Find 和 Attack，但不再通过通用黑板传递路径、Cell、Flow Field 和逐帧速度。
 
@@ -325,7 +325,7 @@ currentSpeed * expectedReformTime + formationDepth
 
 缩列立即响应，展开需要宽度持续满足时间阈值。列数变化使用宽度和时间滞回，避免边界噪声造成反复变阵。
 
-第一阶段只实现纵队和紧凑矩形。楔形、弧形和包围布局后续再增加。
+当前只实现纵队和紧凑矩形。楔形、弧形和包围布局尚未实现。
 
 ### 6.5 槽位生成与分配
 
@@ -337,7 +337,7 @@ currentSpeed * expectedReformTime + formationDepth
 - Blaster 优先后排
 - 无效槽位过多时减少列数
 
-只在成员版本或布局版本变化时重新分配槽位。第一版使用 Hungarian 思路，代价包含距离、换槽、职责不匹配、不可达和路径交叉。
+只在成员版本或布局版本变化时重新分配槽位。当前使用确定性的 Hungarian 最小总代价匹配，代价包含平方距离、换槽惩罚和职责不匹配惩罚；成员先按 StableId 排序，成本相同时优先选择索引更小的槽位。槽位目标生成后再按成员半径投影到合法 Cell。
 
 相同代价使用稳定成员编号和 SlotId 排序，不能依赖 Entity.Index。
 
@@ -391,23 +391,24 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 
 ## 8. System Pipeline
 
-新增服务器专用 `AniGridMovementSystemGroup`，建议顺序为：
+服务器专用 `AniGridMovementSystemGroup` 当前分为命令入口和运行时两个子组，已实现顺序为：
 
-1. `NavigationDynamicOverlaySystem`
-2. `ServerAniCommandIngressSystem`
+1. `ServerAniCommandIngressSystem` 或 Benchmark 入口写入统一命令
+2. `NavigationDynamicOverlaySystem`
 3. `AniSquadLifecycleSystem`
-4. `AniGridEndpointProjectionSystem`
-5. `AniSquadClusterPathSystem`
-6. `AniSquadLocalFlowFieldSystem`
+4. `AniSquadTargetResolveSystem`
+5. `AniSquadPathRequestSystem`
+6. `ServerNavigationGridFlowFieldSystem`
 7. `AniSquadAnchorAdvanceSystem`
-8. `AniFormationLayoutSystem`
-9. `AniFormationAssignmentSystem`
-10. `AniPreferredVelocitySystem`
-11. `AniNeighborGridBuildSystem`
-12. `AniLocalAvoidanceSystem`
-13. `AniWorldCollisionSystem`
-14. `AniMovementCommitSystem`
-15. `AniMovementProgressSystem`
+8. `AniAdaptiveFormationSystem`
+9. `AniFormationLayoutSystem`
+10. `AniFormationAssignmentSystem`
+11. `AniSlotTargetSystem`
+12. `AniPreferredVelocitySystem`
+13. `AniMovementCommitSystem`
+14. `AniMovementProgressSystem`
+
+阶段六计划把 `AniNeighborGridBuildSystem`、`AniLocalAvoidanceSystem` 和 `AniWorldCollisionSystem` 放在期望速度与 Commit 之间；这些系统当前尚不存在。
 
 所有顺序通过子 System Group、`UpdateAfter` 和 `UpdateBefore` 固定。只有 Commit System 可以写入 Ani Transform。
 

@@ -153,21 +153,22 @@ NavigationPathRequest request = jobRequest.Request;
 3. Runtime asmdef 禁止引用 Editor asmdef，也禁止出现未被正确条件编译隔离的 `UnityEditor` API。
 4. asmdef 依赖必须单向，禁止为了临时调用形成循环引用。
 5. Client、Server 和 Shared 程序集归属应与 World 职责一致；共享协议不得依赖 UI 或表现层。
-6. 现有 `Assembly-CSharp` 内容按模块渐进迁移，不要求一次拆分全部脚本。
+6. 当前业务脚本已全部离开 `Assembly-CSharp`。新增脚本必须放入明确的项目 asmdef 覆盖范围，禁止把预定义程序集重新当作默认归属。
 7. 调整 asmdef 后必须验证 Baker、Source Generator、Ghost CodeGen、Editor 工具和测试程序集。
 8. 创建或调整项目 asmdef 前，更新 `Tools/AssemblyMigrationRules.psd1` 并运行 `Tools/AuditAssemblyMigration.ps1`，确认脚本归属和候选双向依赖。
-9. 类型从 `Assembly-CSharp` 迁入自定义程序集时，必须检查 Scene、Prefab、ScriptableObject 和其他程序集限定类型名，并为固定资源增加可重复的序列化回归检查。
+9. 类型在程序集之间迁移时，必须检查 Scene、Prefab、ScriptableObject 和其他程序集限定类型名，并为固定资源增加可重复的序列化回归检查。
 10. Core 不保存玩法语义、具体 System、场景引用或 UI 类型；Gameplay Contracts 只保存跨模块共享数据，不保存流程控制和静态运行状态。
 11. 对标记为稳定边界的程序集必须在迁移规则中声明允许依赖，审计出现未允许的项目依赖时不得提交。
-12. 多个物理目录确实属于同一生命周期和同一依赖边界时，可以通过 asmref 编译到同一程序集；禁止用 asmref 隐藏循环依赖、跨越 Runtime 与 Editor 职责或绕过模块所有权。
+12. 当前项目 asmref 为 0。未来只有在多个物理目录确实属于同一生命周期和同一依赖边界时才可引入 asmref；禁止用它隐藏循环依赖、跨越 Runtime 与 Editor 职责或绕过模块所有权。
 13. `AnimarsCatcher.Gameplay` 只依赖 Core、Gameplay Contracts 和必要 Unity Package；Player、Networking、Presentation 与 Legacy 只能从上层消费 Gameplay，不得被 Gameplay 反向引用。
-14. `AnimarsCatcher.Player` 只依赖 Gameplay 和必要 Unity Package，不依赖 Networking、Presentation 或 Legacy；UI 输入锁和过场控制由表现层从上层桥接。
-15. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Presentation；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
-16. `AnimarsCatcher.Presentation` 统一承载 Mono UI、ECS UI、音频、LAN、HUD、场景过渡和 GameObject View，可以依赖 Gameplay Contracts、Gameplay、Player 与 Networking；运行时业务程序集不得反向引用 Presentation。
-17. `AnimarsCatcher.Benchmarks.LegacyNavigation` 可以依赖正式运行时程序集以执行历史基线，但 Core、Gameplay、Navigation、Player、Networking 和 Presentation 不得引用 Benchmark；Benchmark 修复仅限可编译性、正确性和测量噪声，不继续承载正式功能。
-18. 项目自有 asmdef 默认关闭 `Auto Referenced`，跨模块访问必须声明显式 GUID 引用；确需开启时必须在迁移规则和架构文档中登记原因并通过审计。
-19. Editor 播放模式配置应由 Editor-only 程序集读取，再通过纯数据或窄接口传给 Runtime；禁止为了读取编辑器配置把 `UNITY_EDITOR` 分支长期保留在运行时 System 和 Bootstrap 中。
-20. 第三方插件、Unity Sample 和生成程序集不纳入项目 asmdef 的批量格式或 `Auto Referenced` 修改，除非项目明确接管其维护责任。
+14. `AnimarsCatcher.Navigation` 只依赖 Core、Gameplay Contracts 和必要 Unity Package；Editor、Validation、Benchmark 与 Legacy 可以从外围消费 Navigation，Navigation Runtime 不得反向引用这些工具程序集。
+15. `AnimarsCatcher.Player` 只依赖 Core、Gameplay 和必要 Unity Package，不依赖 Networking、Presentation 或 Legacy；UI 输入锁和过场控制由表现层从上层桥接。
+16. `AnimarsCatcher.Networking` 可以依赖 Gameplay Contracts、Gameplay、Player 和必要 Unity Package，不依赖 Presentation；网络生命周期变化通过数据通知或事件发布，由 Presentation 决定具体界面行为。
+17. `AnimarsCatcher.Presentation` 统一承载 Mono UI、ECS UI、音频、LAN、HUD、场景过渡和 GameObject View，可以依赖 Gameplay Contracts、Gameplay、Player 与 Networking；运行时业务程序集不得反向引用 Presentation。
+18. `AnimarsCatcher.Benchmarks.LegacyNavigation` 可以依赖正式运行时程序集和 `AnimarsCatcher.Navigation.Benchmark` 以执行新旧后端基线，但 Core、Gameplay、Navigation Runtime、Player、Networking 和 Presentation 不得引用 Legacy Benchmark；Benchmark 修复仅限可编译性、正确性和测量噪声，不继续承载正式功能。
+19. 项目自有 asmdef 默认关闭 `Auto Referenced`，跨模块访问必须声明显式 GUID 引用；确需开启时必须在迁移规则和架构文档中登记原因并通过审计。
+20. Editor 播放模式配置应由 Editor-only 程序集读取，再通过纯数据或窄接口传给 Runtime；禁止为了读取编辑器配置把 `UNITY_EDITOR` 分支长期保留在运行时 System 和 Bootstrap 中。
+21. 第三方插件、Unity Sample 和生成程序集不纳入项目 asmdef 的批量格式或 `Auto Referenced` 修改，除非项目明确接管其维护责任。
 
 ## 6. Entities 与 DOTS
 

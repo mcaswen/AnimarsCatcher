@@ -48,17 +48,18 @@
 
 当前有些链路只依赖默认调度顺序。实体数量较少时不一定暴露问题，但规模扩大后会同时影响正确性和性能。
 
-- Planner、Nav Planner 和 Follow 没有完整声明显式先后关系，部分系统可能读取上一帧的目标或路径
+- Legacy Planner、Nav Planner 和 Follow 没有完整声明显式先后关系，部分系统可能读取上一帧的目标或路径；Grid 后端的 Squad 更新链路已经使用 System Group、`UpdateAfter` 与 `UpdateBefore` 固定顺序
 - Hit RPC Apply 与 `ServerApplyDamageSystem` 没有统一排序，伤害可能延后一帧，具体结算时机也不容易推断
 - Planner 高频更新导航请求版本，`ServerNavMeshPlannerSystem` 又在主线程同步调用 `NavMesh.CalculatePath`，大量 Ani 同时移动时成本较高
 - `ServerAniAttackSenseSystem` 每帧复制候选数组并执行近似 O(Ani x Target) 的扫描，目标数量增长时成本会快速上升
 - `ServerApplyAniSelectionRpcSystem` 每帧重建 GhostId HashMap，实体规模增大后会形成持续固定成本
 - FSM Blackboard 使用较宽的 `FsmVar` Buffer 和线性查找，Key 越多，CPU 与潜在网络成本越高
 - `FsmRegistry` 使用跨 World 的 static Persistent NativeArray，World 销毁时没有完整复位初始化状态，重建或多 World 生命周期可能访问已释放容器
-- `ServerNavMeshPlannerSystem` 遇到一个 `NavStop` 后直接 `return`，会跳过本帧后续所有 Agent
 - `ServerAniDeathSystem` 查询所有 `Health`，只排除脆弱资源和大基地。未来玩家或其他实体增加 Health 后可能被误删
-- `AniMovementFsmBaker` 创建 Blob 后没有注册到 Baking Blob Store；Planner 的 MoveTo 分支还会逐 Ani 每帧输出日志
+- `AniMovementFsmBaker` 创建 Blob 后没有注册到 Baking Blob Store
 - Picker 可以在感知系统中选择基地，但基地只带远程可攻击标记，结果可能是反复播放近战攻击却无法结算
+
+Legacy 的 `NavStop` 提前返回和逐 Ani MoveTo 日志已在 `NormalizedLegacy-v1` 中修复，不再列为当前缺陷。该版本只用于建立可比较基线，不代表 Legacy 已完成性能治理。
 
 ## 5. 玩家、相机与物理
 
@@ -100,10 +101,18 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 ## 8. 工程结构
 
 - 自有业务代码已全部进入项目 asmdef，当前风险转为新增依赖是否持续遵守单向边界，以及 `Auto Referenced` 是否被无理由重新开启
-- 当前没有 `Assets/Tests`，权限校验、FSM、资源事务和开局链路都缺少自动回归保护
+- 当前没有独立的 `Assets/Tests`。Navigation 已有专用 Validation 程序集和 Stage 1～5/R6 夹具，但权限校验、FSM、资源事务和开局链路仍缺少自动回归保护
+- `AssemblyMigrationStageSevenValidation` 仍固定登记迁移完成时的 13 个程序集，没有包含后来增加的 `AnimarsCatcher.Navigation.Benchmark` 和 `AnimarsCatcher.Navigation.Validation`；静态审计已覆盖当前 15 个程序集，但旧 Unity 总入口在修正前会因数量断言失败
 - 旧 Scene 仍在 Unity 项目内，应确认用途和引用后归档或删除
 - Build Settings 同时列入主场景和 SubScene，需要确认 SubScene 是否真的需要作为独立 Player 入口
 - `Assets/SO` 已用于 Navigation Grid 烘焙资产；其他静态配置仍需继续区分资源配置与运行时状态
+
+Navigation 当前还存在明确的功能边界：
+
+- 阶段五已通过算法和自动夹具，但窄门、连续窄道、动态障碍重新规划及场景性能退出条件仍需正式场景验收
+- 阶段六的空间哈希、ORCA 局部避碰、Capsule Cast/Slide 和受阻恢复尚未实现，现有 Grid 位移只适用于已验收的开阔地与静态引导范围
+- 阶段七的资源搬运迁移、正式 Prefab/Scene 切换和 Legacy 隔离尚未完成，未指定启动参数时仍使用 Legacy 后端
+- Navigation 目录已经按职责拆分，但 namespace 仍统一使用 `AnimarsCatcher.Navigation.Grid`；是否迁移为分层 namespace 应使用独立提交
 
 ## 9. 推荐演进顺序
 
@@ -113,3 +122,5 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 4. 明确 System 更新顺序，并降低 Nav、Sense 和 GhostId 映射成本
 5. 收敛相机模式和物理实现，删除无效或未接线配置
 6. 建立独立 Tests asmdef，以及关键 EditMode、PlayMode 和 NetCode 自动测试
+7. 更新程序集 Unity 总验收入口，使其覆盖当前 15 个 asmdef
+8. 完成 Navigation 阶段五场景验收，再按阶段六、阶段七依次接入避碰、世界碰撞、资源迁移和正式后端切换

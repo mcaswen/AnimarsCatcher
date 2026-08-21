@@ -69,32 +69,44 @@ flowchart LR
     Click[ClientWorldCommandClickInputSystem]
     Ray[ClientWorldCommandRaycastSystem]
     Rpc[AniCommandRpc<br/>目标 + 选中 GhostId]
-    Validate[ServerReceiveAniCommandRpcSystem<br/>校验 SourceConnection 与 GhostOwner]
+    Backend{当前移动后端}
+    GridIngress[ServerAniCommandIngressSystem<br/>权限与目标校验]
+    Squad[AniSquadCommand<br/>Lifecycle / Target / Path]
+    Flow[HPA Corridor / Flow Field]
+    GridMove[Anchor / 自适应阵型 / 槽位 / Commit]
+    LegacyIngress[ServerReceiveAniCommandRpcSystem<br/>权限校验]
     Blackboard[FsmVar Blackboard]
-    Fsm[FSM Evaluate / Transition / Tick]
-    Formation[Formation Management]
-    Planner[AniMovementPlannerSystem]
-    Nav[ServerNavMeshPlannerSystem]
-    Steering[NavSteering / AniMoveIntent]
-    Move[AniPhysicsMoveSystem]
+    Legacy[Legacy Formation / Planner / NavMesh / PhysicsMove]
 
-    Click --> Ray --> Rpc --> Validate --> Blackboard
-    Blackboard --> Fsm
-    Blackboard --> Formation
-    Fsm --> Planner
-    Formation --> Planner
-    Planner --> Nav --> Steering --> Move
+    Click --> Ray --> Rpc --> Backend
+    Backend -->|ClearanceGrid| GridIngress --> Squad --> Flow --> GridMove
+    Backend -->|LegacyNavMesh| LegacyIngress --> Blackboard --> Legacy
 ```
 
-玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与当前选中的 GhostId 放进 `AniCommandRpc`。服务器按 RPC 的源连接复核 Ani 所有权，合法指令才会写入各 Ani 的 Blackboard。
+玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与当前选中的 GhostId 放进 `AniCommandRpc`。服务器按 RPC 的源连接复核 Ani 所有权，合法指令才会进入当前启用的移动后端。
 
-Blackboard 后面不是一条单线流水线。FSM 与阵型管理分别消费指令产生的状态：
+当前由 `AniMovementBackendConfig` 保证 Grid 与 Legacy 只能启用一个。未指定 `-movement-backend` 时使用 `LegacyNavMesh`；显式传入 `-movement-backend=grid` 时，由 Grid 链路消费同一 RPC。两个后端不会同时读取命令，也不会同时写入 Ani Transform。
+
+Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、`GhostOwner`、目标 Entity 和有限坐标，再把一次 RPC 转换成一个 `AniSquadCommand` 与成员 Buffer。后续处理顺序为：
+
+1. `AniSquadLifecycleSystem` 创建、更新或拆除 Squad 上下文
+2. `AniSquadTargetResolveSystem` 持续解析 MoveTo、Follow 或 Find 的目标
+3. `AniSquadPathRequestSystem` 提交共享路径请求，HPA Corridor 与局部 Flow Field 负责路线引导
+4. `AniSquadAnchorAdvanceSystem` 推进队伍 Anchor
+5. `AniAdaptiveFormationSystem` 根据前方 Clearance 调整矩形阵型列数，窄路立即收拢，宽度稳定后再展开
+6. `AniFormationLayoutSystem`、`AniFormationAssignmentSystem` 和 `AniSlotTargetSystem` 生成并分配居中槽位
+7. `AniPreferredVelocitySystem` 生成期望速度，`AniMovementCommitSystem` 作为 Grid 后端唯一写入者提交权威位移
+8. `AniMovementProgressSystem` 判断到达、失败或保持状态
+
+当前 Grid 阵型不是圆形或随机形状。默认是面向移动方向的紧凑矩形，人数不足的最后一排仍保持居中；通道变窄时会减少列数，最窄时退化为单列纵队。阶段六的 ORCA 局部避碰和世界碰撞尚未接入，因此现阶段不应把它描述为完整的拥挤场景移动方案。
+
+Legacy 链路保留原有 Blackboard、FSM、阵型、Planner、逐 Ani NavMesh 和物理移动。Blackboard 后面不是一条单线流水线，FSM 与阵型管理分别消费指令产生的状态：
 
 - FSM 负责判断 Ani 当前应该进入移动、跟随、寻找或其他行为状态
 - 阵型系统负责加入、离开和更新队形成员关系
 - `AniMovementPlannerSystem` 同时读取 FSM 结果和阵型成员信息，再形成最终移动计划
 
-因此，FSM 和 Formation 是并行汇入 Planner 的两个输入来源，不能理解为“先跑完整个 FSM，再由 FSM 调用阵型”。Planner 形成目标后，服务端 NavMesh 负责规划路径，Steering 生成移动意图，最后由 `AniPhysicsMoveSystem` 执行运动。
+因此，FSM 和 Formation 是并行汇入 Legacy Planner 的两个输入来源，不能理解为“先跑完整个 FSM，再由 FSM 调用阵型”。Planner 形成目标后，服务端 NavMesh 负责规划路径，Steering 生成移动意图，最后由 `AniPhysicsMoveSystem` 执行运动。这些类型位于 `Assets/Scripts/Benchmarks/LegacyNavMesh`，只维护兼容和性能基线，不再承载新的导航能力。
 
 不同点击目标会让服务器写入不同意图：
 

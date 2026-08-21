@@ -4,8 +4,9 @@
 
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
+- [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 
-> 状态：阶段零 Harness 与后端互斥、阶段一 Grid 烘焙基础、阶段二普通 A* 路径服务、阶段三 HPA* 与局部 Flow Field、阶段四 Squad 开阔地移动验收完成；完整 Server Simulation 与 Normalized Legacy 的横向性能对照仍需继续采集
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成，但阶段五正式场景退出条件尚未完成；阶段六、阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
 > 每个阶段必须满足退出条件后才能进入下一阶段
 
@@ -105,7 +106,7 @@
 
 ### 当前实现
 
-- `NavigationGridPathAlgorithms` 已实现坐标转换、稳定端点投影、Agent Clearance 判断、Region 预拒绝、Octile 启发、二叉 Heap A*、Bresenham 直线检查和代价保持平滑
+- `NavigationGridQuery`、`NavigationGridTraversal`、`NavigationGridCost`、`NavigationGridPathfinder`、`NavigationAStarOpenSet` 和 `NavigationPathSmoothing` 已分别实现坐标转换、稳定端点投影、Agent Clearance、Region 预拒绝、Octile 启发、二叉 Heap A*、离散直线检查和代价保持平滑
 - A* 的固定邻接顺序和 Open Set 排序键保证相同输入得到相同路径；相同 G Cost 时使用更小 Parent Cell Index 稳定父节点
 - 对角移动同时校验烘焙邻接、目标 Cell 和两个正交侧边的当前 Agent Clearance
 - `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 已定义 Pending、Searching、Succeeded、Failed、Cancelled 生命周期以及稳定失败原因
@@ -149,9 +150,9 @@
 
 - Bake Asset 与 Blob 数据版本已升级到 v3，保存 Cluster、Portal、双端 Portal Node、抽象边和 Cluster 到 Portal Node 的稳定索引
 - `NavigationGridHierarchyBuilder` 在烘焙期生成连续 Portal 区间、最小 Clearance、跨 Portal 成本和 Cluster 内静态成本
-- `NavigationGridFlowFieldAlgorithms` 执行端点投影、HPA* Corridor、Corridor 内 Integration Cost 和下降方向生成；失败请求会回滚本次输出切片
+- `NavigationGridCorridorSolver`、`NavigationIntegrationFieldSolver`、`NavigationFlowFieldSolver` 和 `NavigationFlowFieldCache` 分别执行 HPA Corridor、Corridor 内 Integration Cost、下降方向生成和缓存换代；失败请求会回滚本次输出切片
 - `NavigationGridFlowFieldJob` 与 `ServerNavigationGridFlowFieldSystem` 异步处理请求，每批最多 16 个，主线程只在 Job 已完成后写回结果
-- Field 缓存以 Grid Data Hash、目标 Cell、体型 Clearance、代价参数和 Corridor Hash 为边界，并通过 Cache Version 暴露复用结果
+- Field 缓存以 Grid Data Hash、目标 Cell、体型 Clearance、代价参数、Corridor Hash 和相关 Cluster 版本为边界，并通过 Cache Version 暴露复用结果
 - 统一 Benchmark 场景加载器按 `-movement-backend=grid` 注册 32、64 或 128 个纯路径请求；场景没有烘焙 Grid 时，由 `ServerNavigationGridBenchmarkGridSystem` 提供覆盖固定回放坐标的 Benchmark 专用静态 Grid
 - Benchmark 专用 Grid 只衡量路径、Corridor 与 Field 工作负载，不代表正式地图碰撞数据，也不创建或写入 Ani Transform
 - `NavigationGridStageThreeValidation` 覆盖层级数据确定性、普通 A* 可达性对照、25% 路径质量上限、Portal Clearance、局部 Field、缓存、World 过滤、异步写回和三种请求规模
@@ -228,8 +229,10 @@
 - `ServerAniCommandIngressSystem` 将正式 `AniCommandRpc` 的权限校验结果写入统一 `AniSquadCommand`；Benchmark 回放由 `ServerNavigationGridMovementBenchmarkSystem` 直接写入同一契约，不绕过 Squad 生命周期。
 - `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 维护一条指令对应一个 Squad 路径上下文，并处理成员加入、离队、失效和拆队。
 - `AniSquadAnchorAdvanceSystem`、`AniFormationLayoutSystem`、`AniFormationAssignmentSystem`、`AniSlotTargetSystem`、`AniPreferredVelocitySystem`、`AniMovementCommitSystem` 和 `AniMovementProgressSystem` 已形成固定的服务器更新链路。基础 Commit 是 Grid 后端唯一 Ani `LocalTransform` 写入者。
-- `NavigationGridStageFourValidation.RunFromCommandLine` 已覆盖 32、64、128 Ani 的槽位唯一/中心对称、World 过滤、System 顺序、成员生命周期和开阔地 MoveTo 到达；2026-08-07 验收通过。
+- `NavigationGridStageFourValidation.RunFromCommandLine` 已覆盖 32、64、128 Ani 的槽位唯一/中心对称、World 过滤、System 顺序、成员生命周期、开阔地 MoveTo 到达和终态稳定性；2026-08-21 R6 最终回归通过
 - 阶段四 Benchmark 结果写入 `BenchmarkResults/GridNavigation`，记录 Squad 数、路径请求终态、缓存命中、到达率、最小单位间距、阵型误差、Transform 提交次数和完整 Server Tick 样本。阶段四验收不包含 ORCA、动态 Overlay、世界碰撞或受阻恢复。
+
+R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` Tick。32、64、128 Ani 双轮分别在 1015、1041、1077 Tick 首次进入终态，六轮均为 4/4 路径成功并全员到达，主线程 Alloc P95 均为 0 B。
 
 阶段四只建立可验证的最小完整移动链路，正确性范围限定为开阔地和静态 Grid 引导。局部避碰、硬世界碰撞、受阻恢复和拥挤场景门禁属于阶段六；阶段六扩展现有 Commit 输入，不得创建第二个 Transform 写入 System。
 

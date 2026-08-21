@@ -238,7 +238,7 @@ Player 使用 `AnimarsCatcher.Player` Runtime asmdef，Player Input Editor 使�
 9. 跨程序集公共契约放在稳定领域或 `.Contracts` 命名空间，具体 System、Window、Controller 和调试工具不进入 Contracts。
 10. 调整命名空间前必须检查 Scene、Prefab、ScriptableObject、`SerializeReference`、反射、字符串类型名、SubScene、Ghost 和 Source Generator；需要兼容旧序列化身份时使用明确迁移方案或 `MovedFrom`。
 11. 命名空间迁移按模块独立提交，并保留脚本 `.meta` GUID。禁止同时批量改名、修改玩法行为和创建多个 asmdef。
-12. 存量全局命名空间按程序集迁移计划渐进处理，不因为一次功能修改顺手迁移无关模块。现有例外记录在 `Tools/GlobalNamespaceBaseline.txt`，该基线只允许删除条目，不允许登记新脚本。
+12. 当前业务脚本的全局命名空间存量为 0，`Tools/GlobalNamespaceBaseline.txt` 只保留说明行。禁止向该基线登记新脚本；发现全局命名空间业务类型时必须在当前变更中归入正确命名空间。
 
 推荐示例：
 

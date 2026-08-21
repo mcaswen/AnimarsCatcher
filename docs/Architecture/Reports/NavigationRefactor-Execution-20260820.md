@@ -1,5 +1,7 @@
 # Navigation 重构执行报告（2026-08-20）
 
+[返回 Navigation 执行文档](../15_NavigationArchitectureRefactorExecutionPlan.md)
+
 ## 结论
 
 R1-R6 已全部完成。R1-R5 的职责拆分、目录迁移和程序集边界保持不变；R6 完成了算法清单复审、Squad 收敛修复、Flow/HPA/Cache 修复、固定窗口诊断协议以及最终回归。最终 Stage 1-5 全部通过，Stage3 Path/Field 两轮确定性字段一致，Stage4 Squad 在 32、64、128 三档双轮均全员到达。

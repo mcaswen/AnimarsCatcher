@@ -2,13 +2,13 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段七实现完成，Unity 总验收待许可证连接恢复，实施结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)
+> 状态：阶段零至阶段七实现完成；当前 331 个脚本、15 个 asmdef、0 个 asmref 的归属审计通过，实施结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)
 >
-> 第一批试点模块当前位于：`Assets/Scripts/Navigation/Grid`
+> 第一批试点模块当前位于：`Assets/Scripts/Navigation`
 >
 > 本计划只处理程序集边界和必要的前置迁移，不改变玩法行为
 
-阶段零至阶段七的审计基线、边界决策、序列化处理和验收结果统一见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+阶段零至阶段七的审计基线、边界决策、序列化处理和验收结果统一见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 ## 1. 目标
 
@@ -30,13 +30,13 @@
 
 当前仓库已经达到以下状态：
 
-- `Assets/Scripts` 有 272 个手写脚本、13 个项目 `.asmdef` 和 9 个项目 `.asmref`
+- `Assets/Scripts` 有 331 个 C# 文件、15 个项目 `.asmdef` 和 0 个项目 `.asmref`
 - 全部脚本具有明确命名空间和程序集归属，全局命名空间脚本为 0
 - 项目业务脚本不再编译到预定义 `Assembly-CSharp`
-- Navigation、Networking 和 Player 均具有独立 Editor-only 程序集
+- Navigation、Networking 和 Player 均具有独立 Editor-only 程序集，Navigation 还拆出独立 Validation 与 Benchmark 程序集
 - Physics 与 Terrain Authoring 统一进入 `AnimarsCatcher.Physics.Authoring`
 - 全部项目 asmdef 关闭 `Auto Referenced`
-- 现有 asmref 均用于长期多目录归属，不是迁移期循环依赖补丁
+- 项目 asmref 已全部移除，目录归属由各模块根目录的 asmdef 直接覆盖
 - 直接双向依赖、边界违规和迁移审计 Warning 均为 0
 
 最终程序集清单、实际依赖图和外部 Sample 边界见阶段七实施文档。
@@ -113,7 +113,9 @@ AnimarsCatcher.Navigation.Editor
 AnimarsCatcher.Navigation.Tests
 ```
 
-第一轮不直接拆成四个程序集，因为当前 `NavigationGridBaker` 会在 Editor 下调用 `NavigationGridBakeUtility`。必须先消除 Runtime 或 Authoring 对 Editor 实现的反向依赖。
+迁移规划时没有直接拆成四个程序集，因为当时 `NavigationGridBaker` 会在 Editor 下调用 `NavigationGridBakeUtility`。必须先消除 Runtime 或 Authoring 对 Editor 实现的反向依赖。
+
+当前最终边界没有照搬上述候选名称，而是形成四个程序集：`AnimarsCatcher.Navigation` 承载 Runtime、Authoring 和 Baker，`AnimarsCatcher.Navigation.Editor` 承载编辑器工具，`AnimarsCatcher.Navigation.Validation` 承载自动夹具，`AnimarsCatcher.Navigation.Benchmark` 承载 Grid 工作负载。这个结果以实际生命周期和依赖方向为准。
 
 ### 4.4 Gameplay 相关程序集
 
@@ -293,7 +295,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段二：提取 Core 与 Contracts
 
-状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -310,7 +312,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段三：Gameplay 迁移
 
-状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -327,7 +329,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段四：Player 与 Networking 迁移
 
-状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -344,7 +346,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段五：Presentation 迁移
 
-状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -359,7 +361,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段六：Legacy Benchmark 隔离
 
-状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 工作内容：
 
@@ -374,7 +376,7 @@ AnimarsCatcher.Navigation
 
 ### 阶段七：收紧依赖
 
-状态：实现完成，Unity 总验收待许可证连接恢复，实施范围和当前验证结果见 [程序集迁移实施与最终收紧](19_AssemblyMigrationPhaseSevenFinalTightening.md)。
+状态：已完成，实施范围和当前验证结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)。
 
 所有业务脚本离开 `Assembly-CSharp` 后：
 
@@ -388,8 +390,8 @@ AnimarsCatcher.Navigation
 
 - 剩余 Editor、Physics 和 Terrain 脚本已完成迁移
 - Navigation 与 Networking 的 Runtime/Editor 混编已拆分
-- 13 个项目 asmdef 已关闭 `Auto Referenced`
-- 9 个 asmref 经复核后作为长期物理目录聚合保留
+- 15 个项目 asmdef 已关闭 `Auto Referenced`
+- 迁移期 asmref 已全部移除，当前数量为 0
 - Presentation 未使用的 Transport 直接引用已删除
 - 最终程序集依赖图和总验收入口已经加入项目
 
@@ -464,4 +466,4 @@ Navigation 阶段额外要求：
 -> Runtime Editor Tests 最终拆分和依赖收紧
 ```
 
-程序集迁移阶段零至阶段七已经完成实现。恢复 Unity 许可证连接后需补跑阶段七总入口、Client 和 Dedicated Server 构建；后续结构工作转向独立 Tests 程序集和持续构建门禁，不再以继续细拆业务程序集为目标。
+程序集迁移阶段零至阶段七已经完成实现。当前静态审计和 15 个实际项目 `.csproj` 编译通过；旧 Stage Seven Unity 总入口需先登记新增的 Navigation Benchmark 与 Validation 程序集，再补跑该入口、Client 和 Dedicated Server 构建。后续结构工作转向独立 Tests 程序集和持续构建门禁，不再以继续细拆业务程序集为目标。

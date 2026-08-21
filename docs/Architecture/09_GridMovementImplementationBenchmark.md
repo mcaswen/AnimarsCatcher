@@ -4,8 +4,9 @@
 
 - [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
+- [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 
-> 状态：阶段零 Harness、后端互斥和固定场景已实现，Grid 阶段三路径/Field 工作负载与阶段四 Squad 开阔地移动验收已实现；Normalized Legacy 实机基线和完整 Server Tick 对照仍待持续采集
+> 状态：阶段零 Harness、后端互斥和固定场景已实现；R6 后 Stage3 Path/Field 确定性复测通过，Stage4 Squad 在 32、64、128 三档双轮均全员到达；Normalized Legacy 实机基线和完整 Server Tick 横向对照仍待持续采集
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -166,6 +167,16 @@ Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movemen
 | 128 | 0.0865 ms | 0.1603 ms | 1.2329 ms | 1.3509 ms |
 
 该采样只包围 `ServerNavigationGridFlowFieldSystem` 的主线程调度与结果写回，不包含 Worker Job 执行时间。64 和 128 Ani 日志仍出现 NetCode `Server Tick Batching`，因此这些结果可以证明寻路系统工作负载已完成，但不能单独证明完整 Server Simulation 满足最终性能门禁。
+
+2026-08-21 的 R6 最终复测使用固定 `1440` Tick 终止窗口。Stage3 两轮均完成 160 个请求、成功 160、失败 0、缓存命中 140、构建 20，除墙钟耗时与时间戳外，确定性字段一致。Stage4 最终结果如下：
+
+| Ani 数量 | 两轮首次终态 Tick | 两轮到达 | 两轮 Transform 写入 | P95 范围 | 主线程 Alloc P95 |
+|---:|---:|---:|---:|---:|---:|
+| 32 | 1015 | 32/32 | 24960 | 0.9324～1.0238 ms | 0 B |
+| 64 | 1041 | 64/64 | 49920 | 1.0335～1.5208 ms | 0 B |
+| 128 | 1077 | 128/128 | 99840 | 1.1527～1.3575 ms | 0 B |
+
+这组结果证明当前开阔地 Squad 链路能够在固定输入下稳定完成，不等于阶段六拥挤避碰、世界碰撞或最终 Legacy 横向性能门禁已经通过。完整结果、Hash 和 R6 修复结论见 [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)。
 
 ## 6. 结果管理
 

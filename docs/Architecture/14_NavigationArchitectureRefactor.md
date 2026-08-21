@@ -1,8 +1,10 @@
 # AnimarsCatcher Navigation 模块架构重构方案
 
-> 状态：R1-R5 已落地，R6 复审待执行
+> 状态：R1～R6 已完成，Stage 1～5、结构门禁、算法夹具和 32/64/128 双轮基准验收通过
 > 范围：`Assets/Scripts/Navigation` 当前 57 个 C# 文件
-> 目标：在不改变现有导航行为、Burst/DOTS 数据布局和性能策略的前提下，降低认知复杂度，明确算法职责和依赖方向。
+> 目标：R1～R5 在不改变导航行为、Burst/DOTS 数据布局和性能策略的前提下完成职责拆分；R6 在独立复现后修正算法和终态收敛问题
+
+[返回架构总览](README.md)
 
 执行结果与验证证据见 [Navigation 重构执行报告（2026-08-20）](Reports/NavigationRefactor-Execution-20260820.md)。
 
@@ -10,7 +12,7 @@
 
 ## 1. 重构目标
 
-当前 Navigation 模块已经具备完整的静态 Grid 烘焙、A*、HPA Corridor、Flow Field、动态 Overlay、Squad 阵型移动以及 Benchmark/Validation 能力。问题主要不是“缺少功能”，而是部分职责边界被压平：
+R0 时 Navigation 模块已经具备静态 Grid 烘焙、A*、HPA Corridor、Flow Field、动态 Overlay、Squad 阵型移动以及 Benchmark/Validation 能力。当时的问题主要不是“缺少功能”，而是部分职责边界被压平：
 
 - `NavigationGridPathAlgorithms` 同时承担 A*、坐标查询、端点投影、通行规则和成本模型；
 - `NavigationGridFlowFieldAlgorithms` 同时承担 HPA Corridor、局部 Dijkstra、Integration Field、Flow Direction 和缓存；
@@ -718,7 +720,7 @@ System
 
 ---
 
-## 6. 现有 43 个文件迁移表
+## 6. R0 的 43 个文件迁移表
 
 | 当前文件 | 最终位置 / 处理 |
 |---|---|
@@ -1016,7 +1018,7 @@ Squad 公共 Grid 查询不再引用 NavigationGridPathAlgorithms
 
 只有结构重构全部通过原有验收后，才处理算法问题。
 
-当前已知需要单独评估的事项包括：
+R6 开始时登记的复审输入包括：
 
 - 动态 Overlay 使静态 HPA Corridor 失效时，目前可能直接 `NoPath`，是否需要重新选择 Corridor；
 - 动态 `ExtraCost` 对宏观 Corridor 选择的影响；
@@ -1027,7 +1029,7 @@ Squad 公共 Grid 查询不再引用 NavigationGridPathAlgorithms
 - Flow Field cache 命中后的 Field copy / start-cost 线性查询；
 - Cache eviction 策略。
 
-这些问题不得混入 R1–R5 的结构重构 diff。
+这些问题没有混入 R1～R5 的结构重构 diff。R6 最终修正了动态 Corridor、Extra Cost、Flow Direction、Bellman 后继、缓存换代和 Squad 终态收敛；Hierarchy、Smoothing 与线性缓存操作在复审后保留现有实现和边界。逐项证据见 [Navigation 重构执行报告](Reports/NavigationRefactor-Execution-20260820.md)。
 
 ---
 
@@ -1065,7 +1067,7 @@ Namespace migration 应单独 commit。
 
 ## 12. 非目标（Non-goals）
 
-本轮架构重构明确不做：
+R1～R5 的结构重构明确不做以下事项。R6 只处理已经独立复现并登记的算法与性能问题，因此不受“R1～R5 不改算法”的阶段限制：
 
 - 不把 DOD 代码改成 class/object graph；
 - 不移除 Burst；
@@ -1106,7 +1108,7 @@ Namespace migration 应单独 commit。
 ### Runtime
 
 - [x] Burst-compatible；
-- [ ] 无新增 GC allocation；
+- [x] 无新增 GC allocation；
 - [x] Native 容器所有权仍由 Job/System 管理；
 - [x] Generation reuse 保留；
 - [x] Indexed Heap 保留；
@@ -1118,8 +1120,8 @@ Namespace migration 应单独 commit。
 - [x] Stage 1–5 validation 全通过；
 - [x] 原有 A* fixture 输出保持一致；
 - [x] 原有 Corridor / Field fixture 输出保持一致；
-- [ ] Benchmark 指标无非预期退化；
-- [ ] deterministic tie-breaking 保持一致。
+- [x] Benchmark 指标无非预期退化；
+- [x] deterministic tie-breaking 保持一致。
 
 ### 可读性
 

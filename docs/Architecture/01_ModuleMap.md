@@ -6,7 +6,7 @@
 
 ## 1. 代码模块
 
-项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。13 个项目程序集分别承载 Runtime、Editor、Authoring 和 Benchmark 生命周期，项目业务脚本不再位于 `Assembly-CSharp`。
+项目可以从职责上分为底层契约、网络与玩家、核心玩法、表现与桥接、烘焙与编辑器工具五组。15 个项目程序集分别承载 Runtime、Editor、Authoring、Validation 和 Benchmark 生命周期，项目业务脚本不再位于 `Assembly-CSharp`。
 
 ### 1.1 底层契约
 
@@ -26,8 +26,8 @@
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
 - **`Gameplay/Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System 及战斗。它直接位于 `AnimarsCatcher.Gameplay` asmdef 覆盖目录内，不再依赖 asmref
-- **`Navigation/Grid`**：编译为独立的 `AnimarsCatcher.Navigation`，已实现编辑器 Physics 烘焙、静态 Cell 数据、运行时 Blob、端点投影和普通 A* 异步路径服务，但尚未接收正式移动命令或写入 Ani Transform
-- **`Benchmarks/LegacyNavMesh`**：保存当前仍在运行的旧移动基线，包括旧 Movement FSM、固定阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。它用于与规划中的 Clearance Grid 后端进行相同输入下的性能对比，不继续承载新玩法
+- **`Navigation/Grid` 与 `Navigation/Squad`**：共同编译为 `AnimarsCatcher.Navigation`。Grid 负责静态烘焙、运行时查询、动态 Overlay、普通 A*、HPA Corridor 和局部 Flow Field；Squad 负责命令上下文、Anchor、矩形或纵队布局、槽位分配、自适应列数、期望速度和唯一权威 Transform 提交
+- **`Benchmarks/LegacyNavMesh`**：保存当前仍可运行的旧移动基线，包括旧 Movement FSM、固定矩形阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。未指定后端参数时项目仍选择 Legacy；该目录只用于现有玩法兼容和受控性能对比，不继续承载新能力
 - **`Gameplay/Resource`**：按 `Global`、`Player`、`Collection` 和 `Spawn` 划分，处理资源刷新、脆弱资源、搬运分配、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示；依赖旧 NavMesh 的搬运 Setup 和 Move 实现位于 Legacy Benchmark
 - **`Gameplay/Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
 - **`Gameplay/Base`**：保存基地配置，负责基地出生、大小标签和 AABB 数据。它主要在服务器运行，并与 Camp、Health 和 Global 配合
@@ -47,11 +47,13 @@
 
 - **`Physics` 与 `Physics/Terrain`**：共同编译进 `AnimarsCatcher.Physics.Authoring`，提供通用胶囊体数据和 Terrain Collider 烘焙
 - **`Editor`**：编译进 `AnimarsCatcher.Editor`，提供资源修复工具和程序集迁移总验收入口，只在 Unity Editor 中运行
-- **`Navigation/Grid/Algorithms`**：保存与 Scene 和 World 解耦的烘焙算法、端点投影、确定性 A*、离散直线检查和代价保持平滑
-- **`Navigation/Grid/Components`**：定义只读 Grid Blob、路径请求、生命周期状态和路径点 Buffer
-- **`Navigation/Grid/Jobs`**：在 Burst Job 中顺序处理一个路径批次并复用整张 Grid 的 Scratch 内存
-- **`Navigation/Grid/Systems`**：只在 Server 或 Local World 收集请求、异步调度 Job，并在后续 Tick 写回已完成结果
-- **`Navigation/Grid/Editor`**：编译进 `AnimarsCatcher.Navigation.Editor`，提供 Grid Physics 采样、Hash、批量 Scene 覆盖层、数据检查、构建校验和阶段一、阶段二自动验收
+- **`Navigation/Grid/Static`**：保存 Authoring、Bake Asset、Blob、方向表、Physics 烘焙和欧氏距离变换，描述不会随运行时请求变化的导航世界
+- **`Navigation/Grid/Runtime` 与 `Grid/Overlay`**：提供坐标查询、通行规则、成本模型、路径请求契约，以及动态阻挡、额外成本、Clearance 修正和局部版本失效
+- **`Navigation/Grid/Pathfinding`、`Grid/Hierarchical` 与 `Grid/FlowField`**：分别负责单体完整路径、HPA Corridor 和 Corridor 内的 Integration/Flow Field；Job 负责 Burst 调度，System 负责请求生命周期与异步写回
+- **`Navigation/Squad`**：负责 Squad 生命周期、目标解析、Anchor 推进、自适应矩形阵型、确定性槽位分配、期望速度、权威位移和到达判定
+- **`Navigation/Tooling/Editor`**：编译进 `AnimarsCatcher.Navigation.Editor`，提供 Grid Physics 采样、Hash、可视化、Inspector 和构建校验
+- **`Navigation/Tooling/Validation`**：编译进 `AnimarsCatcher.Navigation.Validation`，提供 Stage 1～5 和 R6 回归夹具
+- **`Navigation/Tooling/Benchmark`**：编译进 `AnimarsCatcher.Navigation.Benchmark`，提供 Path/Field 与 Squad 工作负载、固定 Tick 采样和结果导出
 - **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
 - **`Player/Input/Editor`**：使用独立 Editor-only asmdef 检查 Input System 配置
 - **`Netcode/Editor`**：使用 `AnimarsCatcher.Networking.Editor` 读取 Multiplayer PlayMode 配置，并通过纯数据桥传给 Networking Runtime
@@ -74,6 +76,8 @@ flowchart TD
     Core[Core]
     Contracts[Gameplay Contracts]
     NavEditor[Navigation Editor]
+    NavValidation[Navigation Validation]
+    NavBenchmark[Navigation Benchmark]
     NetEditor[Networking Editor]
     PlayerEditor[Player Editor]
 
@@ -85,13 +89,28 @@ flowchart TD
     Networking --> Gameplay
     Networking --> Contracts
     Player --> Gameplay
+    Player --> Core
     Gameplay --> Core
     Gameplay --> Contracts
+    Navigation --> Core
+    Navigation --> Contracts
     Legacy --> Player
     Legacy --> Gameplay
     Legacy --> Core
     Legacy --> Contracts
+    Legacy --> Navigation
+    Legacy --> NavBenchmark
     NavEditor --> Navigation
+    NavEditor --> Gameplay
+    NavEditor --> Contracts
+    NavValidation --> Navigation
+    NavValidation --> NavEditor
+    NavValidation --> NavBenchmark
+    NavValidation --> Gameplay
+    NavValidation --> Contracts
+    NavBenchmark --> Navigation
+    NavBenchmark --> Core
+    NavBenchmark --> Contracts
     NetEditor --> Networking
     PlayerEditor --> Player
 ```
@@ -126,7 +145,7 @@ Network Entity Prefab 通过 `EntityViewAuthoring` 和 `HealthBarViewAuthoring` 
 
 - 修改连接、开局或角色出生时，先查看 `Netcode/Connection` 和 `Netcode/InGame`
 - 修改玩家手感或预测时，先查看 `Player/Input`、`Player/Movement` 和 `Player/Hero/Control`
-- 修改 Ani 指令和状态时，先查看 `Gameplay/Anis/Perception` 和 `Gameplay/Anis/FSM`；分析当前旧移动结果时查看 `Benchmarks/LegacyNavMesh`；修改新 Grid 烘焙基础时查看 `Navigation/Grid`，新移动能力不得继续写入 Legacy 目录
+- 修改 Ani 指令和状态时，先查看 `Gameplay/Anis/Perception` 和 `Gameplay/Anis/FSM`；修改 Grid 路径或动态地图时查看 `Navigation/Grid`；修改阵型与位移时查看 `Navigation/Squad`；分析旧后端结果时查看 `Benchmarks/LegacyNavMesh`，新移动能力不得继续写入 Legacy 目录
 - 修改攻击和伤害时，先查看 `Gameplay/Anis/Combat` 和 `Gameplay/Health`
 - 修改采集和资源经济时，先查看 `Gameplay/Resource` 和 `Gameplay/Anis/Spawn`
 - 修改 HUD、选择表现或 Hybrid View 时，先查看 `Presentation/UI`、`Presentation/Selection`、`Presentation/Health`、`Presentation/Player` 和 `Presentation/Anis`

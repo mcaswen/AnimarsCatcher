@@ -49,9 +49,9 @@ Host 侧的主入口是 `HostRoomPanelController`。它依次启动服务器监�
 
 ## 4. Ani 指令、FSM 和移动
 
-Ani 的服务端移动链路由“接收命令、解释状态、规划路径、生成移动意图、执行位移”五个阶段组成。
+Ani 的服务端移动链路由“接收命令、解析目标、规划路径、生成移动意图、执行位移”五个阶段组成，具体实现由互斥的 Grid 或 Legacy 后端决定。
 
-`ServerReceiveAniCommandRpcSystem` 是入口。它根据 `SourceConnection` 检查所选 Ani 是否属于发送者，然后把目标和命令模式写入 `FsmVar` Blackboard。
+Grid 入口是 `ServerAniCommandIngressSystem`。它根据 `SourceConnection` 和 `GhostOwner` 验证成员所有权，检查目标 Entity 与坐标，再生成统一的 `AniSquadCommand`。Legacy 入口是 `ServerReceiveAniCommandRpcSystem`，它完成旧链路的权限检查后把目标和命令模式写入 `FsmVar` Blackboard。
 
 FSM 本身分成三个步骤：
 
@@ -73,28 +73,34 @@ FSM 和阵型数据最终汇入移动规划：
 
 修改某个阶段时，应先确认上游写入的数据和下游读取时机，不要只在单个 System 内补临时状态。
 
-新的 Grid 后端目前完成阶段一烘焙基础、阶段二普通 A* 路径服务和阶段三 HPA* 与局部 Flow Field，还没有接收正式移动命令或写入 Ani Transform。关键类型如下：
+Grid 后端已完成 Stage 1～5 自动验收，并在 Navigation R6 中通过算法复审和 32、64、128 Ani 双轮固定窗口基准。关键类型如下：
 
 - `NavigationGridAuthoring` 配置世界 Bounds、Cell Size、地面与障碍 Layer、坡度、台阶和基准 Agent 尺寸
-- `NavigationGridBakeUtility` 在编辑器中同步 Physics 后采样中心地面、基础 Agent 环形支撑和静态占用，再生成邻接、Clearance、Region 和三个稳定 Hash
+- `NavigationGridBakeUtility` 在编辑器中同步 Physics 后采样中心地面、基础 Agent 环形支撑和静态占用，再生成邻接、Clearance、Region 和稳定 Hash
 - `NavigationGridBakeAsset` 保存可在 Inspector 中检查的 Cell 数据，并作为场景与运行时 Blob 之间的版本边界
 - `NavigationGridBaker` 先复用完整新鲜度校验，再把可用资产转换为共享的 `NavigationGridBlob` 和 `NavigationGridReference`
 - `NavigationGridAuthoringEditor` 与 `NavigationGridInspectorWindow` 提供烘焙、过期校验、颜色图例和单 Cell 检查
 - `NavigationGridVisualizationRenderer` 把烘焙高度上的 Cell 合并为缓存 Mesh，支持可行走、Clearance、Region、坡度、地形成本和指定 Agent 可占用性覆盖层
 - `NavigationGridBuildValidator` 在登记了 Grid Authoring 的构建场景中拒绝缺失或过期资产
 - `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 构成路径服务的 ECS 契约。调用方通过递增 `Version` 区分新旧请求，并只消费同版本完成结果
-- `NavigationGridPathAlgorithms` 负责世界坐标转换、稳定端点投影、Region 预拒绝、Octile 启发、确定性 A*、Bresenham 直线检查和代价保持平滑，不访问 EntityManager 或主线程 API
+- `NavigationGridQuery`、`NavigationGridTraversal` 和 `NavigationGridCost` 保存世界坐标转换、端点投影、通行与成本规则，供 A*、HPA、Flow Field 和 Squad 共同使用
+- `NavigationGridPathfinder`、`NavigationAStarOpenSet`、`NavigationAStarScratch` 和 `NavigationPathSmoothing` 分别负责确定性 A*、堆、搜索工作区、路径回溯与平滑，不访问 EntityManager 或主线程 API
 - `NavigationGridPathfindingJob` 在单个 Burst Job 内处理一个稳定排序后的请求批次，多个请求顺序复用 G Cost、Parent、Heap 和 Generation 数组
 - `ServerNavigationGridPathfindingSystem` 只在 Server 或 Local World 运行。主线程负责收集请求和提交已完成结果，搜索期间不调用 `Complete`，下一 Tick 只在 Handle 已完成时写回 Buffer
 - `NavigationGridStageTwoValidation` 使用合成 Grid 验证投影、Region、穿角、Clearance、Terrain Cost、确定性、失败状态和异步 ECS 写回
 - `NavigationGridHierarchyBuilder` 在烘焙期生成 Cluster、Portal、Portal Node 与抽象边，并保存最小 Clearance 和静态成本
-- `NavigationGridFlowFieldAlgorithms` 与 `NavigationGridFlowFieldJob` 生成 HPA* Corridor、局部 Integration Cost、下降方向和可复用 Field 缓存
+- `NavigationGridCorridorSolver` 负责 HPA Corridor，`NavigationIntegrationFieldSolver` 负责局部 Integration Cost，`NavigationFlowFieldSolver` 与 `NavigationFlowFieldCache` 负责方向场编排和缓存生命周期
+- `NavigationGridFlowFieldJob` 异步生成 Corridor、Integration Cost 和离散下降方向，动态 Overlay 版本变化时只失效相关数据
 - `ServerNavigationGridFlowFieldSystem` 在 Server 或 Local World 异步处理阶段三请求，主线程不执行同步搜索
-- `ServerNavigationGridBenchmarkSystem` 复用统一场景参数生成 32、64 或 128 个路径与 Field 请求，不创建或写入 Ani Transform
-- `ServerNavigationGridBenchmarkGridSystem` 只在统一 Benchmark 场景缺少烘焙 Grid 时提供确定性静态工作负载数据，正式场景已有 Grid 时不介入
-- `NavigationGridStageThreeValidation` 对照普通 A* 验证可达性与路径质量，并覆盖 Portal Clearance、局部 Field、缓存、异步系统和三种请求规模
+- `NavigationDynamicOverlaySystem` 消费动态 Cell 差量，维护阻挡计数、额外成本、Clearance 修正与 Cluster 版本
+- `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 把一条合法指令维护为一个 Squad 路径上下文
+- `AniSquadAnchorAdvanceSystem` 推进共享 Anchor，`AniAdaptiveFormationSystem` 根据前方通行宽度动态改变矩形阵型列数
+- `AniFormationLayoutSystem` 生成中心对称的矩形或单列槽位，`AniFormationAssignmentSystem` 使用确定性的最小总代价匹配分配成员
+- `AniPreferredVelocitySystem` 生成受速度和加速度限制的移动意图，`AniMovementCommitSystem` 是 Grid 后端唯一的 Ani `LocalTransform` 写入者，`AniMovementProgressSystem` 负责终态判定
+- `NavigationGridStageOneValidation` 至 `NavigationGridStageFiveValidation` 覆盖烘焙、路径、Flow Field、Squad、自适应阵型和动态 Overlay；R6 额外覆盖动态 Corridor、Bellman 后继、缓存换代和终态稳定性
+- `ServerNavigationGridBenchmarkSystem` 与 `ServerNavigationGridMovementBenchmarkSystem` 分别提供 Path/Field 和 Squad 工作负载，固定窗口结果写入 `BenchmarkResults/GridNavigation`
 
-固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。阶段二和阶段三算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥已经由启动配置与 Guard 保证；路径服务仍是独立基础设施，正式命令消费和唯一 Transform 写入从阶段四开始实现。
+固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥由启动配置与 Guard 保证；未指定参数时仍使用 Legacy，Grid 通过 `-movement-backend=grid` 显式启用。阶段六 ORCA 与世界碰撞、阶段七资源迁移和正式后端切换尚未实现。
 
 ## 5. 战斗和生命值
 
