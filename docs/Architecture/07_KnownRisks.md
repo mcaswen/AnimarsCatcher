@@ -110,7 +110,7 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 Navigation 当前还存在明确的功能边界：
 
 - 阶段五已通过算法和自动夹具，但窄门、连续窄道、动态障碍重新规划及场景性能退出条件仍需正式场景验收
-- 阶段六的空间哈希、ORCA 局部避碰、Capsule Cast/Slide 和受阻恢复尚未实现，现有 Grid 位移只适用于已验收的开阔地与静态引导范围
+- 阶段六已经按万人自由群体移动重新规划，但 MovementOrder/Cohort 拆分、目标区域、共享 Field、空间哈希、ORCA、选择性 Capsule Cast/Slide 和受阻恢复均尚未实现；现有 Grid 位移仍是严格阵型基线，只适用于已验收的开阔地与静态引导范围
 - 阶段七的资源搬运迁移、正式 Prefab/Scene 切换和 Legacy 隔离尚未完成，未指定启动参数时仍使用 Legacy 后端
 - Navigation 目录已经按职责拆分，但 namespace 仍统一使用 `AnimarsCatcher.Navigation.Grid`；是否迁移为分层 namespace 应使用独立提交
 
@@ -123,4 +123,4 @@ Navigation 当前还存在明确的功能边界：
 5. 收敛相机模式和物理实现，删除无效或未接线配置
 6. 建立独立 Tests asmdef，以及关键 EditMode、PlayMode 和 NetCode 自动测试
 7. 更新程序集 Unity 总验收入口，使其覆盖当前 15 个 asmdef
-8. 完成 Navigation 阶段五场景验收，再按阶段六、阶段七依次接入避碰、世界碰撞、资源迁移和正式后端切换
+8. 按 16 号执行计划先完成阶段 6A 规模基础，再完成 6B 避碰与世界碰撞、6C 万人验收，最后进入阶段七的资源迁移和正式后端切换

@@ -100,7 +100,7 @@ Grid 后端已完成 Stage 1～5 自动验收，并在 Navigation R6 中通过�
 - `NavigationGridStageOneValidation` 至 `NavigationGridStageFiveValidation` 覆盖烘焙、路径、Flow Field、Squad、自适应阵型和动态 Overlay；R6 额外覆盖动态 Corridor、Bellman 后继、缓存换代和终态稳定性
 - `ServerNavigationGridBenchmarkSystem` 与 `ServerNavigationGridMovementBenchmarkSystem` 分别提供 Path/Field 和 Squad 工作负载，固定窗口结果写入 `BenchmarkResults/GridNavigation`
 
-固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥由启动配置与 Guard 保证；未指定参数时仍使用 Legacy，Grid 通过 `-movement-backend=grid` 显式启用。阶段六 ORCA 与世界碰撞、阶段七资源迁移和正式后端切换尚未实现。
+固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥由启动配置与 Guard 保证；未指定参数时仍使用 Legacy，Grid 通过 `-movement-backend=grid` 显式启用。阶段六已经重新规划为 Movement Cohort、目标区域、共享 Field、空间哈希、ORCA、选择性世界碰撞和万人验收，但目标类型与 System 尚未实现；阶段七资源迁移和正式后端切换同样尚未实现。
 
 ## 5. 战斗和生命值
 

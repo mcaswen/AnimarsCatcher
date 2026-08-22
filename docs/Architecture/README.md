@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 记录 Grid 移动的目标、基准和功能阶段，11 至 13 记录程序集与目录迁移，14 至 15 记录 Navigation 的现行架构以及 R0～R6 执行过程。Grid 烘焙、普通 A*、HPA Corridor、局部 Flow Field、动态 Overlay、Squad 移动和自适应矩形阵型已经实现；阶段五正式场景验收、阶段六避碰与世界碰撞、阶段七资源迁移与正式后端切换仍是后续工作。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 记录 Grid 移动的目标、基准和功能阶段，11 至 13 记录程序集与目录迁移，14 至 15 记录 Navigation 的现行架构以及 R0～R6 执行过程，16 记录重新规划后的万人群体移动阶段。Grid 烘焙、普通 A*、HPA Corridor、局部 Flow Field、动态 Overlay、Squad 移动和自适应矩形阵型已经实现；阶段六将用 Movement Cohort、目标区域、共享 Field、空间哈希、ORCA 和选择性世界碰撞替代严格阵型作为正式方向，阶段七继续负责资源迁移与正式后端切换。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -19,7 +19,7 @@
 
 仓库中目前有 331 个 `Assets/Scripts` C# 文件，全部进入 15 个项目自定义程序集，项目 asmref 为 0。项目业务代码不再编译到 `Assembly-CSharp`，15 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
 
-当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景实体、Build Profile 和 `ProjectSettings`。
+当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景 Entity、Build Profile 和 `ProjectSettings`。
 
 ## 2. 文档阅读顺序
 
@@ -32,7 +32,7 @@
 5. [核心玩法链路](05_GameplayFlows.md)：查看玩家移动、Ani 选择与移动、战斗、资源和胜负的完整数据流
 6. [关键类与扩展点](06_KeyClasses.md)：需要定位代码或增加功能时，从入口类、桥接类、Aspect 和工具类开始查找
 7. [已知边界与演进方向](07_KnownRisks.md)：修改公共逻辑前，先确认当前的安全、生命周期、性能和结构风险
-8. [RTS 2.5D Grid 导航、自适应阵型与避碰方案](08_AdaptiveFormationNavigationPlan.md)：查看零 NavMesh 的 Grid 烘焙实现，以及路径、阵型、局部避碰和物理移动目标架构
+8. [RTS 2.5D Grid 导航、群体移动与避碰方案](08_AdaptiveFormationNavigationPlan.md)：查看零 NavMesh 的 Grid 烘焙实现，以及共享路径、自由群体移动、局部避碰和物理移动目标架构
 9. [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)：查看 Legacy 基线、后端互斥、命令回放和对比指标
 10. [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)：查看各阶段交付物、退出条件、场景矩阵和最终门禁
 11. [程序集定义迁移前置计划](11_AssemblyDefinitionMigrationPlan.md)：查看 asmdef 创建前的依赖审计、序列化迁移、实施顺序和回滚标准
@@ -40,6 +40,7 @@
 13. [文件夹迁移实施记录](13_FolderMigrationPlan.md)：查看最终目录、阶段提交、关键决策、验收结果和回滚顺序
 14. [Navigation 模块架构重构方案](14_NavigationArchitectureRefactor.md)：查看当前目录、职责、依赖方向、API 边界和后续 namespace 策略
 15. [Navigation 架构重构规划与执行](15_NavigationArchitectureRefactorExecutionPlan.md)：查看 R0～R6 的执行顺序、验证矩阵、回滚边界和最终验收结果
+16. [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)：查看取消严格阵型后的 MovementOrder、MovementCohort、目标区域、共享 Field、ORCA、世界碰撞和 512～10000 扩容门禁
 
 ## 3. 总体运行架构
 
@@ -62,7 +63,7 @@ flowchart LR
     Game --> UI
     UI --> Bridge
     UI --> Client
-    Sub -->|Baker 生成场景实体与 Prefab 引用| Client
+    Sub -->|Baker 生成场景 Entity 与 Prefab 引用| Client
     Sub -->|Baker 生成权威配置与注册表| Server
     Client -->|InputCommand 与请求 RPC| Net
     Net --> Server
@@ -78,7 +79,7 @@ flowchart LR
 
 当前实现遵循以下分工。新增功能应先判断它属于权威规则、玩家输入还是视觉表现，再选择对应的 World 和通信方式。
 
-- **服务器决定结果**：Server World 负责阵营分配、出生、实体生成、Ani 指令结果、伤害、资源和胜负
+- **服务器决定结果**：Server World 负责阵营分配、出生、Entity 生成、Ani 指令结果、伤害、资源和胜负
 - **客户端提供输入与表现**：Client World 负责设备输入、本地预测、框选、射线候选、动画时机和画面表现
 - **通信方式按用途选择**：`InputCommand` 传递逐 Tick 的预测输入，RPC 处理一次性请求，Ghost 持续同步状态
 - **配置先经过烘焙**：Authoring 和 Baker 把 Scene 或 Prefab 中的配置转换为运行时 Entity 数据与 Prefab 注册表

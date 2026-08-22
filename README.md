@@ -99,7 +99,7 @@ flowchart LR
 仍在推进：
 
 - Grid 正式场景的窄门、连续窄道和动态障碍退出验收
-- 空间哈希、ORCA 局部避碰与世界碰撞
+- 万人 Movement Cohort、目标区域、共享 Flow Field 调度、空间哈希、ORCA 局部避碰与世界碰撞
 - 资源搬运迁移、Legacy 最终隔离、Navigation namespace 整理和最终构建门禁
 
 未指定移动后端参数时，项目仍以功能完整的 Legacy NavMesh 作为默认玩法基线；Clearance Grid 需要通过 `-movement-backend=grid` 显式启用
@@ -137,6 +137,7 @@ R6 的 32、64、128 Ani 固定 Tick 双轮测试均全员到达，六轮主线�
 - [模块与资产地图](docs/Architecture/01_ModuleMap.md)
 - [Grid 移动阶段与验收标准](docs/Architecture/10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](docs/Architecture/15_NavigationArchitectureRefactorExecutionPlan.md)
+- [Navigation 阶段六万人群体移动执行计划](docs/Architecture/16_LargeScaleNavigationStageSixPlan.md)
 - [开发规范](docs/Standards/DevelopmentGuidelines.md)
 
 ## License

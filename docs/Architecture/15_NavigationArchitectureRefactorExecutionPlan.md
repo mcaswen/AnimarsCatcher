@@ -477,8 +477,9 @@ Squad 在哪里？       → Squad
 
 R1-R6 已结束。下一步若继续 Navigation 工作，应从独立范围开始：
 
-1. namespace migration 使用独立提交，不改写 R1-R6 的结构与算法证据
-2. 只有长路径 Smoothing 或超大 Field cache-copy 的 P95 实测越界时，才引入窗口或索引结构
-3. 新增动态 Overlay 场景时复用 Stage3 的 Corridor 重选夹具，并保留 32/64/128 固定窗口回归
+1. Grid 功能阶段六按 [万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md) 独立实施，不把 MovementOrder、Cohort、共享 Field、ORCA 或万人 Benchmark 回写成 R1～R6 已完成内容
+2. namespace migration 使用独立提交，不改写 R1-R6 的结构与算法证据
+3. 长路径 Smoothing 或超大 Field 的数据结构优化进入 Stage 6A Field Store 与调度器提交，并以 P95、内存预算和独立复现为依据
+4. 新增动态 Overlay 场景时复用 Stage3 的 Corridor 重选夹具，并保留 32/64/128 固定窗口回归
 
 R6 没有把未复现问题、到达阈值放宽或 namespace migration 混入既有结构提交。

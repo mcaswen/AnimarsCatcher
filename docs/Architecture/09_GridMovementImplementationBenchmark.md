@@ -2,11 +2,12 @@
 
 [返回架构总览](README.md)
 
-- [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
+- [目标架构：RTS 2.5D Grid 导航、群体移动与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
+- [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零 Harness、后端互斥和固定场景已实现；R6 后 Stage3 Path/Field 确定性复测通过，Stage4 Squad 在 32、64、128 三档双轮均全员到达；Normalized Legacy 实机基线和完整 Server Tick 横向对照仍待持续采集
+> 状态：阶段零 Harness、后端互斥和固定场景已实现；R6 后 Stage3 Path/Field 确定性复测通过，Stage4 Squad 在 32、64、128 三档双轮均全员到达；阶段六已经按 512～10000 Ani 重新规划但尚未实现对应 Harness；Normalized Legacy 实机基线和完整 Server Tick 横向对照仍待持续采集
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 
@@ -121,10 +122,10 @@ Benchmark 运行期间资源搬运、资源刷新和网络连接探针主动让�
 - P50、P95 和 P99
 - GC Alloc
 - 路径和 Flow Field 重建次数
-- 路径、阵型、避碰和碰撞各阶段耗时
+- 路径、Cohort 拆分、目标区域、避碰和碰撞各阶段耗时
 - 到达率和到达时间
 - 最小单位间距
-- 阵型平均误差
+- 当前严格阵型基线的平均误差，以及自由群体方案的目标区域占用率
 - 死锁、穿透和受阻重规划次数
 - Ghost 快照带宽
 
@@ -178,7 +179,34 @@ Unity.exe -batchmode -projectPath <项目目录> -benchmark-server-only -movemen
 
 这组结果证明当前开阔地 Squad 链路能够在固定输入下稳定完成，不等于阶段六拥挤避碰、世界碰撞或最终 Legacy 横向性能门禁已经通过。完整结果、Hash 和 R6 修复结论见 [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)。
 
-## 6. 结果管理
+## 6. 第六阶段扩容工作负载
+
+阶段六沿用现有固定场景、命令 Hash、Grid Hash 和结果导出规则，但不能把 128 Ani Harness 直接放大后当作万人证据。新增工作负载与入口必须遵循 [阶段六执行计划](16_LargeScaleNavigationStageSixPlan.md)，并至少支持 512、1000、2500、5000 和 10000 Ani。
+
+工作负载分为四层：
+
+1. `StrictFormationBaseline`：只保留 32、64、128 当前严格阵型结果，用于替代链路回归
+2. `FreeCohortMovement`：验证 MovementOrder、Cohort 拆分、目标区域、共享 Field 和并行移动，不启用 ORCA 与世界碰撞
+3. `Avoidance`：加入空间哈希与 ORCA，覆盖同向、对向、十字交叉、汇流和高密度无解
+4. `Collision`：加入选择性 Collider Cast、Slide、受阻恢复和动态 Overlay
+
+每个规模必须同时记录高复用与低复用输入：
+
+- 高复用：大量 Cohort 共享少量目标和 Field Key，验证共享收益与目标区域容量
+- 低复用：稳定生成多个目标、起始 Cluster 和 Corridor，验证请求队列、缓存预算和淘汰
+
+万人报告至少增加：
+
+- MovementOrder、Cohort、唯一 Field Key 和活动 Field Handle 数
+- Cohort 切分 Hash、目标区域 Hash、Field Key Hash 和最终位置 Hash
+- 请求队列等待 Tick P50/P95/P99、取消、过期和超时
+- Field Store 活动字节、峰值字节、构建、共享命中、失效和淘汰
+- 空间哈希桶分布、邻居数、ORCA 约束数和降级数
+- Collider Cast、Slide、受阻、目标重新分配和 Cohort 重规划次数
+
+导航内核使用 Dedicated Server 或 Null Device 采样。Host、客户端渲染、GameObject View 和 Ghost 快照使用独立工作负载，不能把其中一类结果冒充另一类结果。目标 Server Tick 与各导航阶段的毫秒预算在 Stage 6A.0 基线提交中冻结，之后不得根据单次结果临时放宽。
+
+## 7. 结果管理
 
 每份结果需要记录：
 

@@ -2,13 +2,14 @@
 
 [返回架构总览](README.md)
 
-- [目标架构：RTS 2.5D Grid 导航、自适应阵型与避碰](08_AdaptiveFormationNavigationPlan.md)
+- [目标架构：RTS 2.5D Grid 导航、群体移动与避碰](08_AdaptiveFormationNavigationPlan.md)
 - [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
+- [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成，但阶段五正式场景退出条件尚未完成；阶段六、阶段七及 Normalized Legacy 横向性能对照仍待执行
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六已经按万人自由群体移动重新规划但尚未实施；阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
-> 每个阶段必须满足退出条件后才能进入下一阶段
+> 第六阶段内部按 6A、6B、6C 依次验收；阶段五未完成的动态 Overlay 场景验收并入 6A/6C，已取消的严格阵型正式目标不再阻塞阶段六
 
 ## 1. 实施原则
 
@@ -112,7 +113,7 @@
 - `NavigationPathRequest`、`NavigationPathState` 和 `NavigationPathWaypoint` 已定义 Pending、Searching、Succeeded、Failed、Cancelled 生命周期以及稳定失败原因
 - `NavigationGridPathfindingJob` 在 Burst 后台任务中顺序处理一批请求，并使用 Generation 数组复用 Scratch 内存
 - `ServerNavigationGridPathfindingSystem` 在 Server 或 Local World 每批最多调度 32 个请求，Job 未完成时不会在主线程调用 `Complete`
-- 完成结果按 Entity、请求 `Version` 和状态复核后写回；实体销毁、版本变化或取消不会写入旧路径
+- 完成结果按 Entity、请求 `Version` 和状态复核后写回；Entity 销毁、版本变化或取消不会写入旧路径
 - `NavigationGridStageTwoValidation.RunFromCommandLine` 已验证投影、Region 快速拒绝、穿角、开放区平滑、不同体型 Clearance、Terrain Cost、重复确定性、失败状态和异步 ECS Buffer 写回
 
 阶段二当前只提供通用路径基础设施，不消费 `AniCommandRpc`，不生成速度，也不写入 Ani Transform。Legacy 后端仍是正式场景当前使用的移动实现。
@@ -234,7 +235,7 @@
 
 R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` Tick。32、64、128 Ani 双轮分别在 1015、1041、1077 Tick 首次进入终态，六轮均为 4/4 路径成功并全员到达，主线程 Alloc P95 均为 0 B。
 
-阶段四只建立可验证的最小完整移动链路，正确性范围限定为开阔地和静态 Grid 引导。局部避碰、硬世界碰撞、受阻恢复和拥挤场景门禁属于阶段六；阶段六扩展现有 Commit 输入，不得创建第二个 Transform 写入 System。
+阶段四只建立可验证的最小完整移动链路，正确性范围限定为开阔地和静态 Grid 引导。阶段六会替换 Commit 之前的严格阵型速度输入，并增加局部避碰、硬世界碰撞、受阻恢复和拥挤场景门禁，但不得创建第二个 Transform 写入 System。
 
 ## 7. 阶段五：自适应阵型与动态 Overlay
 
@@ -282,24 +283,49 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 - Unity 菜单：`Tools/Animars Catcher/Navigation/Run Stage Five Validation`
 - Batchmode：`NavigationGridStageFiveValidation.RunFromCommandLine`
 
-自动校验覆盖自适应列数、职责槽位、匹配最优性与确定性、Overlay 引用计数、差量钳制和非有限输入拒绝。2026-08-20 已完成 Unity 编译和该入口验收；窄门、连续窄道、动态障碍重新规划及场景性能退出条件仍需正式场景验收。
+自动校验覆盖自适应列数、职责槽位、匹配最优性与确定性、Overlay 引用计数、差量钳制和非有限输入拒绝。2026-08-20 已完成 Unity 编译和该入口验收。当前严格阵型继续作为 Stage 4～5 历史基线，但第六阶段会用 Cohort 自由移动替代正式 Pipeline；因此窄门缩列和展开不再作为最终发布目标，动态障碍、局部 Corridor 失效和场景性能验收并入 6A/6C。
 
-## 8. 阶段六：空间哈希、ORCA 与世界碰撞
+## 8. 阶段六：万人自由群体移动、ORCA 与世界碰撞
 
-### 交付物
+完整数据模型、System Pipeline、提交顺序和万人门禁见 [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)。本节只保存阶段总表。
+
+### 6A：规模基础
+
+交付物：
+
+- 支持服务器万人选择集版本的 MovementOrder，正式移动命令不再受 RPC FixedList 容量限制
+- 按空间位置、Agent Profile 和 StableId 确定性拆分 MovementCohort，默认 64 Ani、硬上限 128 Ani，最终值由 Benchmark 冻结
+- 用目标区域分散和自然停止替代矩形、纵队、职责槽位与 Hungarian 匹配
+- 全局共享 Flow Field Store、Handle、唯一请求归并、优先级队列、Tick 预算和并行构建
+- 动态 Overlay 只读快照或双缓冲，避免持续 Job 阻塞写入
+- 期望速度、目标吸引、位移准备和成员进度 Job 化
+- 512、1000、2500、5000、10000 Ani Benchmark 入口与报告格式
+
+退出条件：
+
+- 32、64、128 当前结果可以回归，512 Ani 自由移动基础场景全部到达
+- 10000 个选择成员不会截断、重复或丢失，Cohort 不超过配置硬上限
+- 不存在成员乘成员或成员乘落点的 `N²` 成本矩阵
+- Field 构建次数随唯一 Key 增长，缓存命中不向每个 Cohort 复制完整 Field
+- 主线程不执行同步路径搜索或串行处理全部 Ani 速度与位移
+- 10000 Ani 开阔地导航样本每 Tick 零托管 GC，并满足 6A.0 冻结的目标 Tick 预算
+
+### 6B：空间哈希、ORCA、世界碰撞与恢复
+
+交付物：
 
 - Native 空间哈希
-- 稳定邻居排序和最大邻居数
+- 按距离、CohortId 和 StableId 的稳定邻居排序与最大邻居数
 - 二维 ORCA 思路的速度约束求解
 - 侧向偏好、优先级和无解降级
-- Capsule Cast、Skin Width 和 Slide
+- 只对存在穿透风险的单位执行 Capsule Cast、Skin Width 和 Slide
 - `AniWorldCollisionSystem` 输出安全位移，由阶段四已有的唯一 `AniMovementCommitSystem` 提交
-- 受阻、碰撞失败和重新规划状态，并扩展阶段四的基础到达判定
+- 受阻、碰撞失败、目标落点重分配、Cohort 拆分和预算重规划状态
 
-### 验证项
+验证项：
 
 - 两队正面和十字交叉不会持续左右振荡
-- 同队 SlotId 和不同 SquadId 产生稳定让行方向
+- 同一或不同 Cohort 都能由 CohortId、StableId 和相对方向产生稳定让行方向
 - 高密度无解时速度有限且不会出现 NaN
 - Ani 之间不启用硬刚体推挤
 - 正面墙、斜墙和内角不会穿透
@@ -307,12 +333,26 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 - 只有 Commit System 写入权威 Transform
 - ORCA 和世界碰撞接入后仍沿用阶段四建立的 Commit 所有权，不新增旁路 Transform 写入
 
-### 退出条件
+退出条件：
 
 - 多次运行交叉场景没有永久死锁
 - 世界穿透不超过配置 Skin Width
 - ORCA 和 Collider Cast 每 Tick 零托管 GC
-- 128 Ani 场景 P95 不出现不可接受的碰撞查询尖峰
+- 邻居查询复杂度受最大邻居数约束，不回退到全局两两扫描
+- Collider Cast 不对全部 10000 Ani 每 Tick 无条件执行
+- 受阻恢复不会让所有单位在同一 Tick 提交独立路径
+
+### 6C：512～10000 扩容验收
+
+至少覆盖高复用和低复用两类万人负载：前者让大量 Cohort 共享少量目标，后者生成多个目标、起始 Cluster 与 Corridor，验证请求队列和缓存压力。所有规模都记录 Server Tick、Worker、队列等待、Native 内存、Field 构建与共享、邻居、ORCA、碰撞、到达和确定性 Hash。
+
+退出条件：
+
+- 512、1000、2500、5000 和 10000 五档全部完成规定场景
+- 高复用与低复用万人负载都满足 6A.0 冻结的目标 Tick 和内存预算
+- 相同输入多轮运行的 Cohort、目标区域、Field Key、最终状态和位置 Hash 一致
+- Benchmark Runner 对未到达、死锁、超时、NaN、穿透越界和容器泄漏返回非零退出码
+- 阶段六完整报告包含环境、版本、原始样本和复现命令
 
 ## 9. 阶段七：资源迁移与正式切换
 
@@ -345,15 +385,18 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 
 至少覆盖：
 
-- 32、64、128 Ani 开阔地移动
-- 宽区域进入单列窄门后重新展开
+- 32、64、128 Ani 当前基线回归
+- 512、1000、2500、5000、10000 Ani 自由群体移动
+- 高复用同目标与低复用多目标
+- 宽区域进入窄路后的自然汇流与离开后的自由展开
 - 两队正面交叉
 - 两队同时进入十字路口
+- 多 Cohort 同时汇入一个入口
 - Follow 持续移动和转向的玩家
 - 目标移动、消失和不可达
 - 动态建筑阻挡和解除
-- 队伍中途增加成员、成员死亡和拆队
-- Picker、Blaster 与不同半径混合
+- Cohort 中途增加成员、成员死亡、拆分和新命令
+- Picker、Blaster 与不同 Agent Profile 混合
 - 靠墙、角点、狭缝和连续障碍
 - 单体资源搬运
 - Host、Dedicated Server 加两个客户端
@@ -363,22 +406,24 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 ## 11. 最终正确性门禁
 
 - 相同场景和参数重复烘焙得到相同 Hash
-- 相同输入重复运行得到相同 Cell 路径和稳定槽位分配
+- 相同输入重复运行得到相同 Cohort 切分、Cell 路径、目标区域和 Field Key
 - 路径不会穿角或进入 Clearance 不足区域
 - 动态障碍只使相关 Cluster 或 Corridor 失效
-- 队伍在窄门前完成缩列，离开后稳定展开
+- 目标区域容量不足时向外稳定扩展，不让所有单位永久争抢中心点
 - 两队交叉后不会永久死锁
 - 世界穿透不超过 Skin Width
 - 无 NaN、无悬空 Entity、无 NativeContainer 泄漏
-- 资源、战斗和死亡不会留下失效 Squad 成员
+- 资源、战斗和死亡不会留下失效 Cohort 成员或 Field Handle
 
 ## 12. 最终性能门禁
 
 - 运行时路径和移动每 Tick 零托管 GC
 - 主线程不执行同步路径搜索
-- 路径与 Field 重建次数随 Squad 数量增长
+- Field 构建次数随唯一请求 Key 增长，不随 Ani 数增长
+- 不存在随 Ani 总数平方增长的矩阵、邻居列表或 Field 副本
 - 128 Ani 的 Grid P95 Server Tick 优于 Normalized Legacy
 - 32 Ani 的 Grid P95 不出现无法解释的显著回退
+- 10000 Ani 高复用和低复用导航负载满足 Stage 6A.0 冻结的 Tick 与内存预算
 - Collider Cast、ORCA 和 Field 重建没有周期性长尖峰
 - 性能报告包含 P50、P95、P99 和原始采样数据
 
@@ -388,6 +433,8 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 
 - Grid 路径、Flow Field、邻居和 ORCA 约束不进入 Ghost
 - 客户端不创建服务器 Grid 搜索和避碰 System
+- 正式命令通过服务器选择集版本引用万人成员，不因 FixedList 容量截断
+- 选择集的分块、版本、Hash、所有权和完整性全部由服务器复核
 - Dedicated Server 不依赖相机、GPU Compute 或客户端场景对象
 - Ghost 快照带宽不高于等价 Legacy Benchmark Prefab
 - 正式构建不需要 Unity NavMesh 数据

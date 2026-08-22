@@ -98,7 +98,7 @@ Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、`GhostOwne
 7. `AniPreferredVelocitySystem` 生成期望速度，`AniMovementCommitSystem` 作为 Grid 后端唯一写入者提交权威位移
 8. `AniMovementProgressSystem` 判断到达、失败或保持状态
 
-当前 Grid 阵型不是圆形或随机形状。默认是面向移动方向的紧凑矩形，人数不足的最后一排仍保持居中；通道变窄时会减少列数，最窄时退化为单列纵队。阶段六的 ORCA 局部避碰和世界碰撞尚未接入，因此现阶段不应把它描述为完整的拥挤场景移动方案。
+当前 Grid 阵型不是圆形或随机形状。默认是面向移动方向的紧凑矩形，人数不足的最后一排仍保持居中；通道变窄时会减少列数，最窄时退化为单列纵队。它是 Stage 4～5 已实现的当前基线，不是最终万人方案。重新规划后的阶段六会以 Movement Cohort、目标区域分散和 ORCA 自由移动替代严格阵型；这些目标系统尚未接入，因此现阶段不应把 Grid 描述为完整的拥挤场景移动方案。
 
 Legacy 链路保留原有 Blackboard、FSM、阵型、Planner、逐 Ani NavMesh 和物理移动。Blackboard 后面不是一条单线流水线，FSM 与阵型管理分别消费指令产生的状态：
 

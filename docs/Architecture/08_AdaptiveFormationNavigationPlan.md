@@ -1,8 +1,8 @@
-# RTS 2.5D Grid 导航、自适应阵型与避碰重构方案
+# RTS 2.5D Grid 导航、群体移动与避碰重构方案
 
 [返回架构总览](README.md)
 
-> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成，阶段五正式场景退出条件、阶段六与阶段七尚未完成
+> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六已经按万人自由群体移动重新规划但尚未实施，阶段七尚未完成
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -20,27 +20,25 @@
 - Ani 的主要运动发生在地表 XZ 平面
 - 世界最终防穿透仍可以使用 Unity Physics
 
-在这个前提下，使用自有 2.5D Clearance Grid 比继续围绕 Unity NavMesh 扩展更合适。它可以同时提供路径搜索、连通性、地形成本、通道宽度和阵型容量，不需要在运行时调用主线程导航 API。
+在这个前提下，使用自有 2.5D Clearance Grid 比继续围绕 Unity NavMesh 扩展更合适。它可以同时提供路径搜索、连通性、地形成本、通道宽度和群体通行约束，不需要在运行时调用主线程导航 API。
 
 目标链路为：
 
 ```text
 编辑器 Physics 烘焙
 -> NavigationGridBlob
--> 动态障碍 Overlay
--> Squad 起终点投影
+-> 动态障碍 Overlay 快照
+-> MovementOrder 与 MovementCohort
 -> HPA* Cluster Corridor
--> Corridor 内局部 Integration / Flow Field
--> Squad Anchor 推进
--> Clearance 前视与自适应阵型
--> 槽位分配与期望速度
--> 空间哈希与 ORCA
--> Unity Physics Capsule Cast / Slide
--> 服务器提交 Transform
+-> 共享 Integration / Flow Field Handle
+-> 目标区域分散与单位期望速度
+-> Native 空间哈希与 ORCA
+-> 选择性 Unity Physics Capsule Cast / Slide
+-> 服务器唯一提交 Transform
 -> Ghost 插值到客户端
 ```
 
-MoveTo、Follow、Find、资源搬运等高层业务语义可以保留，但低层路径、阵型和运动数据重新设计。正式后端不复用 `NavAgent`、`NavWaypoint`、`NavSteering` 或 Unity NavMesh API。
+MoveTo、Follow、Find、资源搬运等高层业务语义可以保留，但低层路径、群体组织和运动数据重新设计。正式后端不复用 `NavAgent`、`NavWaypoint`、`NavSteering` 或 Unity NavMesh API，也不继续依赖当前严格矩形阵型作为最终移动模型。
 
 ## 2. 代码边界
 
@@ -62,7 +60,7 @@ Assets/Scripts/Navigation/
     └── Benchmark/
 ```
 
-旧实现已经移动到 `Assets/Scripts/Benchmarks/LegacyNavMesh`，作为可执行性能基线保留。它不属于正式 Grid 架构，也不是 `Obsolete`。新旧后端的对比方法见 [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)，实施阶段和退出条件见 [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)。
+旧实现已经移动到 `Assets/Scripts/Benchmarks/LegacyNavMesh`，作为可执行性能基线保留。它不属于正式 Grid 架构，也不是 `Obsolete`。新旧后端的对比方法见 [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)，实施阶段和退出条件见 [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)，重规划后的详细执行顺序见 [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)。
 
 ## 3. Grid 烘焙
 
@@ -250,114 +248,85 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 在当前 Corridor 内从目标方向反向计算 Integration Cost，再为 Cell 生成局部 Flow Direction。
 
-局部 Field 用于：
+局部 Field 当前用于：
 
 - 推进 Squad Anchor
 - 绕开 Corridor 内的小范围动态阻挡
 - 给严重掉队成员提供回到队伍附近的可行方向
 - 给单体移动的资源搬运对象提供共享导航能力
 
-它不是全地图 Flow Field，只覆盖当前 Corridor。只有目标、Corridor 或相关 Overlay 版本变化时才重建。
+它不是全地图 Flow Field，只覆盖当前 Corridor。只有目标、Corridor 或相关 Overlay 版本变化时才重建。阶段六保留这种稀疏范围，但把结果改为由多个 Cohort 通过 Handle 共享，避免每个 Squad 独立复制相同 Field。
 
 当前缓存键包含 Grid Data Hash、目标 Cell、体型 Clearance、代价参数、Corridor Hash 和相关 Cluster 版本。动态 Overlay 已接入局部 Corridor 重选、运行时成本和缓存失效；无关 Cluster 变化不会使当前 Field 失效。
 
-## 6. Squad 与自适应阵型
+## 6. Movement Cohort 与自由群体移动
 
-### 6.1 Squad Entity
+### 6.1 当前严格阵型基线
 
-每次有效移动命令创建或更新服务器专用 Squad Entity，当前包含：
+当前代码仍由一条有效命令创建或更新一个服务器专用 Squad Entity，并使用 `AniSquadAnchor`、`AniSquadFormationState`、`AniFormationSlot`、`AniSlotTarget` 和确定性 Hungarian 匹配维持紧凑矩形或纵队。该链路已经通过 32、64、128 Ani 回归，必须保留到阶段 6A 的替代链路通过同规模验证后再移出正式 Pipeline。
 
-- `AniSquad`：拥有者、稳定 SquadId 和成员版本
-- `AniSquadCommand`：指令类型、目标 Cell、目标 Entity 和指令版本
-- `AniSquadPathState`：Corridor、Field 版本和失败状态
-- `AniSquadAnchor`：锚点位置、朝向、速度和当前 Cell
-- `AniSquadFormationState`：当前列数、目标列数和布局版本
-- `AniSquadMember` Buffer
-- `AniFormationSlot` Buffer
-- `AniClusterCorridor` Buffer
+它不适合作为万人最终模型。Hungarian 需要 `memberCount * slotCount` 成本矩阵，成员数扩大时内存按平方增长、求解时间接近立方增长；严格槽位也会让大量单位在拥挤中持续追逐固定位置。
 
-这些数据默认只存在于 Server World，不进入 Ghost。
+### 6.2 MovementOrder 与 MovementCohort
 
-### 6.2 单个 Ani
+阶段六把玩家命令与寻路计算批次分开：
 
-单个 Ani 当前保存：
+- `MovementOrder` 保存一次完整玩家意图、目标、所有者和服务器选择集版本
+- `MovementCohort` 保存有上限的成员集合、代表性起点、共享 Field Handle、重规划状态和进度
+- 一条 MovementOrder 可以拆成多个 Cohort
+- Cohort 按起始 Cluster、空间 Key、Agent Profile 和 StableId 确定性拆分
+- 第一版默认每个 Cohort 64 Ani、硬上限 128，最终值由阶段六 Benchmark 决定
 
-- `AniSquadMembership`
-- `AniMovementConfig`
-- `AniSlotTarget`
-- `AniPreferredVelocity`
-- `AniMovementResult`
+Cohort 只承担共享寻路和调度，不代表画面上的矩形、圆形或纵队，也不保存职责前后排。
 
-阶段六接入避碰与受阻恢复时，再增加 `AniAvoidedVelocity`、`AniStuckState` 等状态，不提前把未实现契约写入当前 Entity。
+### 6.3 目标区域与自然停止
 
-高层 FSM 可以表达 Idle、MoveTo、Follow、Find 和 Attack，但不再通过通用黑板传递路径、Cell、Flow Field 和逐帧速度。
+ORCA 只负责局部避让，不能替代终点分布。阶段六将命令目标扩展为可占用目标区域：
 
-### 6.3 Anchor 推进
+- 目标先投影到合法 Grid Cell
+- 候选 Cell 按距离、成本和稳定 CellIndex 从中心向外枚举
+- Cell 容量根据 Agent 半径与 Clearance 决定
+- 成员与候选 Cell 使用空间顺序和 StableId 做确定性线性匹配
+- 远距离只消费共享 Flow Direction，接近目标后才混合自己的落点吸引
+- 已经稳定停在合法区域的成员不会继续争抢中心点
 
-Anchor 读取局部 Flow Direction，并受最大速度和最大加速度限制。
+目标区域只保证可达、不过度重叠和结果稳定，不保证任何可见几何阵型。分配过程不得创建完整成员乘落点成本矩阵。
 
-路径成本加入低 Clearance 惩罚，Flow Direction 再叠加轻微 Clearance 梯度，使 Anchor 倾向通道中部。否则只读取单点 Clearance 不能可靠代表左右总宽度。
+### 6.4 单个 Ani
 
-Anchor 根据成员状态调节速度：
+阶段六目标数据包括：
 
-- 大部分成员跟得上时保持正常速度
-- 后排持续落后时减速
-- 前方需要缩列时提前减速
-- 接近最终目标时制动
+- Cohort 归属与 Agent Profile
+- 目标区域落点和目标版本
+- Flow 与目标吸引生成的 `AniPreferredVelocity`
+- ORCA 输出的 `AniAvoidedVelocity`
+- 世界碰撞输出的安全位移
+- 到达、实际速度和唯一提交计数
+- 连续低速、无进展、碰撞失败和重规划冷却
 
-Anchor 不绑定具体 Ani，队长死亡或掉队不会导致阵型瞬移。
+高层 FSM 可以继续表达 Idle、MoveTo、Follow、Find 和 Attack，但不通过通用黑板传递路径、Cell、Flow Field、邻居或逐帧速度。上述数据默认只存在于 Server World，不进入 Ghost。
 
-### 6.4 前视 Clearance 与列数
+### 6.5 共享 Field Handle
 
-读取 Anchor 前视范围内的最小有效 Clearance：
+阶段六把当前每个 Squad 独立拥有的 Corridor 和 Flow Field Buffer 改为全局 Field Store。相同 Grid、目标、Agent Profile、代价、Corridor 和相关 Overlay 版本只构建一份记录，多个 Cohort 通过带 Generation 的 Handle 读取。
 
-```text
-usableWidth = 2 * minimumClearance - 2 * boundaryMargin
-columnWidth = maximumAgentDiameter + horizontalGap
-columnCount = floor((usableWidth + horizontalGap) / columnWidth)
-```
-
-前视距离至少覆盖：
-
-```text
-currentSpeed * expectedReformTime + formationDepth
-```
-
-缩列立即响应，展开需要宽度持续满足时间阈值。列数变化使用宽度和时间滞回，避免边界噪声造成反复变阵。
-
-当前只实现纵队和紧凑矩形。楔形、弧形和包围布局尚未实现。
-
-### 6.5 槽位生成与分配
-
-槽位在 Anchor 局部空间生成，再投影到 Grid：
-
-- Cell 必须可行走
-- Cell Clearance 必须容纳对应成员
-- Picker 优先前排和中排
-- Blaster 优先后排
-- 无效槽位过多时减少列数
-
-只在成员版本或布局版本变化时重新分配槽位。当前使用确定性的 Hungarian 最小总代价匹配，代价包含平方距离、换槽惩罚和职责不匹配惩罚；成员先按 StableId 排序，成本相同时优先选择索引更小的槽位。槽位目标生成后再按成员半径投影到合法 Cell。
-
-相同代价使用稳定成员编号和 SlotId 排序，不能依赖 Entity.Index。
+请求先归并和排序，再按 Tick 预算并行构建；共享缓存只在确定性发布阶段写入。缓存按字节预算淘汰完整记录，不再固定累计 64 项后整代清空，也不在命中时把完整 Field 复制到每个 Cohort。
 
 ## 7. 速度、避碰与世界碰撞
 
 ### 7.1 期望速度
 
 ```text
-preferredVelocity = anchorVelocity + slotGain * (slotPosition - aniPosition)
+preferredVelocity = flowVelocity + goalGain * (goalPosition - aniPosition)
 ```
 
-期望速度受最大速度和最大加速度限制。接近槽位时按剩余距离制动，避免越过目标后反向修正。
-
-槽位被临时阻挡时，成员可以读取局部 Field 方向绕行，但不能离开 Corridor 或进入 Clearance 不足的 Cell。
+离目标较远时 `goalGain` 为零或很小，单位主要服从共享 Flow；进入目标区域后逐渐增加落点吸引。期望速度始终受最大速度、最大加速度、Grid 通行和制动距离限制。
 
 ### 7.2 空间哈希
 
 按 XZ 平面建立 Native 空间哈希。Cell Size 接近邻居半径，每个 Ani 只读取自身和相邻 Cell。
 
-邻居按稳定 SquadId 和成员编号排序，并限制最大邻居数，避免 O(n²) 扫描和不稳定遍历。
+邻居按距离平方、稳定 CohortId 和成员 StableId 排序，并限制最大邻居数，避免 O(n²) 扫描和不稳定遍历。
 
 ### 7.3 ORCA 思路的局部避碰
 
@@ -371,7 +340,7 @@ preferredVelocity = anchorVelocity + slotGain * (slotPosition - aniPosition)
 
 ORCA 只处理动态单位之间的避碰。静态世界由 Grid、Clearance 和最终 Collider Cast 处理。
 
-为减少对称死锁，同队按 SlotId 使用稳定侧向偏好，不同 Squad 按稳定 SquadId 决定迎面让行方向。
+为减少对称死锁，同一和不同 Cohort 都使用 CohortId、StableId 与相对方向生成稳定侧向偏好，不再依赖 SlotId。
 
 ### 7.4 Capsule Cast 与 Slide
 
@@ -408,7 +377,7 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 13. `AniMovementCommitSystem`
 14. `AniMovementProgressSystem`
 
-阶段六计划把 `AniNeighborGridBuildSystem`、`AniLocalAvoidanceSystem` 和 `AniWorldCollisionSystem` 放在期望速度与 Commit 之间；这些系统当前尚不存在。
+当前 Pipeline 仍是 Stage 4～5 的严格阵型实现。阶段六将先用 MovementOrder、MovementCohort、目标区域和共享 Field Store 替换其中的 Anchor 阵型链路，再把 `AniNeighborGridBuildSystem`、`AniLocalAvoidanceSystem` 和 `AniWorldCollisionSystem` 放在期望速度与 Commit 之间；这些目标系统当前尚不存在。
 
 所有顺序通过子 System Group、`UpdateAfter` 和 `UpdateBefore` 固定。只有 Commit System 可以写入 Ani Transform。
 
@@ -418,11 +387,11 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 
 - 阶段三实现 HPA*、Corridor、局部 Field 及其 Benchmark 适配层。适配层复用同一测试场景和确定性回放，只构造路径与 Field 工作负载，不生成速度或写入 Ani Transform。
 - 阶段四实现 `ServerAniCommandIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。正式 RPC 输入与 Benchmark 回放必须汇入相同 `AniSquadCommand` 契约。
-- 阶段五加入动态 Overlay 和自适应阵型，不改变 Transform 写入所有权。
-- 阶段六加入空间哈希、ORCA 和世界碰撞，并扩展受阻与重新规划状态。`AniWorldCollisionSystem` 只输出安全位移，最终仍由阶段四建立的唯一 `AniMovementCommitSystem` 写入 Transform。
+- 阶段五加入动态 Overlay 和自适应阵型，不改变 Transform 写入所有权；其实现继续作为当前代码和历史性能基线。
+- 阶段六拆为 6A、6B、6C：先建立万人命令、Cohort、目标区域、共享 Field 与并行移动，再加入空间哈希、ORCA、世界碰撞和受阻恢复，最后执行 512～10000 扩容验收。`AniWorldCollisionSystem` 只输出安全位移，最终仍由阶段四建立的唯一 `AniMovementCommitSystem` 写入 Transform。
 - 阶段七迁移资源搬运和正式 Prefab、Scene 配置，完成正式后端切换。
 
-阶段四的基础 Commit 不承诺拥挤避碰或硬碰撞安全，只用于开阔地端到端验收。阶段六是在同一写入边界前增加安全速度与世界碰撞约束，不是替换或并行新增 Commit System。
+阶段四的基础 Commit 不承诺拥挤避碰或硬碰撞安全，只用于开阔地端到端验收。阶段六会替换严格阵型的速度输入，但不替换 Transform 所有权；安全速度和世界碰撞约束仍必须在同一个 Commit 边界之前完成。
 
 ## 9. 资源搬运迁移
 
@@ -436,13 +405,13 @@ Grid 导航应提供通用请求：
 - `GridFlowFieldReference`
 - `GridMovementTarget`
 
-Squad 和单体资源都可以使用同一静态 Grid、Overlay、端点投影和路径服务。资源不需要阵型和 ORCA 时，可以只消费 Flow Direction 与 Capsule Cast。
+MovementCohort 和单体资源都可以使用同一静态 Grid、Overlay、端点投影和路径服务。资源不需要群体 ORCA 时，可以只消费 Flow Direction 与必要的 Capsule Cast。
 
 完成迁移后，Legacy 目录外不应再存在 `UnityEngine.AI` 或 `NavMesh` 引用。
 
 ## 10. 实施与验收
 
-后端互斥、命令回放、Legacy 归一化和性能指标记录在 [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)。实施阶段、退出条件和验收场景记录在 [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)。目标架构变更时更新本文；排期、基准条件或验收阈值变化时更新对应实施文档。
+后端互斥、命令回放、Legacy 归一化和性能指标记录在 [Legacy NavMesh 与 Grid 性能基准](09_GridMovementImplementationBenchmark.md)。阶段总表、退出条件和验收场景记录在 [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)，阶段六的提交顺序和万人门禁记录在 [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)。目标架构变更时更新本文；排期、基准条件或验收阈值变化时更新对应实施文档。
 
 ## 11. 参考算法
 
