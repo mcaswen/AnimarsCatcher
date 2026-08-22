@@ -45,7 +45,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
-            if (config.Workload != NavigationGridBenchmarkWorkload.SquadMovement)
+            if (config.Workload != NavigationGridBenchmarkWorkload.StrictFormationBaseline)
             {
                 // PathAndField 模式由另一个基准系统处理，两个入口不会同时推进同一份状态
                 return;
@@ -424,9 +424,15 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 // FormatVersion 用于以后扩展字段时选择兼容的解析方式
                 // 报告只包含普通值，不序列化 Entity 或 NativeContainer
-                FormatVersion = 4,
+                FormatVersion = 5,
                 Backend = AniMovementBackend.ClearanceGrid.ToString(),
-                Workload = NavigationGridBenchmarkWorkload.SquadMovement.ToString(),
+                Workload = NavigationGridBenchmarkWorkload.StrictFormationBaseline.ToString(),
+                PerformanceGateEligible = false,
+                BudgetVersion = NavigationGridBenchmarkScaleProfile.BudgetVersion,
+                SystemTimingCoverage = "记录完整 Server Tick，不含逐 System Worker 时间",
+                WorkerTimingAvailable = false,
+                RequestQueueTimingAvailable = false,
+                TrackedNativeBytes = -1,
                 AgentCount = config.AgentCount,
                 RandomSeed = config.RandomSeed,
                 WarmupTicks = config.WarmupTicks,
@@ -460,6 +466,9 @@ namespace AnimarsCatcher.Navigation.Grid
                     StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.95),
                 ServerTickP99Milliseconds =
                     StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.99),
+                ServerTickMaxMilliseconds = sortedTickMilliseconds.Length == 0
+                    ? 0.0
+                    : sortedTickMilliseconds[^1],
                 MainThreadAllocP50Bytes =
                     StatisticsMath.CalculateNearestRankPercentile(sortedAllocatedBytes, 0.50),
                 MainThreadAllocP95Bytes =
@@ -482,7 +491,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 TimestampUtc = DateTime.UtcNow.ToString("O"),
                 TickMilliseconds = tickMilliseconds,
                 MainThreadAllocatedBytes = allocatedBytes,
-                Notes = "阶段四开阔地移动，不包含 ORCA、世界碰撞或受阻恢复",
+                Notes =
+                    "严格矩形阵型历史基线，不包含自由 Cohort、ORCA、世界碰撞或受阻恢复",
             };
 
             string directory = Path.GetFullPath("BenchmarkResults/GridNavigation");
@@ -624,6 +634,12 @@ namespace AnimarsCatcher.Navigation.Grid
             public int FormatVersion;
             public string Backend;
             public string Workload;
+            public bool PerformanceGateEligible;
+            public string BudgetVersion;
+            public string SystemTimingCoverage;
+            public bool WorkerTimingAvailable;
+            public bool RequestQueueTimingAvailable;
+            public long TrackedNativeBytes;
             public int AgentCount;
             public int RandomSeed;
             public int WarmupTicks;
@@ -651,6 +667,7 @@ namespace AnimarsCatcher.Navigation.Grid
             public double ServerTickP50Milliseconds;
             public double ServerTickP95Milliseconds;
             public double ServerTickP99Milliseconds;
+            public double ServerTickMaxMilliseconds;
             public double MainThreadAllocP50Bytes;
             public double MainThreadAllocP95Bytes;
             public double MainThreadAllocP99Bytes;
@@ -728,7 +745,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
-            if (config.Workload != NavigationGridBenchmarkWorkload.SquadMovement)
+            if (!NavigationGridBenchmarkScaleProfile.RecordsFullServerTick(config.Workload))
             {
                 return;
             }
@@ -772,7 +789,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
-            if (config.Workload != NavigationGridBenchmarkWorkload.SquadMovement)
+            if (!NavigationGridBenchmarkScaleProfile.RecordsFullServerTick(config.Workload))
             {
                 return;
             }
@@ -782,7 +799,10 @@ namespace AnimarsCatcher.Navigation.Grid
             bool recordTiming = benchmarkState.ValueRO.RecordCurrentTick != 0;
             int traceEndTick = config.WarmupTicks + config.SampleTicks +
                                ServerNavigationGridMovementBenchmarkSystem.MaximumSettlementTicks;
-            bool recordTrace = config.RecordMovementTrace != 0 &&
+            bool recordTrace =
+                               config.Workload ==
+                               NavigationGridBenchmarkWorkload.StrictFormationBaseline &&
+                               config.RecordMovementTrace != 0 &&
                                benchmarkState.ValueRO.Initialized != 0 &&
                                benchmarkState.ValueRO.ResultExported == 0 &&
                                benchmarkState.ValueRO.Tick > 0 &&

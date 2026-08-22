@@ -255,6 +255,16 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             var report = new NavigationGridBenchmarkReport
             {
+                FormatVersion = 5,
+                Backend = AniMovementBackend.ClearanceGrid.ToString(),
+                Workload = NavigationGridBenchmarkWorkload.PathAndField.ToString(),
+                Failed = benchmarkState.FailedRequestCount > 0,
+                PerformanceGateEligible = false,
+                BudgetVersion = NavigationGridBenchmarkScaleProfile.BudgetVersion,
+                SystemTimingCoverage = "仅记录 Flow Field 主线程范围",
+                WorkerTimingAvailable = false,
+                RequestQueueTimingAvailable = false,
+                TrackedNativeBytes = -1,
                 AgentCount = config.AgentCount,
                 SubmittedRequestCount = benchmarkState.SubmittedRequestCount,
                 CompletedRequestCount = benchmarkState.CompletedRequestCount,
@@ -325,6 +335,16 @@ namespace AnimarsCatcher.Navigation.Grid
         [Serializable]
         private sealed class NavigationGridBenchmarkReport
         {
+            public int FormatVersion;
+            public string Backend;
+            public string Workload;
+            public bool Failed;
+            public bool PerformanceGateEligible;
+            public string BudgetVersion;
+            public string SystemTimingCoverage;
+            public bool WorkerTimingAvailable;
+            public bool RequestQueueTimingAvailable;
+            public long TrackedNativeBytes;
             public int AgentCount;
             public int SubmittedRequestCount;
             public int CompletedRequestCount;

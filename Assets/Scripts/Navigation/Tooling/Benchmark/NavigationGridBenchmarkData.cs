@@ -5,12 +5,16 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 选择只测寻路，还是测包含队伍移动在内的完整流程
+    /// 区分历史基线、阶段六输入校验和后续万人移动工作负载
     /// </summary>
     public enum NavigationGridBenchmarkWorkload : byte
     {
-        SquadMovement,
-        PathAndField
+        PathAndField = 0,
+        StrictFormationBaseline = 1,
+        ScaleInputDeterminism = 2,
+        FreeCohortMovement = 3,
+        Avoidance = 4,
+        Collision = 5
     }
 
     /// <summary>
@@ -160,6 +164,48 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 阶段六规模输入校验的进度、确定性 Hash 和内存统计
+    /// </summary>
+    public struct NavigationGridScaleInputBenchmarkState : IComponentData
+    {
+        // 已推进的服务器帧数
+        public int Tick;
+
+        // 按硬上限切分后的 Cohort 数量
+        public int CohortCount;
+
+        // 输入中生成的唯一 Field Key 数量
+        public int UniqueFieldKeyCount;
+
+        // Cohort 成员归属的确定性 Hash
+        public ulong CohortPartitionHash;
+
+        // 目标区域采样结果的确定性 Hash
+        public ulong GoalRegionHash;
+
+        // 请求 Key 序列的确定性 Hash
+        public ulong RequestKeyHash;
+
+        // Benchmark 自有 DynamicBuffer 的 Native 负载字节数
+        public long TrackedNativeBytes;
+
+        // 是否已经生成全部规模输入
+        public byte Initialized;
+
+        // 是否已经完成固定采样窗口
+        public byte Completed;
+
+        // 报告是否已经写入磁盘
+        public byte ResultExported;
+
+        // 同一轮重复计算是否发现不一致
+        public byte Failed;
+
+        // 失败原因由批处理运行器写入最终日志
+        public FixedString128Bytes FailureReason;
+    }
+
+    /// <summary>
     /// 一帧完整服务器模拟的耗时和托管内存分配样本
     /// </summary>
     [InternalBufferCapacity(0)]
@@ -170,6 +216,50 @@ namespace AnimarsCatcher.Navigation.Grid
 
         // 同一帧主线程新增的托管内存分配量
         public long MainThreadAllocatedBytes;
+    }
+
+    /// <summary>
+    /// 阶段六报告中单个导航阶段的主线程、Worker 和排队样本
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridBenchmarkStageTimingSample : IBufferElementData
+    {
+        // 指标所属的导航阶段
+        public NavigationGridBenchmarkStage Stage;
+
+        // 样本对应的服务器帧，负数表示初始化阶段
+        public int Tick;
+
+        // 当前阶段在主线程上的耗时
+        public double MainThreadMilliseconds;
+
+        // 当前阶段等待并完成 Worker Job 的耗时
+        public double WorkerMilliseconds;
+
+        // 请求从入队到开始处理所等待的服务器帧数
+        public int QueueWaitTicks;
+
+        // 当前阶段可明确归属的 Native 内存字节数
+        public long TrackedNativeBytes;
+    }
+
+    /// <summary>
+    /// 标识阶段六报告中的导航处理阶段
+    /// </summary>
+    public enum NavigationGridBenchmarkStage : byte
+    {
+        ScaleInputBuild,
+        CommandIngress,
+        CohortPartition,
+        OverlayAndTargetResolve,
+        FieldRequestCollect,
+        FieldBuildAndPublish,
+        GoalRegionAssignment,
+        NeighborGrid,
+        PreferredVelocity,
+        Avoidance,
+        Collision,
+        CommitAndProgress
     }
 
     /// <summary>
@@ -311,5 +401,27 @@ namespace AnimarsCatcher.Navigation.Grid
     public struct NavigationGridMovementBenchmarkAni : IComponentData
     {
         public int AgentIndex;
+    }
+
+    /// <summary>
+    /// 保存阶段六万人入口生成的稳定成员、Cohort 和目标区域输入
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridScaleInputMember : IBufferElementData
+    {
+        // 与 Entity 创建顺序无关的成员编号
+        public int StableId;
+
+        // 按固定容量得到的 Cohort 编号
+        public int CohortIndex;
+
+        // 由共享 Benchmark 算法生成的出生位置
+        public float3 SpawnPosition;
+
+        // 目标区域中的稳定采样位置，不代表固定阵型槽位
+        public float3 GoalPosition;
+
+        // 当前 Cohort 对应的规划请求 Key
+        public ulong RequestKey;
     }
 }

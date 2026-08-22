@@ -95,6 +95,7 @@ flowchart LR
 - 联机会话、按 Tick 预测角色、Ani 框选与指令、服务端战斗/资源/胜负，以及客户端 Hybrid 表现已经组成可运行闭环
 - 331 个业务 C# 文件全部进入 15 个自定义 asmdef，主要运行时、契约、编辑器与验证边界已经拆分
 - Legacy 与 Grid 后端可互斥运行；Navigation R1～R6 复审完成，Grid Stage 1～5 自动验证通过
+- Grid Stage 6A.0 已完成，Harness 支持 512～10000 Ani 规模输入、确定性 Hash、v5 报告与 60 Hz 分阶段预算
 
 仍在推进：
 

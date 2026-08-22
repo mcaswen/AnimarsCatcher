@@ -53,7 +53,7 @@
 - **`Navigation/Squad`**：负责 Squad 生命周期、目标解析、Anchor 推进、自适应矩形阵型、确定性槽位分配、期望速度、权威位移和到达判定
 - **`Navigation/Tooling/Editor`**：编译进 `AnimarsCatcher.Navigation.Editor`，提供 Grid Physics 采样、Hash、可视化、Inspector 和构建校验
 - **`Navigation/Tooling/Validation`**：编译进 `AnimarsCatcher.Navigation.Validation`，提供 Stage 1～5 和 R6 回归夹具
-- **`Navigation/Tooling/Benchmark`**：编译进 `AnimarsCatcher.Navigation.Benchmark`，提供 Path/Field 与 Squad 工作负载、固定 Tick 采样和结果导出
+- **`Navigation/Tooling/Benchmark`**：编译进 `AnimarsCatcher.Navigation.Benchmark`，提供 Path/Field、严格阵型历史基线、阶段六规模输入及后续自由移动/避碰/碰撞工作负载，负责固定 Tick 采样和结果导出
 - **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
 - **`Player/Input/Editor`**：使用独立 Editor-only asmdef 检查 Input System 配置
 - **`Netcode/Editor`**：使用 `AnimarsCatcher.Networking.Editor` 读取 Multiplayer PlayMode 配置，并通过纯数据桥传给 Networking Runtime

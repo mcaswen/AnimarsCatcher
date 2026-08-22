@@ -39,7 +39,7 @@ namespace AnimarsCatcher.Editor
         }
 
         /// <summary>
-        /// 检查后端配置、命令回放、128 Ani 容量和固定测试场景
+        /// 检查后端配置、命令回放、固定规模入口和共享测试场景
         /// </summary>
         public static void RunAll()
         {
@@ -154,8 +154,8 @@ namespace AnimarsCatcher.Editor
                 Assert(sceneLoader.ReplayScript != null, $"{ScenePath} 缺少回放资产");
                 Assert(!string.IsNullOrWhiteSpace(sceneLoader.MapSceneHash), $"{ScenePath} 缺少地图 Hash");
 
-                int[] expectedCounts = { 32, 64, 128 };
-                // 三种规模都通过同一个场景加载器传入，不复制 Scene
+                int[] expectedCounts = { 32, 64, 128, 512, 1000, 2500, 5000, 10000 };
+                // 所有规模都通过同一个场景加载器传入，不复制 Scene
                 for (int i = 0; i < expectedCounts.Length; i++)
                 {
                     int expectedCount = expectedCounts[i];

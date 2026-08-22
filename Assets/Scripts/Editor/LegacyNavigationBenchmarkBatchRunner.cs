@@ -21,10 +21,12 @@ namespace AnimarsCatcher.Editor
             "Assets/Scenes/Benchmarks/LegacyNavigation/SCN_LegacyNavigationBenchmark.unity";
         private const string ActiveKey = "AnimarsCatcher.LegacyBenchmark.Active";
         private const string AgentCountKey = "AnimarsCatcher.LegacyBenchmark.AgentCount";
+        private const string WorkloadKey = "AnimarsCatcher.LegacyBenchmark.Workload";
         private const string StartTimeKey = "AnimarsCatcher.LegacyBenchmark.StartTime";
         private const string PendingExitCodeKey = "AnimarsCatcher.LegacyBenchmark.PendingExitCode";
         private const int NoPendingExitCode = int.MinValue;
-        private const double TimeoutSeconds = 300.0;
+        private const double ReplayTimeoutSeconds = 300.0;
+        private const double StageSixTimeoutSeconds = 900.0;
 
         private static double _pollStartTime;
 
@@ -67,6 +69,54 @@ namespace AnimarsCatcher.Editor
             BeginRun(128);
         }
 
+        /// <summary>
+        /// 在无人值守模式运行 512 Ani 导航基准
+        /// </summary>
+        public static void Run512FromCommandLine()
+        {
+            BeginRun(512);
+        }
+
+        /// <summary>
+        /// 在无人值守模式运行 1000 Ani 导航基准
+        /// </summary>
+        public static void Run1000FromCommandLine()
+        {
+            BeginRun(1000);
+        }
+
+        /// <summary>
+        /// 在无人值守模式运行 2500 Ani 导航基准
+        /// </summary>
+        public static void Run2500FromCommandLine()
+        {
+            BeginRun(2500);
+        }
+
+        /// <summary>
+        /// 在无人值守模式运行 5000 Ani 导航基准
+        /// </summary>
+        public static void Run5000FromCommandLine()
+        {
+            BeginRun(5000);
+        }
+
+        /// <summary>
+        /// 在无人值守模式运行 10000 Ani 导航基准
+        /// </summary>
+        public static void Run10000FromCommandLine()
+        {
+            BeginRun(10000);
+        }
+
+        /// <summary>
+        /// 从 benchmark-agent-count 参数读取任意已登记规模
+        /// </summary>
+        public static void RunFromCommandLine()
+        {
+            BeginRun(GetRequestedAgentCount());
+        }
+
         private static void BeginRun(int agentCount)
         {
             // 批处理只创建 Server World，避免客户端表现系统影响基准负载
@@ -77,12 +127,18 @@ namespace AnimarsCatcher.Editor
                     "批处理 Navigation Benchmark 必须使用 -benchmark-server-only 启动参数");
             }
 
-            if (!LegacyNavigationBenchmarkController.IsSupportedAgentCount(agentCount))
+            bool gridBackend =
+                AniMovementBackendLaunchConfiguration.Current == AniMovementBackend.ClearanceGrid;
+            if (gridBackend)
+            {
+                LegacyNavigationBenchmarkController.ValidateRequestedGridRun(agentCount);
+            }
+            else if (!LegacyNavigationBenchmarkController.IsReplayBaselineAgentCount(agentCount))
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(agentCount),
                     agentCount,
-                    "Navigation Benchmark 仅支持 32、64 或 128 Ani");
+                    "Legacy Navigation Benchmark 只保留 32、64 或 128 Ani 回放");
             }
 
             if (!File.Exists(Path.GetFullPath(ScenePath)))
@@ -103,6 +159,11 @@ namespace AnimarsCatcher.Editor
             // SessionState 跨越 Play Mode 域重载保存无人值守运行进度
             SessionState.SetBool(ActiveKey, true);
             SessionState.SetInt(AgentCountKey, agentCount);
+            SessionState.SetString(
+                WorkloadKey,
+                gridBackend
+                    ? LegacyNavigationBenchmarkController.GetRequestedGridWorkloadName()
+                    : string.Empty);
             SessionState.SetString(
                 StartTimeKey,
                 DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
@@ -144,13 +205,17 @@ namespace AnimarsCatcher.Editor
                 return;
             }
 
-            if (EditorApplication.timeSinceStartup - _pollStartTime > TimeoutSeconds)
+            int agentCount = SessionState.GetInt(AgentCountKey, 0);
+            double timeoutSeconds =
+                LegacyNavigationBenchmarkController.IsReplayBaselineAgentCount(agentCount)
+                    ? ReplayTimeoutSeconds
+                    : StageSixTimeoutSeconds;
+            if (EditorApplication.timeSinceStartup - _pollStartTime > timeoutSeconds)
             {
                 Finish(1, "等待 Navigation Benchmark 结果超时");
                 return;
             }
 
-            int agentCount = SessionState.GetInt(AgentCountKey, 0);
             DateTime startTime = DateTime.Parse(
                 SessionState.GetString(StartTimeKey, DateTime.UtcNow.ToString("O")),
                 CultureInfo.InvariantCulture,
@@ -170,6 +235,7 @@ namespace AnimarsCatcher.Editor
                 ? $"GridNavigation_{agentCount}_"
                 : $"LegacyNavigation_{agentCount}_";
             string[] files = Directory.GetFiles(outputDirectory, prefix + "*.json");
+            string expectedWorkload = SessionState.GetString(WorkloadKey, string.Empty);
             for (int i = 0; i < files.Length; i++)
             {
                 // 启动前残留的同规模结果不能被误认为本次运行完成
@@ -184,6 +250,17 @@ namespace AnimarsCatcher.Editor
                     // Runner 只读取报告状态，不重新解释移动指标或到达阈值
                     BenchmarkResultStatus status = JsonUtility.FromJson<BenchmarkResultStatus>(
                         File.ReadAllText(files[i]));
+                    if (gridBackend &&
+                        (status == null ||
+                         !string.Equals(
+                             status.Workload,
+                             expectedWorkload,
+                             StringComparison.Ordinal)))
+                    {
+                        // 同一规模的其他工作负载不能被误认为本次运行完成
+                        continue;
+                    }
+
                     failed = status != null && status.Failed;
                 }
                 catch (Exception exception)
@@ -204,7 +281,45 @@ namespace AnimarsCatcher.Editor
         [Serializable]
         private sealed class BenchmarkResultStatus
         {
+            public string Workload;
             public bool Failed;
+        }
+
+        private static int GetRequestedAgentCount()
+        {
+            const string argumentName = "-benchmark-agent-count";
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                string value = null;
+                if (arguments[index].StartsWith(
+                        argumentName + "=",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    value = arguments[index][(argumentName.Length + 1)..];
+                }
+                else if (string.Equals(
+                             arguments[index],
+                             argumentName,
+                             StringComparison.OrdinalIgnoreCase) &&
+                         index + 1 < arguments.Length)
+                {
+                    value = arguments[index + 1];
+                }
+
+                if (value != null &&
+                    int.TryParse(
+                        value,
+                        NumberStyles.Integer,
+                        CultureInfo.InvariantCulture,
+                        out int agentCount))
+                {
+                    return agentCount;
+                }
+            }
+
+            throw new ArgumentException(
+                "RunFromCommandLine 需要 -benchmark-agent-count=<数量> 参数");
         }
 
         private static void Finish(int exitCode, string message)

@@ -195,6 +195,37 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 相同输入的 Cohort 切分 Hash、目标区域 Hash 和请求 Key Hash 重复运行一致
 - 在进入 6A.1 前写明目标 Server Tick 预算和各导航阶段预算，不使用单次平均帧率代替门禁
 
+实现状态（2026-08-22）：**已完成**
+
+- 统一 Harness 已登记 `32 / 64 / 128 / 512 / 1000 / 2500 / 5000 / 10000` 八档规模，并提供固定入口和 `-benchmark-agent-count` 通用入口
+- `PathAndField` 与 `StrictFormationBaseline` 只允许 32、64、128，防止旧单 Squad 阵型与逐请求链路被误放大到万人
+- 新增内部工作负载 `ScaleInputDeterminism`，使用 ECS `DynamicBuffer` 生成最多 10000 条成员输入，不经过正式 Movement RPC 或 `FixedList`
+- `FreeCohortMovement`、`Avoidance` 和 `Collision` 已成为独立工作负载标识；对应实现落地前 Harness 会明确拒绝运行，不会输出伪造的性能结果
+- 报告格式升级为 v5，阶段六报告保留完整 Server Tick、主线程分配、System 主线程/Worker、排队 Tick、可归属 Native 内存、Cohort、Field 和重规划字段；旧工作负载同时写明计时覆盖范围与可用性，未采集的指标不以 `0` 冒充已测结果
+- `ScaleInputDeterminism` 只验收规模入口、报告结构和输入确定性，固定写出 `PerformanceGateEligible=false`，不能作为自由移动、ORCA、碰撞或真实 Field 性能结论
+
+冻结预算使用 `Stage6A0-60Hz-v1`：
+
+| 门禁 | P95 预算 |
+|---|---:|
+| 完整 Server Tick | 16.667 ms |
+| 完整 Server Tick P99 | 20.000 ms |
+| Navigation 主线程合计 | 8.000 ms |
+| Navigation Worker 关键路径 | 8.000 ms |
+| 请求排队 | 4 Tick |
+| Navigation 可归属 Native 内存 | 512 MiB |
+
+主线程 8 ms 按阶段拆分为：命令入口 0.25 ms、Cohort 切分 0.50 ms、Overlay 与目标解析 0.50 ms、Field 请求收集 0.50 ms、Field 构建与发布 0.75 ms、目标区域分配 0.75 ms、邻居网格 1.25 ms、期望速度 0.75 ms、ORCA 1.50 ms、世界碰撞 0.75 ms、提交与进度 0.50 ms。单项和总量都使用 P95 门禁，不能用多轮平均值抵消尖峰。
+
+本次验收在 Unity `6000.2.7f2`、Dedicated Server、Null Device 下完成：
+
+- 新增 6A.0 自动验收通过，并回归通过 Stage Zero 与 Stage Four
+- 32 Ani `StrictFormationBaseline` 完整回放通过，32/32 到达、4/4 路径成功、主线程分配 P95 为 0 B
+- 10000 Ani `ScaleInputDeterminism` 连续两轮均生成 10000 条输入、79 个 Cohort 和 720 个 Server Tick 样本，主线程分配 P95 均为 0 B
+- 两轮 `CohortPartitionHash=7FA032DD69575255`、`GoalRegionHash=CE895C650B74FB03`、`RequestKeyHash=7AC21B7695215AC3` 完全一致
+
+注意：上述万人样本没有运行导航内核，因此其约 0.85～1.08 ms Server Tick P95 只证明 Harness 容量和采样闭环，不证明万人移动满足预算。第一份可参与导航性能门禁的万人报告必须等 6A.2～6B.3 对应工作负载实现后生成。
+
 ### 6A.1 选择集与 MovementOrder
 
 交付物：

@@ -266,7 +266,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             // 一条命令包含全部成员，用来确认寻路请求按队伍创建，而不是每名 Ani 一份
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
-                Workload = NavigationGridBenchmarkWorkload.SquadMovement,
+                Workload = NavigationGridBenchmarkWorkload.StrictFormationBaseline,
                 AgentCount = agentCount,
                 RandomSeed = 104729,
                 WarmupTicks = 0,

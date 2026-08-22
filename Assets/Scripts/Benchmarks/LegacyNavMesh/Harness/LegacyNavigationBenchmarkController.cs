@@ -38,11 +38,42 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         public LegacyNavigationBenchmarkReplayScript ReplayScript => _replayScript;
 
         /// <summary>
-        /// 判断 Ani 数量是否属于阶段零固定测试规模
+        /// 判断 Ani 数量是否属于统一 Harness 登记的测试规模
         /// </summary>
         public static bool IsSupportedAgentCount(int agentCount)
         {
-            return agentCount == 32 || agentCount == 64 || agentCount == 128;
+            return NavigationGridBenchmarkScaleProfile.IsSupportedAgentCount(agentCount);
+        }
+
+        /// <summary>
+        /// 判断 Ani 数量是否属于 Legacy 和严格阵型仍需回放的规模
+        /// </summary>
+        public static bool IsReplayBaselineAgentCount(int agentCount)
+        {
+            return NavigationGridBenchmarkScaleProfile.IsReplayBaselineAgentCount(agentCount);
+        }
+
+        /// <summary>
+        /// 校验命令行选择的 Grid 工作负载与规模组合
+        /// </summary>
+        public static void ValidateRequestedGridRun(int agentCount)
+        {
+            NavigationGridBenchmarkWorkload workload = GetGridWorkload();
+            if (!NavigationGridBenchmarkScaleProfile.TryValidateRun(
+                    workload,
+                    agentCount,
+                    out string reason))
+            {
+                throw new ArgumentException(reason, nameof(agentCount));
+            }
+        }
+
+        /// <summary>
+        /// 返回批处理运行器用于核对报告的工作负载名称
+        /// </summary>
+        public static string GetRequestedGridWorkloadName()
+        {
+            return GetGridWorkload().ToString();
         }
 
         private IEnumerator Start()
@@ -91,7 +122,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 throw new ArgumentOutOfRangeException(
                     nameof(agentCount),
                     agentCount,
-                    "Legacy Navigation Benchmark 仅支持 32、64 或 128 Ani");
+                    "Navigation Benchmark 仅支持 32、64、128、512、1000、2500、5000 或 10000 Ani");
             }
 
             _agentCount = agentCount;
@@ -102,7 +133,9 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
         {
             if (!IsSupportedAgentCount(_agentCount))
             {
-                Debug.LogError($"[LegacyNavigationBenchmark] Ani 数量必须为 32、64 或 128，当前为 {_agentCount}");
+                Debug.LogError(
+                    $"[NavigationBenchmark] Ani 数量必须为 32、64、128、512、1000、2500、5000 或 10000，" +
+                    $"当前为 {_agentCount}");
                 return false;
             }
 
@@ -157,7 +190,12 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             // Grid 后端复用同一场景加载器，只替换 Server World 内的工作负载
             if (entityManager.HasComponent<GridMovementBackendEnabled>(backendEntity))
             {
-                RegisterGridWorkload(entityManager);
+                if (!RegisterGridWorkload(entityManager))
+                {
+                    serverWorld.QuitUpdate = true;
+                    return;
+                }
+
                 _registered = true;
                 Debug.Log(
                     $"[NavigationBenchmark] 已注册 GridNavigation_{_agentCount}，" +
@@ -171,6 +209,15 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             if (backendQuery.CalculateEntityCount() != 1)
             {
                 Debug.LogError("[LegacyNavigationBenchmark] 当前 World 未唯一启用 Legacy NavMesh 后端");
+                serverWorld.QuitUpdate = true;
+                return;
+            }
+
+            if (!IsReplayBaselineAgentCount(_agentCount))
+            {
+                Debug.LogError(
+                    "Legacy Navigation Benchmark 只保留 32、64、128 Ani 回放，" +
+                    "阶段六规模必须使用 Grid ScaleInputDeterminism");
                 serverWorld.QuitUpdate = true;
                 return;
             }
@@ -228,20 +275,32 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 $"Replay={_replayScript.ComputeHash()}");
         }
 
-        private void RegisterGridWorkload(EntityManager entityManager)
+        private bool RegisterGridWorkload(EntityManager entityManager)
         {
             NavigationGridBenchmarkWorkload workload = GetGridWorkload();
+            if (!NavigationGridBenchmarkScaleProfile.TryValidateRun(
+                    workload,
+                    _agentCount,
+                    out string reason))
+            {
+                Debug.LogError($"[NavigationBenchmark] {reason}");
+                return false;
+            }
+
             // Grid 与 Legacy 使用同一组规模、时长、出生布局和回放哈希以保证横向可比
             Entity configEntity = entityManager.CreateEntity(
                 typeof(NavigationGridBenchmarkConfig),
                 typeof(NavigationGridBenchmarkState),
                 typeof(NavigationGridMovementBenchmarkState),
+                typeof(NavigationGridScaleInputBenchmarkState),
                 typeof(NavigationBenchmarkEnabled));
             entityManager.AddBuffer<NavigationGridBenchmarkCommand>(configEntity);
             entityManager.AddBuffer<NavigationGridBenchmarkTimingSample>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkTimingSample>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkStateTrace>(configEntity);
             entityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(configEntity);
+            entityManager.AddBuffer<NavigationGridBenchmarkStageTimingSample>(configEntity);
+            entityManager.AddBuffer<NavigationGridScaleInputMember>(configEntity);
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 Workload = workload,
@@ -278,6 +337,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 
             Debug.Log(
                 $"[NavigationBenchmark] Grid workload={workload}，Ani={_agentCount}");
+            return true;
         }
 
         private static NavigationGridBenchmarkWorkload GetGridWorkload()
@@ -298,26 +358,22 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                     value = arguments[index + 1];
                 }
 
-                if (string.Equals(value, "stage3", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(value, "path", StringComparison.OrdinalIgnoreCase))
-                {
-                    return NavigationGridBenchmarkWorkload.PathAndField;
-                }
-
-                if (string.Equals(value, "stage4", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(value, "movement", StringComparison.OrdinalIgnoreCase))
-                {
-                    return NavigationGridBenchmarkWorkload.SquadMovement;
-                }
-
                 if (value != null)
                 {
+                    if (NavigationGridBenchmarkScaleProfile.TryParseWorkload(
+                            value,
+                            out NavigationGridBenchmarkWorkload workload))
+                    {
+                        return workload;
+                    }
+
                     throw new ArgumentException(
-                        $"无法识别 Grid Benchmark workload“{value}”，可用值为 stage3 或 stage4");
+                        $"无法识别 Grid Benchmark workload“{value}”，可用值为 " +
+                        "path、strict、scaleinput、free、avoidance 或 collision");
                 }
             }
 
-            return NavigationGridBenchmarkWorkload.SquadMovement;
+            return NavigationGridBenchmarkWorkload.StrictFormationBaseline;
         }
 
         private static string GetGitCommit()
