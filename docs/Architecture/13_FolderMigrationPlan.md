@@ -16,7 +16,7 @@
 
 最终结果：
 
-- 331 个 C# 文件全部处于明确 asmdef 覆盖范围
+- 339 个 C# 文件全部处于明确 asmdef 覆盖范围
 - 项目 asmdef 为 15 个，asmref 为 0
 - 动画、Timeline、音频和 Terrain 资源均保留原 .meta GUID
 - Assets/Resource 已删除
@@ -249,7 +249,7 @@ Unity Asset Pipeline 对主迁移批次记录为 120 项移动、44 项删除和
 
 已完成：
 
-- 程序集审计通过，当前 331 个脚本全部覆盖，15 个 asmdef，0 个 asmref
+- 程序集审计通过，当前 339 个脚本全部覆盖，15 个 asmdef，0 个 asmref
 - 迁移提交当时的注释规范检查通过，后续注释质量由当前门禁重新计算，不沿用历史比例
 - Unity Asset Pipeline 已识别 395 项移动并完成脚本编译，Editor.log 没有新增编译或导入错误
 - 全项目 .meta GUID 无重复

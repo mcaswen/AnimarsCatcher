@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段七实现完成；当前静态审计覆盖 331 个脚本、15 个 asmdef 和 0 个 asmref，旧 Stage Seven Unity 总验收入口仍需补登记 Navigation Benchmark 与 Validation 程序集
+> 状态：阶段零至阶段七实现完成；当前静态审计覆盖 339 个脚本、15 个 asmdef 和 0 个 asmref，旧 Stage Seven Unity 总验收入口仍需补登记 Navigation Benchmark 与 Validation 程序集
 >
 > 本文合并原阶段零至阶段六验收文档，并记录阶段七最终结构
 >
@@ -14,7 +14,7 @@
 
 截至 2026-08-22，当前结果如下：
 
-- 331 个 `Assets/Scripts` C# 文件全部进入明确的项目程序集
+- 339 个 `Assets/Scripts` C# 文件全部进入明确的项目程序集
 - 15 个项目 asmdef 全部使用稳定 GUID 和根命名空间
 - 项目 asmref 为 0
 - 全项目不存在全局命名空间业务脚本
@@ -585,7 +585,7 @@ Navigation 只依赖 Core 和 Gameplay.Contracts，不依赖 Gameplay、Player �
 
 迁移阶段完成后，当前仓库已经验证：
 
-- 程序集迁移审计通过，331 个脚本全部归属 15 个 asmdef，0 个 asmref
+- 程序集迁移审计通过，339 个脚本全部归属 15 个 asmdef，0 个 asmref
 - 全局命名空间、Warning、严重问题、循环依赖和边界违规均为 0
 - Navigation R6 的 Stage 1～5、结构检查、算法夹具和 32/64/128 双轮基准全部通过
 - 15 个实际项目 `.csproj` 均可独立完成编译，0 个错误

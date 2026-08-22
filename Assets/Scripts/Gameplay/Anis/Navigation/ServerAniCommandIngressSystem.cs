@@ -10,7 +10,7 @@ using Unity.Transforms;
 namespace AnimarsCatcher.Gameplay
 {
     /// <summary>
-    /// 在 Grid 后端验证 AniCommandRpc，并生成统一的 Squad 指令
+    /// 在 Grid 后端验证选择集版本和目标，并生成 MovementOrder 与兼容 Squad 指令
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -21,52 +21,36 @@ namespace AnimarsCatcher.Gameplay
         private const float DefaultFollowStoppingDistance = 2.5f;
         private const float DefaultFindStoppingDistance = 1.0f;
 
-        private NativeParallelHashMap<int, Entity> _aniByGhostId;
         private uint _nextSequence;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
-
-            // GhostId 只在当前服务器 World 内有效，映射由本 System 维护并在销毁时释放
-            _aniByGhostId = new NativeParallelHashMap<int, Entity>(256, Allocator.Persistent);
             _nextSequence = 1;
-        }
-
-        public void OnDestroy(ref SystemState state)
-        {
-            // OnCreate 可能在 World 提前销毁前完成，释放时必须容忍未创建状态
-            if (_aniByGhostId.IsCreated)
-            {
-                _aniByGhostId.Dispose();
-            }
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            // GhostId 会随 Ghost 生成和销毁变化，逐 Tick 重建可避免持有失效 Entity
-            // 该表只用于处理当前 Tick 的 RPC，不会跨帧缓存队伍成员
-            _aniByGhostId.Clear();
-            foreach (var (ghostInstance, entity) in
-                     SystemAPI.Query<RefRO<GhostInstance>>()
-                              .WithAll<AniAttributes>()
+            var selectionsByOwner = new NativeParallelHashMap<int, Entity>(
+                math.max(1, SystemAPI.QueryBuilder().WithAll<ServerAniSelectionSet>().Build()
+                    .CalculateEntityCount()),
+                Allocator.Temp);
+            foreach (var (selection, selectionEntity) in
+                     SystemAPI.Query<RefRO<ServerAniSelectionSet>>()
                               .WithEntityAccess())
             {
-                // GhostId 重复时保留先加入的 Entity，异常成员会在后续检查中被拒绝
-                _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
+                selectionsByOwner.TryAdd(
+                    selection.ValueRO.OwnerNetworkId,
+                    selectionEntity);
             }
 
-            // 处理 RPC 和创建指令都会改变 Archetype，因此延迟到查询结束后统一执行
-            // Playback 前所有 NativeList 都必须完成 Dispose
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
             foreach (var (rpc, receive, rpcEntity) in
                      SystemAPI.Query<RefRO<AniCommandRpc>, RefRO<ReceiveRpcCommandRequest>>()
                               .WithEntityAccess())
             {
                 Entity sourceConnection = receive.ValueRO.SourceConnection;
-
-                // 缺少 NetworkId 的请求无法确认来源，必须丢弃且不能留到下一帧重试
                 if (!SystemAPI.HasComponent<NetworkId>(sourceConnection))
                 {
                     entityCommandBuffer.DestroyEntity(rpcEntity);
@@ -74,10 +58,18 @@ namespace AnimarsCatcher.Gameplay
                 }
 
                 int ownerNetworkId = SystemAPI.GetComponent<NetworkId>(sourceConnection).Value;
+                if (!selectionsByOwner.TryGetValue(ownerNetworkId, out Entity selectionEntity))
+                {
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
 
-                // 先拒绝无效目标，避免为不可能执行的命令扫描和分配成员集合
-                // Follow 和 Find 的目标 Entity 在这里先检查一次，运行时再由 TargetResolve 持续追踪
-                if (!TryResolveCommand(
+                ServerAniSelectionSet selection =
+                    SystemAPI.GetComponent<ServerAniSelectionSet>(selectionEntity);
+                if (selection.Version != rpc.ValueRO.SelectionVersion ||
+                    selection.CompletenessHash != rpc.ValueRO.SelectionHash ||
+                    selection.MemberCount <= 0 ||
+                    !TryResolveCommand(
                         ref state,
                         rpc.ValueRO,
                         ownerNetworkId,
@@ -87,68 +79,102 @@ namespace AnimarsCatcher.Gameplay
                     continue;
                 }
 
-                NativeParallelHashSet<Entity> selectedEntities =
-                    new(math.max(1, rpc.ValueRO.SelectedAniGhostIds.Length), Allocator.Temp);
-                NativeList<AniSquadCommandMember> members =
-                    new(math.max(1, rpc.ValueRO.SelectedAniGhostIds.Length), Allocator.Temp);
+                DynamicBuffer<ServerAniSelectionMember> selected =
+                    state.EntityManager.GetBuffer<ServerAniSelectionMember>(
+                        selectionEntity,
+                        true);
+                var members = new NativeList<AniSquadCommandMember>(
+                    math.max(1, selected.Length),
+                    Allocator.Temp);
+                var movementMembers = new NativeList<AniMovementOrderMember>(
+                    math.max(1, selected.Length),
+                    Allocator.Temp);
+                bool selectionBecameInvalid = false;
 
-                // HashSet 用于过滤恶意重复选择，避免同一成员在 Squad Buffer 中出现多次
-                // NativeList 保留通过权限校验的顺序，后续再按 StableId 排序
-                for (int index = 0; index < rpc.ValueRO.SelectedAniGhostIds.Length; index++)
+                for (int index = 0; index < selected.Length; index++)
                 {
-                    int ghostId = rpc.ValueRO.SelectedAniGhostIds[index];
-                    if (!_aniByGhostId.TryGetValue(ghostId, out Entity aniEntity) ||
-                        !selectedEntities.Add(aniEntity) ||
-                        !SystemAPI.HasComponent<GhostOwner>(aniEntity))
+                    ServerAniSelectionMember selectedMember = selected[index];
+                    Entity ani = selectedMember.Ani;
+                    if (!state.EntityManager.Exists(ani) ||
+                        !SystemAPI.HasComponent<GhostInstance>(ani) ||
+                        !SystemAPI.HasComponent<GhostOwner>(ani) ||
+                        !SystemAPI.HasComponent<LocalTransform>(ani) ||
+                        !SystemAPI.HasComponent<AniAttributes>(ani))
+                    {
+                        selectionBecameInvalid = true;
+                        break;
+                    }
+
+                    GhostInstance ghost = SystemAPI.GetComponent<GhostInstance>(ani);
+                    GhostOwner owner = SystemAPI.GetComponent<GhostOwner>(ani);
+                    if (ghost.ghostId != selectedMember.GhostId ||
+                        owner.NetworkId != ownerNetworkId)
+                    {
+                        selectionBecameInvalid = true;
+                        break;
+                    }
+
+                    if (SystemAPI.HasComponent<AniCommandLockedTag>(ani) &&
+                        SystemAPI.IsComponentEnabled<AniCommandLockedTag>(ani))
                     {
                         continue;
                     }
 
-                    // 服务器只接受连接自身拥有且具备移动数据的 Ani
-                    // GhostOwner 用于确认操作权限，AniAttributes 只提供移动能力数据
-                    GhostOwner owner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
-                    if (owner.NetworkId != ownerNetworkId ||
-                        !SystemAPI.HasComponent<LocalTransform>(aniEntity) ||
-                        !SystemAPI.HasComponent<AniAttributes>(aniEntity))
-                    {
-                        continue;
-                    }
-
-                    AniAttributes attributes = SystemAPI.GetComponent<AniAttributes>(aniEntity);
-
-                    // 指令快照冻结本次移动参数，后续 Squad 系统不再读取玩法组件
+                    AniAttributes attributes = SystemAPI.GetComponent<AniAttributes>(ani);
                     members.Add(new AniSquadCommandMember
                     {
-                        Ani = aniEntity,
-                        StableId = ghostId,
+                        Ani = ani,
+                        StableId = selectedMember.GhostId,
                         MaxSpeed = math.max(0f, attributes.MovementSpeed),
                         MaxAcceleration = math.max(1f, attributes.MovementSpeed * 4f),
                         AgentRadius = DefaultAgentRadius,
-                        Role = SystemAPI.HasComponent<PickerAniTag>(aniEntity)
+                        Role = SystemAPI.HasComponent<PickerAniTag>(ani)
                             ? AniSquadRole.Picker
-                            : SystemAPI.HasComponent<BlasterAniTag>(aniEntity)
+                            : SystemAPI.HasComponent<BlasterAniTag>(ani)
                                 ? AniSquadRole.Blaster
                                 : AniSquadRole.Any,
                     });
+                    movementMembers.Add(new AniMovementOrderMember
+                    {
+                        GhostId = selectedMember.GhostId,
+                        Ani = ani,
+                    });
                 }
 
-                selectedEntities.Dispose();
-
-                // 空选择可能来自过期 GhostId 或无权操作的成员，同样按无效 RPC 处理
-                if (members.IsEmpty)
+                if (selectionBecameInvalid || members.IsEmpty)
                 {
                     members.Dispose();
+                    movementMembers.Dispose();
                     entityCommandBuffer.DestroyEntity(rpcEntity);
                     continue;
                 }
 
-                // 只为可执行指令分配序号，避免无效 RPC 占用回放序号
                 command.Sequence = NextSequence();
-                command.DesiredForward = CalculateForward(ref state, members, command.TargetPosition);
-
-                // 每个 RPC 只生成一个指令 Entity，成员数量不会放大路径上下文数量
-                // 指令成员 Buffer 是权限校验后的最小输入，不再携带原 RPC
+                command.DesiredForward = CalculateForward(
+                    ref state,
+                    members,
+                    command.TargetPosition);
                 Entity commandEntity = entityCommandBuffer.CreateEntity();
+                entityCommandBuffer.AddComponent(commandEntity, new AniMovementOrderRequest());
+                entityCommandBuffer.AddComponent(commandEntity, new AniMovementOrder
+                {
+                    Sequence = command.Sequence,
+                    OwnerNetworkId = ownerNetworkId,
+                    SelectionVersion = selection.Version,
+                    SelectionHash = selection.CompletenessHash,
+                    Mode = command.Mode,
+                    TargetPosition = command.TargetPosition,
+                    TargetEntity = command.TargetEntity,
+                    TargetStoppingDistance = command.TargetStoppingDistance,
+                });
+                DynamicBuffer<AniMovementOrderMember> orderMembers =
+                    entityCommandBuffer.AddBuffer<AniMovementOrderMember>(commandEntity);
+                for (int index = 0; index < movementMembers.Length; index++)
+                {
+                    orderMembers.Add(movementMembers[index]);
+                }
+
+                // 6A.2 接管运行时前继续写入旧 Squad 契约，保证现有 Grid 链路可回归
                 entityCommandBuffer.AddComponent(commandEntity, new AniSquadCommandRequest());
                 entityCommandBuffer.AddComponent(commandEntity, command);
                 DynamicBuffer<AniSquadCommandMember> commandMembers =
@@ -159,16 +185,13 @@ namespace AnimarsCatcher.Gameplay
                 }
 
                 members.Dispose();
-
-                // 原始 RPC 处理后不再保留，后续系统只读取生成的指令 Entity
-                // Destroy 延迟到 Playback，当前循环仍可安全读取 rpcEntity
+                movementMembers.Dispose();
                 entityCommandBuffer.DestroyEntity(rpcEntity);
             }
 
-            // 所有查询结束后一次回放，防止当前 Tick 读到半构建指令
-            // 下一系统组只能观察完整的 Request、Command 和 Member Buffer
             entityCommandBuffer.Playback(state.EntityManager);
             entityCommandBuffer.Dispose();
+            selectionsByOwner.Dispose();
         }
 
         private bool TryResolveCommand(
@@ -180,25 +203,19 @@ namespace AnimarsCatcher.Gameplay
             command = default;
             AniSquadCommandMode mode;
             float stoppingDistance;
-
-            // 在入口把高层目标类型转换为 Grid 后端支持的三种命令
-            // 未知枚举值直接失败，避免未来协议扩展被错误解释
             switch (rpc.TargetKind)
             {
                 case WorldCommandTargetKind.Ground:
-                    // 地面目标只依赖 RPC 坐标，不建立动态目标引用
                     mode = AniSquadCommandMode.MoveTo;
                     stoppingDistance = 0.7f;
                     break;
                 case WorldCommandTargetKind.Player:
-                    // 玩家目标持续跟随 Entity 位置，停止距离比普通 MoveTo 更宽
                     mode = AniSquadCommandMode.Follow;
                     stoppingDistance = DefaultFollowStoppingDistance;
                     break;
                 case WorldCommandTargetKind.Ani:
                 case WorldCommandTargetKind.Resource:
                 case WorldCommandTargetKind.Base:
-                    // 非玩家目标使用 Find，到达后由 Progress 结束这条一次性指令
                     mode = AniSquadCommandMode.Find;
                     stoppingDistance = DefaultFindStoppingDistance;
                     break;
@@ -209,8 +226,6 @@ namespace AnimarsCatcher.Gameplay
             float3 targetPosition = rpc.TargetWorldPosition;
             if (rpc.TargetKind != WorldCommandTargetKind.Ground)
             {
-                // 动态命令必须先有可解析 Entity，后续 TargetResolve 才能持续追踪
-                // 目标位置只作为本次初始投影，不能替代 TargetEntity 引用
                 if (rpc.TargetEntity == Entity.Null ||
                     !state.EntityManager.Exists(rpc.TargetEntity) ||
                     !state.EntityManager.HasComponent<LocalTransform>(rpc.TargetEntity))
@@ -222,29 +237,24 @@ namespace AnimarsCatcher.Gameplay
                     rpc.TargetEntity).Position;
             }
 
-            // 非有限坐标会破坏 Grid 投影和排序结果，必须在输入检查阶段拒绝
             if (!VectorMath.IsFinite(targetPosition))
             {
                 return false;
             }
 
-            // TargetEntity 保留给 Follow/Find，MoveTo 使用 Entity.Null 表示静态坐标
             command = new AniSquadCommand
             {
                 OwnerNetworkId = ownerNetworkId,
                 Mode = mode,
                 Formation = AniSquadFormationKind.CompactRectangle,
                 TargetPosition = targetPosition,
-                TargetEntity = rpc.TargetEntity,
+                TargetEntity = rpc.TargetKind == WorldCommandTargetKind.Ground
+                    ? Entity.Null
+                    : rpc.TargetEntity,
                 FormationColumnCount = 4,
                 TargetStoppingDistance = stoppingDistance,
-
-                // 真正前向在成员集合验证完成后按队伍中心重新计算
                 DesiredForward = new float3(0f, 0f, 1f),
             };
-
-            // 所有默认值都在这里补全，后续系统只需读取统一指令，不再判断 RPC 类型
-            // DesiredForward 会在成员集合通过后由队伍中心重新计算
             return true;
         }
 
@@ -255,18 +265,16 @@ namespace AnimarsCatcher.Gameplay
         {
             float3 center = float3.zero;
             int count = 0;
-
-            // 只聚合仍然存活的成员，避免同 Tick 销毁导致中心偏向世界原点
             for (int index = 0; index < members.Length; index++)
             {
-                Entity aniEntity = members[index].Ani;
-                if (!state.EntityManager.Exists(aniEntity) ||
-                    !state.EntityManager.HasComponent<LocalTransform>(aniEntity))
+                Entity ani = members[index].Ani;
+                if (!state.EntityManager.Exists(ani) ||
+                    !state.EntityManager.HasComponent<LocalTransform>(ani))
                 {
                     continue;
                 }
 
-                center += state.EntityManager.GetComponentData<LocalTransform>(aniEntity).Position;
+                center += state.EntityManager.GetComponentData<LocalTransform>(ani).Position;
                 count++;
             }
 
@@ -275,25 +283,19 @@ namespace AnimarsCatcher.Gameplay
                 center /= count;
             }
 
-            float3 forward = targetPosition - center;
-
-            // 阵型只在 XZ 平面定向，零距离时使用固定前向保证确定性
             return PlanarMath.NormalizeXZOrDefault(
-                forward,
+                targetPosition - center,
                 new float3(0f, 0f, 1f));
         }
 
         private uint NextSequence()
         {
             uint sequence = _nextSequence++;
-
-            // 零表示未提交指令，环绕时跳过该保留值
             if (_nextSequence == 0)
             {
                 _nextSequence = 1;
             }
 
-            // 递归只处理极少见的初始零值，不在正常序列中分配额外容器
             return sequence == 0 ? NextSequence() : sequence;
         }
     }

@@ -122,7 +122,9 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - `FoodResourceDeltaEvent` 和 `CrystalResourceDeltaEvent` 位于资源事件 Hub，记录指定 `NetworkId` 的资源增量
 - `CharacterSpawnPointElement` 保存各阵营角色的出生位置和旋转
 - `FoodResourceSpawnPrefabReference` 与 `CrystalResourceSpawnPrefabReference` 保存刷新区域可随机生成的资源 Prefab
-- `SelectedAniGhostReference` 保存客户端选中 Ani 的 GhostId 快照
+- `ServerAniSelectionSet` 保存玩家权威选择集的版本、成员数和完整性 Hash，`ServerAniSelectionMember` Buffer 保存按 GhostId 升序排列的唯一成员
+- `ServerAniSelectionAssemblyChunk` 与 `ServerAniSelectionAssemblyMember` 只在分块尚未收齐时保存组装状态，完成、冲突或超时后立即销毁
+- `AniMovementOrderMember` 保存移动命令创建时冻结的成员快照，当前 Grid 入口同时适配为 Stage 4～5 使用的 `AniSquadCommandMember`
 
 ## 6. Authoring、Baker 与注册数据
 
@@ -184,9 +186,12 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    Rpc[AniCommandRpc]
+    SelectRpc[AniSelectionChunkRpc]
+    Selection[ServerAniSelectionSetSystem<br/>版本 / Hash / 权限]
+    Set[ServerAniSelectionSet<br/>成员 Buffer]
+    Rpc[AniCommandRpc<br/>目标 + 选择集版本]
     Backend{AniMovementBackendConfig}
-    GridIngress[ServerAniCommandIngressSystem]
+    GridIngress[ServerAniCommandIngressSystem<br/>MovementOrder]
     Squad[AniSquad Lifecycle / Target / Path]
     Field[HPA Corridor / Flow Field]
     GridMove[Anchor / Formation / Slot / Commit / Progress]
@@ -194,13 +199,16 @@ flowchart LR
     Legacy[Blackboard / FSM / Formation / NavMesh / PhysicsMove]
     Combat[Attack Cleanup -> Sense -> Fire]
 
+    SelectRpc --> Selection --> Set
     Rpc --> Backend
     Backend -->|ClearanceGrid| GridIngress --> Squad --> Field --> GridMove
     Backend -->|LegacyNavMesh| LegacyIngress --> Legacy
+    Set --> GridIngress
+    Set --> LegacyIngress
     Legacy --> Combat
 ```
 
-服务器收到移动命令后，只让当前后端消费 RPC。Grid 链路把合法成员写入一个 Squad 上下文，再依次解析目标、生成共享路径和 Field、推进 Anchor、调整矩形阵型、分配槽位并由唯一 Commit System 写入位移。Legacy 链路继续通过 Blackboard、FSM、旧阵型、逐 Ani NavMesh 和物理移动执行。攻击相关 System 仍从现有 FSM 状态出发，完成目标感知、冷却和开火。
+服务器先组装并发布玩家选择集，移动 RPC 只引用已经确认的版本和 Hash。当前后端消费命令时再次核对来源连接与选择集，Grid 链路先生成 `MovementOrder`，再临时适配到 Stage 4～5 的 Squad 上下文；Legacy 链路读取同一份权威选择集后继续通过 Blackboard、FSM、旧阵型、逐 Ani NavMesh 和物理移动执行。攻击相关 System 仍从现有 FSM 状态出发，完成目标感知、冷却和开火。
 
 Grid 链路已通过 `AniGridCommandIngressSystemGroup`、`AniGridRuntimeSystemGroup`、`UpdateAfter` 和 `UpdateBefore` 固定顺序。Legacy 的 Planner、Nav Planner 和 Follow 之间仍有顺序缺口，见 [已知边界](07_KnownRisks.md)。
 

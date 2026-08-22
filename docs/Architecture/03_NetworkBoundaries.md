@@ -90,8 +90,11 @@ Ani、基地和资源主要采用服务器权威、客户端插值的方式。�
 ### 4.2 Ani 生成与指挥
 
 - `SpawnAniRequestRpc` 从 Client 发往 Server，由 `ServerSpawnAnisSystem` 接收，用于请求生成两类 Ani
-- `AniSelectionRequestRpc` 从 Client 发往 Server，由 `ServerApplyAniSelectionRpcSystem` 接收，携带选中 Ani 的 GhostId 列表
-- `AniCommandRpc` 从 Client 发往 Server，携带目标位置和选中 Ani 快照。Grid 后端由 `ServerAniCommandIngressSystem` 消费并生成 `AniSquadCommand`，Legacy 后端由 `ServerReceiveAniCommandRpcSystem` 消费并更新旧 Blackboard；两个入口通过后端 Tag 互斥
+- `AniSelectionChunkRpc` 从 Client 发往 Server，以最多 120 个 GhostId 为一块携带版本、块序号、成员计数和 Hash；`ServerAniSelectionSetSystem` 只有在全部分块、最终 Hash 与所有权都通过校验后才发布选择集
+- `AniSelectionAckRpc` 从 Server 返回 Client，客户端只会用已确认的版本发送后续移动命令；空选择同样发布新版本，用于明确取消旧选择
+- `AniCommandRpc` 从 Client 发往 Server，只携带目标、选择集版本和 Hash。Grid 后端由 `ServerAniCommandIngressSystem` 生成 `AniMovementOrder` 并暂时适配为 `AniSquadCommand`，Legacy 后端读取同一选择集后更新旧 Blackboard；两个入口通过后端 Tag 互斥
+
+选择集成员在服务器按 GhostId 排序并去重。内容一致的重复块按幂等重传处理，内容冲突的重复块、重复成员、越权成员、过期版本和超时未完成版本都会被拒绝。玩家连接失效时，对应未完成组装和已发布选择集都会清理。
 
 ### 4.3 战斗、资源与比赛结果
 

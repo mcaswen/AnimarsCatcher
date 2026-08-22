@@ -2,7 +2,7 @@
 
 [返回项目文档总目录](../README.md)
 
-01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 记录 Grid 移动的目标、基准和功能阶段，11 至 13 记录程序集与目录迁移，14 至 15 记录 Navigation 的现行架构以及 R0～R6 执行过程，16 记录重新规划后的万人群体移动阶段。Grid 烘焙、普通 A*、HPA Corridor、局部 Flow Field、动态 Overlay、Squad 移动和自适应矩形阵型已经实现，阶段六 6A.0 规模输入 Harness 与预算基线也已完成；后续将用 Movement Cohort、目标区域、共享 Field、空间哈希、ORCA 和选择性世界碰撞替代严格阵型作为正式方向，阶段七继续负责资源迁移与正式后端切换。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
+01 至 07 描述当前仓库实现，是理解和维护项目的事实基线，不替代 [开发规范](../Standards/DevelopmentGuidelines.md)。08 至 10 记录 Grid 移动的目标、基准和功能阶段，11 至 13 记录程序集与目录迁移，14 至 15 记录 Navigation 的现行架构以及 R0～R6 执行过程，16 记录重新规划后的万人群体移动阶段。Grid 烘焙、普通 A*、HPA Corridor、局部 Flow Field、动态 Overlay、Squad 移动和自适应矩形阵型已经实现，阶段六 6A.0 规模输入 Harness 与预算基线、6A.1 万人选择与命令链路也已完成；后续将用 Movement Cohort、目标区域、共享 Field、空间哈希、ORCA 和选择性世界碰撞替代严格阵型作为正式方向，阶段七继续负责资源迁移与正式后端切换。如果代码与事实文档不一致，应先以实际运行结果为准，再同步修正文档。
 
 ## 1. 技术基线
 
@@ -17,7 +17,7 @@
 - URP 使用 `17.2.0`
 - Input System 使用 `1.14.2`
 
-仓库中目前有 331 个 `Assets/Scripts` C# 文件，全部进入 15 个项目自定义程序集，项目 asmref 为 0。项目业务代码不再编译到 `Assembly-CSharp`，15 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
+仓库中目前有 339 个 `Assets/Scripts` C# 文件，全部进入 15 个项目自定义程序集，项目 asmref 为 0。项目业务代码不再编译到 `Assembly-CSharp`，15 个项目 asmdef 均关闭 `Auto Referenced`，跨模块访问由显式程序集引用约束。
 
 当前没有独立的 `Assets/Tests` 测试程序集。`Assets/SO` 已用于保存 `NavigationGridBakeAsset`，其他静态配置仍主要来自 Authoring、Prefab、场景 Entity、Build Profile 和 `ProjectSettings`。
 

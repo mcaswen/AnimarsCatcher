@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段零至阶段七实现完成；当前 331 个脚本、15 个 asmdef、0 个 asmref 的归属审计通过，实施结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)
+> 状态：阶段零至阶段七实现完成；当前 339 个脚本、15 个 asmdef、0 个 asmref 的归属审计通过，实施结果见 [程序集迁移实施与最终收紧](12_AssemblyMigrationPhaseSevenFinalTightening.md)
 >
 > 第一批试点模块当前位于：`Assets/Scripts/Navigation`
 >
@@ -30,7 +30,7 @@
 
 当前仓库已经达到以下状态：
 
-- `Assets/Scripts` 有 331 个 C# 文件、15 个项目 `.asmdef` 和 0 个项目 `.asmref`
+- `Assets/Scripts` 有 339 个 C# 文件、15 个项目 `.asmdef` 和 0 个项目 `.asmref`
 - 全部脚本具有明确命名空间和程序集归属，全局命名空间脚本为 0
 - 项目业务脚本不再编译到预定义 `Assembly-CSharp`
 - Navigation、Networking 和 Player 均具有独立 Editor-only 程序集，Navigation 还拆出独立 Validation 与 Benchmark 程序集

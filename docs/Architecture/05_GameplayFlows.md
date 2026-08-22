@@ -42,23 +42,26 @@ sequenceDiagram
     participant Input as PlayerInput
     participant Drag as AniSelectionDragState
     participant Client as ClientSendAniSelectionRpcSystem
-    participant Server as ServerApplyAniSelectionRpcSystem
+    participant Server as ServerAniSelectionSetSystem
+    participant Index as ServerAniGhostIdIndexSystem
     participant Ani as Ani Ghost
     participant View as Selection Ring Systems
 
     Input->>Drag: 记录屏幕拖拽矩形
     Drag->>Client: 释放边沿
-    Client->>Client: 按模式、屏幕范围和本地 GhostOwner 收集 GhostId
-    Client->>Server: AniSelectionRequestRpc
-    Server->>Server: 按 SourceConnection.NetworkId 复核 GhostOwner
+    Client->>Client: 收集、排序并分块 GhostId
+    Client->>Server: AniSelectionChunkRpc
+    Server->>Server: 校验版本、块数、成员数和 Hash
+    Server->>Index: 解析 GhostId 并复核 GhostOwner
     Server->>Ani: 启用或禁用 AniSelectedTag
+    Server-->>Client: AniSelectionAckRpc
     Ani-->>View: Ghost enable bit
     View->>View: 更新光圈和选择表现
 ```
 
-拖拽开始后，客户端把屏幕矩形记录在 `AniSelectionDragState` 中。释放鼠标时，客户端根据当前选择模式、屏幕范围和本地所有权收集候选 Ani，并把 GhostId 列表发送给服务器。
+拖拽开始后，客户端把屏幕矩形记录在 `AniSelectionDragState` 中。释放鼠标时，客户端根据当前选择模式、屏幕范围和本地所有权收集候选 Ani，按 GhostId 排序去重，再以每块最多 120 个成员提交新版本。没有候选成员时也会提交空版本，用于取消旧选择。
 
-服务器不会直接相信客户端给出的所有权。`ServerApplyAniSelectionRpcSystem` 使用 `SourceConnection.NetworkId` 再次检查每个 Ghost 的 `GhostOwner`，然后才启用或禁用 `AniSelectedTag`。这个 enable bit 随 Ghost 同步到客户端，选择光圈系统只负责根据最终状态更新表现。
+`ServerAniSelectionSetSystem` 不会直接相信客户端给出的成员。它会处理乱序块与幂等重传，拒绝元数据冲突、重复成员、越权成员和过期版本，并清理超时未完成的组装。全部校验通过后，服务器发布带版本、成员 Buffer 和完整性 Hash 的选择集，再返回回执并更新 `AniSelectedTag`。这个 enable bit 随 Ghost 同步到客户端，选择光圈系统只负责根据最终状态更新表现。
 
 选择模式由 `GameplayHudController` 通过 `AniSelectionEvents` 发布，再由 `ClientAniSelectionModeSyncSystem` 写入 `AniSelectionModeState`。
 
@@ -68,9 +71,11 @@ sequenceDiagram
 flowchart LR
     Click[ClientWorldCommandClickInputSystem]
     Ray[ClientWorldCommandRaycastSystem]
-    Rpc[AniCommandRpc<br/>目标 + 选中 GhostId]
+    Selection[ServerAniSelectionSet<br/>版本 + 成员 Buffer]
+    Rpc[AniCommandRpc<br/>目标 + 选择集版本]
     Backend{当前移动后端}
-    GridIngress[ServerAniCommandIngressSystem<br/>权限与目标校验]
+    GridIngress[ServerAniCommandIngressSystem<br/>版本、权限与目标校验]
+    Order[AniMovementOrder<br/>唯一成员快照]
     Squad[AniSquadCommand<br/>Lifecycle / Target / Path]
     Flow[HPA Corridor / Flow Field]
     GridMove[Anchor / 自适应阵型 / 槽位 / Commit]
@@ -79,15 +84,17 @@ flowchart LR
     Legacy[Legacy Formation / Planner / NavMesh / PhysicsMove]
 
     Click --> Ray --> Rpc --> Backend
-    Backend -->|ClearanceGrid| GridIngress --> Squad --> Flow --> GridMove
+    Selection --> GridIngress
+    Selection --> LegacyIngress
+    Backend -->|ClearanceGrid| GridIngress --> Order --> Squad --> Flow --> GridMove
     Backend -->|LegacyNavMesh| LegacyIngress --> Blackboard --> Legacy
 ```
 
-玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与当前选中的 GhostId 放进 `AniCommandRpc`。服务器按 RPC 的源连接复核 Ani 所有权，合法指令才会进入当前启用的移动后端。
+玩家点击世界后，客户端先做射线检测，确定目标位置和目标类型，再把目标信息与服务器已经确认的选择集版本和 Hash 放进 `AniCommandRpc`。如果最新框选还没有收到回执，点击版本会保留到回执到达后再发送，不会退回本地选择标签拼装成员快照。
 
 当前由 `AniMovementBackendConfig` 保证 Grid 与 Legacy 只能启用一个。未指定 `-movement-backend` 时使用 `LegacyNavMesh`；显式传入 `-movement-backend=grid` 时，由 Grid 链路消费同一 RPC。两个后端不会同时读取命令，也不会同时写入 Ani Transform。
 
-Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、`GhostOwner`、目标 Entity 和有限坐标，再把一次 RPC 转换成一个 `AniSquadCommand` 与成员 Buffer。后续处理顺序为：
+Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、选择集版本与 Hash、成员当前所有权、目标 Entity 和有限坐标，再生成 `AniMovementOrder` 与唯一成员快照。6A.2 接管运行时之前，同一命令 Entity 还会写入兼容的 `AniSquadCommand` 与成员 Buffer，后续处理顺序为：
 
 1. `AniSquadLifecycleSystem` 创建、更新或拆除 Squad 上下文
 2. `AniSquadTargetResolveSystem` 持续解析 MoveTo、Follow 或 Find 的目标

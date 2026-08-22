@@ -17,24 +17,15 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(SimulationSystemGroup))]
+    [UpdateAfter(typeof(ServerAniSelectionSetSystem))]
     public partial struct ServerReceiveAniCommandRpcSystem : ISystem
     {
         private BufferLookup<FsmVar> _blackboardLookup;
-
-        // 每帧重建 GhostId 到服务器 Ani Entity 的映射
-        private NativeParallelHashMap<int, Entity> _aniByGhostId;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<LegacyNavMeshBackendEnabled>();
             _blackboardLookup = state.GetBufferLookup<FsmVar>(isReadOnly: false);
-            _aniByGhostId     = new NativeParallelHashMap<int, Entity>(128, Allocator.Persistent);
-        }
-
-        public void OnDestroy(ref SystemState state)
-        {
-            if (_aniByGhostId.IsCreated)
-                _aniByGhostId.Dispose();
         }
 
         [BurstCompile]
@@ -42,18 +33,22 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
         {
             _blackboardLookup.Update(ref state);
 
-            // GhostId 会随网络 Entity 的创建和销毁变化，因此每帧从服务器 World 重建映射
-            _aniByGhostId.Clear();
-
-            foreach (var (ghostInstance, aniAttributes, entity) in
-                     SystemAPI.Query<RefRO<GhostInstance>, RefRO<AniAttributes>>()
-                              .WithEntityAccess())
-            {
-                _aniByGhostId.TryAdd(ghostInstance.ValueRO.ghostId, entity);
-            }
-
             // 查询期间延迟结构变更，避免队伍标签和 RPC 销毁使迭代失效
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
+
+            // Legacy 只消费服务器已发布的选择集，不再维护第二份 GhostId 映射
+            var selectionsByOwner = new NativeParallelHashMap<int, Entity>(
+                math.max(1, SystemAPI.QueryBuilder().WithAll<ServerAniSelectionSet>().Build()
+                    .CalculateEntityCount()),
+                Allocator.Temp);
+            foreach (var (selection, selectionEntity) in
+                     SystemAPI.Query<RefRO<ServerAniSelectionSet>>()
+                              .WithEntityAccess())
+            {
+                selectionsByOwner.TryAdd(
+                    selection.ValueRO.OwnerNetworkId,
+                    selectionEntity);
+            }
 
             // 玩家主角映射用于校验连接归属并计算整队移动朝向
             var leadersByNetworkId =
@@ -82,6 +77,22 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                 }
 
                 int networkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
+
+                if (!selectionsByOwner.TryGetValue(networkId, out Entity selectionEntity))
+                {
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
+
+                ServerAniSelectionSet selection =
+                    SystemAPI.GetComponent<ServerAniSelectionSet>(selectionEntity);
+                if (selection.Version != rpc.ValueRO.SelectionVersion ||
+                    selection.CompletenessHash != rpc.ValueRO.SelectionHash ||
+                    selection.MemberCount <= 0)
+                {
+                    entityCommandBuffer.DestroyEntity(rpcEntity);
+                    continue;
+                }
 
                 WorldCommandTargetKind targetKind = rpc.ValueRO.TargetKind;
                 Entity             targetEntity = rpc.ValueRO.TargetEntity;
@@ -125,23 +136,30 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
                     }
                 }
 
-                // 逐个解析客户端快照中的 GhostId，并在服务器重新验证拥有权
-                var selectedAniGhostIds = rpc.ValueRO.SelectedAniGhostIds;
-
-                for (int i = 0; i < selectedAniGhostIds.Length; i++)
+                // 逐个读取权威选择集，并在执行前再次验证 Entity 与拥有权
+                DynamicBuffer<ServerAniSelectionMember> selectedMembers =
+                    state.EntityManager.GetBuffer<ServerAniSelectionMember>(
+                        selectionEntity,
+                        true);
+                for (int i = 0; i < selectedMembers.Length; i++)
                 {
-                    int aniGhostId = selectedAniGhostIds[i];
-
-                    // 选择快照允许部分 Ghost 已销毁，其余有效 Ani 仍继续执行命令
-                    if (!_aniByGhostId.TryGetValue(aniGhostId, out Entity aniEntity))
+                    ServerAniSelectionMember selectedMember = selectedMembers[i];
+                    Entity aniEntity = selectedMember.Ani;
+                    if (!state.EntityManager.Exists(aniEntity) ||
+                        !SystemAPI.HasComponent<GhostInstance>(aniEntity))
                         continue;
 
-                    // SourceConnection 只能控制 GhostOwner 与自身 NetworkId 一致的 Ani
                     if (!SystemAPI.HasComponent<GhostOwner>(aniEntity))
                         continue;
 
+                    GhostInstance ghost = SystemAPI.GetComponent<GhostInstance>(aniEntity);
                     var aniOwner = SystemAPI.GetComponent<GhostOwner>(aniEntity);
-                    if (aniOwner.NetworkId != networkId)
+                    if (ghost.ghostId != selectedMember.GhostId ||
+                        aniOwner.NetworkId != networkId)
+                        continue;
+
+                    if (SystemAPI.HasComponent<AniCommandLockedTag>(aniEntity) &&
+                        SystemAPI.IsComponentEnabled<AniCommandLockedTag>(aniEntity))
                         continue;
 
                     // 尚未完成 FSM 初始化的 Ani 暂不接受行为命令
@@ -285,6 +303,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation
 
             entityCommandBuffer.Playback(state.EntityManager);
             leadersByNetworkId.Dispose();
+            selectionsByOwner.Dispose();
         }
     }
 }

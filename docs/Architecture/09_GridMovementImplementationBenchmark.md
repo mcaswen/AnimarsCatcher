@@ -84,7 +84,7 @@ Benchmark 不让两个后端在同一局同时运行。命令先记录为可回�
 Assets/SO/Benchmarks/LegacyNavigation/SO_LegacyNavigation_DefaultReplay.asset
 ```
 
-回放格式由固定随机种子和按 Tick 严格递增的相对目标组成。Harness 在 Server World 内直接将整组命令写入 Ani 移动黑板，不创建 RPC，也不序列化选择列表；因此 32、64 和 128 Ani 使用完全相同的命令 Hash，且 128 Ani 不受 `AniCommandRpc.SelectedAniGhostIds` 容量影响。
+回放格式由固定随机种子和按 Tick 严格递增的相对目标组成。Harness 在 Server World 内直接将整组命令写入 Ani 移动黑板，不创建 RPC，也不序列化选择列表；因此 32、64 和 128 Ani 使用完全相同的命令 Hash。正式链路已在 6A.1 改为通过服务器选择集版本引用成员，回放仍保持独立，避免把网络协议开销混入 Legacy 导航基线。
 
 ## 4. 基线归一化
 

@@ -8,7 +8,7 @@ using Unity.NetCode;
 namespace AnimarsCatcher.Presentation.Selection
 {
     /// <summary>
-    /// 在客户端把新点击结果和本地选择集封装为一次移动 RPC
+    /// 在客户端把新点击结果和服务器已确认的选择集版本封装为移动 RPC
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ClientSimulation)]
@@ -20,6 +20,7 @@ namespace AnimarsCatcher.Presentation.Selection
             state.RequireForUpdate<WorldCommandRaycastResult>();
             state.RequireForUpdate<WorldCommandSentVersion>();
             state.RequireForUpdate<NetworkStreamInGame>();
+            state.RequireForUpdate<ClientAniSelectionSetState>();
         }
 
         [BurstCompile]
@@ -32,38 +33,35 @@ namespace AnimarsCatcher.Presentation.Selection
             if (result.Version == 0 || result.Version == processed.ValueRO.Version)
                 return;
 
-            processed.ValueRW.Version = result.Version;
-
             if (result.TargetKind == WorldCommandTargetKind.None)
-                return;
-
-            // 客户端世界只维护一条到服务器的游戏连接
-            Entity connection = SystemAPI.GetSingletonEntity<NetworkStreamInGame>();
-            int localNetworkId = SystemAPI.GetComponent<NetworkId>(connection).Value;
-
-            // 选择集使用 GhostId 快照，避免 RPC 到达前本地选择变化影响命令
-            var selectedAniGhostIds = new FixedList128Bytes<int>();
-
-            foreach (var (ghostInstance, owner) in
-                    SystemAPI.Query<RefRO<GhostInstance>, RefRO<GhostOwner>>()
-                            .WithAll<AniSelectedTag>()
-                            .WithNone<AniCommandLockedTag>())
             {
-                // 客户端只能请求控制 GhostOwner 属于自己的 Ani
-                if (owner.ValueRO.NetworkId != localNetworkId)
-                    continue;
-
-                if (selectedAniGhostIds.Length >= selectedAniGhostIds.Capacity)
-                    break;
-
-                selectedAniGhostIds.Add(ghostInstance.ValueRO.ghostId);
+                processed.ValueRW.Version = result.Version;
+                return;
             }
 
-            // 空选择不创建无意义的网络消息
-            if (selectedAniGhostIds.Length == 0)
+            ClientAniSelectionSetState selection =
+                SystemAPI.GetSingleton<ClientAniSelectionSetState>();
+            bool selectionIsAcknowledged =
+                selection.SubmittedVersion != 0 &&
+                selection.SubmittedVersion == selection.AcknowledgedVersion &&
+                selection.SubmittedHash == selection.AcknowledgedHash &&
+                selection.SubmittedMemberCount == selection.AcknowledgedMemberCount;
+            if (!selectionIsAcknowledged)
+            {
                 return;
+            }
 
-            // RPC 只携带命令输入，最终权限和目标有效性由服务器复核
+            if (selection.AcknowledgedMemberCount == 0)
+            {
+                processed.ValueRW.Version = result.Version;
+                return;
+            }
+
+            // 未收到回执时保留点击版本，回执到达后会自动补发这次命令
+            processed.ValueRW.Version = result.Version;
+            Entity connection = SystemAPI.GetSingletonEntity<NetworkStreamInGame>();
+
+            // RPC 只引用服务器已经发布的选择集，不再重复发送成员列表
             var entityCommandBuffer = new EntityCommandBuffer(Allocator.Temp);
 
             Entity rpcEntity = entityCommandBuffer.CreateEntity();
@@ -72,7 +70,8 @@ namespace AnimarsCatcher.Presentation.Selection
                 TargetKind          = result.TargetKind,
                 TargetWorldPosition = result.TargetWorldPosition,
                 TargetEntity        = result.TargetEntity,
-                SelectedAniGhostIds = selectedAniGhostIds
+                SelectionVersion    = selection.AcknowledgedVersion,
+                SelectionHash       = selection.AcknowledgedHash,
             });
 
             entityCommandBuffer.AddComponent(rpcEntity, new SendRpcCommandRequest

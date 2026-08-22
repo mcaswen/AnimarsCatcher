@@ -7,7 +7,7 @@
 - [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](15_NavigationArchitectureRefactorExecutionPlan.md)
 
-> 状态：规划完成，尚未实施
+> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路已完成；下一步为 6A.2 MovementOrder 拆分 MovementCohort
 >
 > 目标：在 Server World 支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
 >
@@ -36,7 +36,7 @@
 
 | 当前边界 | 源码事实 | 万人规模影响 |
 |---|---|---|
-| 命令容量 | `ClientSendAniCommandRpcSystem` 使用固定容量选择列表，达到容量后停止收集；服务器仍从 RPC 复制成员 | 无法在一条正式网络命令中完整表达万人选择集 |
+| 命令过渡 | 6A.1 已通过分块选择集表达万人成员，移动 RPC 只携带已确认的选择版本和哈希；Grid 入口暂时同时生成 `MovementOrder` 与旧 `AniSquadCommand` | 6A.2 前万人仍会进入旧 Squad 链路并产生双份成员 Buffer，不能作为最终规模实现 |
 | 命令到 Squad | `ServerAniCommandIngressSystem` 每个 RPC 生成一个命令 Entity，`AniSquadLifecycleSystem` 创建或复用一个 Squad | 把万人放入一个 Squad 会让阵型和成员维护失去规模上限 |
 | 严格槽位分配 | `AniFormationAssignmentSystem` 创建 `memberCount * slotCount` 成本矩阵，再运行 Hungarian 匹配 | 10000 人成本矩阵仅 `float` 数据约 400 MB，求解复杂度接近 `O(N³)` |
 | Flow Field 调度 | `ServerNavigationGridFlowFieldSystem` 每批最多 16 个请求，单个 `IJob` 内顺序处理 | 多 Cohort 或多目标突发时排队延迟不可控 |
@@ -44,7 +44,7 @@
 | 单位移动 | 期望速度、槽位目标、Commit 和部分进度判断仍通过 System 主线程查询遍历 | Burst 可以降低单次成本，但不能充分利用多核处理 10000 Ani |
 | 动态 Overlay | Path 或 Flow Job 读取 Overlay 时，`NavigationDynamicOverlaySystem` 延迟写入 | 持续寻路负载可能增加动态障碍生效延迟 |
 | 拥挤处理 | 当前 Stage 4 Benchmark 明确不包含 ORCA、世界碰撞或受阻恢复 | 开阔地到达不能证明窄路、交叉和高密度场景可用 |
-| 验收规模 | 当前最终回归只覆盖 32、64、128 Ani | 没有 512～10000 的排队、内存、Worker 和 Server Tick 证据 |
+| 验收规模 | 6A.0 已覆盖 512、1000、2500、5000 和 10000 Ani 输入，6A.1 已验证万人选择与命令成员完整性 | 后续仍需补齐 6A.2～6C 的排队、内存、Worker 和 Server Tick 证据 |
 
 这些限制要求先改规模模型，再实现 ORCA。如果直接在现有“一个大 Squad + 固定槽位”上完成旧版阶段六，之后仍需重做空间哈希分组、邻居语义、到达判定和 Field 所有权。
 
@@ -69,18 +69,19 @@
 
 ### 3.2 MovementOrder
 
-`MovementOrder` 表示玩家的一次完整意图，至少保存：
+6A.1 的 `AniMovementOrder` 表示玩家的一次完整意图，当前保存：
 
 - 所有者与稳定命令序号
 - MoveTo、Follow 或 Find 语义
 - 目标位置或目标 Entity
-- 停止范围和目标区域参数
-- 选择集版本或服务器 GroupId
-- 创建 Tick、取消版本和优先级
+- 停止范围
+- 选择集版本、完整性 Hash 与唯一成员 Buffer
+
+创建 Tick、取消版本、优先级和目标区域参数在 6A.2 接入 Cohort 生命周期时补充，不在 6A.1 提前建立未消费字段。
 
 移动 RPC 不再重复携带全部选中 GhostId。客户端先以分块或差量方式更新服务器选择集，服务端确认成员数量、Hash 和版本完整后，移动命令只引用该版本。后续可以评估由服务器根据框选体积重建选择集，但它不能成为第六阶段的前置假设。
 
-服务器的 GhostId 到 Entity 索引改为随 Spawn、Despawn 增量维护，不能继续只为等待 RPC 而每 Tick 扫描全部 Ani 重建。
+服务器的 GhostId 到 Entity 索引只在 Ani 数量、结构、GhostId 或拥有者变化时重新发布，稳定 Tick 复用同一排序快照，不再由选择与移动入口各自逐 Tick 重建。当前变更发布仍需排序全部索引项，高频 Spawn、Despawn 的尖峰继续纳入 6A.4 和 6C 性能治理。
 
 ### 3.3 MovementCohort
 
@@ -159,7 +160,7 @@ NavigationFlowFieldRecord
 服务器运行顺序调整为：
 
 1. `ServerAniSelectionSetSystem`：组装并校验分块或差量选择集
-2. `ServerAniMovementOrderIngressSystem`：校验目标与选择集版本，创建 MovementOrder
+2. `ServerAniCommandIngressSystem`：校验目标与选择集版本，创建 MovementOrder，并在 6A.2 前适配旧 Squad 契约
 3. `AniMovementCohortPartitionSystem`：确定性拆分或复用 Cohort
 4. `NavigationDynamicOverlaySnapshotSystem`：完成写缓冲并在安全 Tick 边界交换只读快照
 5. `AniCohortTargetResolveSystem`：解析 MoveTo、Follow 和 Find 的当前目标
@@ -241,6 +242,23 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 重复、越权、过期和不完整选择集均被服务器拒绝
 - 同一成员在一个 MovementOrder 中只出现一次
 - 命令不因分块到达顺序不同产生不同成员顺序或 Hash
+
+实现状态（2026-08-22）：**已完成**
+
+- 新增 `ServerAniSelectionSet`、版本、完整性 Hash 和按 GhostId 升序排列的成员 Buffer；未完成版本使用独立组装 Entity，玩家连接失效时同步清理
+- `AniSelectionChunkRpc` 每块最多携带 120 个 GhostId，支持 Replace、Add、Remove 和 Clear；块可乱序到达，内容一致的重复块按幂等重传忽略，内容冲突的重复块和重复成员会拒绝整个版本
+- 服务端会核对来源连接、当前 `GhostOwner`、块数、载荷成员数、结果成员数和最终 Hash；更高版本会取消旧的未完成组装，过期版本直接拒绝，缺块版本在 180 个 Server Update 后清理
+- `AniSelectionAckRpc` 只确认已经发布的版本；客户端在收到回执前保留世界点击，`AniCommandRpc` 只发送目标、选择集版本和 Hash，不再携带固定容量成员列表
+- `ServerAniGhostIdIndexSystem` 统一向选择和命令链路发布排序索引，稳定 Tick 不刷新；Grid 与 Legacy 入口不再维护各自的逐 Tick GhostId HashMap
+- Grid 入口生成 `AniMovementOrder` 与唯一成员快照，并在 6A.2 前同时写入兼容 `AniSquadCommand`；Legacy 入口从同一权威选择集读取成员，不改变旧 FSM 与 NavMesh 行为
+
+专项验收在 Unity `6000.2.7f2` Batch Mode 下完成：
+
+- 10000 Ani 选择集拆为 84 块，顺序与逆序到达都发布 10000 个唯一成员
+- 两种到达顺序的 `SelectionHash` 与成员顺序 Hash 均为 `78681BD7C145FFE4`
+- 完整覆盖万人框选、Clear 取消、Replace、Add、Remove、MoveTo、重复成员、冲突块、越权成员、过期版本和缺块超时
+- `AniCommandRpc` 结构检查确认不再包含任何 `FixedList` 成员字段，一个 MovementOrder 中的 10000 个成员严格升序且各出现一次
+- 6A.1 专项自动验收、6A.0 自动验收和 Stage Four 自动验收全部通过
 
 ### 6A.2 Cohort 与自由目标区域
 

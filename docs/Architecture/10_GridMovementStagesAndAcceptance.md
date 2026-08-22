@@ -7,7 +7,7 @@
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 - [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0 Benchmark 与预算基线已完成，6A.1 及后续万人运行时链路尚未实施；阶段七及 Normalized Legacy 横向性能对照仍待执行
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路已完成，6A.2 及后续群体移动链路尚未实施；阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
 > 第六阶段内部按 6A、6B、6C 依次验收；阶段五未完成的动态 Overlay 场景验收并入 6A/6C，已取消的严格阵型正式目标不再阻塞阶段六
 
@@ -290,6 +290,8 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 完整数据模型、System Pipeline、提交顺序和万人门禁见 [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)。本节只保存阶段总表。
 
 2026-08-22 已完成 6A.0：统一 Harness 增加 512～10000 Ani 档位、工作负载隔离、ECS DynamicBuffer 规模输入、三类确定性 Hash、v5 报告和 `Stage6A0-60Hz-v1` 预算。10000 Ani 输入连续两轮 Hash 一致，旧 32 Ani 严格阵型完整回放与 Stage Zero、Stage Four 自动验收通过。该输入工作负载不运行导航内核，不能替代后续万人移动性能门禁。
+
+同日完成 6A.1：正式框选使用 120 个 GhostId 一块的版本化协议，服务器发布带成员 Buffer 与完整性 Hash 的权威选择集，移动 RPC 只引用已确认版本。专项验收使用 10000 Ani 和 84 个分块覆盖顺序、逆序、取消、替换、差量、重复、越权、过期、缺块超时与 MoveTo，两个到达顺序均得到 `78681BD7C145FFE4`，并回归通过 6A.0 与 Stage Four。当前 Grid 入口仍把 `MovementOrder` 适配到旧 Squad 链路，Cohort 与自由目标区域从 6A.2 开始实现。
 
 ### 6A：规模基础
 

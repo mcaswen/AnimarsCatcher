@@ -2,8 +2,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.UI;
-using Unity.NetCode;
-using Unity.Collections;
 
 namespace AnimarsCatcher.Presentation.Selection
 {
@@ -54,27 +52,16 @@ namespace AnimarsCatcher.Presentation.Selection
     }
 
 
-    #region 网络同步部分
-
     /// <summary>
-    /// 已选 Ani 的 Ghost 标识缓冲元素
+    /// 保存客户端最近提交和服务器已经确认的选择集版本
     /// </summary>
-    public struct SelectedAniGhostReference : IBufferElementData
+    public struct ClientAniSelectionSetState : IComponentData
     {
-        public int AniGhostId;
+        public uint SubmittedVersion;
+        public ulong SubmittedHash;
+        public int SubmittedMemberCount;
+        public uint AcknowledgedVersion;
+        public ulong AcknowledgedHash;
+        public int AcknowledgedMemberCount;
     }
-
-    /// <summary>
-    /// 客户端提交的 Ani 选择 GhostId 列表
-    /// </summary>
-    public struct AniSelectionRequestRpc : IRpcCommand
-    {
-        // 零表示替换现有选择，非零表示追加选择
-        public byte Append;
-        public FixedList512Bytes<int> GhostIds;
-    }
-
-
-
-    #endregion
 }
