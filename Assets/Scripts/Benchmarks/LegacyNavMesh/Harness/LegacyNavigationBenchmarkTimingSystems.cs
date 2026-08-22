@@ -42,6 +42,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 return;
             }
 
+            // Stopwatch 时间戳使用高精度单调时钟，不依赖游戏时间缩放
             benchmarkState.ValueRW.FrameStartTimestamp = Stopwatch.GetTimestamp();
             // 使用当前主线程累计值，组末做差后不会包含 Worker 线程分配
             benchmarkState.ValueRW.FrameStartAllocatedBytes =
@@ -88,6 +89,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             benchmarkState.ValueRW.ResultExported = 1;
 
 #if !UNITY_EDITOR
+            // Player 批处理可在结果导出后自动退出，Editor 保持打开便于检查
             if (Application.isBatchMode && config.AutoQuit != 0)
             {
                 Application.Quit(0);
@@ -99,10 +101,12 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             ref SystemState state,
             RefRW<LegacyNavigationBenchmarkState> benchmarkState)
         {
+            // 组末减去组首时间戳，覆盖整个 Server Simulation Group
             long elapsedTimestamp =
                 Stopwatch.GetTimestamp() - benchmarkState.ValueRO.FrameStartTimestamp;
             double elapsedMilliseconds =
                 elapsedTimestamp * 1000.0 / Stopwatch.Frequency;
+            // GC 计数只覆盖当前主线程，并把异常负差钳制为零
             long allocatedBytes = Math.Max(
                 0L,
                 GC.GetAllocatedBytesForCurrentThread() -
@@ -151,6 +155,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             LegacyNavigationBenchmarkCounters counters =
                 SystemAPI.GetSingleton<LegacyNavigationBenchmarkCounters>();
 
+            // 报告使用解析默认值后的 TickRate，避免零值配置产生歧义
             ClientServerTickRate resolvedTickRate = default;
             if (SystemAPI.TryGetSingleton<ClientServerTickRate>(out var tickRate))
             {
@@ -260,13 +265,16 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                      SystemAPI.Query<RefRO<LocalTransform>, RefRO<NavSteering>>()
                          .WithAll<LegacyNavigationBenchmarkAniTag>())
             {
+                // 只统计 Benchmark 标记的 Ani，排除场景中其他导航对象
                 float3 position = transform.ValueRO.Position;
                 positions.Add(position);
                 if (steering.ValueRO.HasPath == 0)
                 {
+                    // Legacy 基线以 NavSteering 不再持有路径作为到达近似
                     arrivedCount++;
                 }
 
+                // 使用与命令生成相同的矩形槽位算法还原期望终点
                 float3 localOffset = AniFormationUtility.CalculateRectangularFormationLocalOffset(
                     slotIndex,
                     AniFormationUtility.FormationColumnCount,
@@ -294,6 +302,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 return configuredPath;
             }
 
+            // Editor 相对项目根目录，Player 相对 persistentDataPath
             string root = Application.isEditor
                 ? Path.GetFullPath(Path.Combine(Application.dataPath, ".."))
                 : Application.persistentDataPath;

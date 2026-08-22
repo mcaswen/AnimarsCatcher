@@ -15,6 +15,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
+            // 查询不强制 Buffer 已存在，System 会为旧场景补齐运行时存储
             _gridQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>());
         }
@@ -56,6 +57,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationDynamicOverlayState overlayState = entityManager.GetComponentData<
                 NavigationDynamicOverlayState>(gridEntity);
 
+            // Grid 资源替换或旧存储长度不匹配时重建全零 Overlay
             if (!NavigationDynamicOverlayAlgorithms.IsShapeValid(
                     ref grid,
                     cells,
@@ -70,6 +72,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     ref overlayState);
             }
 
+            // 没有 Delta 时仍清零本 Tick 的更新计数，保留版本不变
             if (deltas.IsEmpty)
             {
                 overlayState.LastUpdatedCellCount = 0;
@@ -78,6 +81,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
+            // 一批 Delta 共享同一个新版本，读取方可把它们视作一次发布
             uint nextVersion = NavigationDynamicOverlayAlgorithms.NextVersion(
                 overlayState.Version);
             int updatedCellCount = 0;
@@ -97,6 +101,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 updatedCellCount++;
+                // Cell 变化会使自身及边界相邻 Cluster 的寻路缓存失效
                 updatedClusterCount += NavigationDynamicOverlayAlgorithms.MarkAffectedClusters(
                     ref grid,
                     delta.CellIndex,
@@ -105,6 +110,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             deltas.Clear();
+            // 只有至少一个 Cell 真正变化时才发布新版本
             overlayState.Version = updatedCellCount > 0
                 ? nextVersion
                 : overlayState.Version;
@@ -127,6 +133,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 entityManager.AddBuffer<NavigationDynamicOverlayCluster>(gridEntity);
             }
 
+            // Delta Buffer 是其他系统向 Overlay 提交变化的唯一写入口
             if (!entityManager.HasBuffer<NavigationDynamicOverlayDelta>(gridEntity))
             {
                 entityManager.AddBuffer<NavigationDynamicOverlayDelta>(gridEntity);
@@ -139,6 +146,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     new NavigationDynamicOverlayState { Version = 1 });
             }
 
+            // Job 活动状态协调 Overlay 写入与寻路读取的内存安全边界
             if (!entityManager.HasComponent<NavigationGridJobActivity>(gridEntity))
             {
                 entityManager.AddComponentData(
@@ -169,6 +177,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 clusters[index] = default;
             }
 
+            // 重建存储不强制递增已有版本，但必须消除未初始化零值
             overlayState.Version = overlayState.Version == 0 ? 1u : overlayState.Version;
             overlayState.Initialized = 1;
             entityManager.SetComponentData(gridEntity, overlayState);

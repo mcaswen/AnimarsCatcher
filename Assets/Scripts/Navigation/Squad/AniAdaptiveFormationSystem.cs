@@ -15,8 +15,11 @@ namespace AnimarsCatcher.Navigation.Grid
     public partial struct AniAdaptiveFormationSystem : ISystem
     {
         private const float HorizontalGap = 0.4f;
+        // Clearance 两侧扣除边界余量，避免单位贴着不可走区域移动
         private const float BoundaryMargin = 0.2f;
+        // 根据当前速度估算阵型完成收拢所需的前视时间
         private const float ExpectedReformTime = 0.75f;
+        // 展开必须连续观察到足够宽度，防止临界通道反复抖动
         private const int ExpansionStableTicks = 8;
 
         private EntityQuery _gridQuery;
@@ -44,6 +47,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
+            // Overlay 可以缺失，缺失时只使用烘焙的静态 Clearance
             ref NavigationGridBlob grid = ref gridReference.Value.Value;
             bool hasOverlay = entityManager.HasBuffer<NavigationDynamicOverlayCell>(gridEntity);
             DynamicBuffer<NavigationDynamicOverlayCell> overlay = hasOverlay
@@ -105,11 +109,13 @@ namespace AnimarsCatcher.Navigation.Grid
                         : currentColumns,
                     1,
                     members.Length);
+                // 阵型纵深影响需要提前观察多远的通道
                 int rowCount = math.max(1, (members.Length + currentColumns - 1) / currentColumns);
                 float formationDepth = rowCount * 1.6f;
                 float lookDistance = math.min(
                     targetDistance,
                     math.max(grid.CellSize, speed * ExpectedReformTime + formationDepth));
+                // 采样按 Grid CellSize 前进，包含锚点所在 Cell
                 int sampleCount = math.max(
                     0,
                     (int)math.floor(lookDistance / grid.CellSize));
@@ -124,6 +130,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             out _,
                             out int cellIndex))
                     {
+                        // 路线离开 Grid 边界后不再假设外部空间可通行
                         break;
                     }
 
@@ -147,6 +154,7 @@ namespace AnimarsCatcher.Navigation.Grid
                             squad.ValueRO.MaximumAgentRadius,
                             BoundaryMargin))
                     {
+                        // 当前 Cell 连单列都无法通过，后续样本不再连续有效
                         break;
                     }
 
@@ -158,6 +166,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     minimumClearance = 0f;
                 }
 
+                // Clearance 是到边界的半径，需要乘二并扣除两侧余量
                 float usableWidth = math.max(
                     0f,
                     2f * minimumClearance - 2f * BoundaryMargin);
@@ -167,13 +176,16 @@ namespace AnimarsCatcher.Navigation.Grid
                     usableWidth,
                     maximumAgentRadius * 2f,
                     HorizontalGap);
+                // 自适应逻辑只能收窄到配置宽度，不能自行扩得更宽
                 desiredColumns = math.min(desiredColumns, configuredColumns);
 
+                // 收拢立即生效，展开则通过稳定 Tick 形成滞回
                 int activeColumns = currentColumns;
                 int stableTicks = formation.ValueRO.WidthStableTicks;
                 bool layoutChanged = false;
                 if (desiredColumns < activeColumns)
                 {
+                    // 窄路优先保证可通行性，不等待稳定窗口
                     activeColumns = desiredColumns;
                     stableTicks = 0;
                     layoutChanged = true;
@@ -185,6 +197,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         : 1;
                     if (stableTicks >= ExpansionStableTicks)
                     {
+                        // 连续宽度足够后才扩大列数
                         activeColumns = desiredColumns;
                         stableTicks = 0;
                         layoutChanged = true;
@@ -202,6 +215,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 formation.ValueRW.ClearanceVersion = overlayVersion;
                 if (layoutChanged)
                 {
+                    // 列数变化会使布局和成员槽位分配全部失效
                     formation.ValueRW.ColumnCount = activeColumns;
                     formation.ValueRW.LayoutVersion = 0;
                     formation.ValueRW.AssignmentVersion = 0;

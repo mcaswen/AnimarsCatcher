@@ -23,6 +23,7 @@ namespace AnimarsCatcher.Gameplay
 
         [Header("用于感知范围的 Collider（建议 BoxCollider）")]
         [FormerlySerializedAs("SenseCollider")]
+        // 世界包围盒用于 ECS 攻击感知，不直接保存 Collider 引用
         [SerializeField] private Collider _senseCollider;
 
         private sealed class Baker : Unity.Entities.Baker<BaseAuthoring>
@@ -54,10 +55,12 @@ namespace AnimarsCatcher.Gameplay
                     var collider = authoring._senseCollider;
                     if (!collider)
                     {
+                        // 缺少感知 Collider 时保留基础基地组件，但不创建错误范围
                         Debug.LogWarning($"[BaseAuthoring] {authoring.name} 没有设置 SenseCollider");
                         return;
                     }
 
+                    // 非 Box Collider 使用 Unity 计算后的世界 bounds 作为兼容范围
                     Bounds bounds = collider.bounds;
                     AddComponent(entity, new BaseWorldAABB
                     {

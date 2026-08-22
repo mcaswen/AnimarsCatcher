@@ -31,6 +31,7 @@ namespace AnimarsCatcher.Gameplay
         [SerializeField] private float _spawnCheckRadius = 0.5f;
 
         [FormerlySerializedAs("MaxSpawnAttemptsPerResource")]
+        // 单个资源达到尝试上限后放弃本轮，避免密集区域无限重试
         [SerializeField] private int _maximumSpawnAttemptsPerResource = 8;
 
         [Header("Food 刷新配置")]
@@ -73,6 +74,7 @@ namespace AnimarsCatcher.Gameplay
 
                 if (box != null)
                 {
+                    // bounds 已包含 GameObject 的位置、旋转和缩放影响
                     Bounds bounds = box.bounds;
 
                     center = (float3)bounds.center;
@@ -80,6 +82,7 @@ namespace AnimarsCatcher.Gameplay
                 }
                 else
                 {
+                    // 没有 Collider 时使用 Authoring 位置和手工 XZ 尺寸
                     center = authoring.transform.position;
                     halfExtentsXZ = authoring._areaSizeXZ * 0.5f;
                 }
@@ -97,17 +100,20 @@ namespace AnimarsCatcher.Gameplay
                     CrystalPerWave = math.max(0, authoring._crystalPerWave),
 
                     RespawnInterval = math.max(0.1f, authoring._respawnIntervalSeconds),
+                    // 首轮略早触发，避免开局长时间没有资源
                     RespawnTimer = authoring._respawnIntervalSeconds - 0.5f,
 
                     SpawnCheckRadius = math.max(0.01f, authoring._spawnCheckRadius),
                     BlockerLayerMask = authoring._blockerMask.value,
                     MaxSpawnAttemptsPerResource = math.max(1, authoring._maximumSpawnAttemptsPerResource),
 
+                    // 每个烘焙区域使用非零种子初始化独立随机序列
                     RandomSeed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
                 };
 
                 AddComponent(entity, area);
 
+                // Prefab 使用独立 Buffer，允许 Food 和 Crystal 配置不同候选集
                 DynamicBuffer<FoodResourceSpawnPrefabReference> foodBuffer =
                     AddBuffer<FoodResourceSpawnPrefabReference>(entity);
 

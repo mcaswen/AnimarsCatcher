@@ -30,6 +30,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
+            // 统一 Harness 还承载其他工作负载，本 System 只消费规模输入模式
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
             if (config.Workload != NavigationGridBenchmarkWorkload.ScaleInputDeterminism)
@@ -49,10 +50,12 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<NavigationGridBenchmarkStageTimingSample> stageSamples =
                 SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkStageTimingSample>();
 
+            // 完成后只允许执行一次校验和导出，随后禁用本 System
             if (scaleState.Completed != 0)
             {
                 if (scaleState.ResultExported == 0)
                 {
+                    // 最终 Hash 必须与初始化快照一致，采样期不允许修改输入
                     DynamicBuffer<NavigationGridMovementBenchmarkTimingSample> timingSamples =
                         SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkTimingSample>();
                     ValidateFinalHashes(ref scaleState, members);
@@ -61,6 +64,7 @@ namespace AnimarsCatcher.Navigation.Grid
                         commands,
                         timingSamples,
                         stageSamples);
+                    // TickRate 可能由场景覆盖，报告写入解析后的真实运行值
                     ClientServerTickRate resolvedTickRate = default;
                     if (SystemAPI.TryGetSingleton<ClientServerTickRate>(out var tickRate))
                     {
@@ -68,6 +72,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     }
 
                     resolvedTickRate.ResolveDefaults();
+
                     ExportResult(
                         config,
                         scaleState,
@@ -79,6 +84,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     timingState.ResultExported = 1;
                     state.EntityManager.SetComponentData(benchmarkEntity, scaleState);
                     state.EntityManager.SetComponentData(benchmarkEntity, timingState);
+
                     state.Enabled = false;
                 }
 
@@ -87,6 +93,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             if (scaleState.Initialized == 0)
             {
+                // 规模输入仍复用共享命令脚本的目标，空脚本无法形成确定性目标
                 if (commands.IsEmpty)
                 {
                     FailBenchmark(
@@ -97,6 +104,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     return;
                 }
 
+                // 工作负载和人数必须通过阶段边界，严格阵型不能进入万人入口
                 if (!NavigationGridBenchmarkScaleProfile.TryValidateRun(
                         config.Workload,
                         config.AgentCount,
@@ -106,7 +114,9 @@ namespace AnimarsCatcher.Navigation.Grid
                     return;
                 }
 
+                // 计时范围只覆盖规模成员生成和三类 Hash 计算
                 long startTimestamp = Stopwatch.GetTimestamp();
+
                 float3 targetPosition = config.SpawnOrigin + commands[0].TargetOffset;
                 NavigationGridScaleInputAlgorithms.PopulateMembers(
                     members,
@@ -114,6 +124,8 @@ namespace AnimarsCatcher.Navigation.Grid
                     targetPosition);
                 NavigationGridScaleInputHashes firstHashes =
                     NavigationGridScaleInputAlgorithms.ComputeHashes(members);
+
+                // 对同一 Buffer 立即复算，捕获未初始化内存或非确定性遍历
                 NavigationGridScaleInputHashes repeatedHashes =
                     NavigationGridScaleInputAlgorithms.ComputeHashes(members);
                 double elapsedMilliseconds =
@@ -129,6 +141,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     return;
                 }
 
+                // 6A.0 只预测 Cohort 数量和 Field Key，不创建真实运行时 Cohort
                 scaleState.CohortCount =
                     NavigationGridScaleInputAlgorithms.CalculateCohortCount(config.AgentCount);
                 scaleState.UniqueFieldKeyCount = scaleState.CohortCount;
@@ -139,12 +152,15 @@ namespace AnimarsCatcher.Navigation.Grid
                 timingState.Initialized = 1;
                 timingState.Tick = 0;
 
+                // 成员扩容完成后再记录容量，避免低估万人 Buffer 的实际占用
                 long trackedNativeBytes = CalculateTrackedNativeBytes(
                     members,
                     commands,
                     SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkTimingSample>(),
                     stageSamples);
                 scaleState.TrackedNativeBytes = trackedNativeBytes;
+
+                // 构建阶段使用 Tick -1，与后续采样 Tick 明确区分
                 stageSamples.Add(new NavigationGridBenchmarkStageTimingSample
                 {
                     Stage = NavigationGridBenchmarkStage.ScaleInputBuild,
@@ -188,6 +204,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationGridScaleInputBenchmarkState scaleState,
             DynamicBuffer<NavigationGridScaleInputMember> members)
         {
+            // 导出前从实际成员 Buffer 重算，验证采样期间内容保持只读
             NavigationGridScaleInputHashes finalHashes =
                 NavigationGridScaleInputAlgorithms.ComputeHashes(members);
             if (finalHashes.CohortPartitionHash == scaleState.CohortPartitionHash &&
@@ -197,6 +214,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return;
             }
 
+            // Hash 漂移仍然导出报告，但明确标记本次运行失败
             scaleState.Failed = 1;
             scaleState.FailureReason =
                 new FixedString128Bytes("采样期间规模输入内容发生变化");
@@ -209,6 +227,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<NavigationGridBenchmarkStageTimingSample> stageSamples)
         {
             // 这里只统计 Benchmark 自有 Buffer 负载，不把进程总内存冒充为导航内存
+            // 使用 Capacity 而不是 Length，反映 DynamicBuffer 实际预留空间
             return (long)members.Capacity * UnsafeUtility.SizeOf<NavigationGridScaleInputMember>() +
                    (long)commands.Capacity * UnsafeUtility.SizeOf<NavigationGridBenchmarkCommand>() +
                    (long)timingSamples.Capacity *
@@ -225,6 +244,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<NavigationGridBenchmarkStageTimingSample> stageSamples,
             ClientServerTickRate resolvedTickRate)
         {
+            // 原始数组保留采样时序，排序副本只用于百分位计算
             double[] tickMilliseconds = new double[tickSamples.Length];
             long[] allocatedBytes = new long[tickSamples.Length];
             double[] sortedTickMilliseconds = new double[tickSamples.Length];
@@ -240,6 +260,7 @@ namespace AnimarsCatcher.Navigation.Grid
             Array.Sort(sortedTickMilliseconds);
             Array.Sort(sortedAllocatedBytes);
 
+            // 报告明确声明 6A.0 不具备真实性能门禁资格
             var report = new NavigationGridScaleInputBenchmarkReport
             {
                 FormatVersion = 5,
@@ -311,6 +332,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 directory,
                 $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
+
             Debug.Log(
                 $"[NavigationBenchmark] 阶段六规模输入结果已生成：" +
                 $"Ani={config.AgentCount}，Cohort={scaleState.CohortCount}，结果={path}");
@@ -318,6 +340,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static NavigationGridBenchmarkBudgetReport BuildBudgetReport()
         {
+            // 阶段枚举必须保持连续，数组长度需要随正式阶段数量同步调整
             var stageBudgets = new NavigationGridBenchmarkStageBudgetReport[11];
             int writeIndex = 0;
             for (NavigationGridBenchmarkStage stage = NavigationGridBenchmarkStage.CommandIngress;
@@ -332,6 +355,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 };
             }
 
+            // 预算版本随阶段六规划冻结，不能从本次测量结果反推
             return new NavigationGridBenchmarkBudgetReport
             {
                 Version = NavigationGridBenchmarkScaleProfile.BudgetVersion,
@@ -357,6 +381,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private static NavigationGridBenchmarkStageSampleReport[] BuildStageSampleReports(
             DynamicBuffer<NavigationGridBenchmarkStageTimingSample> samples)
         {
+            // DynamicBuffer 不能直接交给 JsonUtility，需转换为托管可序列化数组
             var reports = new NavigationGridBenchmarkStageSampleReport[samples.Length];
             for (int index = 0; index < samples.Length; index++)
             {
@@ -381,6 +406,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationGridScaleInputBenchmarkState scaleState,
             string reason)
         {
+            // 失败状态直接进入完成阶段，让统一导出逻辑仍能生成诊断报告
             scaleState.Failed = 1;
             scaleState.Completed = 1;
             scaleState.FailureReason = new FixedString128Bytes(reason);

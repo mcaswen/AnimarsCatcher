@@ -42,7 +42,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestScaleCatalog()
         {
+            // 历史回归规模继续保留在统一 Harness 中
             int[] baselineCounts = { 32, 64, 128 };
+            // 阶段六从 512 逐级扩展到正式万人上限
             int[] stageSixCounts = { 512, 1000, 2500, 5000, 10000 };
             for (int index = 0; index < baselineCounts.Length; index++)
             {
@@ -68,6 +70,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     $"统一 Harness 未登记 {stageSixCounts[index]} Ani");
             }
 
+            // 未登记的中间值不能被范围判断静默放行
             Assert(
                 !NavigationGridBenchmarkScaleProfile.IsSupportedAgentCount(256),
                 "未登记的 256 Ani 不应被静默接受");
@@ -82,12 +85,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             AssertWorkload("orca", NavigationGridBenchmarkWorkload.Avoidance);
             AssertWorkload("collision", NavigationGridBenchmarkWorkload.Collision);
 
+            // 严格阵型仅保留 128 Ani 以内的历史回放资格
             Assert(
                 NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     NavigationGridBenchmarkWorkload.StrictFormationBaseline,
                     128,
                     out _),
                 "128 Ani 严格阵型历史基线必须继续可回放");
+            // 512 Ani 必须在进入平方复杂度槽位分配前被拒绝
             Assert(
                 !NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     NavigationGridBenchmarkWorkload.StrictFormationBaseline,
@@ -95,12 +100,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     out string strictReason) &&
                 strictReason.Contains("历史基线", StringComparison.Ordinal),
                 "严格阵型不能绕过规模保护进入平方复杂度链路");
+            // 6A.0 规模输入不运行实际移动，因此允许完整万人数据
             Assert(
                 NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     NavigationGridBenchmarkWorkload.ScaleInputDeterminism,
                     10000,
                     out _),
                 "10000 Ani 规模输入入口必须可执行");
+            // 尚未交付的工作负载应返回明确阶段提示
             Assert(
                 !NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     NavigationGridBenchmarkWorkload.FreeCohortMovement,
@@ -126,6 +133,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 512L * 1024L * 1024L,
                 "Navigation Native 内存预算必须保持为 512 MiB");
 
+            // 各阶段预算必须完整累加回导航主线程总预算
             double stageBudgetTotal = 0.0;
             for (NavigationGridBenchmarkStage stage = NavigationGridBenchmarkStage.CommandIngress;
                  stage <= NavigationGridBenchmarkStage.CommitAndProgress;
@@ -156,6 +164,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void ValidateScaleInput(int agentCount)
         {
+            // 每个规模使用独立 World，避免 Buffer 容量和 Entity 版本相互影响
             using var world = new World($"Stage Six A Zero {agentCount}", WorldFlags.Game);
             EntityManager entityManager = world.EntityManager;
             Entity firstEntity = entityManager.CreateEntity();
@@ -231,6 +240,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     $"{agentCount} Ani Cohort 成员归属错误");
                 if (first[memberIndex].CohortIndex != previousCohortIndex)
                 {
+                    // 每个 Cohort 首成员必须携带唯一请求 Key
                     Assert(
                         requestKeys.Add(first[memberIndex].RequestKey),
                         $"{agentCount} Ani 出现重复的 Cohort 请求 Key");
