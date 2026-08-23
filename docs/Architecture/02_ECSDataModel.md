@@ -126,6 +126,7 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - `ServerAniSelectionAssemblyChunk` 与 `ServerAniSelectionAssemblyMember` 只在分块尚未收齐时保存组装状态，完成、冲突或超时后立即销毁
 - `AniMovementOrderMember` 保存移动命令创建时冻结的成员、移动能力和 Agent Profile，正式 Grid 入口不再生成 `AniSquadCommandMember`
 - `AniMovementCohort` 与 `AniMovementCohortMember` 保存有界寻路单元和稳定成员顺序，`AniMovementCohortMembership` 保证每名 Ani 同时只属于一个活动 Cohort
+- `AniMovementOrderState` 分开保存本 Tick 原始目标、最近分配使用的原始目标和实际投影中心；`AniMovementCohortPathState` 使用该投影中心提交 Flow 请求
 - `AniGoalAssignment` 保存目标 Cell、自然落点、到达半径和目标版本，不包含矩形列数、职责或固定阵型槽位
 
 ## 6. Authoring、Baker 与注册数据

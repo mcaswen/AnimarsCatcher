@@ -44,6 +44,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         {
             TestAlgorithmBoundaries();
             TestSystemRegistration();
+            TestProjectedEndpointAndDynamicTarget();
+            TestDisconnectedGoalRegion();
 
             PartitionReplayResult firstPartition = RunPartitionReplay(runLifecycleChecks: true);
             // 第二轮使用独立 World，Hash 一致才能证明结果不依赖运行时 Entity
@@ -125,6 +127,162 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             }
         }
 
+        private static void TestProjectedEndpointAndDynamicTarget()
+        {
+            using var world = new World("Stage Six A Two Dynamic Target", WorldFlags.Game);
+            EntityManager entityManager = world.EntityManager;
+            CreateBackendAndBenchmarkConfig(entityManager, 1);
+            SystemHandle gridSystem = world.GetOrCreateSystem<
+                ServerNavigationGridBenchmarkGridSystem>();
+            SystemHandle partitionSystem = world.GetOrCreateSystem<
+                AniMovementCohortPartitionSystem>();
+            SystemHandle targetSystem = world.GetOrCreateSystem<
+                AniCohortTargetResolveSystem>();
+            SystemHandle goalSystem = world.GetOrCreateSystem<
+                AniGoalRegionAssignmentSystem>();
+            SystemHandle pathSystem = world.GetOrCreateSystem<
+                AniMovementCohortPathRequestSystem>();
+            gridSystem.Update(world.Unmanaged);
+            PrepareOverlay(entityManager);
+
+            // 目标 Entity 停在阻挡 Cell 内，用于验证原始坐标与实际寻路中心会被明确分开
+            int2 blockedTargetCell = new(78, 32);
+            float3 blockedTargetPosition = GetCellPosition(entityManager, blockedTargetCell);
+            SetOverlayBlocked(entityManager, blockedTargetCell);
+            Entity targetEntity = entityManager.CreateEntity(typeof(LocalTransform));
+            entityManager.SetComponentData(
+                targetEntity,
+                LocalTransform.FromPosition(blockedTargetPosition));
+            using NativeArray<Entity> anis = CreateAnis(
+                entityManager,
+                1,
+                new float3(60.5f, 0.57f, 40.5f),
+                1,
+                1f);
+            Entity orderEntity = CreateOrder(
+                entityManager,
+                anis,
+                1,
+                blockedTargetPosition,
+                mode: AniSquadCommandMode.Follow,
+                targetEntity: targetEntity);
+
+            // 首 Tick 完整执行订单切分、目标解析、落点分配和 Flow 请求提交
+            world.SetTime(new TimeData(0, DeltaTime));
+            partitionSystem.Update(world.Unmanaged);
+            targetSystem.Update(world.Unmanaged);
+            goalSystem.Update(world.Unmanaged);
+            pathSystem.Update(world.Unmanaged);
+
+            Entity cohortEntity = GetSingleCohort(entityManager, orderEntity);
+            AniMovementOrderState initialOrderState =
+                entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
+            AniMovementCohortPathState initialPathState =
+                entityManager.GetComponentData<AniMovementCohortPathState>(cohortEntity);
+            NavigationFlowFieldRequest initialRequest =
+                entityManager.GetComponentData<NavigationFlowFieldRequest>(cohortEntity);
+            Assert(math.distancesq(
+                       initialOrderState.GoalRegionCenterPosition,
+                       blockedTargetPosition) > 0.001f,
+                "动态障碍没有把目标区域中心投影到可站立 Cell");
+            AssertPositionsEqual(
+                initialPathState.GoalRegionCenterPosition,
+                initialOrderState.GoalRegionCenterPosition,
+                "Cohort 没有保存订单实际投影中心");
+            AssertPositionsEqual(
+                initialRequest.PathRequest.EndPosition,
+                initialOrderState.GoalRegionCenterPosition,
+                "Flow 请求终点没有使用目标区域实际投影中心");
+
+            // 原始目标没有移动时不得拿投影偏移量误判为新的目标版本
+            uint initialTargetVersion = initialOrderState.TargetVersion;
+            uint initialRequestVersion = initialPathState.ActiveRequestVersion;
+            world.SetTime(new TimeData(DeltaTime, DeltaTime));
+            targetSystem.Update(world.Unmanaged);
+            AniMovementOrderState unchangedState =
+                entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
+            Assert(unchangedState.TargetVersion == initialTargetVersion &&
+                   unchangedState.GoalAssignmentPending == 0,
+                "静止目标因原始坐标与投影中心不同而重复触发重分配");
+
+            // 跨 Cell 移动后必须重新投影目标区域，并让下一份 Flow 请求跟随新中心
+            float3 movedTargetPosition = GetCellPosition(entityManager, new int2(82, 32));
+            entityManager.SetComponentData(
+                targetEntity,
+                LocalTransform.FromPosition(movedTargetPosition));
+            world.SetTime(new TimeData(DeltaTime * 2, DeltaTime));
+            targetSystem.Update(world.Unmanaged);
+            goalSystem.Update(world.Unmanaged);
+            AniMovementOrderState movedState =
+                entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
+            Assert(movedState.TargetVersion != initialTargetVersion,
+                "动态目标跨 Cell 后没有递增目标版本");
+            AssertPositionsEqual(
+                movedState.GoalRegionSourcePosition,
+                movedTargetPosition,
+                "目标区域没有记录本轮使用的原始动态目标坐标");
+
+            AniMovementCohortPathState movedPathState =
+                entityManager.GetComponentData<AniMovementCohortPathState>(cohortEntity);
+            movedPathState.RepathCooldownTicks = 0;
+            entityManager.SetComponentData(cohortEntity, movedPathState);
+            pathSystem.Update(world.Unmanaged);
+            movedPathState = entityManager.GetComponentData<
+                AniMovementCohortPathState>(cohortEntity);
+            NavigationFlowFieldRequest movedRequest =
+                entityManager.GetComponentData<NavigationFlowFieldRequest>(cohortEntity);
+            Assert(movedPathState.ActiveRequestVersion != initialRequestVersion,
+                "动态目标跨 Cell 后没有提交新 Flow 请求版本");
+            AssertPositionsEqual(
+                movedRequest.PathRequest.EndPosition,
+                movedState.GoalRegionCenterPosition,
+                "动态目标重规划没有使用新的目标区域投影中心");
+        }
+
+        private static void TestDisconnectedGoalRegion()
+        {
+            using var world = new World("Stage Six A Two Disconnected Goal", WorldFlags.Game);
+            EntityManager entityManager = world.EntityManager;
+            CreateBackendAndBenchmarkConfig(entityManager, 5);
+            SystemHandle gridSystem = world.GetOrCreateSystem<
+                ServerNavigationGridBenchmarkGridSystem>();
+            SystemHandle partitionSystem = world.GetOrCreateSystem<
+                AniMovementCohortPartitionSystem>();
+            SystemHandle targetSystem = world.GetOrCreateSystem<
+                AniCohortTargetResolveSystem>();
+            SystemHandle goalSystem = world.GetOrCreateSystem<
+                AniGoalRegionAssignmentSystem>();
+            gridSystem.Update(world.Unmanaged);
+            PrepareOverlay(entityManager);
+
+            // 2x2 开放区域只能容纳四名测试 Ani，外围障碍同时封住直线和斜向出口
+            int2 regionMinimum = new(78, 32);
+            BlockGoalRegionPerimeter(entityManager, regionMinimum, new int2(2, 2));
+            using NativeArray<Entity> anis = CreateAnis(
+                entityManager,
+                5,
+                new float3(60.5f, 0.57f, 40.5f),
+                5,
+                1f);
+            Entity orderEntity = CreateOrder(
+                entityManager,
+                anis,
+                1,
+                GetCellPosition(entityManager, regionMinimum));
+
+            world.SetTime(new TimeData(0, DeltaTime));
+            partitionSystem.Update(world.Unmanaged);
+            targetSystem.Update(world.Unmanaged);
+            goalSystem.Update(world.Unmanaged);
+
+            // 第五名 Ani 不能借用围墙外的 Cell，容量不足必须让整份订单一致失败
+            AniMovementOrderState orderState =
+                entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
+            Assert(orderState.Status == AniMovementOrderStatus.Failed,
+                "目标中心连通区域容量不足时仍把落点分配到了障碍另一侧");
+            AssertOrderCohortsFailed(entityManager, orderEntity);
+        }
+
         private static PartitionReplayResult RunPartitionReplay(bool runLifecycleChecks)
         {
             using var world = new World("Stage Six A Two Partition", WorldFlags.Game);
@@ -169,6 +327,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 partitionSystem.Update(world.Unmanaged);
                 InspectPartition(entityManager, orderEntity, expectedMemberCount: 9999);
 
+                // 存活 Ani 失去移动前置数据时，Buffer 与 Membership 必须在同一轮清理
+                Entity invalidAni = anis[1];
+                entityManager.RemoveComponent<AniMovementConfig>(invalidAni);
+                world.SetTime(new TimeData(DeltaTime * 2, DeltaTime));
+                partitionSystem.Update(world.Unmanaged);
+                InspectPartition(entityManager, orderEntity, expectedMemberCount: 9998);
+                Assert(!entityManager.HasComponent<AniMovementCohortMembership>(invalidAni),
+                    "缺少移动配置的存活 Ani 仍保留 Cohort Membership");
+
                 // 新订单覆盖旧订单末尾 130 人，未选中的旧成员应继续原命令
                 var replacementMembers = new NativeArray<Entity>(
                     130,
@@ -186,14 +353,14 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     firstStableId: 10000,
                     descendingStableIds: true);
                 replacementMembers.Dispose();
-                world.SetTime(new TimeData(DeltaTime * 2, DeltaTime));
+                world.SetTime(new TimeData(DeltaTime * 3, DeltaTime));
                 partitionSystem.Update(world.Unmanaged);
                 InspectPartition(entityManager, replacementOrder, expectedMemberCount: 130);
-                AssertUniqueLiveMemberships(entityManager, 9999);
+                AssertUniqueLiveMemberships(entityManager, 9998);
 
                 AniMovementOrderState oldState =
                     entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
-                Assert(oldState.ValidMemberCount == 9869,
+                Assert(oldState.ValidMemberCount == 9868,
                     "新命令没有从旧订单移走重叠成员");
             }
 
@@ -315,7 +482,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             uint sequence,
             float3 targetPosition,
             int firstStableId = 1,
-            bool descendingStableIds = false)
+            bool descendingStableIds = false,
+            AniSquadCommandMode mode = AniSquadCommandMode.MoveTo,
+            Entity targetEntity = default)
         {
             Entity orderEntity = entityManager.CreateEntity(
                 typeof(AniMovementOrder),
@@ -328,8 +497,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 SelectionHash = sequence,
                 CreatedTick = sequence,
                 CancellationVersion = sequence,
-                Mode = AniSquadCommandMode.MoveTo,
+                Mode = mode,
                 TargetPosition = targetPosition,
+                TargetEntity = targetEntity,
                 TargetStoppingDistance = 0.7f,
                 GoalCellCapacityScale = 1f,
                 GoalInfluenceRadius = 4f,
@@ -575,6 +745,144 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Initialized = 1,
             });
             entityManager.AddComponentData(gridEntity, new NavigationGridJobActivity());
+        }
+
+        private static Entity GetSingleCohort(
+            EntityManager entityManager,
+            Entity orderEntity)
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AniMovementCohort>());
+            using NativeArray<Entity> cohorts = query.ToEntityArray(Allocator.Temp);
+            Entity result = Entity.Null;
+            int matchCount = 0;
+            // 测试只按订单归属寻找 Cohort，不依赖 EntityQuery 的返回顺序
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                if (entityManager.GetComponentData<AniMovementCohort>(cohorts[index]).Order !=
+                    orderEntity)
+                {
+                    continue;
+                }
+
+                result = cohorts[index];
+                matchCount++;
+            }
+
+            Assert(matchCount == 1, $"订单应当只有一个测试 Cohort，实际为 {matchCount}");
+            return result;
+        }
+
+        private static void AssertOrderCohortsFailed(
+            EntityManager entityManager,
+            Entity orderEntity)
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AniMovementCohort>(),
+                ComponentType.ReadOnly<AniMovementCohortPathState>());
+            using NativeArray<Entity> cohorts = query.ToEntityArray(Allocator.Temp);
+            int matchCount = 0;
+            // 一个订单可能跨 Cluster 切成多组，失败状态必须覆盖它的全部 Cohort
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                Entity cohortEntity = cohorts[index];
+                if (entityManager.GetComponentData<AniMovementCohort>(cohortEntity).Order !=
+                    orderEntity)
+                {
+                    continue;
+                }
+
+                matchCount++;
+                Assert(entityManager.GetComponentData<AniMovementCohortPathState>(cohortEntity)
+                           .Status == AniMovementCohortStatus.Failed,
+                    "目标区域分配失败后仍有 Cohort 没有进入失败状态");
+            }
+
+            Assert(matchCount > 0, "目标区域专项验收没有生成 Cohort");
+        }
+
+        private static float3 GetCellPosition(
+            EntityManager entityManager,
+            int2 coordinate)
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NavigationGridReference>());
+            NavigationGridReference gridReference = query.GetSingleton<NavigationGridReference>();
+            ref NavigationGridBlob grid = ref gridReference.Value.Value;
+            Assert(NavigationGridTraversal.IsInside(
+                    coordinate.x,
+                    coordinate.y,
+                    grid.Width,
+                    grid.Height),
+                "测试 Cell 超出合成 Grid 范围");
+            return NavigationGridQuery.GetCellWorldPosition(
+                ref grid,
+                coordinate.x + coordinate.y * grid.Width);
+        }
+
+        private static void SetOverlayBlocked(
+            EntityManager entityManager,
+            int2 coordinate)
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NavigationGridReference>());
+            Entity gridEntity = query.GetSingletonEntity();
+            NavigationGridReference gridReference =
+                entityManager.GetComponentData<NavigationGridReference>(gridEntity);
+            ref NavigationGridBlob grid = ref gridReference.Value.Value;
+            int cellIndex = coordinate.x + coordinate.y * grid.Width;
+            DynamicBuffer<NavigationDynamicOverlayCell> cells =
+                entityManager.GetBuffer<NavigationDynamicOverlayCell>(gridEntity);
+            DynamicBuffer<NavigationDynamicOverlayCluster> clusters =
+                entityManager.GetBuffer<NavigationDynamicOverlayCluster>(gridEntity);
+            NavigationDynamicOverlayState state =
+                entityManager.GetComponentData<NavigationDynamicOverlayState>(gridEntity);
+            uint version = NavigationDynamicOverlayAlgorithms.NextVersion(state.Version);
+            // 通过正式 Overlay 算法写入阻挡并发布 Cluster 版本，避免测试绕过运行时失效语义
+            Assert(NavigationDynamicOverlayAlgorithms.ApplyDelta(
+                    cells,
+                    cellIndex,
+                    1,
+                    0f,
+                    0f,
+                    version),
+                "测试动态障碍没有改变目标 Cell");
+            NavigationDynamicOverlayAlgorithms.MarkAffectedClusters(
+                ref grid,
+                cellIndex,
+                clusters,
+                version);
+            state.Version = version;
+            entityManager.SetComponentData(gridEntity, state);
+        }
+
+        private static void BlockGoalRegionPerimeter(
+            EntityManager entityManager,
+            int2 minimum,
+            int2 size)
+        {
+            int maximumX = minimum.x + size.x - 1;
+            int maximumZ = minimum.y + size.y - 1;
+            // 上下边多封一格，四个角不会被八方向遍历斜向穿过
+            for (int x = minimum.x - 1; x <= maximumX + 1; x++)
+            {
+                SetOverlayBlocked(entityManager, new int2(x, minimum.y - 1));
+                SetOverlayBlocked(entityManager, new int2(x, maximumZ + 1));
+            }
+
+            for (int z = minimum.y; z <= maximumZ; z++)
+            {
+                SetOverlayBlocked(entityManager, new int2(minimum.x - 1, z));
+                SetOverlayBlocked(entityManager, new int2(maximumX + 1, z));
+            }
+        }
+
+        private static void AssertPositionsEqual(
+            float3 actual,
+            float3 expected,
+            string message)
+        {
+            Assert(math.distancesq(actual, expected) <= 0.000001f, message);
         }
 
         private static bool ContainsSystem(IReadOnlyList<Type> systems, Type expected)

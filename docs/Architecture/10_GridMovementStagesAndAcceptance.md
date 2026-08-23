@@ -293,7 +293,7 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 
 同日完成 6A.1：正式框选使用 120 个 GhostId 一块的版本化协议，服务器发布带成员 Buffer 与完整性 Hash 的权威选择集，移动 RPC 只引用已确认版本。专项验收使用 10000 Ani 和 84 个分块覆盖顺序、逆序、取消、替换、差量、重复、越权、过期、缺块超时与 MoveTo，两个到达顺序均得到 `78681BD7C145FFE4`，并回归通过 6A.0 与 Stage Four。
 
-2026-08-23 完成 6A.2：正式 Grid 指令不再生成兼容 `AniSquadCommand`，MovementOrder 会按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切成默认最多 64 人、硬上限 128 人的 Cohort。目标区域按 Cell 通行空间计算容量并分配稳定落点，远距离 Flow Direction 与近目标个人吸引共同生成期望速度，最终仍由唯一 `AniMovementCommitSystem` 写入 Transform。专项验收连续两轮处理 10000 成员且无重复、丢失或悬空归属，得到 180 个 Cohort、最大成员数 64 和 `979E69E4BBCF9309`；32、64、128、512 开阔地全部到达，512 两轮目标区域 Hash 均为 `FA1A17890EEC4B2F`，最终位置 Hash 均为 `AE3BEC88A465F1F9`。
+2026-08-23 完成 6A.2：正式 Grid 指令不再生成兼容 `AniSquadCommand`，MovementOrder 会按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切成默认最多 64 人、硬上限 128 人的 Cohort。目标区域从投影中心沿动态通行边扩张，只在同一可达区域内计算容量和稳定落点；Flow 请求使用同一投影中心，原始坐标仅负责动态目标版本判断。成员失效时同步清理 Membership 与 Cohort Buffer，远距离 Flow Direction 与近目标个人吸引共同生成期望速度，最终仍由唯一 `AniMovementCommitSystem` 写入 Transform。专项验收连续两轮处理 10000 成员且无重复、丢失或悬空归属，得到 180 个 Cohort、最大成员数 64 和 `979E69E4BBCF9309`；32、64、128、512 开阔地全部到达，512 两轮目标区域 Hash 均为 `FA1A17890EEC4B2F`，最终位置 Hash 均为 `AE3BEC88A465F1F9`。另已覆盖复杂动态障碍封闭区域、阻挡目标投影、静止动态目标版本稳定和跨 Cell 重规划。
 
 ### 6A：规模基础
 

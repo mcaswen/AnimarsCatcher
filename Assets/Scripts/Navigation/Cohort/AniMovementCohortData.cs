@@ -57,6 +57,9 @@ namespace AnimarsCatcher.Navigation.Grid
         // 本 Tick 从固定坐标或目标 Entity 解析出的坐标
         public float3 ResolvedTargetPosition;
 
+        // 最近一次完成目标区域分配时使用的原始目标坐标
+        public float3 GoalRegionSourcePosition;
+
         // 最近一次成功分配落点时使用的投影中心
         public float3 GoalRegionCenterPosition;
 
@@ -109,8 +112,8 @@ namespace AnimarsCatcher.Navigation.Grid
     {
         public AniMovementCohortStatus Status;
 
-        // 订单本 Tick 解析出的共享目标中心
-        public float3 ResolvedTargetPosition;
+        // 目标区域投影到可站立 Cell 后的实际寻路终点
+        public float3 GoalRegionCenterPosition;
 
         // 最近一次实际提交给 Flow 的目标坐标
         public float3 LastSubmittedTargetPosition;

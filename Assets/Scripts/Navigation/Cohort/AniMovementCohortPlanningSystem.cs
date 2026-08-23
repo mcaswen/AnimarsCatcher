@@ -101,7 +101,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 // 重规划从成员当前中心出发，避免沿用订单创建时已经过期的位置
                 NavigationPathRequest pathRequest = NavigationPathRequest.Create(
                     cohort.ValueRO.RepresentativePosition,
-                    pathState.ValueRO.ResolvedTargetPosition,
+                    pathState.ValueRO.GoalRegionCenterPosition,
                     cohort.ValueRO.MaximumAgentRadius,
                     requestVersion,
                     clearanceMargin: 0.05f,
@@ -111,7 +111,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 pathState.ValueRW.ActiveRequestVersion = requestVersion;
                 pathState.ValueRW.SubmittedTargetVersion = cohort.ValueRO.TargetVersion;
                 pathState.ValueRW.LastSubmittedTargetPosition =
-                    pathState.ValueRO.ResolvedTargetPosition;
+                    pathState.ValueRO.GoalRegionCenterPosition;
                 pathState.ValueRW.RepathCooldownTicks = 8;
                 pathState.ValueRW.SettledTicks = 0;
                 pathState.ValueRW.Status = AniMovementCohortStatus.AwaitingPath;

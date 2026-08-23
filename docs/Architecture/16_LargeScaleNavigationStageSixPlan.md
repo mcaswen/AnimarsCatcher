@@ -105,12 +105,13 @@ ORCA 不能解决终点占位。如果所有 Ani 使用同一目标坐标，外�
 目标区域按以下规则生成：
 
 1. 将命令目标投影到合法 Grid Cell
-2. 按 Cell 距离、通行成本和稳定 CellIndex 从中心向外枚举候选区域
+2. 从投影中心沿动态通行边做连通扩张，障碍另一侧或其他不连通 Region 的 Cell 不参与分配
 3. 根据 Agent 半径计算 Cell 容量，阻挡或 Clearance 不足的 Cell 不参与分配
-4. 成员按起始角度、空间 Key 和 StableId 稳定排序，目标 Cell 使用相同方向顺序匹配
-5. 分配只使用线性遍历和排序，不建立成员乘槽位的完整成本矩阵
-6. 远离目标时单位只读取共享 Flow Direction；进入目标影响半径后才混合目标落点吸引
-7. 单位进入自己的停止范围且速度稳定后释放目标争用，不再持续挤向中心
+4. 可达 Cell 再按距离、通行成本、Clearance 和稳定 CellIndex 排序
+5. 成员按起始角度、空间 Key 和 StableId 稳定排序，目标 Cell 使用相同方向顺序匹配
+6. 分配只使用连通遍历和排序，不建立成员乘槽位的完整成本矩阵
+7. 远距离 Flow 请求与目标区域分配共享同一个投影中心，近目标时再混合个人落点吸引
+8. 单位进入自己的停止范围且速度稳定后释放目标争用，不再持续挤向中心
 
 该结果可以形成不规则但稳定的自然群体。它只保证可达、不过度重叠和确定性，不保证矩形、圆形、职业前后排或视觉上的严格对齐。
 
@@ -165,10 +166,10 @@ NavigationFlowFieldRecord
 3. `AniMovementCohortPartitionSystem`：确定性拆分或复用 Cohort
 4. `NavigationDynamicOverlaySnapshotSystem`：完成写缓冲并在安全 Tick 边界交换只读快照
 5. `AniCohortTargetResolveSystem`：解析 MoveTo、Follow 和 Find 的当前目标
-6. `NavigationFlowFieldRequestCollectSystem`：收集、归并、排序并按预算选择唯一 Field Key
-7. `NavigationFlowFieldBuildSystem`：使用独立 Scratch 并行构建 Corridor 与 Field
-8. `NavigationFlowFieldPublishSystem`：串行提交缓存记录和 Handle，丢弃过期版本
-9. `AniGoalRegionAssignmentSystem`：只在命令、目标区域或成员版本变化时更新落点
+6. `AniGoalRegionAssignmentSystem`：投影共享终点，并只在命令、目标区域或成员版本变化时更新落点
+7. `NavigationFlowFieldRequestCollectSystem`：使用目标区域中心收集、归并、排序并按预算选择唯一 Field Key
+8. `NavigationFlowFieldBuildSystem`：使用独立 Scratch 并行构建 Corridor 与 Field
+9. `NavigationFlowFieldPublishSystem`：串行提交缓存记录和 Handle，丢弃过期版本
 10. `AniNeighborGridBuildSystem`：构建 Native 空间哈希和稳定邻居切片
 11. `AniPreferredVelocitySystem`：并行计算 Flow、目标区域和制动速度
 12. `AniLocalAvoidanceSystem`：并行求解有限邻居 ORCA 约束
@@ -281,15 +282,18 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 - 正式 Grid 入口已移除旧 `AniSquadCommand` 和成员 Buffer 适配，Stage 4～5 Squad 只保留历史 Benchmark 与专项回归入口
 - `AniMovementCohortPartitionSystem` 按 Agent Profile、起始 Cluster、Morton Key 和 StableId 排序，使用默认 64 人容量和 128 人硬上限生成 Cohort
-- 成员死亡、归属移除或新命令覆盖时会同步收缩或销毁旧 Cohort，并重新发布订单成员版本与目标区域
-- `AniGoalRegionAssignmentSystem` 按 Cell 距离、地形成本、Clearance 和稳定索引选择目标区域，容量计算只做线性扫描与排序，不建立成员乘落点矩阵
+- 成员死亡、归属移除、移动配置失效或新命令覆盖时会同步清理双向 Membership、收缩或销毁旧 Cohort，并重新发布订单成员版本与目标区域
+- `AniGoalRegionAssignmentSystem` 从投影中心沿动态通行边收集可达 Cell，再按距离、地形成本、Clearance 和稳定索引选择目标区域，不会跨障碍占用其他连通区域
+- Cohort 路径状态与 Flow 请求统一保存目标区域投影中心，原始目标坐标只用于动态目标跨 Cell 检测，阻挡中的静止目标不会反复递增版本
 - `AniFreePreferredVelocitySystem` 远距离读取 Cohort Flow Direction，目标落点可直达后提高个人方向权重，避免所有 Ani 挤向中心
 - `AniMovementCommitSystem` 同时承接历史 Squad 和正式 Cohort，但每名 Ani 只进入其中一条查询，Transform 写入边界仍然唯一
 
 专项验收在 Unity `6000.2.7f2` Batch Mode 下完成：
 
 - 10000 Ani 连续两轮都生成 180 个 Cohort，单组最大 64 人，切分 Hash 为 `979E69E4BBCF9309`
-- 验收覆盖成员死亡、130 人重叠新命令、旧 Cohort 收缩和悬空归属检查
+- 验收覆盖成员死亡、存活成员移动配置失效、130 人重叠新命令、旧 Cohort 收缩和 Membership 残留检查
+- 复杂障碍专项使用动态 Overlay 封闭有限目标区域，容量不足时整单失败，不会把落点分配到障碍另一侧
+- 动态目标专项覆盖阻挡目标投影、Flow 终点一致、静止目标不抖动和跨 Cell 后重新分配及重规划
 - 32、64、128、512 Ani 开阔地全部到达自己的自然落点，不依赖 ORCA 或世界碰撞
 - 512 Ani 两轮目标区域 Hash 为 `FA1A17890EEC4B2F`，最终位置 Hash 为 `AE3BEC88A465F1F9`
 - 正式 Cohort 不携带 `AniFormationSlot`，正式 MovementOrder 不再创建 Squad

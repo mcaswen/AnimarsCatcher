@@ -190,6 +190,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 TargetVersion = 1,
                 GoalAssignmentPending = 1,
                 ResolvedTargetPosition = order.TargetPosition,
+                GoalRegionSourcePosition = order.TargetPosition,
                 GoalRegionCenterPosition = order.TargetPosition,
                 CohortPartitionHash = partitionHash,
             };
@@ -254,7 +255,7 @@ namespace AnimarsCatcher.Navigation.Grid
             entityManager.SetComponentData(cohortEntity, new AniMovementCohortPathState
             {
                 Status = AniMovementCohortStatus.AwaitingPath,
-                ResolvedTargetPosition = order.TargetPosition,
+                GoalRegionCenterPosition = order.TargetPosition,
             });
             entityManager.SetComponentData(
                 cohortEntity,
@@ -341,6 +342,7 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             EntityManager entityManager = state.EntityManager;
             using NativeArray<Entity> cohorts = _cohortQuery.ToEntityArray(Allocator.Temp);
+            using var membershipsToRemove = new NativeList<MembershipRemoval>(Allocator.Temp);
             // Cohort 成员上限受控，清理只在小 Buffer 内执行，不会退化成全局两两扫描
             for (int cohortIndex = 0; cohortIndex < cohorts.Length; cohortIndex++)
             {
@@ -357,17 +359,30 @@ namespace AnimarsCatcher.Navigation.Grid
                 {
                     Entity ani = members[memberIndex].Ani;
                     // Membership 和 Cohort Buffer 必须双向一致，单边残留也按失效处理
-                    bool valid = entityManager.Exists(ani) &&
+                    bool aniExists = entityManager.Exists(ani);
+                    bool membershipPointsHere = aniExists &&
+                                                entityManager.HasComponent<
+                                                    AniMovementCohortMembership>(ani) &&
+                                                entityManager.GetComponentData<
+                                                    AniMovementCohortMembership>(ani).Cohort ==
+                                                cohortEntity;
+                    bool valid = membershipPointsHere &&
                                  entityManager.HasComponent<LocalTransform>(ani) &&
-                                 entityManager.HasComponent<AniMovementConfig>(ani) &&
-                                 entityManager.HasComponent<AniMovementCohortMembership>(ani) &&
-                                 entityManager.GetComponentData<AniMovementCohortMembership>(ani)
-                                     .Cohort == cohortEntity;
+                                 entityManager.HasComponent<AniMovementConfig>(ani);
                     if (valid)
                     {
                         continue;
                     }
 
+                    if (membershipPointsHere)
+                    {
+                        // 先记下残留归属，离开 Buffer 遍历后再执行结构变更
+                        membershipsToRemove.Add(new MembershipRemoval
+                        {
+                            Ani = ani,
+                            Cohort = cohortEntity,
+                        });
+                    }
                     members.RemoveAt(memberIndex);
                     changed = true;
                 }
@@ -412,6 +427,20 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 entityManager.SetComponentData(cohortEntity, cohort);
+            }
+
+            for (int index = 0; index < membershipsToRemove.Length; index++)
+            {
+                MembershipRemoval removal = membershipsToRemove[index];
+                if (!entityManager.Exists(removal.Ani) ||
+                    !entityManager.HasComponent<AniMovementCohortMembership>(removal.Ani) ||
+                    entityManager.GetComponentData<AniMovementCohortMembership>(removal.Ani)
+                        .Cohort != removal.Cohort)
+                {
+                    continue;
+                }
+
+                entityManager.RemoveComponent<AniMovementCohortMembership>(removal.Ani);
             }
         }
 
@@ -670,6 +699,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (comparison != 0) return comparison;
                 return left.StableId.CompareTo(right.StableId);
             }
+        }
+
+        private struct MembershipRemoval
+        {
+            public Entity Ani;
+            public Entity Cohort;
         }
     }
 }

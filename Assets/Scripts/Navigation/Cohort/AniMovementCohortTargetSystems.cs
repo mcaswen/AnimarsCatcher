@@ -65,7 +65,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 bool goalRegionMoved = math.distancesq(
                     targetPosition,
-                    orderState.ValueRO.GoalRegionCenterPosition) >= cellSize * cellSize;
+                    orderState.ValueRO.GoalRegionSourcePosition) >= cellSize * cellSize;
                 orderState.ValueRW.ResolvedTargetPosition = targetPosition;
                 if (goalRegionMoved)
                 {
@@ -73,25 +73,22 @@ namespace AnimarsCatcher.Navigation.Grid
                     orderState.ValueRW.TargetVersion = NextNonZero(
                         orderState.ValueRO.TargetVersion);
                     orderState.ValueRW.GoalAssignmentPending = 1;
-                }
-
-                // 同一订单的 Cohort 共享目标版本，迟到的旧 Field 不会重新激活成员
-                foreach (var (cohort, pathState) in
-                         SystemAPI.Query<
-                             RefRW<AniMovementCohort>,
-                             RefRW<AniMovementCohortPathState>>())
-                {
-                    if (cohort.ValueRO.Order != orderEntity)
+                    // 同一订单的 Cohort 共享目标版本，迟到的旧 Field 不会重新激活成员
+                    foreach (var (cohort, pathState) in
+                             SystemAPI.Query<
+                                 RefRW<AniMovementCohort>,
+                                 RefRW<AniMovementCohortPathState>>())
                     {
-                        continue;
-                    }
+                        if (cohort.ValueRO.Order != orderEntity)
+                        {
+                            continue;
+                        }
 
-                    cohort.ValueRW.TargetVersion = orderState.ValueRO.TargetVersion;
-                    pathState.ValueRW.ResolvedTargetPosition = targetPosition;
-                    if (goalRegionMoved &&
-                        pathState.ValueRO.Status != AniMovementCohortStatus.Failed)
-                    {
-                        pathState.ValueRW.Status = AniMovementCohortStatus.AwaitingPath;
+                        cohort.ValueRW.TargetVersion = orderState.ValueRO.TargetVersion;
+                        if (pathState.ValueRO.Status != AniMovementCohortStatus.Failed)
+                        {
+                            pathState.ValueRW.Status = AniMovementCohortStatus.AwaitingPath;
+                        }
                     }
                 }
             }
@@ -287,38 +284,15 @@ namespace AnimarsCatcher.Navigation.Grid
             using var candidates = new NativeList<GoalCellCandidate>(
                 math.max(1, grid.Cells.Length),
                 Allocator.Temp);
-            // 候选生成只线性扫描 Grid，随后排序，不建立成员乘落点的成本矩阵
-            for (int cellIndex = 0; cellIndex < grid.Cells.Length; cellIndex++)
-            {
-                if (!NavigationGridTraversal.CanAgentOccupyDynamic(
-                        ref grid,
-                        cellIndex,
-                        maximumRadius,
-                        0.05f,
-                        overlay))
-                {
-                    continue;
-                }
-
-                int capacity = AniMovementCohortAlgorithms.CalculateCellCapacity(
-                    grid.CellSize,
-                    maximumRadius,
-                    order.GoalCellCapacityScale,
-                    out int slotsPerAxis);
-                float3 cellPosition = NavigationGridQuery.GetCellWorldPosition(
-                    ref grid,
-                    cellIndex);
-                candidates.Add(new GoalCellCandidate
-                {
-                    CellIndex = cellIndex,
-                    Capacity = capacity,
-                    SlotsPerAxis = slotsPerAxis,
-                    DistanceSquared = math.lengthsq(
-                        PlanarMath.FlattenY(cellPosition - centerPosition)),
-                    TerrainCost = grid.Cells[cellIndex].TerrainCost,
-                    Clearance = grid.Cells[cellIndex].Clearance,
-                });
-            }
+            // 只从实际投影中心收集可达 Cell，避免全图扫描把障碍另一侧当成同一目标区域
+            CollectReachableGoalCandidates(
+                ref grid,
+                centerCellIndex,
+                centerPosition,
+                maximumRadius,
+                order.GoalCellCapacityScale,
+                overlay,
+                candidates);
 
             candidates.Sort(new GoalCellCandidateComparer());
             int availableCapacity = 0;
@@ -379,19 +353,118 @@ namespace AnimarsCatcher.Navigation.Grid
                 slotIndex++;
             }
 
-            foreach (RefRW<AniMovementCohort> cohort in
-                     SystemAPI.Query<RefRW<AniMovementCohort>>())
+            // 同一订单的所有 Cohort 必须使用同一个中心，否则共享目标区域会与 Flow 方向分叉
+            foreach (var (cohort, pathState) in
+                     SystemAPI.Query<
+                         RefRW<AniMovementCohort>,
+                         RefRW<AniMovementCohortPathState>>())
             {
                 if (cohort.ValueRO.Order == orderEntity)
                 {
                     cohort.ValueRW.TargetVersion = orderState.TargetVersion;
+                    pathState.ValueRW.GoalRegionCenterPosition = centerPosition;
                 }
             }
 
             orderState.GoalRegionHash = goalHash;
             // 记录实际投影中心，动态目标跨 Cell 后才会再次触发本系统
+            orderState.GoalRegionSourcePosition = orderState.ResolvedTargetPosition;
             orderState.GoalRegionCenterPosition = centerPosition;
             orderState.GoalAssignmentPending = 0;
+        }
+
+        private static void CollectReachableGoalCandidates(
+            ref NavigationGridBlob grid,
+            int centerCellIndex,
+            float3 centerPosition,
+            float maximumRadius,
+            float capacityScale,
+            NativeArray<NavigationDynamicOverlayCell> overlay,
+            NativeList<GoalCellCandidate> candidates)
+        {
+            // visited 与 frontier 共同限制遍历范围，容量不足也不会退回全图补位
+            var visited = new NativeArray<byte>(
+                grid.Cells.Length,
+                Allocator.Temp,
+                NativeArrayOptions.ClearMemory);
+            var frontier = new NativeList<int>(
+                math.max(1, grid.Cells.Length),
+                Allocator.Temp);
+            try
+            {
+                visited[centerCellIndex] = 1;
+                frontier.Add(centerCellIndex);
+
+                for (int frontierIndex = 0;
+                     frontierIndex < frontier.Length;
+                     frontierIndex++)
+                {
+                    int cellIndex = frontier[frontierIndex];
+                    // 进入 frontier 表示该 Cell 已通过完整边通行校验，可以安全参与落点排序
+                    int capacity = AniMovementCohortAlgorithms.CalculateCellCapacity(
+                        grid.CellSize,
+                        maximumRadius,
+                        capacityScale,
+                        out int slotsPerAxis);
+                    float3 cellPosition = NavigationGridQuery.GetCellWorldPosition(
+                        ref grid,
+                        cellIndex);
+                    candidates.Add(new GoalCellCandidate
+                    {
+                        CellIndex = cellIndex,
+                        Capacity = capacity,
+                        SlotsPerAxis = slotsPerAxis,
+                        DistanceSquared = math.lengthsq(
+                            PlanarMath.FlattenY(cellPosition - centerPosition)),
+                        TerrainCost = grid.Cells[cellIndex].TerrainCost,
+                        Clearance = grid.Cells[cellIndex].Clearance,
+                    });
+
+                    int x = cellIndex % grid.Width;
+                    int z = cellIndex / grid.Width;
+                    // 复用正式寻路的边规则，斜向扩张也会遵守拐角阻挡和动态 Clearance
+                    for (int directionIndex = 0; directionIndex < 8; directionIndex++)
+                    {
+                        NavigationGridDirections.GetDirection(
+                            directionIndex,
+                            out int deltaX,
+                            out int deltaZ);
+                        int neighborX = x + deltaX;
+                        int neighborZ = z + deltaZ;
+                        if (!NavigationGridTraversal.IsInside(
+                                neighborX,
+                                neighborZ,
+                                grid.Width,
+                                grid.Height))
+                        {
+                            continue;
+                        }
+
+                        int neighborIndex = neighborX + neighborZ * grid.Width;
+                        if (visited[neighborIndex] != 0 ||
+                            !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
+                                ref grid,
+                                cellIndex,
+                                neighborIndex,
+                                deltaX,
+                                deltaZ,
+                                maximumRadius,
+                                0.05f,
+                                overlay))
+                        {
+                            continue;
+                        }
+
+                        visited[neighborIndex] = 1;
+                        frontier.Add(neighborIndex);
+                    }
+                }
+            }
+            finally
+            {
+                frontier.Dispose();
+                visited.Dispose();
+            }
         }
 
         private void FailGoalAssignment(
