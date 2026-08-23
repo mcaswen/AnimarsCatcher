@@ -53,7 +53,7 @@
 - Planner 高频更新导航请求版本，`ServerNavMeshPlannerSystem` 又在主线程同步调用 `NavMesh.CalculatePath`，大量 Ani 同时移动时成本较高
 - `ServerAniAttackSenseSystem` 每帧复制候选数组并执行近似 O(Ani x Target) 的扫描，目标数量增长时成本会快速上升
 - `ServerAniGhostIdIndexSystem` 已取消每 Tick 重建，但 Ani 出生、销毁或身份变化时仍会重新发布完整排序索引；高频增减场景需要在后续性能样本中确认尖峰
-- 6A.1 的 Grid 入口会同时保存 `AniMovementOrderMember` 和兼容 `AniSquadCommandMember`，这是 6A.2 切换前的双 Buffer 过渡边界，不能作为万人运行时最终内存模型
+- 6A.2 已移除正式 Grid 入口的双 Buffer 和严格阵型适配，但每个 Cohort 仍持有自己的 Corridor 与 Flow Field Buffer；相同路线的数据归并和全局 Handle 所有权留待 6A.3
 - FSM Blackboard 使用较宽的 `FsmVar` Buffer 和线性查找，Key 越多，CPU 与潜在网络成本越高
 - `FsmRegistry` 使用跨 World 的 static Persistent NativeArray，World 销毁时没有完整复位初始化状态，重建或多 World 生命周期可能访问已释放容器
 - `ServerAniDeathSystem` 查询所有 `Health`，只排除脆弱资源和大基地。未来玩家或其他实体增加 Health 后可能被误删

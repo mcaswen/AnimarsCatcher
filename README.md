@@ -54,7 +54,7 @@ Clearance Grid 是正在接入正式玩法的新后端：
 
 - 服务器保持纯 Entity 状态，Client World 创建并维护 GameObject View、动画、血条、选中光圈、HUD、音频和 VFX 等表现层
 - 网络与玩法通知通过 Presentation Bridge 转换为 UI 和场景行为，避免底层业务程序集直接依赖托管表现
-- 339 个业务脚本归属 15 个自定义 asmdef，Runtime、Contracts、Editor、Validation 与 Benchmark 使用独立编译边界
+- 346 个业务脚本归属 15 个自定义 asmdef，Runtime、Contracts、Editor、Validation 与 Benchmark 使用独立编译边界
 
 ## 系统结构
 
@@ -93,14 +93,14 @@ flowchart LR
 已完成：
 
 - 联机会话、按 Tick 预测角色、Ani 框选与指令、服务端战斗/资源/胜负，以及客户端 Hybrid 表现已经组成可运行闭环
-- 339 个业务 C# 文件全部进入 15 个自定义 asmdef，主要运行时、契约、编辑器与验证边界已经拆分
+- 346 个业务 C# 文件全部进入 15 个自定义 asmdef，主要运行时、契约、编辑器与验证边界已经拆分
 - Legacy 与 Grid 后端可互斥运行；Navigation R1～R6 复审完成，Grid Stage 1～5 自动验证通过
-- Grid Stage 6A.0～6A.1 已完成：Harness 支持 512～10000 Ani 规模输入与预算报告，正式指令支持万人分块选择集、权威版本和 `MovementOrder`
+- Grid Stage 6A.0～6A.2 已完成：Harness 支持 512～10000 Ani 规模输入，正式指令支持万人选择集、`MovementOrder`、有界 Movement Cohort 和自然目标区域
 
 仍在推进：
 
 - Grid 正式场景的窄门、连续窄道和动态障碍退出验收
-- 从 6A.2 开始推进万人 Movement Cohort、目标区域、共享 Flow Field 调度、空间哈希、ORCA 局部避碰与世界碰撞
+- 从 6A.3 开始推进共享 Flow Field 调度、并行单位移动、空间哈希、ORCA 局部避碰与世界碰撞
 - 资源搬运迁移、Legacy 最终隔离、Navigation namespace 整理和最终构建门禁
 
 未指定移动后端参数时，项目仍以功能完整的 Legacy NavMesh 作为默认玩法基线；Clearance Grid 需要通过 `-movement-backend=grid` 显式启用

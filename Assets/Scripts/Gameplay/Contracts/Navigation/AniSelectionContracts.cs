@@ -301,6 +301,15 @@ namespace AnimarsCatcher.Gameplay.Contracts
         // 与选择版本共同阻止移动命令借用错误成员
         public ulong SelectionHash;
 
+        // 记录订单进入服务器模拟的 Tick，供超时、诊断和确定性排序使用
+        public uint CreatedTick;
+
+        // 新命令替换旧归属时使用的版本，后续取消链路不需要改写成员 Buffer
+        public uint CancellationVersion;
+
+        // 高优先级订单可以在后续预算调度中优先取得寻路名额
+        public byte Priority;
+
         // 对下游表达 MoveTo、Follow 或其他高层移动语义
         public AniSquadCommandMode Mode;
 
@@ -312,6 +321,12 @@ namespace AnimarsCatcher.Gameplay.Contracts
 
         // 下游判断到达时使用的业务停止距离
         public float TargetStoppingDistance;
+
+        // 控制目标格子可容纳的 Ani 数量，默认值 1 表示采用真实几何容量
+        public float GoalCellCapacityScale;
+
+        // 进入该范围后从共享 Flow Direction 平滑转向自己的目标落点
+        public float GoalInfluenceRadius;
     }
 
     /// <summary>
@@ -332,5 +347,13 @@ namespace AnimarsCatcher.Gameplay.Contracts
 
         // 命令生成时再次通过权限和存活校验的 Ani Entity
         public Entity Ani;
+
+        // 移动能力在订单创建时冻结，Cohort 不再回读易变的玩法属性
+        public float MaxSpeed;
+        public float MaxAcceleration;
+        public float AgentRadius;
+
+        // 相同通行配置的成员才能共用 Cohort 寻路上下文
+        public uint AgentProfile;
     }
 }

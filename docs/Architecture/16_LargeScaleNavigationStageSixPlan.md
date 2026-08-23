@@ -7,7 +7,7 @@
 - [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](15_NavigationArchitectureRefactorExecutionPlan.md)
 
-> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路已完成；下一步为 6A.2 MovementOrder 拆分 MovementCohort
+> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路、6A.2 Cohort 与自由目标区域已完成；下一步为 6A.3 共享 Field Store 与预算调度器
 >
 > 目标：在 Server World 支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
 >
@@ -36,15 +36,15 @@
 
 | 当前边界 | 源码事实 | 万人规模影响 |
 |---|---|---|
-| 命令过渡 | 6A.1 已通过分块选择集表达万人成员，移动 RPC 只携带已确认的选择版本和哈希；Grid 入口暂时同时生成 `MovementOrder` 与旧 `AniSquadCommand` | 6A.2 前万人仍会进入旧 Squad 链路并产生双份成员 Buffer，不能作为最终规模实现 |
-| 命令到 Squad | `ServerAniCommandIngressSystem` 每个 RPC 生成一个命令 Entity，`AniSquadLifecycleSystem` 创建或复用一个 Squad | 把万人放入一个 Squad 会让阵型和成员维护失去规模上限 |
-| 严格槽位分配 | `AniFormationAssignmentSystem` 创建 `memberCount * slotCount` 成本矩阵，再运行 Hungarian 匹配 | 10000 人成本矩阵仅 `float` 数据约 400 MB，求解复杂度接近 `O(N³)` |
+| 命令到 Cohort | 正式 Grid 入口只生成 `MovementOrder`，再按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切分 Cohort | 默认容量 64、硬上限 128，万人订单不会进入旧 Squad 或生成双份成员 Buffer |
+| 目标分布 | 目标区域按可通行 Cell、体型容量和稳定成员顺序分配独立落点 | 正式 Pipeline 不再创建矩形列数、职责槽位或 Hungarian 成本矩阵 |
+| 历史 Squad | Stage 4～5 的严格阵型 System 和 Benchmark 入口继续保留 | 只用于行为回归和旧报告对照，不消费正式 MovementOrder |
 | Flow Field 调度 | `ServerNavigationGridFlowFieldSystem` 每批最多 16 个请求，单个 `IJob` 内顺序处理 | 多 Cohort 或多目标突发时排队延迟不可控 |
 | Flow Field 所有权 | 缓存命中后仍复制 Field 到每个 Squad Buffer；缓存最多 64 项并按整代清理 | 相同路线重复占用内存，多目标时容易缓存抖动 |
 | 单位移动 | 期望速度、槽位目标、Commit 和部分进度判断仍通过 System 主线程查询遍历 | Burst 可以降低单次成本，但不能充分利用多核处理 10000 Ani |
 | 动态 Overlay | Path 或 Flow Job 读取 Overlay 时，`NavigationDynamicOverlaySystem` 延迟写入 | 持续寻路负载可能增加动态障碍生效延迟 |
 | 拥挤处理 | 当前 Stage 4 Benchmark 明确不包含 ORCA、世界碰撞或受阻恢复 | 开阔地到达不能证明窄路、交叉和高密度场景可用 |
-| 验收规模 | 6A.0 已覆盖 512、1000、2500、5000 和 10000 Ani 输入，6A.1 已验证万人选择与命令成员完整性 | 后续仍需补齐 6A.2～6C 的排队、内存、Worker 和 Server Tick 证据 |
+| 验收规模 | 6A.2 已验证万人 Cohort 切分与 32、64、128、512 自由移动到达 | 1000～10000 完整导航的排队、内存、Worker 和 Server Tick 证据仍待 6A.3～6C 补齐 |
 
 这些限制要求先改规模模型，再实现 ORCA。如果直接在现有“一个大 Squad + 固定槽位”上完成旧版阶段六，之后仍需重做空间哈希分组、邻居语义、到达判定和 Field 所有权。
 
@@ -69,15 +69,16 @@
 
 ### 3.2 MovementOrder
 
-6A.1 的 `AniMovementOrder` 表示玩家的一次完整意图，当前保存：
+`AniMovementOrder` 表示玩家的一次完整意图，当前保存：
 
 - 所有者与稳定命令序号
 - MoveTo、Follow 或 Find 语义
 - 目标位置或目标 Entity
 - 停止范围
 - 选择集版本、完整性 Hash 与唯一成员 Buffer
+- 创建 Tick、取消版本、优先级和目标区域容量及影响范围
 
-创建 Tick、取消版本、优先级和目标区域参数在 6A.2 接入 Cohort 生命周期时补充，不在 6A.1 提前建立未消费字段。
+成员 Buffer 同时冻结最大速度、最大加速度、Agent 半径和 Agent Profile，Cohort 生命周期不再回读易变的玩法属性。
 
 移动 RPC 不再重复携带全部选中 GhostId。客户端先以分块或差量方式更新服务器选择集，服务端确认成员数量、Hash 和版本完整后，移动命令只引用该版本。后续可以评估由服务器根据框选体积重建选择集，但它不能成为第六阶段的前置假设。
 
@@ -160,7 +161,7 @@ NavigationFlowFieldRecord
 服务器运行顺序调整为：
 
 1. `ServerAniSelectionSetSystem`：组装并校验分块或差量选择集
-2. `ServerAniCommandIngressSystem`：校验目标与选择集版本，创建 MovementOrder，并在 6A.2 前适配旧 Squad 契约
+2. `ServerAniCommandIngressSystem`：校验目标与选择集版本并创建 MovementOrder
 3. `AniMovementCohortPartitionSystem`：确定性拆分或复用 Cohort
 4. `NavigationDynamicOverlaySnapshotSystem`：完成写缓冲并在安全 Tick 边界交换只读快照
 5. `AniCohortTargetResolveSystem`：解析 MoveTo、Follow 和 Find 的当前目标
@@ -250,7 +251,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 服务端会核对来源连接、当前 `GhostOwner`、块数、载荷成员数、结果成员数和最终 Hash；更高版本会取消旧的未完成组装，过期版本直接拒绝，缺块版本在 180 个 Server Update 后清理
 - `AniSelectionAckRpc` 只确认已经发布的版本；客户端在收到回执前保留世界点击，`AniCommandRpc` 只发送目标、选择集版本和 Hash，不再携带固定容量成员列表
 - `ServerAniGhostIdIndexSystem` 统一向选择和命令链路发布排序索引，稳定 Tick 不刷新；Grid 与 Legacy 入口不再维护各自的逐 Tick GhostId HashMap
-- Grid 入口生成 `AniMovementOrder` 与唯一成员快照，并在 6A.2 前同时写入兼容 `AniSquadCommand`；Legacy 入口从同一权威选择集读取成员，不改变旧 FSM 与 NavMesh 行为
+- Grid 入口生成 `AniMovementOrder` 与唯一成员快照；Legacy 入口从同一权威选择集读取成员，不改变旧 FSM 与 NavMesh 行为
 
 专项验收在 Unity `6000.2.7f2` Batch Mode 下完成：
 
@@ -275,6 +276,23 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 成员不重复、不丢失，死亡、移除和新命令不会留下悬空归属
 - 不存在 `N * N` 成本矩阵或随总成员数平方增长的持久内存
 - 32、64、128 开阔地全部到达；512 Ani 不依赖 ORCA 也能完成无交叉基础场景
+
+实现状态（2026-08-23）：**已完成**
+
+- 正式 Grid 入口已移除旧 `AniSquadCommand` 和成员 Buffer 适配，Stage 4～5 Squad 只保留历史 Benchmark 与专项回归入口
+- `AniMovementCohortPartitionSystem` 按 Agent Profile、起始 Cluster、Morton Key 和 StableId 排序，使用默认 64 人容量和 128 人硬上限生成 Cohort
+- 成员死亡、归属移除或新命令覆盖时会同步收缩或销毁旧 Cohort，并重新发布订单成员版本与目标区域
+- `AniGoalRegionAssignmentSystem` 按 Cell 距离、地形成本、Clearance 和稳定索引选择目标区域，容量计算只做线性扫描与排序，不建立成员乘落点矩阵
+- `AniFreePreferredVelocitySystem` 远距离读取 Cohort Flow Direction，目标落点可直达后提高个人方向权重，避免所有 Ani 挤向中心
+- `AniMovementCommitSystem` 同时承接历史 Squad 和正式 Cohort，但每名 Ani 只进入其中一条查询，Transform 写入边界仍然唯一
+
+专项验收在 Unity `6000.2.7f2` Batch Mode 下完成：
+
+- 10000 Ani 连续两轮都生成 180 个 Cohort，单组最大 64 人，切分 Hash 为 `979E69E4BBCF9309`
+- 验收覆盖成员死亡、130 人重叠新命令、旧 Cohort 收缩和悬空归属检查
+- 32、64、128、512 Ani 开阔地全部到达自己的自然落点，不依赖 ORCA 或世界碰撞
+- 512 Ani 两轮目标区域 Hash 为 `FA1A17890EEC4B2F`，最终位置 Hash 为 `AE3BEC88A465F1F9`
+- 正式 Cohort 不携带 `AniFormationSlot`，正式 MovementOrder 不再创建 Squad
 
 ### 6A.3 Field Store 与预算调度器
 
@@ -466,7 +484,7 @@ S6C   512 to 10000 acceptance and reports
 回滚规则：
 
 1. 每个提交都必须可以独立编译，并保留上一个已通过的 Benchmark 入口
-2. 6A.2 通过前不删除当前严格阵型链路；切换使用显式开发配置，不能在同一 World 双写 Transform
+2. 当前严格阵型链路保留为 Stage 4～5 回归入口，正式 MovementOrder 只进入 Cohort，不能在同一 World 双写 Transform
 3. 共享 Field Store 上线前保留当前缓存实现作为回归对照，不在同一提交同时更换调度、缓存和 Overlay 所有权
 4. ORCA、世界碰撞和 Commit 分开提交，任一阶段失败时可以回到上一层安全速度
 5. 不修改或删除 Legacy Benchmark，不把阶段六的优化反向移植到 Legacy

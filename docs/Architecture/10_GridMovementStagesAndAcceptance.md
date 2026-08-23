@@ -7,7 +7,7 @@
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 - [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路已完成，6A.2 及后续群体移动链路尚未实施；阶段七及 Normalized Legacy 横向性能对照仍待执行
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.2 已完成，下一步为 6A.3 共享 Field Store 与预算调度器；阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
 > 第六阶段内部按 6A、6B、6C 依次验收；阶段五未完成的动态 Overlay 场景验收并入 6A/6C，已取消的严格阵型正式目标不再阻塞阶段六
 
@@ -193,7 +193,7 @@
 
 ### 交付物
 
-- `ServerAniCommandIngressSystem`：正式玩法消费已校验 `AniCommandRpc`，Benchmark 回放适配层绕过 RPC 容量限制后写入相同 `AniSquadCommand` 契约
+- 阶段四原始入口由 `ServerAniCommandIngressSystem` 和 Benchmark 回放写入同一 `AniSquadCommand` 契约；6A.2 后正式玩法改用 MovementOrder 与 Cohort，Benchmark 继续保留该历史入口
 - `AniSquadLifecycleSystem`：根据有效命令创建、更新和拆除 Squad 上下文
 - Squad Entity 和成员 Buffer
 - Squad Order、Path State 和 Anchor
@@ -227,7 +227,7 @@
 
 ### 当前实现与验收记录
 
-- `ServerAniCommandIngressSystem` 将正式 `AniCommandRpc` 的权限校验结果写入统一 `AniSquadCommand`；Benchmark 回放由 `ServerNavigationGridMovementBenchmarkSystem` 直接写入同一契约，不绕过 Squad 生命周期。
+- `ServerNavigationGridMovementBenchmarkSystem` 继续直接写入 `AniSquadCommand` 并完整经过 Squad 生命周期，用于复现阶段四历史结果；正式 `AniCommandRpc` 已在 6A.2 切换到 MovementOrder 与 Cohort。
 - `AniSquadLifecycleSystem`、`AniSquadTargetResolveSystem` 和 `AniSquadPathRequestSystem` 维护一条指令对应一个 Squad 路径上下文，并处理成员加入、离队、失效和拆队。
 - `AniSquadAnchorAdvanceSystem`、`AniFormationLayoutSystem`、`AniFormationAssignmentSystem`、`AniSlotTargetSystem`、`AniPreferredVelocitySystem`、`AniMovementCommitSystem` 和 `AniMovementProgressSystem` 已形成固定的服务器更新链路。基础 Commit 是 Grid 后端唯一 Ani `LocalTransform` 写入者。
 - `NavigationGridStageFourValidation.RunFromCommandLine` 已覆盖 32、64、128 Ani 的槽位唯一/中心对称、World 过滤、System 顺序、成员生命周期、开阔地 MoveTo 到达和终态稳定性；2026-08-21 R6 最终回归通过
@@ -291,7 +291,9 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 
 2026-08-22 已完成 6A.0：统一 Harness 增加 512～10000 Ani 档位、工作负载隔离、ECS DynamicBuffer 规模输入、三类确定性 Hash、v5 报告和 `Stage6A0-60Hz-v1` 预算。10000 Ani 输入连续两轮 Hash 一致，旧 32 Ani 严格阵型完整回放与 Stage Zero、Stage Four 自动验收通过。该输入工作负载不运行导航内核，不能替代后续万人移动性能门禁。
 
-同日完成 6A.1：正式框选使用 120 个 GhostId 一块的版本化协议，服务器发布带成员 Buffer 与完整性 Hash 的权威选择集，移动 RPC 只引用已确认版本。专项验收使用 10000 Ani 和 84 个分块覆盖顺序、逆序、取消、替换、差量、重复、越权、过期、缺块超时与 MoveTo，两个到达顺序均得到 `78681BD7C145FFE4`，并回归通过 6A.0 与 Stage Four。当前 Grid 入口仍把 `MovementOrder` 适配到旧 Squad 链路，Cohort 与自由目标区域从 6A.2 开始实现。
+同日完成 6A.1：正式框选使用 120 个 GhostId 一块的版本化协议，服务器发布带成员 Buffer 与完整性 Hash 的权威选择集，移动 RPC 只引用已确认版本。专项验收使用 10000 Ani 和 84 个分块覆盖顺序、逆序、取消、替换、差量、重复、越权、过期、缺块超时与 MoveTo，两个到达顺序均得到 `78681BD7C145FFE4`，并回归通过 6A.0 与 Stage Four。
+
+2026-08-23 完成 6A.2：正式 Grid 指令不再生成兼容 `AniSquadCommand`，MovementOrder 会按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切成默认最多 64 人、硬上限 128 人的 Cohort。目标区域按 Cell 通行空间计算容量并分配稳定落点，远距离 Flow Direction 与近目标个人吸引共同生成期望速度，最终仍由唯一 `AniMovementCommitSystem` 写入 Transform。专项验收连续两轮处理 10000 成员且无重复、丢失或悬空归属，得到 180 个 Cohort、最大成员数 64 和 `979E69E4BBCF9309`；32、64、128、512 开阔地全部到达，512 两轮目标区域 Hash 均为 `FA1A17890EEC4B2F`，最终位置 Hash 均为 `AE3BEC88A465F1F9`。
 
 ### 6A：规模基础
 

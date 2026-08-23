@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路已完成，6A.2 及后续群体移动链路尚未实施；阶段七尚未完成
+> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.2 已完成，下一步为 6A.3 共享 Field Store 与预算调度器；阶段七尚未完成
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -364,10 +364,10 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 
 1. `ServerAniCommandIngressSystem` 或 Benchmark 入口写入统一命令
 2. `NavigationDynamicOverlaySystem`
-3. `AniSquadLifecycleSystem`
-4. `AniSquadTargetResolveSystem`
-5. `AniSquadPathRequestSystem`
-6. `ServerNavigationGridFlowFieldSystem`
+3. 正式指令进入 `AniMovementCohortPartitionSystem`，历史 Benchmark 进入 `AniSquadLifecycleSystem`
+4. Cohort 或 Squad 各自解析目标并提交 Flow Field 请求
+5. `ServerNavigationGridFlowFieldSystem`
+6. Cohort 自由速度或 Squad 阵型速度进入同一个 `AniMovementCommitSystem`
 7. `AniSquadAnchorAdvanceSystem`
 8. `AniAdaptiveFormationSystem`
 9. `AniFormationLayoutSystem`
@@ -386,7 +386,7 @@ Collider Cast 可以在 Burst Job 中批量执行。CollisionWorld 更新顺序�
 ### 8.1 分阶段落地边界
 
 - 阶段三实现 HPA*、Corridor、局部 Field 及其 Benchmark 适配层。适配层复用同一测试场景和确定性回放，只构造路径与 Field 工作负载，不生成速度或写入 Ani Transform。
-- 阶段四实现 `ServerAniCommandIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。正式 RPC 输入与 Benchmark 回放必须汇入相同 `AniSquadCommand` 契约。
+- 阶段四实现 `ServerAniCommandIngressSystem`、`AniSquadLifecycleSystem`、Anchor、基础阵型、期望速度、基础 `AniMovementCommitSystem` 和基础 `AniMovementProgressSystem`，先在开阔地跑通完整 Grid MoveTo 链路。当时正式 RPC 与 Benchmark 回放汇入同一 `AniSquadCommand`；6A.2 后只保留 Benchmark 和专项回归继续使用该契约。
 - 阶段五加入动态 Overlay 和自适应阵型，不改变 Transform 写入所有权；其实现继续作为当前代码和历史性能基线。
 - 阶段六拆为 6A、6B、6C：先建立万人命令、Cohort、目标区域、共享 Field 与并行移动，再加入空间哈希、ORCA、世界碰撞和受阻恢复，最后执行 512～10000 扩容验收。`AniWorldCollisionSystem` 只输出安全位移，最终仍由阶段四建立的唯一 `AniMovementCommitSystem` 写入 Transform。
 - 阶段七迁移资源搬运和正式 Prefab、Scene 配置，完成正式后端切换。

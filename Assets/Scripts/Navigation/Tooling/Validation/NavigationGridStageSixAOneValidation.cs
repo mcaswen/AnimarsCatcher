@@ -285,6 +285,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             // 版本和 Hash 必须原样绑定到创建订单时使用的选择集
             Assert(order.SelectionVersion == selection.Version, "MovementOrder 选择集版本错误");
             Assert(order.SelectionHash == selection.CompletenessHash, "MovementOrder 选择集 Hash 错误");
+            Assert(order.CreatedTick != 0, "MovementOrder 没有记录服务器创建 Tick");
+            Assert(order.CancellationVersion == order.Sequence,
+                "MovementOrder 取消版本没有与命令序号对齐");
             // 成员数量使用正式万人上限，防止命令入口仍存在隐式截断
             Assert(orderMembers.Length == AgentCount, "MovementOrder 成员快照不完整");
 
@@ -293,7 +296,17 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             {
                 Assert(orderMembers[index].GhostId == index + 1, "MovementOrder 成员重复或顺序错误");
                 Assert(orderMembers[index].Ani == anis[index], "MovementOrder 成员 Entity 映射错误");
+                Assert(orderMembers[index].MaxSpeed == 5f &&
+                       orderMembers[index].MaxAcceleration == 20f &&
+                       orderMembers[index].AgentRadius > 0f &&
+                       orderMembers[index].AgentProfile != 0,
+                    "MovementOrder 没有冻结 Cohort 所需的移动配置");
             }
+
+            using EntityQuery squadRequests = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<AniSquadCommandRequest>());
+            Assert(squadRequests.IsEmptyIgnoreFilter,
+                "正式 MovementOrder 不应继续生成兼容 Squad 请求");
 
             // 清除合法订单，确保下面的过期命令断言只观察新结果
             entityManager.DestroyEntity(orderEntity);

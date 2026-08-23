@@ -124,7 +124,9 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - `FoodResourceSpawnPrefabReference` 与 `CrystalResourceSpawnPrefabReference` 保存刷新区域可随机生成的资源 Prefab
 - `ServerAniSelectionSet` 保存玩家权威选择集的版本、成员数和完整性 Hash，`ServerAniSelectionMember` Buffer 保存按 GhostId 升序排列的唯一成员
 - `ServerAniSelectionAssemblyChunk` 与 `ServerAniSelectionAssemblyMember` 只在分块尚未收齐时保存组装状态，完成、冲突或超时后立即销毁
-- `AniMovementOrderMember` 保存移动命令创建时冻结的成员快照，当前 Grid 入口同时适配为 Stage 4～5 使用的 `AniSquadCommandMember`
+- `AniMovementOrderMember` 保存移动命令创建时冻结的成员、移动能力和 Agent Profile，正式 Grid 入口不再生成 `AniSquadCommandMember`
+- `AniMovementCohort` 与 `AniMovementCohortMember` 保存有界寻路单元和稳定成员顺序，`AniMovementCohortMembership` 保证每名 Ani 同时只属于一个活动 Cohort
+- `AniGoalAssignment` 保存目标 Cell、自然落点、到达半径和目标版本，不包含矩形列数、职责或固定阵型槽位
 
 ## 6. Authoring、Baker 与注册数据
 
@@ -192,23 +194,23 @@ flowchart LR
     Rpc[AniCommandRpc<br/>目标 + 选择集版本]
     Backend{AniMovementBackendConfig}
     GridIngress[ServerAniCommandIngressSystem<br/>MovementOrder]
-    Squad[AniSquad Lifecycle / Target / Path]
+    Cohort[MovementCohort / Goal Region]
     Field[HPA Corridor / Flow Field]
-    GridMove[Anchor / Formation / Slot / Commit / Progress]
+    GridMove[Flow / Goal Attraction / Commit / Progress]
     LegacyIngress[ServerReceiveAniCommandRpcSystem]
     Legacy[Blackboard / FSM / Formation / NavMesh / PhysicsMove]
     Combat[Attack Cleanup -> Sense -> Fire]
 
     SelectRpc --> Selection --> Set
     Rpc --> Backend
-    Backend -->|ClearanceGrid| GridIngress --> Squad --> Field --> GridMove
+    Backend -->|ClearanceGrid| GridIngress --> Cohort --> Field --> GridMove
     Backend -->|LegacyNavMesh| LegacyIngress --> Legacy
     Set --> GridIngress
     Set --> LegacyIngress
     Legacy --> Combat
 ```
 
-服务器先组装并发布玩家选择集，移动 RPC 只引用已经确认的版本和 Hash。当前后端消费命令时再次核对来源连接与选择集，Grid 链路先生成 `MovementOrder`，再临时适配到 Stage 4～5 的 Squad 上下文；Legacy 链路读取同一份权威选择集后继续通过 Blackboard、FSM、旧阵型、逐 Ani NavMesh 和物理移动执行。攻击相关 System 仍从现有 FSM 状态出发，完成目标感知、冷却和开火。
+服务器先组装并发布玩家选择集，移动 RPC 只引用已经确认的版本和 Hash。Grid 链路生成 `MovementOrder` 后按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切成默认最多 64 人的 Cohort，再分配自然目标落点并驱动自由移动；Stage 4～5 Squad 只由历史 Benchmark 和专项回归直接创建。Legacy 链路读取同一份权威选择集后继续通过 Blackboard、FSM、旧阵型、逐 Ani NavMesh 和物理移动执行。攻击相关 System 仍从现有 FSM 状态出发，完成目标感知、冷却和开火。
 
 Grid 链路已通过 `AniGridCommandIngressSystemGroup`、`AniGridRuntimeSystemGroup`、`UpdateAfter` 和 `UpdateBefore` 固定顺序。Legacy 的 Planner、Nav Planner 和 Follow 之间仍有顺序缺口，见 [已知边界](07_KnownRisks.md)。
 

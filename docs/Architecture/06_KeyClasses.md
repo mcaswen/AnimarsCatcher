@@ -53,7 +53,7 @@ Ani 的服务端移动链路由“接收命令、解析目标、规划路径、�
 
 `ServerAniGhostIdIndexSystem` 只在 Ani 数量、结构、GhostId 或拥有者变化时刷新排序索引，稳定 Tick 不再为等待 RPC 重建映射。`ServerAniSelectionSetSystem` 使用该索引组装分块或差量请求，校验版本、完整性 Hash 和连接所有权后发布玩家选择集。
 
-Grid 入口是 `ServerAniCommandIngressSystem`。它根据 `SourceConnection` 验证选择集版本与成员当前所有权，检查目标 Entity 与坐标，再生成 `AniMovementOrder`。6A.2 上线前，它还会把同一成员快照适配为 `AniSquadCommand`，继续驱动 Stage 4～5 链路。Legacy 入口是 `ServerReceiveAniCommandRpcSystem`，它读取同一权威选择集后把目标和命令模式写入 `FsmVar` Blackboard。
+Grid 入口是 `ServerAniCommandIngressSystem`。它根据 `SourceConnection` 验证选择集版本与成员当前所有权，检查目标 Entity 与坐标，再生成 `AniMovementOrder`。`AniMovementCohortPartitionSystem` 将订单稳定切成有界 Cohort，`AniGoalRegionAssignmentSystem` 分配自然落点，后续 Flow 和自由移动系统继续执行。Legacy 入口是 `ServerReceiveAniCommandRpcSystem`，它读取同一权威选择集后把目标和命令模式写入 `FsmVar` Blackboard。
 
 FSM 本身分成三个步骤：
 

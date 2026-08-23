@@ -76,9 +76,9 @@ flowchart LR
     Backend{当前移动后端}
     GridIngress[ServerAniCommandIngressSystem<br/>版本、权限与目标校验]
     Order[AniMovementOrder<br/>唯一成员快照]
-    Squad[AniSquadCommand<br/>Lifecycle / Target / Path]
+    Cohort[MovementCohort<br/>Partition / Target / Path]
     Flow[HPA Corridor / Flow Field]
-    GridMove[Anchor / 自适应阵型 / 槽位 / Commit]
+    GridMove[目标区域 / 自由速度 / Commit]
     LegacyIngress[ServerReceiveAniCommandRpcSystem<br/>权限校验]
     Blackboard[FsmVar Blackboard]
     Legacy[Legacy Formation / Planner / NavMesh / PhysicsMove]
@@ -86,7 +86,7 @@ flowchart LR
     Click --> Ray --> Rpc --> Backend
     Selection --> GridIngress
     Selection --> LegacyIngress
-    Backend -->|ClearanceGrid| GridIngress --> Order --> Squad --> Flow --> GridMove
+    Backend -->|ClearanceGrid| GridIngress --> Order --> Cohort --> Flow --> GridMove
     Backend -->|LegacyNavMesh| LegacyIngress --> Blackboard --> Legacy
 ```
 
@@ -94,18 +94,17 @@ flowchart LR
 
 当前由 `AniMovementBackendConfig` 保证 Grid 与 Legacy 只能启用一个。未指定 `-movement-backend` 时使用 `LegacyNavMesh`；显式传入 `-movement-backend=grid` 时，由 Grid 链路消费同一 RPC。两个后端不会同时读取命令，也不会同时写入 Ani Transform。
 
-Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、选择集版本与 Hash、成员当前所有权、目标 Entity 和有限坐标，再生成 `AniMovementOrder` 与唯一成员快照。6A.2 接管运行时之前，同一命令 Entity 还会写入兼容的 `AniSquadCommand` 与成员 Buffer，后续处理顺序为：
+Grid 链路中，`ServerAniCommandIngressSystem` 校验来源连接、选择集版本与 Hash、成员当前所有权、目标 Entity 和有限坐标，再生成 `AniMovementOrder` 与唯一成员快照，后续处理顺序为：
 
-1. `AniSquadLifecycleSystem` 创建、更新或拆除 Squad 上下文
-2. `AniSquadTargetResolveSystem` 持续解析 MoveTo、Follow 或 Find 的目标
-3. `AniSquadPathRequestSystem` 提交共享路径请求，HPA Corridor 与局部 Flow Field 负责路线引导
-4. `AniSquadAnchorAdvanceSystem` 推进队伍 Anchor
-5. `AniAdaptiveFormationSystem` 根据前方 Clearance 调整矩形阵型列数，窄路立即收拢，宽度稳定后再展开
-6. `AniFormationLayoutSystem`、`AniFormationAssignmentSystem` 和 `AniSlotTargetSystem` 生成并分配居中槽位
-7. `AniPreferredVelocitySystem` 生成期望速度，`AniMovementCommitSystem` 作为 Grid 后端唯一写入者提交权威位移
-8. `AniMovementProgressSystem` 判断到达、失败或保持状态
+1. `AniMovementCohortPartitionSystem` 按通行配置、起始 Cluster 和稳定空间顺序拆分或清理 Cohort
+2. `AniCohortTargetResolveSystem` 持续解析 MoveTo、Follow 或 Find 的当前目标
+3. `AniGoalRegionAssignmentSystem` 按 Cell 容量分配稳定自然落点，不创建成员乘槽位的成本矩阵
+4. `AniMovementCohortPathRequestSystem` 为每个 Cohort 提交共享路径请求，HPA Corridor 与局部 Flow Field 负责远距离路线引导
+5. `AniFreePreferredVelocitySystem` 混合共享 Flow Direction 和近目标落点吸引
+6. `AniMovementCommitSystem` 作为 Grid 后端唯一写入者提交权威位移
+7. `AniFreeMovementProgressSystem` 按 Cohort 归约到达、失败或保持状态
 
-当前 Grid 阵型不是圆形或随机形状。默认是面向移动方向的紧凑矩形，人数不足的最后一排仍保持居中；通道变窄时会减少列数，最窄时退化为单列纵队。它是 Stage 4～5 已实现的当前基线，不是最终万人方案。重新规划后的阶段六会以 Movement Cohort、目标区域分散和 ORCA 自由移动替代严格阵型；这些目标系统尚未接入，因此现阶段不应把 Grid 描述为完整的拥挤场景移动方案。
+正式 Grid 移动不再维持矩形、圆形或纵队等可见阵型，目标区域中的最终形状由可用 Cell 和成员起始空间顺序共同决定。Stage 4～5 的紧凑矩形与自适应缩列仍保留为历史回归基线；ORCA、世界碰撞和受阻恢复尚未接入，因此当前自由移动只承诺无遮挡、无交叉基础场景。
 
 Legacy 链路保留原有 Blackboard、FSM、阵型、Planner、逐 Ani NavMesh 和物理移动。Blackboard 后面不是一条单线流水线，FSM 与阵型管理分别消费指令产生的状态：
 

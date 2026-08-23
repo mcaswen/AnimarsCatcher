@@ -227,6 +227,7 @@ namespace AnimarsCatcher.Navigation.Grid
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
     [UpdateAfter(typeof(AniPreferredVelocitySystem))]
+    [UpdateAfter(typeof(AniFreePreferredVelocitySystem))]
     [UpdateBefore(typeof(AniMovementProgressSystem))]
     public partial struct AniMovementCommitSystem : ISystem
     {
@@ -248,55 +249,87 @@ namespace AnimarsCatcher.Navigation.Grid
                          RefRO<AniSlotTarget>,
                          RefRO<AniPreferredVelocity>,
                          RefRW<AniMovementResult>>()
-                              .WithAll<AniSquadMembership>())
+                              .WithAll<AniSquadMembership>()
+                              .WithNone<AniMovementCohortMembership>())
             {
-                float3 velocity = preferredVelocity.ValueRO.Value;
-
-                // 队伍移动只处理水平位移，角色原有高度保持不变
-                velocity = PlanarMath.FlattenY(velocity);
                 LocalTransform nextTransform = transform.ValueRO;
-                nextTransform.Position += velocity * deltaTime;
-
-                // 先从当前 Transform 计算新位置，旋转则根据本帧实际速度更新
-
-                float speedSquared = math.lengthsq(velocity);
-                if (speedSquared > 1e-5f)
-                {
-                    // 用最大角速度限制转向，避免低速时的速度抖动造成朝向跳变
-                    quaternion targetRotation = quaternion.LookRotationSafe(
-                        math.normalize(velocity),
-                        math.up());
-                    float3 currentForward = math.mul(
-                        nextTransform.Rotation,
-                        new float3(0f, 0f, 1f));
-
-                    // 先把点积限制在合法范围，再计算夹角，避免浮点误差产生 NaN
-                    float dot = math.clamp(
-                        math.dot(currentForward, math.normalize(velocity)),
-                        -1f,
-                        1f);
-                    float angle = math.acos(dot);
-                    float maximumStep = config.ValueRO.RotationSpeedRadians * deltaTime;
-                    float interpolation = angle <= 1e-5f
-                        ? 1f
-                        : math.saturate(maximumStep / angle);
-                    nextTransform.Rotation = math.slerp(
-                        nextTransform.Rotation,
-                        targetRotation,
-                        interpolation);
-                }
-
-                // 一次写回位置、实际速度和提交次数，供进度判断和网络同步读取
+                AniMovementResult nextResult = result.ValueRO;
+                ApplyMovement(
+                    ref nextTransform,
+                    config.ValueRO,
+                    slotTarget.ValueRO.Position,
+                    preferredVelocity.ValueRO.Value,
+                    deltaTime,
+                    ref nextResult);
                 transform.ValueRW = nextTransform;
-
-                // 使用移动后的新位置计算槽位误差，进度系统不会读到上一帧的距离
-                float3 slotOffset = slotTarget.ValueRO.Position - nextTransform.Position;
-                slotOffset = PlanarMath.FlattenY(slotOffset);
-                result.ValueRW.AppliedVelocity = velocity;
-                result.ValueRW.DistanceToSlot = math.length(slotOffset);
-                // CommitCount 只在这里递增，用于确认位置确实由唯一的提交系统写入
-                result.ValueRW.CommitCount++;
+                result.ValueRW = nextResult;
             }
+
+            foreach (var (transform, config, goal, preferredVelocity, result) in
+                     SystemAPI.Query<
+                         RefRW<LocalTransform>,
+                         RefRO<AniMovementConfig>,
+                         RefRO<AniGoalAssignment>,
+                         RefRO<AniPreferredVelocity>,
+                         RefRW<AniMovementResult>>()
+                              .WithAll<AniMovementCohortMembership>())
+            {
+                LocalTransform nextTransform = transform.ValueRO;
+                AniMovementResult nextResult = result.ValueRO;
+                ApplyMovement(
+                    ref nextTransform,
+                    config.ValueRO,
+                    goal.ValueRO.TargetPosition,
+                    preferredVelocity.ValueRO.Value,
+                    deltaTime,
+                    ref nextResult);
+                transform.ValueRW = nextTransform;
+                result.ValueRW = nextResult;
+            }
+        }
+
+        private static void ApplyMovement(
+            ref LocalTransform transform,
+            AniMovementConfig config,
+            float3 targetPosition,
+            float3 preferredVelocity,
+            float deltaTime,
+            ref AniMovementResult result)
+        {
+            // 队伍移动只处理水平位移，角色原有高度保持不变
+            float3 velocity = PlanarMath.FlattenY(preferredVelocity);
+            transform.Position += velocity * deltaTime;
+
+            float speedSquared = math.lengthsq(velocity);
+            if (speedSquared > 1e-5f)
+            {
+                // 用最大角速度限制转向，避免低速时的速度抖动造成朝向跳变
+                quaternion targetRotation = quaternion.LookRotationSafe(
+                    math.normalize(velocity),
+                    math.up());
+                float3 currentForward = math.mul(
+                    transform.Rotation,
+                    new float3(0f, 0f, 1f));
+                float dot = math.clamp(
+                    math.dot(currentForward, math.normalize(velocity)),
+                    -1f,
+                    1f);
+                float angle = math.acos(dot);
+                float maximumStep = config.RotationSpeedRadians * deltaTime;
+                float interpolation = angle <= 1e-5f
+                    ? 1f
+                    : math.saturate(maximumStep / angle);
+                transform.Rotation = math.slerp(
+                    transform.Rotation,
+                    targetRotation,
+                    interpolation);
+            }
+
+            result.AppliedVelocity = velocity;
+            result.DistanceToSlot = math.length(
+                PlanarMath.FlattenY(targetPosition - transform.Position));
+            // CommitCount 只在这里递增，用于确认位置确实由唯一的提交系统写入
+            result.CommitCount++;
         }
     }
 
