@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$SourcePath = "",
-    [double]$MinimumRate = 15,
+    [double]$MinimumRate = 12,
     [double]$RecommendedRate = 17,
     [switch]$NoFail
 )

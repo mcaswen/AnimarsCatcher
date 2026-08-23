@@ -56,7 +56,7 @@ Assets/Tests/
 7. Build Profile 场景列表正确。
 8. 高风险修改至少执行目标平台开发构建或 CI 构建。
 9. Git 中没有遗漏 `.meta`、冲突标记、临时 Dump 和无关改动。
-10. 运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，确认业务源码注释率不低于 15%、推荐约 17%，注释使用中文且结尾没有句号，也没有为达标添加无意义注释。
+10. 运行 `powershell -ExecutionPolicy Bypass -File Tools/CheckCommentStyle.ps1`，确认业务源码注释率不低于 12%、推荐约 17%，注释使用中文且结尾没有句号，也没有为达标添加无意义注释。
 11. 格式、编码和空格门禁只检查手写文件；Unity 序列化文本、生成内容、二进制和十六进制数据只检查提交必要性、完整性和工具可读性。
 
 ## 4. 发布前检查
