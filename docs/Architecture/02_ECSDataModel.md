@@ -128,6 +128,8 @@ SubScene 的 Baker 还会生成一批供 System 查询的注册数据，包括�
 - `AniMovementCohort` 与 `AniMovementCohortMember` 保存有界寻路单元和稳定成员顺序，`AniMovementCohortMembership` 保证每名 Ani 同时只属于一个活动 Cohort
 - `AniMovementOrderState` 分开保存本 Tick 原始目标、最近分配使用的原始目标和实际投影中心；`AniMovementCohortPathState` 使用该投影中心提交 Flow 请求
 - `AniGoalAssignment` 保存目标 Cell、自然落点、到达半径和目标版本，不包含矩形列数、职责或固定阵型槽位
+- `NavigationSharedFlowFieldRecord` 位于服务器全局 Field Store，独立持有 Corridor、Portal、Waypoint 和 Flow Cell Buffer；`NavigationFlowFieldHandle` 让多个 Cohort 引用同一份只读结果
+- `NavigationFlowFieldQueueState` 记录单个 Cohort 的入队、开工、完成和取消版本，Store Entity 上的 `NavigationFlowFieldSchedulerState` 与等待样本 Buffer 提供队列、缓存和构建报告
 
 ## 6. Authoring、Baker 与注册数据
 

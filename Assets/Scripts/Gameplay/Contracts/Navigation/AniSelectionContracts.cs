@@ -301,13 +301,13 @@ namespace AnimarsCatcher.Gameplay.Contracts
         // 与选择版本共同阻止移动命令借用错误成员
         public ulong SelectionHash;
 
-        // 记录订单进入服务器模拟的 Tick，供超时、诊断和确定性排序使用
+        // 记录请求进入服务器模拟的 Tick，供超时、诊断和确定性排序使用
         public uint CreatedTick;
 
         // 新命令替换旧归属时使用的版本，后续取消链路不需要改写成员 Buffer
         public uint CancellationVersion;
 
-        // 高优先级订单可以在后续预算调度中优先取得寻路名额
+        // 高优先级请求可以在后续预算调度中优先取得寻路名额
         public byte Priority;
 
         // 对下游表达 MoveTo、Follow 或其他高层移动语义
@@ -348,7 +348,7 @@ namespace AnimarsCatcher.Gameplay.Contracts
         // 命令生成时再次通过权限和存活校验的 Ani Entity
         public Entity Ani;
 
-        // 移动能力在订单创建时冻结，Cohort 不再回读易变的玩法属性
+        // 移动能力在请求创建时冻结，Cohort 不再回读易变的玩法属性
         public float MaxSpeed;
         public float MaxAcceleration;
         public float AgentRadius;

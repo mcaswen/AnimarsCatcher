@@ -265,24 +265,24 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             SystemHandle ingress = world.GetOrCreateSystem<ServerAniCommandIngressSystem>();
             ingress.Update(world.Unmanaged);
 
-            // 查询同时要求订单头和成员 Buffer，避免只创建半个订单也通过
+            // 查询同时要求请求头和成员 Buffer，避免只创建半份请求也通过
             using EntityQuery orders = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<AniMovementOrder>(),
                 ComponentType.ReadOnly<AniMovementOrderMember>());
 
-            // 一次移动 RPC 必须只生成一个高层订单
+            // 一次移动 RPC 必须只生成一个高层请求
             Assert(orders.CalculateEntityCount() == 1, "万人选择集没有生成唯一 MovementOrder");
 
-            // 读取订单头和冻结成员，逐项核对完整快照
+            // 读取请求头和冻结成员，逐项核对完整快照
             Entity orderEntity = orders.GetSingletonEntity();
             AniMovementOrder order = entityManager.GetComponentData<AniMovementOrder>(orderEntity);
             DynamicBuffer<AniMovementOrderMember> orderMembers =
                 entityManager.GetBuffer<AniMovementOrderMember>(orderEntity, true);
 
-            // 地面目标在订单层统一表达为 MoveTo
+            // 地面目标在请求层统一表达为 MoveTo
             Assert(order.Mode == AniSquadCommandMode.MoveTo, "地面命令没有转换为 MoveTo");
 
-            // 版本和 Hash 必须原样绑定到创建订单时使用的选择集
+            // 版本和 Hash 必须原样绑定到创建请求时使用的选择集
             Assert(order.SelectionVersion == selection.Version, "MovementOrder 选择集版本错误");
             Assert(order.SelectionHash == selection.CompletenessHash, "MovementOrder 选择集 Hash 错误");
             Assert(order.CreatedTick != 0, "MovementOrder 没有记录服务器创建 Tick");
@@ -308,7 +308,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Assert(squadRequests.IsEmptyIgnoreFilter,
                 "正式 MovementOrder 不应继续生成兼容 Squad 请求");
 
-            // 清除合法订单，确保下面的过期命令断言只观察新结果
+            // 清除合法请求，确保下面的过期命令断言只观察新结果
             entityManager.DestroyEntity(orderEntity);
 
             // 过期版本不能借用当前选择集创建命令
@@ -589,7 +589,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             {
                 // 创建顺序与连续 GhostId 顺序一致，便于发现任何错位
                 Entity ani = created[index];
-                // 托管数组保持相同下标，供订单成员逐项核对
+                // 托管数组保持相同下标，供请求成员逐项核对
                 result[index] = ani;
                 entityManager.SetComponentData(ani, new GhostInstance
                 {

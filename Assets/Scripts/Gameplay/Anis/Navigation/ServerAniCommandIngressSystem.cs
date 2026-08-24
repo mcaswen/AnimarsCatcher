@@ -141,7 +141,7 @@ namespace AnimarsCatcher.Gameplay
                     });
                 }
 
-                // 选择失效或全部成员被锁定时都不生成空订单
+                // 选择失效或全部成员被锁定时都不生成空请求
                 if (selectionBecameInvalid || movementMembers.IsEmpty)
                 {
                     movementMembers.Dispose();

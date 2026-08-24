@@ -80,6 +80,9 @@ namespace AnimarsCatcher.Navigation.Grid
         // 本次计算使用的动态障碍版本
         public uint DynamicOverlayVersion;
 
+        // 只覆盖实际 Corridor 的动态障碍版本签名
+        public uint DynamicOverlaySignature;
+
         // 是否直接复用了缓存中的 Flow Field
         public byte CacheHit;
     }

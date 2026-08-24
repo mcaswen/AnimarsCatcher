@@ -73,7 +73,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     orderState.ValueRW.TargetVersion = NextNonZero(
                         orderState.ValueRO.TargetVersion);
                     orderState.ValueRW.GoalAssignmentPending = 1;
-                    // 同一订单的 Cohort 共享目标版本，迟到的旧 Field 不会重新激活成员
+                    // 同一请求的 Cohort 共享目标版本，迟到的旧 Field 不会重新激活成员
                     foreach (var (cohort, pathState) in
                              SystemAPI.Query<
                                  RefRW<AniMovementCohort>,
@@ -191,7 +191,7 @@ namespace AnimarsCatcher.Navigation.Grid
             float maximumRadius = 0f;
             bool membersValid = true;
 
-            // 先收集整份订单而不是逐 Cohort 分配，多个 Cohort 不会重复占用同一落点
+            // 先收集整份请求而不是逐 Cohort 分配，多个 Cohort 不会重复占用同一落点
             foreach (var (cohort, cohortMembers) in
                      SystemAPI.Query<
                          RefRO<AniMovementCohort>,
@@ -353,7 +353,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 slotIndex++;
             }
 
-            // 同一订单的所有 Cohort 必须使用同一个中心，否则共享目标区域会与 Flow 方向分叉
+            // 同一请求的所有 Cohort 必须使用同一个中心，否则共享目标区域会与 Flow 方向分叉
             foreach (var (cohort, pathState) in
                      SystemAPI.Query<
                          RefRW<AniMovementCohort>,
@@ -473,7 +473,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref AniMovementOrderState orderState)
         {
             orderState.Status = AniMovementOrderStatus.Failed;
-            // 目标容量不足属于整份订单失败，不能只让部分 Cohort 继续挤向中心
+            // 目标容量不足属于整份请求失败，不能只让部分 Cohort 继续挤向中心
             orderState.GoalAssignmentPending = 0;
             foreach (var (cohort, pathState) in
                      SystemAPI.Query<

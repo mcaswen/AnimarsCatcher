@@ -418,6 +418,7 @@ namespace AnimarsCatcher.Navigation.Grid
             NavigationGridMovementBenchmarkAgentTraceReport[] agentTrace =
                 BuildAgentTraceReport(config.RecordMovementTrace != 0);
             // 只有开启逐帧诊断时才把数据复制到报告，正式性能采样不会增加这部分序列化开销
+            FlowSchedulerReport schedulerReport = BuildFlowSchedulerReport(state.EntityManager);
 
             // 同时写出百分位和原始样本，避免平均值掩盖偶发的慢帧
             var report = new NavigationGridMovementBenchmarkReport
@@ -431,8 +432,19 @@ namespace AnimarsCatcher.Navigation.Grid
                 BudgetVersion = NavigationGridBenchmarkScaleProfile.BudgetVersion,
                 SystemTimingCoverage = "记录完整 Server Tick，不含逐 System Worker 时间",
                 WorkerTimingAvailable = false,
-                RequestQueueTimingAvailable = false,
-                TrackedNativeBytes = -1,
+                RequestQueueTimingAvailable = schedulerReport.Available,
+                TrackedNativeBytes = schedulerReport.Available
+                    ? schedulerReport.StoreByteCount
+                    : -1,
+                FieldQueueLength = schedulerReport.QueueLength,
+                FieldQueueWaitP50Ticks = schedulerReport.WaitP50Ticks,
+                FieldQueueWaitP95Ticks = schedulerReport.WaitP95Ticks,
+                FieldQueueWaitP99Ticks = schedulerReport.WaitP99Ticks,
+                FieldCancelledCount = schedulerReport.CancelledCount,
+                FieldTimeoutCount = schedulerReport.TimeoutCount,
+                UniqueFieldBuildCount = schedulerReport.UniqueBuildCount,
+                SharedFieldHitCount = schedulerReport.SharedHitCount,
+                SharedFieldRecordCount = schedulerReport.StoreRecordCount,
                 AgentCount = config.AgentCount,
                 RandomSeed = config.RandomSeed,
                 WarmupTicks = config.WarmupTicks,
@@ -507,6 +519,59 @@ namespace AnimarsCatcher.Navigation.Grid
             Debug.Log(
                 $"[NavigationBenchmark] Grid 群体移动结果已生成：" +
                 $"到达={arrivedCount}/{config.AgentCount}，结果={path}");
+        }
+
+        private static FlowSchedulerReport BuildFlowSchedulerReport(
+            EntityManager entityManager)
+        {
+            using EntityQuery query = entityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NavigationFlowFieldSchedulerState>(),
+                ComponentType.ReadOnly<NavigationFlowFieldQueueWaitSample>());
+            if (query.CalculateEntityCount() != 1)
+            {
+                return default;
+            }
+
+            Entity storeEntity = query.GetSingletonEntity();
+            NavigationFlowFieldSchedulerState schedulerState = entityManager.GetComponentData<
+                NavigationFlowFieldSchedulerState>(storeEntity);
+            DynamicBuffer<NavigationFlowFieldQueueWaitSample> samples = entityManager.GetBuffer<
+                NavigationFlowFieldQueueWaitSample>(storeEntity, true);
+            var waits = new int[samples.Length];
+            for (int index = 0; index < samples.Length; index++)
+            {
+                waits[index] = samples[index].WaitTicks;
+            }
+            Array.Sort(waits);
+
+            return new FlowSchedulerReport
+            {
+                Available = true,
+                SampleCount = waits.Length,
+                QueueLength = schedulerState.QueueLength,
+                WaitP50Ticks = GetNearestRank(waits, 0.50),
+                WaitP95Ticks = GetNearestRank(waits, 0.95),
+                WaitP99Ticks = GetNearestRank(waits, 0.99),
+                CancelledCount = schedulerState.CumulativeCancelledCount,
+                TimeoutCount = schedulerState.CumulativeTimeoutCount,
+                UniqueBuildCount = schedulerState.CumulativeUniqueBuildCount,
+                SharedHitCount = schedulerState.CumulativeSharedHitCount,
+                StoreRecordCount = schedulerState.StoreRecordCount,
+                StoreByteCount = schedulerState.StoreByteCount,
+            };
+        }
+
+        private static int GetNearestRank(int[] sortedValues, double percentile)
+        {
+            if (sortedValues.Length == 0)
+            {
+                return 0;
+            }
+            int index = math.clamp(
+                (int)math.ceil((float)(sortedValues.Length * percentile)) - 1,
+                0,
+                sortedValues.Length - 1);
+            return sortedValues[index];
         }
 
         private NavigationGridMovementBenchmarkStateTraceReport[] BuildStateTraceReport(
@@ -640,6 +705,15 @@ namespace AnimarsCatcher.Navigation.Grid
             public bool WorkerTimingAvailable;
             public bool RequestQueueTimingAvailable;
             public long TrackedNativeBytes;
+            public int FieldQueueLength;
+            public int FieldQueueWaitP50Ticks;
+            public int FieldQueueWaitP95Ticks;
+            public int FieldQueueWaitP99Ticks;
+            public int FieldCancelledCount;
+            public int FieldTimeoutCount;
+            public int UniqueFieldBuildCount;
+            public int SharedFieldHitCount;
+            public int SharedFieldRecordCount;
             public int AgentCount;
             public int RandomSeed;
             public int WarmupTicks;
@@ -687,6 +761,22 @@ namespace AnimarsCatcher.Navigation.Grid
             public double[] TickMilliseconds;
             public long[] MainThreadAllocatedBytes;
             public string Notes;
+        }
+
+        private struct FlowSchedulerReport
+        {
+            public bool Available;
+            public int SampleCount;
+            public int QueueLength;
+            public int WaitP50Ticks;
+            public int WaitP95Ticks;
+            public int WaitP99Ticks;
+            public int CancelledCount;
+            public int TimeoutCount;
+            public int UniqueBuildCount;
+            public int SharedHitCount;
+            public int StoreRecordCount;
+            public long StoreByteCount;
         }
 
         [Serializable]

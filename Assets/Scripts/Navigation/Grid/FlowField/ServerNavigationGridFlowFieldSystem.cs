@@ -64,13 +64,20 @@ namespace AnimarsCatcher.Navigation.Grid
             // Query 固定系统读取的 Grid 和完整请求 Entity 形状
             _gridQuery = state.GetEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>());
-            _requestQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<NavigationFlowFieldRequest>(),
-                ComponentType.ReadWrite<NavigationFlowFieldState>(),
-                ComponentType.ReadWrite<NavigationCorridorCluster>(),
-                ComponentType.ReadWrite<NavigationCorridorPortal>(),
-                ComponentType.ReadWrite<NavigationHierarchicalWaypoint>(),
-                ComponentType.ReadWrite<NavigationFlowFieldCell>());
+            _requestQuery = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<NavigationFlowFieldRequest>(),
+                    ComponentType.ReadWrite<NavigationFlowFieldState>(),
+                    ComponentType.ReadWrite<NavigationCorridorCluster>(),
+                    ComponentType.ReadWrite<NavigationCorridorPortal>(),
+                    ComponentType.ReadWrite<NavigationHierarchicalWaypoint>(),
+                    ComponentType.ReadWrite<NavigationFlowFieldCell>(),
+                },
+                // 正式 Cohort 由共享 Store 调度，旧系统只保留 Stage 1～5 和 Squad 兼容入口
+                None = new[] { ComponentType.ReadOnly<AniMovementCohort>() },
+            });
             _nextGeneration = 1;
             _cacheVersion = 1;
             // 可跨帧复用的工作列表和缓存只属于当前 World 中的这个系统

@@ -1,3 +1,4 @@
+using System;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -12,15 +13,178 @@ namespace AnimarsCatcher.Navigation.Grid
         // 复用普通路径请求中的起终点、角色体型、成本参数和版本号
         public NavigationPathRequest PathRequest;
 
+        // 预算不足时优先处理数值更高的请求
+        public byte Priority;
+
+        // 请求被后续版本替换后，调度器用该版本拒绝迟到结果
+        public uint CancellationVersion;
+
         /// <summary>
         /// 根据普通路径请求创建 Flow Field 请求
         /// </summary>
         /// <param name="pathRequest">包含起终点、角色体型和版本号的路径请求</param>
         /// <returns>可提交给 Flow Field 系统的请求组件</returns>
-        public static NavigationFlowFieldRequest Create(NavigationPathRequest pathRequest)
+        public static NavigationFlowFieldRequest Create(
+            NavigationPathRequest pathRequest,
+            byte priority = 0,
+            uint cancellationVersion = 0)
         {
-            return new NavigationFlowFieldRequest { PathRequest = pathRequest };
+            return new NavigationFlowFieldRequest
+            {
+                PathRequest = pathRequest,
+                Priority = priority,
+                CancellationVersion = cancellationVersion,
+            };
         }
+    }
+
+    /// <summary>
+    /// 标识可以共享同一份 Corridor 与 Flow Field 的确定性请求键
+    /// </summary>
+    public struct NavigationFlowFieldKey : IEquatable<NavigationFlowFieldKey>
+    {
+        // 使用投影后的起终点，世界坐标微小误差不会拆成不同缓存项
+        public int StartCellIndex;
+        public int EndCellIndex;
+
+        // 浮点参数按位参与相等比较，避免近似比较破坏哈希容器约定
+        public int RequiredClearanceBits;
+        public int ClearancePenaltyWeightBits;
+
+        public bool Equals(NavigationFlowFieldKey other)
+        {
+            return StartCellIndex == other.StartCellIndex &&
+                   EndCellIndex == other.EndCellIndex &&
+                   RequiredClearanceBits == other.RequiredClearanceBits &&
+                   ClearancePenaltyWeightBits == other.ClearancePenaltyWeightBits;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is NavigationFlowFieldKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return (int)math.hash(new int4(
+                StartCellIndex,
+                EndCellIndex,
+                RequiredClearanceBits,
+                ClearancePenaltyWeightBits));
+        }
+    }
+
+    /// <summary>
+    /// 让 Cohort 引用共享 Store 中的记录而不是持有完整 Flow Field 副本
+    /// </summary>
+    public struct NavigationFlowFieldHandle : IComponentData
+    {
+        // 共享 Entity 真正持有 Corridor 和 Field Buffer，Handle 只保存它的引用
+        public Entity Record;
+
+        // 两级版本分别防止 Record 换代和迟到请求误用旧结果
+        public uint RecordVersion;
+        public uint RequestVersion;
+    }
+
+    /// <summary>
+    /// 记录一份共享 Flow Field 的键、有效版本、内存占用和引用情况
+    /// </summary>
+    public struct NavigationSharedFlowFieldRecord : IComponentData
+    {
+        // Key 决定可共享范围，RecordVersion 标识这一份不可变结果
+        public NavigationFlowFieldKey Key;
+        public uint RecordVersion;
+
+        // 签名只覆盖实际 Corridor，Source 版本用于报告构建时看到的 Overlay
+        public uint DynamicOverlaySignature;
+        public uint SourceOverlayVersion;
+
+        // 引用数保护活动消费者，使用时间和字节数参与缓存淘汰
+        public int ReferenceCount;
+        public int LastUsedTick;
+        public int ByteSize;
+
+        // 保留求解成本和搜索规模，Handle 命中时可直接恢复 Cohort 状态
+        public int AbstractExpandedNodeCount;
+        public int IntegrationExpandedCellCount;
+        public float TotalCost;
+    }
+
+    /// <summary>
+    /// 保存 Cohort 请求在预算队列中的版本与等待时间
+    /// </summary>
+    public struct NavigationFlowFieldQueueState : IComponentData
+    {
+        // 请求和取消版本任一变化都会开启新的排队生命周期
+        public uint RequestVersion;
+        public uint CancellationVersion;
+
+        // 负值表示尚未进入对应阶段，完成后 QueueWaitTicks 固化报告样本
+        public int EnqueuedTick;
+        public int StartedTick;
+        public int CompletedTick;
+        public int QueueWaitTicks;
+    }
+
+    /// <summary>
+    /// 配置共享 Field 的并发数、每 Tick 预算、超时和内存上限
+    /// </summary>
+    public struct NavigationFlowFieldSchedulerSettings : IComponentData
+    {
+        // 并发数限制工作区数量，每 Tick 上限控制构建尖峰
+        public int MaximumConcurrentBuilds;
+        public int MaximumBuildsPerTick;
+
+        // 超时只约束排队等待，字节预算只淘汰没有活动引用的 Record
+        public int RequestTimeoutTicks;
+        public long StoreByteBudget;
+
+        /// <summary>
+        /// 创建适合普通服务器运行的共享 Field 调度默认值
+        /// </summary>
+        public static NavigationFlowFieldSchedulerSettings CreateDefault()
+        {
+            return new NavigationFlowFieldSchedulerSettings
+            {
+                MaximumConcurrentBuilds = 4,
+                MaximumBuildsPerTick = 4,
+                RequestTimeoutTicks = 120,
+                StoreByteBudget = 256L * 1024L * 1024L,
+            };
+        }
+    }
+
+    /// <summary>
+    /// 汇总共享 Store、预算队列和构建任务的运行时指标
+    /// </summary>
+    public struct NavigationFlowFieldSchedulerState : IComponentData
+    {
+        // 当前值用于观察调度器压力，不跨运行周期累积
+        public int Tick;
+        public int QueueLength;
+        public int ActiveBuildCount;
+        public int StoreRecordCount;
+        public long StoreByteCount;
+        public int LastPublishedBuildCount;
+
+        // 累计值用于比较唯一构建、共享收益和失败路径
+        public int CumulativeUniqueBuildCount;
+        public int CumulativeSharedHitCount;
+        public int CumulativeCancelledCount;
+        public int CumulativeTimeoutCount;
+        public int CumulativeEvictedCount;
+    }
+
+    /// <summary>
+    /// 保存已结束请求的排队时长，供 Benchmark 计算 P50、P95 和 P99
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationFlowFieldQueueWaitSample : IBufferElementData
+    {
+        // 等待时间只统计入队到开工，Outcome 区分成功、取消和超时
+        public int WaitTicks;
+        public NavigationPathStatus Outcome;
     }
 
     /// <summary>

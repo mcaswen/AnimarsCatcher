@@ -7,7 +7,7 @@
 - [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](15_NavigationArchitectureRefactorExecutionPlan.md)
 
-> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路、6A.2 Cohort 与自由目标区域已完成；下一步为 6A.3 共享 Field Store 与预算调度器
+> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路、6A.2 Cohort 与自由目标区域、6A.3 共享 Field Store 与预算调度器已完成；下一步为 6A.4 单位移动 Job 化
 >
 > 目标：在 Server World 支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
 >
@@ -36,7 +36,7 @@
 
 | 当前边界 | 源码事实 | 万人规模影响 |
 |---|---|---|
-| 命令到 Cohort | 正式 Grid 入口只生成 `MovementOrder`，再按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切分 Cohort | 默认容量 64、硬上限 128，万人订单不会进入旧 Squad 或生成双份成员 Buffer |
+| 命令到 Cohort | 正式 Grid 入口只生成 `MovementOrder`，再按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切分 Cohort | 默认容量 64、硬上限 128，万人请求不会进入旧 Squad 或生成双份成员 Buffer |
 | 目标分布 | 目标区域按可通行 Cell、体型容量和稳定成员顺序分配独立落点 | 正式 Pipeline 不再创建矩形列数、职责槽位或 Hungarian 成本矩阵 |
 | 历史 Squad | Stage 4～5 的严格阵型 System 和 Benchmark 入口继续保留 | 只用于行为回归和旧报告对照，不消费正式 MovementOrder |
 | Flow Field 调度 | `ServerNavigationGridFlowFieldSystem` 每批最多 16 个请求，单个 `IJob` 内顺序处理 | 多 Cohort 或多目标突发时排队延迟不可控 |
@@ -117,31 +117,30 @@ ORCA 不能解决终点占位。如果所有 Ani 使用同一目标坐标，外�
 
 ### 3.5 共享 Flow Field 存储
 
-当前每个 Squad 独立拥有 Corridor 和 Flow Field Buffer。第六阶段改为全局共享记录：
+Stage 4～5 的旧 Squad 仍独立拥有 Corridor 和 Flow Field Buffer。6A.3 已为正式 Cohort 增加服务器全局共享记录：
 
 ```text
 NavigationFlowFieldKey
-    GridHash
+    ProjectedStartCell
     TargetCell
-    AgentProfile
-    CostProfile
-    CorridorSignature
-    OverlayClusterSignature
+    RequiredClearance
+    ClearancePenalty
 
 NavigationFlowFieldHandle
-    RecordId
-    Generation
+    Record Entity
+    RecordVersion
+    RequestVersion
 
 NavigationFlowFieldRecord
-    Corridor slice
-    Portal slice
-    Field tile slice
-    RefCount / LastUsedTick
+    Corridor / Portal / Waypoint Buffer
+    Flow Field Buffer
+    Corridor Overlay Signature
+    RefCount / LastUsedTick / ByteSize
 ```
 
-同一个 Key 在同一时刻最多存在一个构建任务。所有等待的 Cohort 在发布阶段取得同一 Handle，不再把完整 Field 复制进各自 DynamicBuffer。
+Store 由 Grid Data Hash 隔离，Grid 换代时整体清空；Record 的 Overlay 签名只覆盖实际 Corridor 经过的 Cluster。同一个 Key 在同一时刻最多存在一个构建任务，所有等待的 Cohort 在确定性发布阶段取得同一 Handle，不再把完整 Field 复制进各自 DynamicBuffer。当前 Key 保守地包含精确投影起点，不会把不同起点 Cell 仅因最终 Corridor 相同而强行合并。
 
-缓存使用哈希索引和明确的内存预算，淘汰完整 Record，不再固定为 64 项后整代清空。动态 Overlay 继续按 Corridor 涉及的 Cluster 版本失效，不允许无关分块变化使所有 Field 重建。
+缓存每 Tick 为有效 Record 建立哈希索引，并按明确的字节预算淘汰最久未使用且无引用的完整 Record，不再固定为 64 项后整代清空。动态 Overlay 继续按 Corridor 涉及的 Cluster 版本失效，不允许无关分块变化使所有 Field 重建。
 
 ### 3.6 单个 Ani 数据
 
@@ -282,7 +281,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 - 正式 Grid 入口已移除旧 `AniSquadCommand` 和成员 Buffer 适配，Stage 4～5 Squad 只保留历史 Benchmark 与专项回归入口
 - `AniMovementCohortPartitionSystem` 按 Agent Profile、起始 Cluster、Morton Key 和 StableId 排序，使用默认 64 人容量和 128 人硬上限生成 Cohort
-- 成员死亡、归属移除、移动配置失效或新命令覆盖时会同步清理双向 Membership、收缩或销毁旧 Cohort，并重新发布订单成员版本与目标区域
+- 成员死亡、归属移除、移动配置失效或新命令覆盖时会同步清理双向 Membership、收缩或销毁旧 Cohort，并重新发布请求成员版本与目标区域
 - `AniGoalRegionAssignmentSystem` 从投影中心沿动态通行边收集可达 Cell，再按距离、地形成本、Clearance 和稳定索引选择目标区域，不会跨障碍占用其他连通区域
 - Cohort 路径状态与 Flow 请求统一保存目标区域投影中心，原始目标坐标只用于动态目标跨 Cell 检测，阻挡中的静止目标不会反复递增版本
 - `AniFreePreferredVelocitySystem` 远距离读取 Cohort Flow Direction，目标落点可直达后提高个人方向权重，避免所有 Ani 挤向中心
@@ -300,6 +299,8 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 ### 6A.3 Field Store 与预算调度器
 
+状态：已完成，2026-08-23 已通过 Unity Batch Mode 专项验收和 6A.2 回归
+
 交付物：
 
 - 共享 `NavigationFlowFieldHandle` 和全局 Field Store
@@ -315,6 +316,14 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 持续请求负载下 Overlay 更新不会无限等待
 - 请求队列长度、等待 Tick P50/P95/P99、取消数和超时数全部进入报告
 - 主线程不执行同步 Corridor、A* 或 Integration 搜索
+
+实现与验收记录：
+
+- `ServerNavigationSharedFlowFieldSystem` 只在 Server World 处理正式 Cohort；旧 `ServerNavigationGridFlowFieldSystem` 继续服务 Stage 1～5 与历史 Benchmark，两个查询不会重复消费同一请求
+- Cohort 只保存 `NavigationFlowFieldHandle` 与队列状态，Corridor、Portal、Waypoint 和 Flow Cell 保存在共享 Record Entity；8 个相同 Key 只构建 1 次并产生 7 次共享命中
+- 调度器支持优先级、每 Tick 构建上限、最多 8 个并行工作区、请求换代取消、排队超时和确定性发布；构建由 `IJobParallelFor` 执行，主线程仅做请求投影、调度和发布
+- 动态 Overlay 以不可变 Native 快照交给活跃 Job；专项验收确认构建期间 Overlay 可以继续发布，Corridor 内变化只撤销受影响 Record，远处 Record 保持有效，Grid Blob 换代也会拒绝旧结果并重新投影请求
+- Store 按有效负载字节数统计，预算不足时只淘汰无 Handle 引用的最久未用 Record；队列长度、等待 Tick 样本、取消、超时、唯一构建、共享命中和缓存字节数已接入 Benchmark 报告
 
 ### 6A.4 单位移动 Job 化
 

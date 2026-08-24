@@ -26,7 +26,7 @@
 这一组主要在 Server World 中运行。客户端可以发起请求或显示结果，但不应直接决定战斗、资源和胜负。
 
 - **`Gameplay/Anis`**：覆盖 Ani 属性、生成、框选目标解析、FSM Registry 与运行 System 及战斗。它直接位于 `AnimarsCatcher.Gameplay` asmdef 覆盖目录内，不再依赖 asmref
-- **`Navigation/Grid`、`Navigation/Cohort` 与 `Navigation/Squad`**：共同编译为 `AnimarsCatcher.Navigation`。Grid 负责静态烘焙、运行时查询、动态 Overlay、普通 A*、HPA Corridor 和局部 Flow Field；Cohort 负责正式订单切分、自然目标区域、自由移动和进度归约；Squad 保留 Stage 4～5 严格阵型基线
+- **`Navigation/Grid`、`Navigation/Cohort` 与 `Navigation/Squad`**：共同编译为 `AnimarsCatcher.Navigation`。Grid 负责静态烘焙、运行时查询、动态 Overlay、普通 A*、HPA Corridor 和局部 Flow Field；Cohort 负责正式请求切分、自然目标区域、自由移动和进度归约；Squad 保留 Stage 4～5 严格阵型基线
 - **`Benchmarks/LegacyNavMesh`**：保存当前仍可运行的旧移动基线，包括旧 Movement FSM、固定矩形阵型、逐 Ani NavMesh 路径、服务端命令消费和旧物理移动。未指定后端参数时项目仍选择 Legacy；该目录只用于现有玩法兼容和受控性能对比，不继续承载新能力
 - **`Gameplay/Resource`**：按 `Global`、`Player`、`Collection` 和 `Spawn` 划分，处理资源刷新、脆弱资源、搬运分配、玩家资源 Ghost 和比赛计时。服务器拥有最终资源数值，客户端只读取同步结果并显示；依赖旧 NavMesh 的搬运 Setup 和 Move 实现位于 Legacy Benchmark
 - **`Gameplay/Health`**：收集伤害事件，汇总生命值变化，并处理普通实体死亡。它运行在服务器，是 Combat、Base 和 Resource 之间共享的结算入口
@@ -51,9 +51,9 @@
 - **`Navigation/Grid/Runtime` 与 `Grid/Overlay`**：提供坐标查询、通行规则、成本模型、路径请求契约，以及动态阻挡、额外成本、Clearance 修正和局部版本失效
 - **`Navigation/Grid/Pathfinding`、`Grid/Hierarchical` 与 `Grid/FlowField`**：分别负责单体完整路径、HPA Corridor 和 Corridor 内的 Integration/Flow Field；Job 负责 Burst 调度，System 负责请求生命周期与异步写回
 - **`Navigation/Squad`**：负责 Squad 生命周期、目标解析、Anchor 推进、自适应矩形阵型、确定性槽位分配、期望速度、权威位移和到达判定
-- **`Navigation/Cohort`**：负责把 MovementOrder 按 Agent Profile、起始 Cluster 和空间顺序切成有界 Cohort，维护成员归属、目标落点、共享 Flow 移动和订单进度
+- **`Navigation/Cohort`**：负责把 MovementOrder 按 Agent Profile、起始 Cluster 和空间顺序切成有界 Cohort，维护成员归属、目标落点、共享 Flow 移动和请求进度
 - **`Navigation/Tooling/Editor`**：编译进 `AnimarsCatcher.Navigation.Editor`，提供 Grid Physics 采样、Hash、可视化、Inspector 和构建校验
-- **`Navigation/Tooling/Validation`**：编译进 `AnimarsCatcher.Navigation.Validation`，提供 Stage 1～5、6A.0～6A.2 和 R6 回归夹具
+- **`Navigation/Tooling/Validation`**：编译进 `AnimarsCatcher.Navigation.Validation`，提供 Stage 1～5、6A.0～6A.3 和 R6 回归夹具
 - **`Navigation/Tooling/Benchmark`**：编译进 `AnimarsCatcher.Navigation.Benchmark`，提供 Path/Field、严格阵型历史基线、阶段六规模输入及后续自由移动/避碰/碰撞工作负载，负责固定 Tick 采样和结果导出
 - **`Gameplay/Editor`**：验证 Gameplay 程序集归属，并扫描全部正式 Scene 与 Prefab 的 Missing Script
 - **`Player/Input/Editor`**：使用独立 Editor-only asmdef 检查 Input System 配置

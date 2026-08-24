@@ -29,6 +29,7 @@ namespace AnimarsCatcher.Navigation.Grid
         RegionMismatch,
         NoPath,
         Cancelled,
+        TimedOut,
     }
 
     /// <summary>

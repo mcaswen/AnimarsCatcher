@@ -39,10 +39,10 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void OnUpdate(ref SystemState state)
         {
-            // 先回收死亡或换令成员，后续新订单不会继承失效归属
+            // 先回收死亡或换令成员，后续新请求不会继承失效归属
             CleanupCohorts(ref state);
 
-            // Grid 未发布时保留订单请求，避免用临时坐标完成不可逆切分
+            // Grid 未发布时保留移动请求，避免用临时坐标完成不可逆切分
             if (!SystemAPI.TryGetSingleton<NavigationGridReference>(
                     out NavigationGridReference gridReference) ||
                 !gridReference.Value.IsCreated)
@@ -56,7 +56,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int cohortCapacity = AniMovementCohortAlgorithms.ResolveMemberCapacity(settings);
 
             using NativeArray<Entity> orders = _orderQuery.ToEntityArray(Allocator.Temp);
-            // 同一 Tick 的多个订单按服务器序号执行，最后一条重叠命令自然取得成员
+            // 同一 Tick 的多个请求按服务器序号执行，最后一条重叠命令自然取得成员
             SortOrders(state.EntityManager, orders);
             for (int index = 0; index < orders.Length; index++)
             {
@@ -227,7 +227,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 typeof(AniMovementCohortTarget),
                 typeof(AniMovementCohortPathState),
                 typeof(NavigationFlowFieldRequest),
-                typeof(NavigationFlowFieldState));
+                typeof(NavigationFlowFieldState),
+                typeof(NavigationFlowFieldHandle),
+                typeof(NavigationFlowFieldQueueState));
             entityManager.SetComponentData(cohortEntity, new AniMovementCohort
             {
                 CohortId = cohortId,
@@ -239,6 +241,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 MemberCount = count,
                 MemberVersion = 1,
                 TargetVersion = 1,
+                Priority = order.Priority,
+                CancellationVersion = order.CancellationVersion,
                 MaximumAgentRadius = maximumRadius,
                 MinimumMaxSpeed = float.IsInfinity(minimumSpeed) ? 0f : minimumSpeed,
                 MinimumMaxAcceleration = float.IsInfinity(minimumAcceleration)
@@ -538,7 +542,7 @@ namespace AnimarsCatcher.Navigation.Grid
             var memberCounts = new NativeParallelHashMap<Entity, int>(
                 cohortCount,
                 Allocator.Temp);
-            // 汇总使用订单 Entity 作为键，成本随 Cohort 数而不是成员总数增长
+            // 汇总使用请求 Entity 作为键，成本随 Cohort 数而不是成员总数增长
             foreach (RefRO<AniMovementCohort> cohort in
                      SystemAPI.Query<RefRO<AniMovementCohort>>())
             {
@@ -566,7 +570,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 if (activeCohorts == 0 &&
                     orderState.ValueRO.Status == AniMovementOrderStatus.Active)
                 {
-                    // 活动订单失去全部 Cohort 说明已被新命令覆盖，而不是正常到达
+                    // 活动请求失去全部 Cohort 说明已被新命令覆盖，而不是正常到达
                     orderState.ValueRW.Status = AniMovementOrderStatus.Superseded;
                     orderState.ValueRW.GoalAssignmentPending = 0;
                 }

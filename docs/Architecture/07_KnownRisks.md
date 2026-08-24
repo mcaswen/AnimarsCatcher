@@ -111,7 +111,8 @@ static 桥接使用方便，但它的生命周期是进程级，不会自然跟�
 Navigation 当前还存在明确的功能边界：
 
 - 阶段五已通过算法和自动夹具，但窄门、连续窄道、动态障碍重新规划及场景性能退出条件仍需正式场景验收
-- 阶段六已完成 6A.0～6A.2，包括规模 Harness、MovementOrder、正式 Cohort、连通目标区域、自由 Flow 移动和动态目标专项验收；共享 Field、移动 Job 化、空间哈希、ORCA、选择性 Capsule Cast/Slide、受阻恢复及万人完整导航性能门禁仍未实现
+- 阶段六已完成 6A.0～6A.3，包括规模 Harness、MovementOrder、正式 Cohort、连通目标区域、自由 Flow 移动、共享 Field Store、预算调度和动态目标专项验收；移动 Job 化、空间哈希、ORCA、选择性 Capsule Cast/Slide、受阻恢复及万人完整导航性能门禁仍未实现
+- 6A.3 的共享 Key 为保证结果安全仍包含精确投影起点 Cell，因此不同起点即使最终经过同一 Corridor 也不会合并；是否增加 Corridor 预计算或分层 Key 应以 6A.4～6C 的低复用压力报告决定
 - 阶段七的资源搬运迁移、正式 Prefab/Scene 切换和 Legacy 隔离尚未完成，未指定启动参数时仍使用 Legacy 后端
 - Navigation 目录已经按职责拆分，但 namespace 仍统一使用 `AnimarsCatcher.Navigation.Grid`；是否迁移为分层 namespace 应使用独立提交
 

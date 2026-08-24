@@ -20,6 +20,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private ComponentLookup<AniMovementCohort> _cohortLookup;
         private ComponentLookup<AniMovementCohortPathState> _pathStateLookup;
         private ComponentLookup<NavigationFlowFieldState> _fieldStateLookup;
+        private ComponentLookup<NavigationFlowFieldHandle> _fieldHandleLookup;
         private BufferLookup<NavigationFlowFieldCell> _fieldLookup;
 
         public void OnCreate(ref SystemState state)
@@ -28,6 +29,7 @@ namespace AnimarsCatcher.Navigation.Grid
             _cohortLookup = state.GetComponentLookup<AniMovementCohort>(true);
             _pathStateLookup = state.GetComponentLookup<AniMovementCohortPathState>(true);
             _fieldStateLookup = state.GetComponentLookup<NavigationFlowFieldState>(true);
+            _fieldHandleLookup = state.GetComponentLookup<NavigationFlowFieldHandle>(true);
             _fieldLookup = state.GetBufferLookup<NavigationFlowFieldCell>(true);
         }
 
@@ -37,6 +39,7 @@ namespace AnimarsCatcher.Navigation.Grid
             _cohortLookup.Update(ref state);
             _pathStateLookup.Update(ref state);
             _fieldStateLookup.Update(ref state);
+            _fieldHandleLookup.Update(ref state);
             _fieldLookup.Update(ref state);
             float deltaTime = SystemAPI.Time.DeltaTime;
 
@@ -53,11 +56,15 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 float3 targetVelocity = float3.zero;
                 Entity cohortEntity = membership.ValueRO.Cohort;
+                Entity fieldEntity = _fieldHandleLookup.HasComponent(cohortEntity)
+                    ? _fieldHandleLookup[cohortEntity].Record
+                    : cohortEntity;
                 bool cohortReady = hasGrid &&
                                    _cohortLookup.HasComponent(cohortEntity) &&
                                    _pathStateLookup.HasComponent(cohortEntity) &&
                                    _fieldStateLookup.HasComponent(cohortEntity) &&
-                                   _fieldLookup.HasBuffer(cohortEntity) &&
+                                   fieldEntity != Entity.Null &&
+                                   _fieldLookup.HasBuffer(fieldEntity) &&
                                    _pathStateLookup[cohortEntity].Status !=
                                    AniMovementCohortStatus.Failed &&
                                    _fieldStateLookup[cohortEntity].Status ==
@@ -87,7 +94,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     if (hasCurrentCell)
                     {
                         AniMovementCohortAlgorithms.TryGetFlowDirection(
-                            _fieldLookup[cohortEntity],
+                            _fieldLookup[fieldEntity],
                             currentCellIndex,
                             out flowDirection);
                     }
@@ -195,7 +202,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
-            // Cohort 先提交终态，订单随后只汇总小规模上下文状态
+            // Cohort 先提交终态，请求随后只汇总小规模上下文状态
             UpdateOrderProgress(ref state);
         }
 
@@ -243,7 +250,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 int cohortCount = 0;
                 bool anyFailed = false;
                 bool anyMoving = false;
-                // Follow 的全部 Cohort 进入 Holding 后订单仍保持活动，目标移动可再次唤醒
+                // Follow 的全部 Cohort 进入 Holding 后请求仍保持活动，目标移动可再次唤醒
                 foreach (var (cohort, pathState) in
                          SystemAPI.Query<
                              RefRO<AniMovementCohort>,

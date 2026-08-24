@@ -78,7 +78,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public uint CohortId;
         public Entity Order;
 
-        // 冻结订单处理先后关系的服务器序号
+        // 冻结请求处理先后关系的服务器序号
         public uint OrderSequence;
 
         public int OwnerNetworkId;
@@ -94,8 +94,12 @@ namespace AnimarsCatcher.Navigation.Grid
         // Cohort 内成员变化后递增的版本
         public uint MemberVersion;
 
-        // 当前落点和路径请求对应的订单目标版本
+        // 当前落点和路径请求对应的目标版本
         public uint TargetVersion;
+
+        // 调度优先级和取消版本在请求切分时冻结到 Cohort
+        public byte Priority;
+        public uint CancellationVersion;
 
         public float MaximumAgentRadius;
         public float MinimumMaxSpeed;
@@ -124,7 +128,7 @@ namespace AnimarsCatcher.Navigation.Grid
         // 防止同一请求重复累计指标的版本
         public uint CountedRequestVersion;
 
-        // 最近一次请求使用的订单目标版本
+        // 最近一次寻路使用的请求目标版本
         public uint SubmittedTargetVersion;
 
         // 动态目标连续变化时限制重复请求频率
@@ -139,7 +143,7 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 保存 Cohort 继承的订单目标语义
+    /// 保存 Cohort 继承的请求目标语义
     /// </summary>
     public struct AniMovementCohortTarget : IComponentData
     {

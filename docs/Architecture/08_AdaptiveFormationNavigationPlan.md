@@ -2,7 +2,7 @@
 
 [返回架构总览](README.md)
 
-> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.2 已完成，下一步为 6A.3 共享 Field Store 与预算调度器；阶段七尚未完成
+> 状态：阶段一至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.3 已完成，下一步为 6A.4 单位移动 Job 化；阶段七尚未完成
 >
 > 目标实现不在编辑器或运行时使用 Unity NavMesh
 >
@@ -257,7 +257,7 @@ RegionId 用于快速拒绝静态不连通目标。Cluster 和 Portal 用于大�
 
 它不是全地图 Flow Field，只覆盖当前 Corridor。只有目标、Corridor 或相关 Overlay 版本变化时才重建。阶段六保留这种稀疏范围，但把结果改为由多个 Cohort 通过 Handle 共享，避免每个 Squad 独立复制相同 Field。
 
-当前缓存键包含 Grid Data Hash、目标 Cell、体型 Clearance、代价参数、Corridor Hash 和相关 Cluster 版本。动态 Overlay 已接入局部 Corridor 重选、运行时成本和缓存失效；无关 Cluster 变化不会使当前 Field 失效。
+6A.3 的正式 Cohort Store 由 Grid Data Hash 隔离，共享键包含投影起点、目标 Cell、体型 Clearance 和代价参数；Record 另保存实际 Corridor 涉及的 Cluster 版本签名。动态 Overlay 已接入局部 Corridor 重选、运行时成本和缓存失效，无关 Cluster 变化不会使当前 Field 失效。Stage 1～5 与历史 Benchmark 仍使用原有 Squad 缓存，直到旧链路完成使命后再移除。
 
 ## 6. Movement Cohort 与自由群体移动
 

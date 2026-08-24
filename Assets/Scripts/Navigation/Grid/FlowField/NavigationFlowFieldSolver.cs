@@ -205,6 +205,7 @@ namespace AnimarsCatcher.Navigation.Grid
             uint dynamicOverlaySignature = NavigationFlowFieldCache.CalculateOverlaySignature(
                 ref workCorridorClusters,
                 dynamicOverlayClusters);
+            result.DynamicOverlaySignature = dynamicOverlaySignature;
             int fieldOffset = flowCells.Length;
             int integrationExpandedCellCount = 0;
 

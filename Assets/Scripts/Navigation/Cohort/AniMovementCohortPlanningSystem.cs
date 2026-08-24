@@ -10,6 +10,7 @@ namespace AnimarsCatcher.Navigation.Grid
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridRuntimeSystemGroup))]
     [UpdateAfter(typeof(AniGoalRegionAssignmentSystem))]
+    [UpdateBefore(typeof(ServerNavigationSharedFlowFieldSystem))]
     [UpdateBefore(typeof(ServerNavigationGridFlowFieldSystem))]
     public partial struct AniMovementCohortPathRequestSystem : ISystem
     {
@@ -98,7 +99,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
 
                 uint requestVersion = NextNonZero(pathState.ValueRO.ActiveRequestVersion);
-                // 重规划从成员当前中心出发，避免沿用订单创建时已经过期的位置
+                // 重规划从成员当前中心出发，避免沿用请求创建时已经过期的位置
                 NavigationPathRequest pathRequest = NavigationPathRequest.Create(
                     cohort.ValueRO.RepresentativePosition,
                     pathState.ValueRO.GoalRegionCenterPosition,
@@ -106,7 +107,10 @@ namespace AnimarsCatcher.Navigation.Grid
                     requestVersion,
                     clearanceMargin: 0.05f,
                     maximumProjectionRadiusInCells: 32);
-                request.ValueRW = NavigationFlowFieldRequest.Create(pathRequest);
+                request.ValueRW = NavigationFlowFieldRequest.Create(
+                    pathRequest,
+                    cohort.ValueRO.Priority,
+                    cohort.ValueRO.CancellationVersion);
                 fieldState.ValueRW = NavigationFlowFieldState.CreatePending(requestVersion);
                 pathState.ValueRW.ActiveRequestVersion = requestVersion;
                 pathState.ValueRW.SubmittedTargetVersion = cohort.ValueRO.TargetVersion;

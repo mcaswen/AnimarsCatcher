@@ -50,7 +50,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             PartitionReplayResult firstPartition = RunPartitionReplay(runLifecycleChecks: true);
             // 第二轮使用独立 World，Hash 一致才能证明结果不依赖运行时 Entity
             PartitionReplayResult secondPartition = RunPartitionReplay(runLifecycleChecks: false);
-            Assert(firstPartition.MemberCount == 10000, "万人订单没有完整进入 Cohort");
+            Assert(firstPartition.MemberCount == 10000, "万人请求没有完整进入 Cohort");
             Assert(firstPartition.MaximumCohortSize <= 64, "Cohort 超过默认 64 人容量");
             Assert(firstPartition.PartitionHash == secondPartition.PartitionHash,
                 "相同万人输入得到不同 Cohort 切分 Hash");
@@ -113,6 +113,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 typeof(AniCohortTargetResolveSystem),
                 typeof(AniGoalRegionAssignmentSystem),
                 typeof(AniMovementCohortPathRequestSystem),
+                typeof(ServerNavigationSharedFlowFieldSystem),
                 typeof(AniFreePreferredVelocitySystem),
                 typeof(AniFreeMovementProgressSystem),
             };
@@ -167,7 +168,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 mode: AniSquadCommandMode.Follow,
                 targetEntity: targetEntity);
 
-            // 首 Tick 完整执行订单切分、目标解析、落点分配和 Flow 请求提交
+            // 首 Tick 完整执行请求切分、目标解析、落点分配和 Flow 请求提交
             world.SetTime(new TimeData(0, DeltaTime));
             partitionSystem.Update(world.Unmanaged);
             targetSystem.Update(world.Unmanaged);
@@ -188,7 +189,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             AssertPositionsEqual(
                 initialPathState.GoalRegionCenterPosition,
                 initialOrderState.GoalRegionCenterPosition,
-                "Cohort 没有保存订单实际投影中心");
+                "Cohort 没有保存请求实际投影中心");
             AssertPositionsEqual(
                 initialRequest.PathRequest.EndPosition,
                 initialOrderState.GoalRegionCenterPosition,
@@ -275,7 +276,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             targetSystem.Update(world.Unmanaged);
             goalSystem.Update(world.Unmanaged);
 
-            // 第五名 Ani 不能借用围墙外的 Cell，容量不足必须让整份订单一致失败
+            // 第五名 Ani 不能借用围墙外的 Cell，容量不足必须让整份请求一致失败
             AniMovementOrderState orderState =
                 entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
             Assert(orderState.Status == AniMovementOrderStatus.Failed,
@@ -320,7 +321,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
             if (runLifecycleChecks)
             {
-                // 销毁一名成员后再次运行切分系统，验证 Cohort 和订单汇总同步收缩
+                // 销毁一名成员后再次运行切分系统，验证 Cohort 和请求汇总同步收缩
                 Entity removedAni = anis[0];
                 entityManager.DestroyEntity(removedAni);
                 world.SetTime(new TimeData(DeltaTime, DeltaTime));
@@ -336,7 +337,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 Assert(!entityManager.HasComponent<AniMovementCohortMembership>(invalidAni),
                     "缺少移动配置的存活 Ani 仍保留 Cohort Membership");
 
-                // 新订单覆盖旧订单末尾 130 人，未选中的旧成员应继续原命令
+                // 新请求覆盖旧请求末尾 130 人，未选中的旧成员应继续原命令
                 var replacementMembers = new NativeArray<Entity>(
                     130,
                     Allocator.Temp);
@@ -361,7 +362,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 AniMovementOrderState oldState =
                     entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
                 Assert(oldState.ValidMemberCount == 9868,
-                    "新命令没有从旧订单移走重叠成员");
+                    "新命令没有从旧请求移走重叠成员");
             }
 
             return result;
@@ -386,7 +387,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             SystemHandle pathSystem = world.GetOrCreateSystem<
                 AniMovementCohortPathRequestSystem>();
             SystemHandle flowSystem = world.GetOrCreateSystem<
-                ServerNavigationGridFlowFieldSystem>();
+                ServerNavigationSharedFlowFieldSystem>();
             SystemHandle velocitySystem = world.GetOrCreateSystem<
                 AniFreePreferredVelocitySystem>();
             SystemHandle commitSystem = world.GetOrCreateSystem<
@@ -506,7 +507,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             });
             DynamicBuffer<AniMovementOrderMember> members =
                 entityManager.AddBuffer<AniMovementOrderMember>(orderEntity);
-            // 验收直接构造服务器订单，网络分块和权限边界已由 6A.1 独立覆盖
+            // 验收直接构造服务器请求，网络分块和权限边界已由 6A.1 独立覆盖
             for (int index = 0; index < anis.Length; index++)
             {
                 members.Add(new AniMovementOrderMember
@@ -544,7 +545,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 ComponentType.ReadOnly<AniMovementCohort>(),
                 ComponentType.ReadOnly<AniMovementCohortMember>());
             using NativeArray<Entity> cohorts = cohortQuery.ToEntityArray(Allocator.Temp);
-            // 只汇总目标订单，生命周期用例中旧订单和替换订单会同时存在
+            // 只汇总目标请求，生命周期用例中旧请求和替换请求会同时存在
             for (int index = 0; index < cohorts.Length; index++)
             {
                 AniMovementCohort cohort =
@@ -756,7 +757,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             using NativeArray<Entity> cohorts = query.ToEntityArray(Allocator.Temp);
             Entity result = Entity.Null;
             int matchCount = 0;
-            // 测试只按订单归属寻找 Cohort，不依赖 EntityQuery 的返回顺序
+            // 测试只按请求归属寻找 Cohort，不依赖 EntityQuery 的返回顺序
             for (int index = 0; index < cohorts.Length; index++)
             {
                 if (entityManager.GetComponentData<AniMovementCohort>(cohorts[index]).Order !=
@@ -769,7 +770,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 matchCount++;
             }
 
-            Assert(matchCount == 1, $"订单应当只有一个测试 Cohort，实际为 {matchCount}");
+            Assert(matchCount == 1, $"请求应当只有一个测试 Cohort，实际为 {matchCount}");
             return result;
         }
 
@@ -782,7 +783,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 ComponentType.ReadOnly<AniMovementCohortPathState>());
             using NativeArray<Entity> cohorts = query.ToEntityArray(Allocator.Temp);
             int matchCount = 0;
-            // 一个订单可能跨 Cluster 切成多组，失败状态必须覆盖它的全部 Cohort
+            // 一个请求可能跨 Cluster 切成多组，失败状态必须覆盖它的全部 Cohort
             for (int index = 0; index < cohorts.Length; index++)
             {
                 Entity cohortEntity = cohorts[index];
