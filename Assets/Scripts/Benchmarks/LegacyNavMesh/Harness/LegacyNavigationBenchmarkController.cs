@@ -217,7 +217,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             {
                 Debug.LogError(
                     "Legacy Navigation Benchmark 只保留 32、64、128 Ani 回放，" +
-                    "阶段六规模必须使用 Grid ScaleInputDeterminism");
+                    "阶段六规模必须使用 Grid FreeCohortMovement 或 ScaleInputDeterminism");
                 serverWorld.QuitUpdate = true;
                 return;
             }
@@ -301,6 +301,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             entityManager.AddBuffer<NavigationGridMovementBenchmarkAgentTrace>(configEntity);
             entityManager.AddBuffer<NavigationGridBenchmarkStageTimingSample>(configEntity);
             entityManager.AddBuffer<NavigationGridScaleInputMember>(configEntity);
+            entityManager.AddBuffer<NavigationGridMovementBenchmarkAgent>(configEntity);
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 Workload = workload,

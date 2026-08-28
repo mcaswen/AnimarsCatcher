@@ -107,7 +107,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 将共享 Flow Direction 与靠近目标后的个人落点方向平滑混合
+        /// 将共享流向场方向与靠近目标后的个人落点方向平滑混合
         /// </summary>
         public static float3 BlendGoalVelocity(
             float3 flowDirection,
@@ -140,7 +140,7 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
-        /// 从 Cohort 的稀疏 Flow Field 中读取当前 Cell 的下一步方向
+        /// 从导航分组的稀疏流向场中读取当前 Cell 的下一步方向
         /// </summary>
         public static bool TryGetFlowDirection(
             DynamicBuffer<NavigationFlowFieldCell> field,
@@ -148,14 +148,27 @@ namespace AnimarsCatcher.Navigation.Grid
             out float3 direction)
         {
             direction = float3.zero;
-            for (int index = 0; index < field.Length; index++)
+            int minimum = 0;
+            int maximum = field.Length - 1;
+            // 构建器保证稀疏流向场按 CellIndex 排序，读取成本不再随走廊长度线性增长
+            while (minimum <= maximum)
             {
+                int index = minimum + ((maximum - minimum) >> 1);
                 NavigationFlowFieldCell cell = field[index];
                 if (cell.CellIndex == cellIndex)
                 {
                     direction = math.normalizesafe(
                         new float3(cell.Direction.x, 0f, cell.Direction.y));
                     return true;
+                }
+
+                if (cell.CellIndex < cellIndex)
+                {
+                    minimum = index + 1;
+                }
+                else
+                {
+                    maximum = index - 1;
                 }
             }
 

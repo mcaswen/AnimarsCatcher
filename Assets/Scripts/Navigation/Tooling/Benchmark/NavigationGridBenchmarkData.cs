@@ -404,6 +404,16 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 按固定编号保存移动基准创建的 Ani，避免万人命令提交时重新排序 Entity
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationGridMovementBenchmarkAgent : IBufferElementData
+    {
+        public Entity Ani;
+        public int StableId;
+    }
+
+    /// <summary>
     /// 保存阶段六万人入口生成的稳定成员、Cohort 和目标区域输入
     /// </summary>
     [InternalBufferCapacity(0)]

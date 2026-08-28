@@ -1,6 +1,7 @@
 using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -161,6 +162,46 @@ namespace AnimarsCatcher.Navigation.Grid
         }
     }
 
+    // 严格阵型仅保留为历史基线，逐成员速度仍使用与正式链路相同的并行方式
+    [BurstCompile]
+    internal partial struct AniSquadPreferredVelocityJob : IJobEntity
+    {
+        public float DeltaTime;
+
+        [ReadOnly]
+        public ComponentLookup<AniSquadAnchor> AnchorLookup;
+
+        [ReadOnly]
+        public ComponentLookup<AniSquadPathState> PathStateLookup;
+
+        public void Execute(
+            in LocalTransform transform,
+            in AniSquadMembership membership,
+            in AniMovementConfig config,
+            in AniSlotTarget slotTarget,
+            ref AniPreferredVelocity preferredVelocity)
+        {
+            Entity squadEntity = membership.Squad;
+            float3 targetVelocity = float3.zero;
+            if (AnchorLookup.HasComponent(squadEntity) &&
+                PathStateLookup.HasComponent(squadEntity) &&
+                PathStateLookup[squadEntity].Status != AniSquadMovementStatus.Failed)
+            {
+                targetVelocity = AniSquadSteeringAlgorithms.CalculateSlotVelocity(
+                    transform.Position,
+                    slotTarget.Position,
+                    AnchorLookup[squadEntity].Velocity,
+                    config.MaxSpeed);
+            }
+
+            // 找不到队伍锚点时逐渐减速，不能保留失效队伍留下的速度
+            preferredVelocity.Value = VectorMath.MoveTowards(
+                preferredVelocity.Value,
+                targetVelocity,
+                math.max(0f, config.MaxAcceleration) * DeltaTime);
+        }
+    }
+
     /// <summary>
     /// 让每名成员跟随队伍整体速度，同时修正自己与阵型槽位的偏差
     /// </summary>
@@ -186,37 +227,62 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             _anchorLookup.Update(ref state);
             _pathStateLookup.Update(ref state);
-            float deltaTime = SystemAPI.Time.DeltaTime;
-
-            // 成员共享所属队伍的锚点和寻路结果，不为每个 Ani 重复保存一份路径
-            foreach (var (transform, membership, config, slotTarget, preferredVelocity) in
-                     SystemAPI.Query<
-                         RefRO<LocalTransform>,
-                         RefRO<AniSquadMembership>,
-                         RefRO<AniMovementConfig>,
-                         RefRO<AniSlotTarget>,
-                         RefRW<AniPreferredVelocity>>())
+            var job = new AniSquadPreferredVelocityJob
             {
-                Entity squadEntity = membership.ValueRO.Squad;
-                float3 targetVelocity = float3.zero;
-                if (_anchorLookup.HasComponent(squadEntity) &&
-                    _pathStateLookup.HasComponent(squadEntity) &&
-                    _pathStateLookup[squadEntity].Status != AniSquadMovementStatus.Failed)
-                {
-                    targetVelocity = AniSquadSteeringAlgorithms.CalculateSlotVelocity(
-                        transform.ValueRO.Position,
-                        slotTarget.ValueRO.Position,
-                        _anchorLookup[squadEntity].Velocity,
-                        config.ValueRO.MaxSpeed);
-                }
+                DeltaTime = SystemAPI.Time.DeltaTime,
+                AnchorLookup = _anchorLookup,
+                PathStateLookup = _pathStateLookup,
+            };
+            state.Dependency = job.ScheduleParallel(state.Dependency);
+        }
+    }
 
-                // 成员仍受自身加速度限制，不会为了追槽位而瞬移
-                // 找不到队伍锚点时目标速度保持为零，让成员自然减速
-                preferredVelocity.ValueRW.Value = VectorMath.MoveTowards(
-                    preferredVelocity.ValueRO.Value,
-                    targetVelocity,
-                    config.ValueRO.MaxAcceleration * deltaTime);
-            }
+    [BurstCompile]
+    [WithAll(typeof(AniSquadMembership))]
+    [WithNone(typeof(AniMovementCohortMembership))]
+    internal partial struct AniSquadMovementCommitJob : IJobEntity
+    {
+        public float DeltaTime;
+
+        public void Execute(
+            ref LocalTransform transform,
+            in AniMovementConfig config,
+            in AniSlotTarget slotTarget,
+            in AniPreferredVelocity preferredVelocity,
+            ref AniMovementResult result)
+        {
+            AniMovementCommitSystem.ApplyMovement(
+                ref transform,
+                config,
+                slotTarget.Position,
+                preferredVelocity.Value,
+                0,
+                DeltaTime,
+                ref result);
+        }
+    }
+
+    [BurstCompile]
+    [WithAll(typeof(AniMovementCohortMembership))]
+    internal partial struct AniCohortMovementCommitJob : IJobEntity
+    {
+        public float DeltaTime;
+
+        public void Execute(
+            ref LocalTransform transform,
+            in AniMovementConfig config,
+            in AniGoalAssignment goal,
+            in AniPreferredVelocity preferredVelocity,
+            ref AniMovementResult result)
+        {
+            AniMovementCommitSystem.ApplyMovement(
+                ref transform,
+                config,
+                goal.TargetPosition,
+                preferredVelocity.Value,
+                goal.TargetVersion,
+                DeltaTime,
+                ref result);
         }
     }
 
@@ -241,58 +307,20 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             float deltaTime = SystemAPI.Time.DeltaTime;
 
-            // 导航模块只在这里写 Transform；碰撞处理只能调整输入速度，不能另行改位置
-            foreach (var (transform, config, slotTarget, preferredVelocity, result) in
-                     SystemAPI.Query<
-                         RefRW<LocalTransform>,
-                         RefRO<AniMovementConfig>,
-                         RefRO<AniSlotTarget>,
-                         RefRO<AniPreferredVelocity>,
-                         RefRW<AniMovementResult>>()
-                              .WithAll<AniSquadMembership>()
-                              .WithNone<AniMovementCohortMembership>())
-            {
-                LocalTransform nextTransform = transform.ValueRO;
-                AniMovementResult nextResult = result.ValueRO;
-                ApplyMovement(
-                    ref nextTransform,
-                    config.ValueRO,
-                    slotTarget.ValueRO.Position,
-                    preferredVelocity.ValueRO.Value,
-                    deltaTime,
-                    ref nextResult);
-                transform.ValueRW = nextTransform;
-                result.ValueRW = nextResult;
-            }
+            // 两个 Job 的查询互斥，但都写 Transform，因此显式串联安全句柄
+            var cohortJob = new AniCohortMovementCommitJob { DeltaTime = deltaTime };
+            state.Dependency = cohortJob.ScheduleParallel(state.Dependency);
 
-            foreach (var (transform, config, goal, preferredVelocity, result) in
-                     SystemAPI.Query<
-                         RefRW<LocalTransform>,
-                         RefRO<AniMovementConfig>,
-                         RefRO<AniGoalAssignment>,
-                         RefRO<AniPreferredVelocity>,
-                         RefRW<AniMovementResult>>()
-                              .WithAll<AniMovementCohortMembership>())
-            {
-                LocalTransform nextTransform = transform.ValueRO;
-                AniMovementResult nextResult = result.ValueRO;
-                ApplyMovement(
-                    ref nextTransform,
-                    config.ValueRO,
-                    goal.ValueRO.TargetPosition,
-                    preferredVelocity.ValueRO.Value,
-                    deltaTime,
-                    ref nextResult);
-                transform.ValueRW = nextTransform;
-                result.ValueRW = nextResult;
-            }
+            var squadJob = new AniSquadMovementCommitJob { DeltaTime = deltaTime };
+            state.Dependency = squadJob.ScheduleParallel(state.Dependency);
         }
 
-        private static void ApplyMovement(
+        internal static void ApplyMovement(
             ref LocalTransform transform,
             AniMovementConfig config,
             float3 targetPosition,
             float3 preferredVelocity,
+            uint targetVersion,
             float deltaTime,
             ref AniMovementResult result)
         {
@@ -328,6 +356,11 @@ namespace AnimarsCatcher.Navigation.Grid
             result.AppliedVelocity = velocity;
             result.DistanceToSlot = math.length(
                 PlanarMath.FlattenY(targetPosition - transform.Position));
+            result.TargetVersion = targetVersion;
+            result.Settled = (byte)(result.DistanceToSlot <= config.ArrivalRadius &&
+                                    speedSquared <= 0.0225f
+                ? 1
+                : 0);
             // CommitCount 只在这里递增，用于确认位置确实由唯一的提交系统写入
             result.CommitCount++;
         }
@@ -349,6 +382,7 @@ namespace AnimarsCatcher.Navigation.Grid
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
+            state.RequireForUpdate<AniSquad>();
             _transformLookup = state.GetComponentLookup<LocalTransform>(true);
             _configLookup = state.GetComponentLookup<AniMovementConfig>(true);
             _slotTargetLookup = state.GetComponentLookup<AniSlotTarget>(true);
@@ -361,6 +395,8 @@ namespace AnimarsCatcher.Navigation.Grid
             _configLookup.Update(ref state);
             _slotTargetLookup.Update(ref state);
             _velocityLookup.Update(ref state);
+            // 严格阵型仍在主线程按 Squad 归约，读取成员前必须等待本 Tick 的并行位移提交
+            state.Dependency.Complete();
 
             // 本系统只读取移动结果，不修改成员 Transform
             // 先刷新所有组件查询，避免已销毁成员的旧引用影响到达判断

@@ -71,6 +71,15 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 保存 MovementOrder 创建过的 Cohort 引用，供请求进度按自身分组归约
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct AniMovementOrderCohort : IBufferElementData
+    {
+        public Entity Cohort;
+    }
+
+    /// <summary>
     /// 保存共享一次寻路请求的有界成员组，不表达任何可见阵型
     /// </summary>
     public struct AniMovementCohort : IComponentData

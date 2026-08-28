@@ -122,6 +122,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ulong partitionHash = HashOffset;
             int cohortCount = 0;
             int rangeStart = 0;
+            using var orderCohorts = new NativeList<Entity>(Allocator.Temp);
             while (rangeStart < members.Length)
             {
                 PartitionMember first = members[rangeStart];
@@ -144,6 +145,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     rangeEnd - rangeStart);
                 uint cohortId = entityManager.GetComponentData<AniMovementCohort>(cohortEntity)
                     .CohortId;
+                orderCohorts.Add(cohortEntity);
 
                 // 结构变更与 Buffer 写入分成两轮，避免成员换 Archetype 后使 Buffer 引用失效
                 for (int memberIndex = rangeStart; memberIndex < rangeEnd; memberIndex++)
@@ -178,6 +180,20 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 cohortCount++;
                 rangeStart = rangeEnd;
+            }
+
+            // 请求直接保存自己的 Cohort 索引，进度 Job 不再为每个请求扫描全部 Cohort
+            DynamicBuffer<AniMovementOrderCohort> cohortReferences =
+                entityManager.HasBuffer<AniMovementOrderCohort>(orderEntity)
+                    ? entityManager.GetBuffer<AniMovementOrderCohort>(orderEntity)
+                    : entityManager.AddBuffer<AniMovementOrderCohort>(orderEntity);
+            cohortReferences.Clear();
+            for (int index = 0; index < orderCohorts.Length; index++)
+            {
+                cohortReferences.Add(new AniMovementOrderCohort
+                {
+                    Cohort = orderCohorts[index],
+                });
             }
 
             // Order Entity 在请求标记移除后继续保存意图和可诊断的执行摘要

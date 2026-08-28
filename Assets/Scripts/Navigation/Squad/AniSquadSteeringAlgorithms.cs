@@ -5,12 +5,12 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 计算队伍如何沿 Flow Field 前进，以及成员如何跟随各自的阵型槽位
+    /// 计算队伍如何沿流向场前进，以及成员如何跟随各自的阵型槽位
     /// </summary>
     public static class AniSquadSteeringAlgorithms
     {
         // 这里使用阵型系统已经算好的槽位，不负责调整列数或重新分配角色
-        // Flow Field 缓冲区只存有用的格子，因此查找时需要按 CellIndex 匹配
+        // 流向场缓冲区只存有用的格子，并由构建器按 CellIndex 排序
         // 队伍锚点和成员都只在 XZ 平面移动
         // 本类只计算速度，实际位置和旋转统一由移动提交系统写入
         public static bool TryGetFlowDirection(
@@ -20,20 +20,29 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             direction = float3.zero;
 
-            // 缓冲区通常很小，直接扫描可以避免为一次查询创建临时字典
-            for (int index = 0; index < field.Length; index++)
+            int minimum = 0;
+            int maximum = field.Length - 1;
+            while (minimum <= maximum)
             {
+                int index = minimum + ((maximum - minimum) >> 1);
                 NavigationFlowFieldCell cell = field[index];
-                if (cell.CellIndex != cellIndex)
+                if (cell.CellIndex == cellIndex)
                 {
-                    continue;
+                    direction = math.normalizesafe(
+                        new float3(cell.Direction.x, 0f, cell.Direction.y));
+
+                    // 终点格子的零方向仍是有效结果，只是不再推动锚点
+                    return true;
                 }
 
-                direction = math.normalizesafe(
-                    new float3(cell.Direction.x, 0f, cell.Direction.y));
-
-                // 找到终点格子时方向可能为零；这仍是有效结果，只是不再推动锚点
-                return true;
+                if (cell.CellIndex < cellIndex)
+                {
+                    minimum = index + 1;
+                }
+                else
+                {
+                    maximum = index - 1;
+                }
             }
 
             return false;

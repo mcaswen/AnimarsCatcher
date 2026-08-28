@@ -1,14 +1,120 @@
 using AnimarsCatcher.Core;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
 namespace AnimarsCatcher.Navigation.Grid
 {
+    // 每个工作线程只写当前 Ani 的期望速度，共享导航数据全部通过只读组件索引访问
+    [BurstCompile]
+    internal partial struct AniFreePreferredVelocityJob : IJobEntity
+    {
+        public float DeltaTime;
+        public byte HasGrid;
+        public NavigationGridReference GridReference;
+
+        [ReadOnly]
+        public ComponentLookup<AniMovementCohort> CohortLookup;
+
+        [ReadOnly]
+        public ComponentLookup<AniMovementCohortPathState> PathStateLookup;
+
+        [ReadOnly]
+        public ComponentLookup<NavigationFlowFieldState> FieldStateLookup;
+
+        [ReadOnly]
+        public ComponentLookup<NavigationFlowFieldHandle> FieldHandleLookup;
+
+        [ReadOnly]
+        public BufferLookup<NavigationFlowFieldCell> FieldLookup;
+
+        public void Execute(
+            in LocalTransform transform,
+            in AniMovementCohortMembership membership,
+            in AniMovementConfig config,
+            in AniGoalAssignment goal,
+            ref AniPreferredVelocity preferredVelocity)
+        {
+            float3 targetVelocity = float3.zero;
+            Entity cohortEntity = membership.Cohort;
+            Entity fieldEntity = FieldHandleLookup.HasComponent(cohortEntity)
+                ? FieldHandleLookup[cohortEntity].Record
+                : cohortEntity;
+            bool cohortReady = HasGrid != 0 &&
+                               CohortLookup.HasComponent(cohortEntity) &&
+                               PathStateLookup.HasComponent(cohortEntity) &&
+                               FieldStateLookup.HasComponent(cohortEntity) &&
+                               fieldEntity != Entity.Null &&
+                               FieldLookup.HasBuffer(fieldEntity) &&
+                               PathStateLookup[cohortEntity].Status !=
+                               AniMovementCohortStatus.Failed &&
+                               FieldStateLookup[cohortEntity].Status ==
+                               NavigationPathStatus.Succeeded &&
+                               goal.TargetVersion == CohortLookup[cohortEntity].TargetVersion;
+            if (cohortReady)
+            {
+                ref NavigationGridBlob grid = ref GridReference.Value.Value;
+                float3 arrivalVelocity = AniMovementCohortAlgorithms.CalculateArrivalVelocity(
+                    transform.Position,
+                    goal.TargetPosition,
+                    config.MaxSpeed,
+                    config.MaxAcceleration,
+                    goal.ArrivalRadius);
+                float distanceToGoal = math.length(
+                    PlanarMath.FlattenY(goal.TargetPosition - transform.Position));
+
+                float3 flowDirection = float3.zero;
+                bool hasCurrentCell = NavigationGridQuery.TryWorldToCell(
+                    ref grid,
+                    transform.Position,
+                    out _,
+                    out int currentCellIndex);
+                bool hasFlowDirection = false;
+                if (hasCurrentCell)
+                {
+                    hasFlowDirection = AniMovementCohortAlgorithms.TryGetFlowDirection(
+                                           FieldLookup[fieldEntity],
+                                           currentCellIndex,
+                                           out flowDirection) &&
+                                       math.lengthsq(flowDirection) > 1e-6f;
+                }
+
+                bool canApproachDirectly = false;
+                // 常规直线检查限制在目标影响范围，离开稀疏 Field 时则用直达路径脱离零速度死区
+                if (hasCurrentCell &&
+                    (distanceToGoal <= goal.InfluenceRadius || !hasFlowDirection))
+                {
+                    canApproachDirectly = NavigationGridQuery.TryCalculateLineCost(
+                        ref grid,
+                        currentCellIndex,
+                        goal.TargetCellIndex,
+                        config.AgentRadius,
+                        0.05f,
+                        0.2f,
+                        out _);
+                }
+
+                targetVelocity = AniMovementCohortAlgorithms.BlendGoalVelocity(
+                    flowDirection,
+                    arrivalVelocity,
+                    distanceToGoal,
+                    goal.InfluenceRadius,
+                    canApproachDirectly);
+            }
+
+            // 请求失效时也按加速度减速，不能把上一轮速度直接清零
+            preferredVelocity.Value = VectorMath.MoveTowards(
+                preferredVelocity.Value,
+                targetVelocity,
+                math.max(0f, config.MaxAcceleration) * DeltaTime);
+        }
+    }
+
     /// <summary>
-    /// 让 Ani 远距离跟随 Cohort Flow Direction，接近目标后转向自己的自然落点
+    /// 让 Ani 远距离跟随导航分组的流向场方向，接近目标后转向自己的自然落点
     /// </summary>
     [BurstCompile]
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
@@ -41,92 +147,160 @@ namespace AnimarsCatcher.Navigation.Grid
             _fieldStateLookup.Update(ref state);
             _fieldHandleLookup.Update(ref state);
             _fieldLookup.Update(ref state);
-            float deltaTime = SystemAPI.Time.DeltaTime;
-
-            bool hasGrid = SystemAPI.TryGetSingleton(out NavigationGridReference gridReference) &&
+            NavigationGridReference gridReference = default;
+            bool hasGrid = SystemAPI.TryGetSingleton(out gridReference) &&
                            gridReference.Value.IsCreated;
-            // 成员只保存 Cohort 引用，共享 Field 在使用时通过 Lookup 读取
-            foreach (var (transform, membership, config, goal, preferredVelocity) in
-                     SystemAPI.Query<
-                         RefRO<LocalTransform>,
-                         RefRO<AniMovementCohortMembership>,
-                         RefRO<AniMovementConfig>,
-                         RefRO<AniGoalAssignment>,
-                         RefRW<AniPreferredVelocity>>())
+            var job = new AniFreePreferredVelocityJob
             {
-                float3 targetVelocity = float3.zero;
-                Entity cohortEntity = membership.ValueRO.Cohort;
-                Entity fieldEntity = _fieldHandleLookup.HasComponent(cohortEntity)
-                    ? _fieldHandleLookup[cohortEntity].Record
-                    : cohortEntity;
-                bool cohortReady = hasGrid &&
-                                   _cohortLookup.HasComponent(cohortEntity) &&
-                                   _pathStateLookup.HasComponent(cohortEntity) &&
-                                   _fieldStateLookup.HasComponent(cohortEntity) &&
-                                   fieldEntity != Entity.Null &&
-                                   _fieldLookup.HasBuffer(fieldEntity) &&
-                                   _pathStateLookup[cohortEntity].Status !=
-                                   AniMovementCohortStatus.Failed &&
-                                   _fieldStateLookup[cohortEntity].Status ==
-                                   NavigationPathStatus.Succeeded &&
-                                   goal.ValueRO.TargetVersion ==
-                                   _cohortLookup[cohortEntity].TargetVersion;
-                if (cohortReady)
+                DeltaTime = SystemAPI.Time.DeltaTime,
+                HasGrid = (byte)(hasGrid ? 1 : 0),
+                GridReference = gridReference,
+                CohortLookup = _cohortLookup,
+                PathStateLookup = _pathStateLookup,
+                FieldStateLookup = _fieldStateLookup,
+                FieldHandleLookup = _fieldHandleLookup,
+                FieldLookup = _fieldLookup,
+            };
+            state.Dependency = job.ScheduleParallel(state.Dependency);
+        }
+    }
+
+    // 每个 Cohort 只归约自己的有界成员 Buffer，多个 Cohort 可以并行判断到达
+    [BurstCompile]
+    internal partial struct AniFreeCohortProgressJob : IJobEntity
+    {
+        [ReadOnly]
+        public ComponentLookup<AniMovementResult> ResultLookup;
+
+        public void Execute(
+            in AniMovementCohort cohort,
+            in AniMovementCohortTarget target,
+            ref AniMovementCohortPathState pathState,
+            in NavigationFlowFieldState fieldState,
+            in DynamicBuffer<AniMovementCohortMember> members)
+        {
+            if (pathState.Status == AniMovementCohortStatus.Failed ||
+                pathState.Status == AniMovementCohortStatus.Completed ||
+                pathState.Status == AniMovementCohortStatus.Holding)
+            {
+                return;
+            }
+
+            if (fieldState.Status == NavigationPathStatus.Failed &&
+                fieldState.RequestVersion == pathState.ActiveRequestVersion)
+            {
+                pathState.Status = AniMovementCohortStatus.Failed;
+                pathState.SettledTicks = 0;
+                return;
+            }
+
+            if (fieldState.Status != NavigationPathStatus.Succeeded ||
+                !AreMembersSettled(members, cohort.TargetVersion))
+            {
+                pathState.Status = fieldState.Status == NavigationPathStatus.Succeeded
+                    ? AniMovementCohortStatus.Moving
+                    : AniMovementCohortStatus.AwaitingPath;
+                pathState.SettledTicks = 0;
+                return;
+            }
+
+            pathState.SettledTicks++;
+            if (pathState.SettledTicks >= 5)
+            {
+                pathState.Status = target.Mode == AniSquadCommandMode.Follow
+                    ? AniMovementCohortStatus.Holding
+                    : AniMovementCohortStatus.Completed;
+            }
+        }
+
+        private bool AreMembersSettled(
+            in DynamicBuffer<AniMovementCohortMember> members,
+            uint targetVersion)
+        {
+            if (members.IsEmpty)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < members.Length; index++)
+            {
+                Entity ani = members[index].Ani;
+                if (!ResultLookup.HasComponent(ani))
                 {
-                    ref NavigationGridBlob grid = ref gridReference.Value.Value;
-                    float3 arrivalVelocity =
-                        AniMovementCohortAlgorithms.CalculateArrivalVelocity(
-                            transform.ValueRO.Position,
-                            goal.ValueRO.TargetPosition,
-                            config.ValueRO.MaxSpeed,
-                            config.ValueRO.MaxAcceleration,
-                            goal.ValueRO.ArrivalRadius);
-                    float distanceToGoal = math.length(
-                        PlanarMath.FlattenY(
-                            goal.ValueRO.TargetPosition - transform.ValueRO.Position));
-
-                    float3 flowDirection = float3.zero;
-                    bool hasCurrentCell = NavigationGridQuery.TryWorldToCell(
-                        ref grid,
-                        transform.ValueRO.Position,
-                        out _,
-                        out int currentCellIndex);
-                    if (hasCurrentCell)
-                    {
-                        AniMovementCohortAlgorithms.TryGetFlowDirection(
-                            _fieldLookup[fieldEntity],
-                            currentCellIndex,
-                            out flowDirection);
-                    }
-
-                    bool canApproachDirectly = false;
-                    // 直线检查只在目标影响范围内发生，远距离仍完全服从共享 Flow
-                    if (hasCurrentCell &&
-                        distanceToGoal <= goal.ValueRO.InfluenceRadius)
-                    {
-                        canApproachDirectly = NavigationGridQuery.TryCalculateLineCost(
-                            ref grid,
-                            currentCellIndex,
-                            goal.ValueRO.TargetCellIndex,
-                            config.ValueRO.AgentRadius,
-                            0.05f,
-                            0.2f,
-                            out _);
-                    }
-
-                    targetVelocity = AniMovementCohortAlgorithms.BlendGoalVelocity(
-                        flowDirection,
-                        arrivalVelocity,
-                        distanceToGoal,
-                        goal.ValueRO.InfluenceRadius,
-                        canApproachDirectly);
+                    return false;
                 }
 
-                // 新速度仍受 Ani 自身加速度约束，切换个人落点时不会瞬间转向
-                preferredVelocity.ValueRW.Value = VectorMath.MoveTowards(
-                    preferredVelocity.ValueRO.Value,
-                    targetVelocity,
-                    math.max(0f, config.ValueRO.MaxAcceleration) * deltaTime);
+                AniMovementResult result = ResultLookup[ani];
+                // 目标换代和位移提交可能落在相邻 Job 链，旧版本结果不能提前完成新请求
+                if (result.TargetVersion != targetVersion || result.Settled == 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    // 请求只遍历创建时记录的 Cohort 引用，销毁后的引用由组件存在性检查过滤
+    [BurstCompile]
+    internal partial struct AniMovementOrderProgressJob : IJobEntity
+    {
+        [ReadOnly]
+        public ComponentLookup<AniMovementCohort> CohortLookup;
+
+        [ReadOnly]
+        public ComponentLookup<AniMovementCohortPathState> PathStateLookup;
+
+        public void Execute(
+            Entity orderEntity,
+            in AniMovementOrder order,
+            ref AniMovementOrderState orderState,
+            in DynamicBuffer<AniMovementOrderCohort> cohorts)
+        {
+            if (orderState.Status != AniMovementOrderStatus.Active)
+            {
+                return;
+            }
+
+            int liveCohortCount = 0;
+            bool anyFailed = false;
+            bool anyMoving = false;
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                Entity cohortEntity = cohorts[index].Cohort;
+                if (!CohortLookup.HasComponent(cohortEntity) ||
+                    CohortLookup[cohortEntity].Order != orderEntity)
+                {
+                    continue;
+                }
+
+                liveCohortCount++;
+                if (!PathStateLookup.HasComponent(cohortEntity))
+                {
+                    // 存活 Cohort 缺少路径状态属于结构损坏，不能被当作已经完成
+                    anyFailed = true;
+                    continue;
+                }
+
+                AniMovementCohortStatus status = PathStateLookup[cohortEntity].Status;
+                anyFailed |= status == AniMovementCohortStatus.Failed;
+                anyMoving |= status == AniMovementCohortStatus.AwaitingPath ||
+                             status == AniMovementCohortStatus.Moving;
+            }
+
+            orderState.ActiveCohortCount = liveCohortCount;
+            if (anyFailed)
+            {
+                orderState.Status = AniMovementOrderStatus.Failed;
+            }
+            else if (liveCohortCount == 0)
+            {
+                orderState.Status = AniMovementOrderStatus.Superseded;
+            }
+            else if (!anyMoving && order.Mode != AniSquadCommandMode.Follow)
+            {
+                orderState.Status = AniMovementOrderStatus.Completed;
             }
         }
     }
@@ -140,147 +314,37 @@ namespace AnimarsCatcher.Navigation.Grid
     public partial struct AniFreeMovementProgressSystem : ISystem
     {
         private ComponentLookup<AniMovementResult> _resultLookup;
-        private ComponentLookup<AniGoalAssignment> _goalLookup;
-        private ComponentLookup<LocalTransform> _transformLookup;
+        private ComponentLookup<AniMovementCohort> _cohortLookup;
+        private ComponentLookup<AniMovementCohortPathState> _pathStateLookup;
 
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
             _resultLookup = state.GetComponentLookup<AniMovementResult>(true);
-            _goalLookup = state.GetComponentLookup<AniGoalAssignment>(true);
-            _transformLookup = state.GetComponentLookup<LocalTransform>(true);
+            _cohortLookup = state.GetComponentLookup<AniMovementCohort>(true);
+            _pathStateLookup = state.GetComponentLookup<AniMovementCohortPathState>(true);
         }
 
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             _resultLookup.Update(ref state);
-            _goalLookup.Update(ref state);
-            _transformLookup.Update(ref state);
+            _cohortLookup.Update(ref state);
+            _pathStateLookup.Update(ref state);
 
-            foreach (var (target, pathState, fieldState, members) in
-                     SystemAPI.Query<
-                         RefRO<AniMovementCohortTarget>,
-                         RefRW<AniMovementCohortPathState>,
-                         RefRO<NavigationFlowFieldState>,
-                         DynamicBuffer<AniMovementCohortMember>>())
+            var cohortJob = new AniFreeCohortProgressJob
             {
-                if (pathState.ValueRO.Status == AniMovementCohortStatus.Failed ||
-                    pathState.ValueRO.Status == AniMovementCohortStatus.Completed ||
-                    pathState.ValueRO.Status == AniMovementCohortStatus.Holding)
-                {
-                    continue;
-                }
+                ResultLookup = _resultLookup,
+            };
+            state.Dependency = cohortJob.ScheduleParallel(state.Dependency);
 
-                if (fieldState.ValueRO.Status == NavigationPathStatus.Failed &&
-                    fieldState.ValueRO.RequestVersion ==
-                    pathState.ValueRO.ActiveRequestVersion)
-                {
-                    pathState.ValueRW.Status = AniMovementCohortStatus.Failed;
-                    pathState.ValueRW.SettledTicks = 0;
-                    continue;
-                }
-
-                // 成员检查只扫描当前 Cohort 的有界 Buffer，不会退化成全军两两比较
-                if (fieldState.ValueRO.Status != NavigationPathStatus.Succeeded ||
-                    !AreMembersSettled(members))
-                {
-                    pathState.ValueRW.Status = fieldState.ValueRO.Status ==
-                                               NavigationPathStatus.Succeeded
-                        ? AniMovementCohortStatus.Moving
-                        : AniMovementCohortStatus.AwaitingPath;
-                    pathState.ValueRW.SettledTicks = 0;
-                    continue;
-                }
-
-                pathState.ValueRW.SettledTicks++;
-                if (pathState.ValueRO.SettledTicks >= 5)
-                {
-                    pathState.ValueRW.Status = target.ValueRO.Mode ==
-                                               AniSquadCommandMode.Follow
-                        ? AniMovementCohortStatus.Holding
-                        : AniMovementCohortStatus.Completed;
-                }
-            }
-
-            // Cohort 先提交终态，请求随后只汇总小规模上下文状态
-            UpdateOrderProgress(ref state);
-        }
-
-        private bool AreMembersSettled(DynamicBuffer<AniMovementCohortMember> members)
-        {
-            if (members.IsEmpty)
+            // 请求归约必须等待 Cohort 状态写回，避免读取上一 Tick 的部分结果
+            var orderJob = new AniMovementOrderProgressJob
             {
-                return false;
-            }
-
-            for (int index = 0; index < members.Length; index++)
-            {
-                Entity ani = members[index].Ani;
-                if (!_resultLookup.HasComponent(ani) ||
-                    !_goalLookup.HasComponent(ani) ||
-                    !_transformLookup.HasComponent(ani))
-                {
-                    return false;
-                }
-
-                AniGoalAssignment goal = _goalLookup[ani];
-                float distance = math.length(
-                    PlanarMath.FlattenY(goal.TargetPosition - _transformLookup[ani].Position));
-                if (distance > goal.ArrivalRadius ||
-                    math.lengthsq(_resultLookup[ani].AppliedVelocity) > 0.0225f)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private void UpdateOrderProgress(ref SystemState state)
-        {
-            foreach (var (order, orderState, orderEntity) in
-                     SystemAPI.Query<RefRO<AniMovementOrder>, RefRW<AniMovementOrderState>>()
-                              .WithEntityAccess())
-            {
-                if (orderState.ValueRO.Status != AniMovementOrderStatus.Active)
-                {
-                    continue;
-                }
-
-                int cohortCount = 0;
-                bool anyFailed = false;
-                bool anyMoving = false;
-                // Follow 的全部 Cohort 进入 Holding 后请求仍保持活动，目标移动可再次唤醒
-                foreach (var (cohort, pathState) in
-                         SystemAPI.Query<
-                             RefRO<AniMovementCohort>,
-                             RefRO<AniMovementCohortPathState>>())
-                {
-                    if (cohort.ValueRO.Order != orderEntity)
-                    {
-                        continue;
-                    }
-
-                    cohortCount++;
-                    anyFailed |= pathState.ValueRO.Status == AniMovementCohortStatus.Failed;
-                    anyMoving |= pathState.ValueRO.Status ==
-                                 AniMovementCohortStatus.AwaitingPath ||
-                                 pathState.ValueRO.Status == AniMovementCohortStatus.Moving;
-                }
-
-                if (anyFailed)
-                {
-                    orderState.ValueRW.Status = AniMovementOrderStatus.Failed;
-                }
-                else if (cohortCount == 0)
-                {
-                    orderState.ValueRW.Status = AniMovementOrderStatus.Superseded;
-                }
-                else if (!anyMoving && order.ValueRO.Mode != AniSquadCommandMode.Follow)
-                {
-                    orderState.ValueRW.Status = AniMovementOrderStatus.Completed;
-                }
-            }
+                CohortLookup = _cohortLookup,
+                PathStateLookup = _pathStateLookup,
+            };
+            state.Dependency = orderJob.ScheduleParallel(state.Dependency);
         }
     }
 }

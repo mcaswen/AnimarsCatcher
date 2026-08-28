@@ -1,4 +1,26 @@
-# Navigation 阶段六：万人群体移动、ORCA 与世界碰撞执行计划
+# 导航模块（Navigation）阶段六：万人群体移动、最优互惠避碰（ORCA）与世界碰撞执行计划
+
+## 术语约定
+
+本文先使用中文业务含义，再在括号中标出源码或行业术语。后文重复出现时可直接使用英文名称，代码类型名不因此改名。
+
+- **导航网格（Grid）**：把可移动地面离散成规则格子的寻路数据
+- **网格单元（Cell）**：导航网格中的最小查询单位
+- **网格分块（Cluster）**：由一组相邻 Cell 组成的固定空间分块
+- **分块通道（Portal）**：相邻 Cluster 之间可以通过的连接
+- **导航走廊（Corridor）**：从起点 Cluster 到目标 Cluster 经过的分块与 Portal 序列
+- **可通行余量（Clearance）**：Cell 或 Portal 距离最近障碍还剩多少可用空间
+- **流向场（Flow Field）**：为 Corridor 内 Cell 保存朝向目标的局部移动方向
+- **动态覆盖层（Overlay）**：运行时障碍对 Grid 通行状态和成本产生的增量修改
+- **分层寻路（HPA）**：先在 Cluster 和 Portal 组成的抽象图上找走廊，再计算局部路径
+- **移动请求（MovementOrder、`AniMovementOrder`）**：玩家一次完整移动意图及其成员快照
+- **导航分组（Cohort、`MovementCohort`）**：从同一移动请求中拆出的有界 Ani 分组，用于共享寻路和归约进度，不表示可见阵型
+- **旧阵型分组（Squad）**：阶段四至阶段五使用的严格阵型对象，只保留为历史回归基线
+- **移动配置（Agent Profile）**：决定 Ani 体型、速度和寻路能力的一组参数
+- **共享存储区（Store）**：集中管理可被多个 Cohort 复用的寻路结果
+- **共享记录（Record）与引用句柄（Handle）**：Record 持有实际结果 Buffer，Handle 让 Cohort 引用它而不复制数据
+- **最优互惠避碰（ORCA）**：通过相互承担避让责任求解局部安全速度的算法
+- **Morton 空间键（Morton Key）与稳定编号（StableId）**：用于把空间位置和成员身份转换成可重复排序依据
 
 [返回架构总览](README.md)
 
@@ -7,11 +29,11 @@
 - [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](15_NavigationArchitectureRefactorExecutionPlan.md)
 
-> 状态：6A.0 Benchmark 与预算基线、6A.1 万人选择与命令链路、6A.2 Cohort 与自由目标区域、6A.3 共享 Field Store 与预算调度器已完成；下一步为 6A.4 单位移动 Job 化
+> 状态：阶段 6A.0～6A.4 已完成；下一步为 6B.1 原生内存空间哈希
 >
-> 目标：在 Server World 支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
+> 目标：在服务器 World（Server World）支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
 >
-> 已确认决策：正式 Grid 后端取消严格矩形或纵队阵型，不使用 ORCA 代替目标分布；采用 Movement Cohort 共享寻路、目标区域分散、空间哈希、ORCA 和选择性世界碰撞
+> 已确认决策：正式 Grid 后端取消严格矩形或纵队阵型，不使用 ORCA 代替目标分布；采用导航分组共享寻路、目标区域分散、空间哈希、ORCA 和选择性世界碰撞
 >
 > 名称说明：本文的“阶段六”是 Grid 移动功能阶段，不是已经完成的 Navigation 架构重构 `R6`
 
@@ -41,10 +63,10 @@
 | 历史 Squad | Stage 4～5 的严格阵型 System 和 Benchmark 入口继续保留 | 只用于行为回归和旧报告对照，不消费正式 MovementOrder |
 | Flow Field 调度 | `ServerNavigationGridFlowFieldSystem` 每批最多 16 个请求，单个 `IJob` 内顺序处理 | 多 Cohort 或多目标突发时排队延迟不可控 |
 | Flow Field 所有权 | 缓存命中后仍复制 Field 到每个 Squad Buffer；缓存最多 64 项并按整代清理 | 相同路线重复占用内存，多目标时容易缓存抖动 |
-| 单位移动 | 期望速度、槽位目标、Commit 和部分进度判断仍通过 System 主线程查询遍历 | Burst 可以降低单次成本，但不能充分利用多核处理 10000 Ani |
+| 单位移动 | 正式 Cohort 的期望速度、位移提交、成员进度和请求进度已改为并行 Job，历史 Squad 的逐成员速度与位移提交也使用同一并行边界 | 万人移动内核已验证零托管分配，空间哈希、ORCA 和世界碰撞仍待 6B 实现 |
 | 动态 Overlay | Path 或 Flow Job 读取 Overlay 时，`NavigationDynamicOverlaySystem` 延迟写入 | 持续寻路负载可能增加动态障碍生效延迟 |
 | 拥挤处理 | 当前 Stage 4 Benchmark 明确不包含 ORCA、世界碰撞或受阻恢复 | 开阔地到达不能证明窄路、交叉和高密度场景可用 |
-| 验收规模 | 6A.2 已验证万人 Cohort 切分与 32、64、128、512 自由移动到达 | 1000～10000 完整导航的排队、内存、Worker 和 Server Tick 证据仍待 6A.3～6C 补齐 |
+| 验收规模 | 6A.2 已验证万人 Cohort 切分与 32、64、128、512 自由移动到达，6A.4 已验证 10000 Ani 并行移动内核 | 含空间哈希、ORCA 和世界碰撞的万人完整导航报告仍待 6B～6C 补齐 |
 
 这些限制要求先改规模模型，再实现 ORCA。如果直接在现有“一个大 Squad + 固定槽位”上完成旧版阶段六，之后仍需重做空间哈希分组、邻居语义、到达判定和 Field 所有权。
 
@@ -67,7 +89,7 @@
     -> 到达、受阻与重规划反馈
 ```
 
-### 3.2 MovementOrder
+### 3.2 移动请求（MovementOrder）
 
 `AniMovementOrder` 表示玩家的一次完整意图，当前保存：
 
@@ -82,9 +104,9 @@
 
 移动 RPC 不再重复携带全部选中 GhostId。客户端先以分块或差量方式更新服务器选择集，服务端确认成员数量、Hash 和版本完整后，移动命令只引用该版本。后续可以评估由服务器根据框选体积重建选择集，但它不能成为第六阶段的前置假设。
 
-服务器的 GhostId 到 Entity 索引只在 Ani 数量、结构、GhostId 或拥有者变化时重新发布，稳定 Tick 复用同一排序快照，不再由选择与移动入口各自逐 Tick 重建。当前变更发布仍需排序全部索引项，高频 Spawn、Despawn 的尖峰继续纳入 6A.4 和 6C 性能治理。
+服务器的 GhostId 到 Entity 索引只在 Ani 数量、结构、GhostId 或拥有者变化时重新发布，稳定 Tick 复用同一排序快照，不再由选择与移动入口各自逐 Tick 重建。当前变更发布仍需排序全部索引项，高频 Spawn、Despawn 的尖峰继续纳入 6C 性能治理。
 
-### 3.3 MovementCohort
+### 3.3 导航分组（MovementCohort）
 
 `MovementCohort` 是寻路与重规划的最小共享单元。第一版使用可配置上限，默认 64 Ani，硬上限 128 Ani；最终数值以 512～10000 Benchmark 为准。
 
@@ -115,7 +137,7 @@ ORCA 不能解决终点占位。如果所有 Ani 使用同一目标坐标，外�
 
 该结果可以形成不规则但稳定的自然群体。它只保证可达、不过度重叠和确定性，不保证矩形、圆形、职业前后排或视觉上的严格对齐。
 
-### 3.5 共享 Flow Field 存储
+### 3.5 共享流向场存储区（Flow Field Store）
 
 Stage 4～5 的旧 Squad 仍独立拥有 Corridor 和 Flow Field Buffer。6A.3 已为正式 Cohort 增加服务器全局共享记录：
 
@@ -156,7 +178,7 @@ Store 由 Grid Data Hash 隔离，Grid 换代时整体清空；Record 的 Overla
 
 现有 `AniSquadFormationState`、`AniFormationSlot`、`AniSlotTarget`、`AniAdaptiveFormationSystem`、`AniFormationLayoutSystem` 和 `AniFormationAssignmentSystem` 在 6A 迁移完成前保留为旧 Grid 行为基线；等自由移动链路通过 32、64、128 回归和 512 基础验收后，再从正式 Grid Pipeline 移除。历史 Benchmark 结果继续保留，不改写为新方案结果。
 
-## 4. 目标 System Pipeline
+## 4. 目标系统链路（System Pipeline）
 
 服务器运行顺序调整为：
 
@@ -181,7 +203,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 ## 5. 阶段 6A：万人规模基础
 
-### 6A.0 Benchmark 与预算基线
+### 6A.0 基准测试（Benchmark）与预算基线
 
 交付物：
 
@@ -228,7 +250,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 注意：上述万人样本没有运行导航内核，因此其约 0.85～1.08 ms Server Tick P95 只证明 Harness 容量和采样闭环，不证明万人移动满足预算。第一份可参与导航性能门禁的万人报告必须等 6A.2～6B.3 对应工作负载实现后生成。
 
-### 6A.1 选择集与 MovementOrder
+### 6A.1 选择集与移动请求（MovementOrder）
 
 交付物：
 
@@ -261,7 +283,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - `AniCommandRpc` 结构检查确认不再包含任何 `FixedList` 成员字段，一个 MovementOrder 中的 10000 个成员严格升序且各出现一次
 - 6A.1 专项自动验收、6A.0 自动验收和 Stage Four 自动验收全部通过
 
-### 6A.2 Cohort 与自由目标区域
+### 6A.2 导航分组（Cohort）与自由目标区域
 
 交付物：
 
@@ -297,7 +319,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 512 Ani 两轮目标区域 Hash 为 `FA1A17890EEC4B2F`，最终位置 Hash 为 `AE3BEC88A465F1F9`
 - 正式 Cohort 不携带 `AniFormationSlot`，正式 MovementOrder 不再创建 Squad
 
-### 6A.3 Field Store 与预算调度器
+### 6A.3 共享流向场存储区（Field Store）与预算调度器
 
 状态：已完成，2026-08-23 已通过 Unity Batch Mode 专项验收和 6A.2 回归
 
@@ -325,7 +347,9 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 动态 Overlay 以不可变 Native 快照交给活跃 Job；专项验收确认构建期间 Overlay 可以继续发布，Corridor 内变化只撤销受影响 Record，远处 Record 保持有效，Grid Blob 换代也会拒绝旧结果并重新投影请求
 - Store 按有效负载字节数统计，预算不足时只淘汰无 Handle 引用的最久未用 Record；队列长度、等待 Tick 样本、取消、超时、唯一构建、共享命中和缓存字节数已接入 Benchmark 报告
 
-### 6A.4 单位移动 Job 化
+### 6A.4 单位移动任务化（Job 化）
+
+状态：已完成，2026-08-25 已通过 Unity Batch Mode 专项验收和 Stage 3、Stage 4、6A.2、6A.3 回归
 
 交付物：
 
@@ -341,9 +365,22 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - Transform 提交次数与有效模拟 Ani 数和活动 Tick 严格对应
 - 相同输入的最终位置 Hash、到达数和失败数重复运行一致
 
+实现与验收记录：
+
+- `AniFreePreferredVelocityJob` 并行计算流向场方向、个人目标吸引和加速度受限的期望速度，共享 Grid、Cohort 和 Field 数据只读访问
+- `AniCohortMovementCommitJob` 与历史基线使用的 `AniSquadMovementCommitJob` 都由 `AniMovementCommitSystem` 调度，该系统仍是唯一的 `LocalTransform` 写入者
+- `AniMovementResult` 保存目标版本和站稳状态，`AniFreeCohortProgressJob` 按有界成员 Buffer 归约导航分组，`AniMovementOrderProgressJob` 再通过请求自有的 Cohort 索引汇总终态，不再为每个请求扫描全部 Cohort
+- 稀疏流向场在构建完成后按 `CellIndex` 排序，Ani 通过二分查找读取当前方向，查询成本不再随 Corridor 长度线性增长
+- 统一基准的 `FreeCohortMovement` 工作负载已经接入真实 MovementOrder、Cohort 和共享 Field 链路，并支持 512、1000、2500、5000、10000 Ani 报告
+- Ani 离开 Cohort 稀疏 Field 覆盖且尚未进入目标影响半径时，会在直达可行时直接朝个人落点移动，避免同时缺少 Flow 方向和目标吸引而陷入零速度死区
+- 万人移动内核在空 Field 与目标影响半径外连续两轮完成 128 个 Tick，每名 Ani 的 Transform 提交次数均为 128，最终位置 Hash 均为 `302B5AE3CAFBB4A5`，采样窗口主线程托管分配为 `0 B`
+- 完整 `FreeCohortMovement` 回放通过功能验收：10000/10000 Ani 到达，251/251 个 Cohort 完成，251/251 份路径成功，每名 Ani 提交 1320 次，未到达快照为空，主线程分配 P50/P95/P99 均为 `0 B`
+- 完整回放的 Server Tick P50/P95/P99 分别为 `49.1975 ms`、`3016.4815 ms`、`3641.0771 ms`，请求排队等待 P95 为 57 Tick，共产生 938 次唯一 Field 构建；功能已通过但性能未达冻结预算，低复用 Field 构建与排队尖峰必须在 6C 门禁前治理
+- 该专项证明并行移动、提交边界和进度归约满足 6A.4，不代表尚未实现的空间哈希、ORCA 与世界碰撞已经通过万人门禁
+
 ## 6. 阶段 6B：避碰、世界碰撞与恢复
 
-### 6B.1 Native 空间哈希
+### 6B.1 原生内存空间哈希（Native）
 
 空间哈希以 XZ 平面位置建立，桶尺寸根据最大交互半径配置。构建和查询都必须是 Burst Job，并为每个 Ani 输出有上限的邻居切片。
 
@@ -355,7 +392,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - 10000 Ani 不创建 `N²` 容器，也不出现单桶无限增长导致的无界查询
 - 相同位置和输入得到相同邻居顺序
 
-### 6B.2 ORCA 局部避碰
+### 6B.2 最优互惠避碰（ORCA）
 
 每个 Ani 根据相对位置、相对速度、半径、时间窗口和让行优先级生成二维半平面约束，再选择最接近期望速度的可行解。
 

@@ -56,7 +56,8 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             return workload == NavigationGridBenchmarkWorkload.PathAndField ||
                    workload == NavigationGridBenchmarkWorkload.StrictFormationBaseline ||
-                   workload == NavigationGridBenchmarkWorkload.ScaleInputDeterminism;
+                   workload == NavigationGridBenchmarkWorkload.ScaleInputDeterminism ||
+                   workload == NavigationGridBenchmarkWorkload.FreeCohortMovement;
         }
 
         /// <summary>
@@ -65,7 +66,8 @@ namespace AnimarsCatcher.Navigation.Grid
         public static bool RecordsFullServerTick(NavigationGridBenchmarkWorkload workload)
         {
             return workload == NavigationGridBenchmarkWorkload.StrictFormationBaseline ||
-                   workload == NavigationGridBenchmarkWorkload.ScaleInputDeterminism;
+                   workload == NavigationGridBenchmarkWorkload.ScaleInputDeterminism ||
+                   workload == NavigationGridBenchmarkWorkload.FreeCohortMovement;
         }
 
         /// <summary>
@@ -88,8 +90,6 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 reason = workload switch
                 {
-                    NavigationGridBenchmarkWorkload.FreeCohortMovement =>
-                        "FreeCohortMovement 将在 6A.2 接入，6A.0 不能生成伪移动结果",
                     NavigationGridBenchmarkWorkload.Avoidance =>
                         "Avoidance 将在 6B.2 接入，6A.0 不能生成伪 ORCA 结果",
                     NavigationGridBenchmarkWorkload.Collision =>
@@ -105,7 +105,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 reason =
                     $"{workload} 只保留 32、64、128 Ani 历史基线，" +
-                    "512 以上规模请使用 ScaleInputDeterminism，等待自由 Cohort 链路接入";
+                    "512 以上规模请使用 FreeCohortMovement 或 ScaleInputDeterminism";
                 return false;
             }
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -257,6 +258,14 @@ namespace AnimarsCatcher.Navigation.Grid
                     return result;
                 }
 
+                // 稀疏流向场按 CellIndex 固定排序，万人移动可以二分读取且缓存内容保持确定
+                int builtFieldCount = flowCells.Length - fieldOffset;
+                var fieldSlice = new NativeSlice<NavigationFlowFieldCell>(
+                    flowCells.AsArray(),
+                    fieldOffset,
+                    builtFieldCount);
+                fieldSlice.Sort(new NavigationFlowFieldCellIndexComparer());
+
                 NavigationFlowFieldCache.AddCachedField(
                     endCellIndex,
                     requiredClearance,
@@ -328,6 +337,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 FieldOffset = -1,
                 CacheVersion = cacheVersion,
             };
+        }
+
+        private struct NavigationFlowFieldCellIndexComparer : IComparer<NavigationFlowFieldCell>
+        {
+            public int Compare(NavigationFlowFieldCell left, NavigationFlowFieldCell right)
+            {
+                return left.CellIndex.CompareTo(right.CellIndex);
+            }
         }
 
         private static void AppendUnique(NativeList<int> values, int value)

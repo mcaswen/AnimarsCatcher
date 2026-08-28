@@ -7,7 +7,7 @@
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 - [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.3 已完成，下一步为 6A.4 单位移动 Job 化；阶段七及 Normalized Legacy 横向性能对照仍待执行
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.4 已完成，下一步为 6B.1 原生内存空间哈希；阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
 > 第六阶段内部按 6A、6B、6C 依次验收；阶段五未完成的动态 Overlay 场景验收并入 6A/6C，已取消的严格阵型正式目标不再阻塞阶段六
 
@@ -296,6 +296,8 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 2026-08-23 完成 6A.2：正式 Grid 指令不再生成兼容 `AniSquadCommand`，MovementOrder 会按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切成默认最多 64 人、硬上限 128 人的 Cohort。目标区域从投影中心沿动态通行边扩张，只在同一可达区域内计算容量和稳定落点；Flow 请求使用同一投影中心，原始坐标仅负责动态目标版本判断。成员失效时同步清理 Membership 与 Cohort Buffer，远距离 Flow Direction 与近目标个人吸引共同生成期望速度，最终仍由唯一 `AniMovementCommitSystem` 写入 Transform。专项验收连续两轮处理 10000 成员且无重复、丢失或悬空归属，得到 180 个 Cohort、最大成员数 64 和 `979E69E4BBCF9309`；32、64、128、512 开阔地全部到达，512 两轮目标区域 Hash 均为 `FA1A17890EEC4B2F`，最终位置 Hash 均为 `AE3BEC88A465F1F9`。另已覆盖复杂动态障碍封闭区域、阻挡目标投影、静止动态目标版本稳定和跨 Cell 重规划。
 
 同日完成 6A.3：正式 Cohort 改为通过版本化 Handle 读取全局共享 Flow Record，相同投影起终点、体型 Clearance 和代价配置只提交一次并行构建。调度器提供优先级、每 Tick 预算、取消、超时、确定性发布、Overlay 不可变快照、Corridor 局部失效和按字节淘汰；队列与 Store 指标已进入 Benchmark 报告。专项验收确认 8 个相同 Key 只构建 1 次并共享同一 Record，缓存命中不复制 Field，Overlay 在 Job 活跃时仍可更新，局部障碍不会误清无关 Record，Grid Blob 换代后旧结果不会卡住请求，超时、取消与无引用缓存淘汰均可诊断；6A.2 的万人切分和 512 移动 Hash 回归保持不变。
+
+2026-08-25 完成 6A.4：正式 Cohort 的期望速度、位移提交、成员归约与请求归约改为并行 Job，历史 Squad 的逐成员速度和位移提交同步进入相同边界，`AniMovementCommitSystem` 继续作为唯一 Transform 写入者。稀疏 Flow Field 固定按 CellIndex 排序并通过二分查找读取，Ani 离开稀疏覆盖后会在直达可行时退出零速度死区。万人专项在空 Field 与目标影响半径外连续两轮完成 128 Tick，每名 Ani 均提交 128 次，最终位置 Hash 均为 `302B5AE3CAFBB4A5`，采样窗口主线程托管分配为 `0 B`。完整 `FreeCohortMovement` 回放中 10000/10000 Ani 到达，251/251 个 Cohort 完成，251/251 份路径成功，每名 Ani 提交 1320 次且主线程分配 P95 为 `0 B`。该完整回放的 Server Tick P95 为 `3016.4815 ms`，尚未达到阶段六冻结预算；主要剩余工作是空间哈希、ORCA、世界碰撞以及 6C 的 Field 复用与性能治理
 
 ### 6A：规模基础
 

@@ -93,14 +93,14 @@ flowchart LR
 已完成：
 
 - 联机会话、按 Tick 预测角色、Ani 框选与指令、服务端战斗/资源/胜负，以及客户端 Hybrid 表现已经组成可运行闭环
-- 349 个业务 C# 文件全部进入 15 个自定义 asmdef，主要运行时、契约、编辑器与验证边界已经拆分
+- 350 个业务 C# 文件全部进入 15 个自定义 asmdef，主要运行时、契约、编辑器与验证边界已经拆分
 - Legacy 与 Grid 后端可互斥运行；Navigation R1～R6 复审完成，Grid Stage 1～5 自动验证通过
-- Grid Stage 6A.0～6A.3 已完成：Harness 支持 512～10000 Ani 规模输入，正式指令支持万人选择集、`MovementOrder`、有界 Movement Cohort、自然目标区域和共享 Flow Field 调度
+- Grid Stage 6A.0～6A.4 已完成：统一基准支持 512～10000 Ani 规模输入，正式指令支持万人选择集、有界导航分组、自然目标区域、共享流向场调度和并行单位移动
 
 仍在推进：
 
 - Grid 正式场景的窄门、连续窄道和动态障碍退出验收
-- 从 6A.4 开始推进并行单位移动、空间哈希、ORCA 局部避碰与世界碰撞
+- 从 6B.1 开始推进空间哈希、ORCA 局部避碰与世界碰撞
 - 资源搬运迁移、Legacy 最终隔离、Navigation namespace 整理和最终构建门禁
 
 未指定移动后端参数时，项目仍以功能完整的 Legacy NavMesh 作为默认玩法基线；Clearance Grid 需要通过 `-movement-backend=grid` 显式启用

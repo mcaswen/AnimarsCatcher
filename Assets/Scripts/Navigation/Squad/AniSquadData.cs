@@ -139,12 +139,17 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
-    /// 记录成员本帧实际采用的速度、槽位误差和提交次数
+    /// 记录成员本帧实际采用的速度、目标误差、到达状态和提交次数
     /// </summary>
     public struct AniMovementResult : IComponentData
     {
         public float3 AppliedVelocity;
         public float DistanceToSlot;
         public uint CommitCount;
+
+        // 自由移动成员用目标版本拒绝前一轮落点留下的到达结果
+        public uint TargetVersion;
+
+        public byte Settled;
     }
 }

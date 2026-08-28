@@ -14,7 +14,7 @@ using Debug = UnityEngine.Debug;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
-    /// 按固定回放创建队伍移动指令，验证到达结果并记录完整服务器帧性能
+    /// 按固定回放创建严格阵型或自由 Cohort 移动请求，并记录完整服务器帧性能
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.ServerSimulation)]
     [UpdateInGroup(typeof(AniGridCommandIngressSystemGroup))]
@@ -26,28 +26,24 @@ namespace AnimarsCatcher.Navigation.Grid
         private const int FormationColumnCount = 8;
         internal const int MaximumSettlementTicks = 600;
 
-        private EntityQuery _agentQuery;
-
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
             state.RequireForUpdate<NavigationGridBenchmarkConfig>();
             state.RequireForUpdate<NavigationGridReference>();
 
-            // 初始查询只要求基准标记和 Transform，队伍生命周期系统处理指令时会补齐移动组件
-            // EntityQuery 由 SystemState 管理，不需要在 OnDestroy 中手动释放
-            _agentQuery = state.GetEntityQuery(
-                ComponentType.ReadOnly<NavigationGridMovementBenchmarkAni>(),
-                ComponentType.ReadOnly<LocalTransform>());
         }
 
         public void OnUpdate(ref SystemState state)
         {
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
-            if (config.Workload != NavigationGridBenchmarkWorkload.StrictFormationBaseline)
+            bool supportsMovement =
+                config.Workload == NavigationGridBenchmarkWorkload.StrictFormationBaseline ||
+                config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement;
+            if (!supportsMovement)
             {
-                // PathAndField 模式由另一个基准系统处理，两个入口不会同时推进同一份状态
+                // 其他工作负载由各自的基准系统推进，不会共用移动生命周期状态
                 return;
             }
 
@@ -63,7 +59,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 // Completed 表示固定时间窗口已经结束，导出前仍要读取队伍的最新状态
                 // 结束帧后运行时又更新了一轮，因此再次确认完成状态没有回退
-                if (!TryGetTerminalState(ref state, out bool failed) || failed)
+                if (!TryGetTerminalState(ref state, config.Workload, out bool failed) || failed)
                 {
                     FailBenchmark(
                         ref state,
@@ -96,7 +92,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     return;
                 }
 
-                CreateAgents(ref state, config);
+                CreateAgents(ref state, benchmarkEntity, config);
 
                 // 先记录已经初始化，再创建指令 Entity，避免结构变化后下一帧重复生成成员
                 benchmarkState.Initialized = 1;
@@ -132,11 +128,11 @@ namespace AnimarsCatcher.Navigation.Grid
             // 帧数在末尾递增，确保第 0 帧提交的命令属于采样窗口
             if (benchmarkState.Tick >= sampleEndTick)
             {
-                bool terminal = TryGetTerminalState(ref state, out bool failed);
+                bool terminal = TryGetTerminalState(ref state, config.Workload, out bool failed);
                 if (failed)
                 {
                     // 一旦队伍进入失败状态，就保留原因并停止后续采样
-                    FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动出现失败的 Squad 路径");
+                    FailBenchmark(ref state, benchmarkEntity, "Grid 群体移动路径失败");
                     return;
                 }
 
@@ -182,32 +178,59 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private static void CreateAgents(
             ref SystemState state,
+            Entity benchmarkEntity,
             NavigationGridBenchmarkConfig config)
         {
             int count = math.max(1, config.AgentCount);
+            EntityArchetype archetype = state.EntityManager.CreateArchetype(
+                typeof(LocalTransform),
+                typeof(NavigationGridMovementBenchmarkAni));
+            using var agents = new NativeArray<Entity>(count, Allocator.Temp);
+            // 批量创建避免万人入口把重复结构变更混入第一个采样 Tick
+            state.EntityManager.CreateEntity(archetype, agents);
+            int spawnColumnCount = config.SpawnColumnCount;
+            float spawnSpacing = config.SpawnSpacing;
+            if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement &&
+                NavigationGridBenchmarkScaleProfile.IsStageSixAgentCount(count))
+            {
+                // 阶段六压力档使用近似方形的开放布局，不能沿用历史基线固定 16 列无限向外扩张
+                spawnColumnCount = (int)math.ceil(math.sqrt(count));
+                spawnSpacing = math.max(config.AgentRadius * 2f + 0.05f, 0.75f);
+            }
 
-            // 起点由共享算法生成，保证 Legacy 与 Grid 后端使用完全相同的位置
-            // 即使配置人数为 0 也至少创建一个成员，以便输出可诊断结果
             for (int agentIndex = 0; agentIndex < count; agentIndex++)
             {
                 float3 position = NavigationBenchmarkInputAlgorithms.CalculateSpawnPosition(
                     agentIndex,
                     count,
-                    config.SpawnColumnCount,
-                    config.SpawnSpacing,
+                    spawnColumnCount,
+                    spawnSpacing,
                     config.SpawnOrigin,
                     config.RandomSeed);
-                Entity aniEntity = state.EntityManager.CreateEntity(
-                    typeof(LocalTransform),
-                    typeof(NavigationGridMovementBenchmarkAni));
                 // 先把 Transform 放到固定起点，移动组件由队伍生命周期系统处理指令时添加
                 state.EntityManager.SetComponentData(
-                    aniEntity,
+                    agents[agentIndex],
                     LocalTransform.FromPositionRotation(position, quaternion.identity));
                 state.EntityManager.SetComponentData(
-                    aniEntity,
+                    agents[agentIndex],
                     // AgentIndex 用于跨运行识别同一成员，不能改用可能变化的 Entity.Index
                     new NavigationGridMovementBenchmarkAni { AgentIndex = agentIndex });
+            }
+
+            DynamicBuffer<NavigationGridMovementBenchmarkAgent> stableAgents =
+                state.EntityManager.HasBuffer<NavigationGridMovementBenchmarkAgent>(benchmarkEntity)
+                    ? state.EntityManager.GetBuffer<NavigationGridMovementBenchmarkAgent>(
+                        benchmarkEntity)
+                    : state.EntityManager.AddBuffer<NavigationGridMovementBenchmarkAgent>(
+                        benchmarkEntity);
+            stableAgents.Clear();
+            for (int agentIndex = 0; agentIndex < agents.Length; agentIndex++)
+            {
+                stableAgents.Add(new NavigationGridMovementBenchmarkAgent
+                {
+                    Ani = agents[agentIndex],
+                    StableId = agentIndex + 1,
+                });
             }
         }
 
@@ -218,7 +241,9 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationGridMovementBenchmarkState benchmarkState)
         {
             EntityManager entityManager = state.EntityManager;
-            using NativeArray<Entity> agents = GetSortedAgents(ref state);
+            using NativeArray<NavigationGridMovementBenchmarkAgent> agents =
+                SystemAPI.GetSingletonBuffer<NavigationGridMovementBenchmarkAgent>(true)
+                    .ToNativeArray(Allocator.Temp);
             if (agents.Length < config.AgentCount)
             {
                 // 实际成员少于配置值会改变工作负载，因此明确失败而不是悄悄降低规模
@@ -234,13 +259,27 @@ namespace AnimarsCatcher.Navigation.Grid
                 forward,
                 new float3(0f, 0f, 1f));
 
+            uint sequence = NextCommandSequence(ref benchmarkState);
+            if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement)
+            {
+                SubmitFreeMovementOrder(
+                    entityManager,
+                    config,
+                    agents,
+                    targetPosition,
+                    sequence,
+                    benchmarkState.Tick);
+                benchmarkState.AppliedCommandCount++;
+                return;
+            }
+
             Entity commandEntity = entityManager.CreateEntity(
                 typeof(AniSquadCommandRequest),
                 typeof(AniSquadCommand));
             // 创建 Entity 时同时写入请求标记和指令数据，避免生命周期系统读到不完整的指令
             entityManager.SetComponentData(commandEntity, new AniSquadCommand
             {
-                Sequence = NextCommandSequence(ref benchmarkState),
+                Sequence = sequence,
                 OwnerNetworkId = 1,
                 Mode = AniSquadCommandMode.MoveTo,
                 Formation = AniSquadFormationKind.CompactRectangle,
@@ -258,11 +297,11 @@ namespace AnimarsCatcher.Navigation.Grid
             for (int index = 0; index < config.AgentCount; index++)
             {
                 int stableId = entityManager
-                    .GetComponentData<NavigationGridMovementBenchmarkAni>(agents[index])
+                    .GetComponentData<NavigationGridMovementBenchmarkAni>(agents[index].Ani)
                     .AgentIndex;
                 members.Add(new AniSquadCommandMember
                 {
-                    Ani = agents[index],
+                    Ani = agents[index].Ani,
                     StableId = stableId,
                     MaxSpeed = AgentMaximumSpeed,
                     MaxAcceleration = AgentMaximumAcceleration,
@@ -274,37 +313,80 @@ namespace AnimarsCatcher.Navigation.Grid
             benchmarkState.AppliedCommandCount++;
         }
 
-        private NativeArray<Entity> GetSortedAgents(ref SystemState state)
+        private static void SubmitFreeMovementOrder(
+            EntityManager entityManager,
+            NavigationGridBenchmarkConfig config,
+            NativeArray<NavigationGridMovementBenchmarkAgent> agents,
+            float3 targetPosition,
+            uint sequence,
+            int tick)
         {
-            NativeArray<Entity> agents = _agentQuery.ToEntityArray(Allocator.Temp);
-
-            // 查询顺序会受 Archetype 和创建时机影响，不能直接用作成员固定顺序
-            for (int index = 1; index < agents.Length; index++)
+            Entity orderEntity = entityManager.CreateEntity(
+                typeof(AniMovementOrderRequest),
+                typeof(AniMovementOrder));
+            entityManager.SetComponentData(orderEntity, new AniMovementOrder
             {
-                Entity value = agents[index];
-                int valueIndex = state.EntityManager
-                    .GetComponentData<NavigationGridMovementBenchmarkAni>(value)
-                    .AgentIndex;
-                int insertion = index - 1;
-                while (insertion >= 0 &&
-                       state.EntityManager
-                           .GetComponentData<NavigationGridMovementBenchmarkAni>(agents[insertion])
-                           .AgentIndex > valueIndex)
+                Sequence = sequence,
+                OwnerNetworkId = 1,
+                SelectionVersion = sequence,
+                SelectionHash = sequence,
+                CreatedTick = unchecked((uint)math.max(0, tick)),
+                CancellationVersion = sequence,
+                Priority = 0,
+                Mode = AniSquadCommandMode.MoveTo,
+                TargetPosition = targetPosition,
+                TargetEntity = Entity.Null,
+                TargetStoppingDistance = 0.7f,
+                GoalCellCapacityScale = 1f,
+                GoalInfluenceRadius = 4f,
+            });
+            DynamicBuffer<AniMovementOrderMember> members =
+                entityManager.AddBuffer<AniMovementOrderMember>(orderEntity);
+            // 稳定引用 Buffer 已按创建编号排列，万人命令不再执行 O(N²) 插入排序
+            for (int index = 0; index < config.AgentCount; index++)
+            {
+                NavigationGridMovementBenchmarkAgent agent = agents[index];
+                members.Add(new AniMovementOrderMember
                 {
-                    agents[insertion + 1] = agents[insertion];
-                    insertion--;
-                }
-
-                agents[insertion + 1] = value;
+                    Ani = agent.Ani,
+                    GhostId = agent.StableId,
+                    MaxSpeed = AgentMaximumSpeed,
+                    MaxAcceleration = AgentMaximumAcceleration,
+                    AgentRadius = config.AgentRadius,
+                    AgentProfile = 1,
+                });
             }
-
-            // 临时成员数组交给 SubmitCommand 使用，调用方在指令创建后负责释放
-            return agents;
         }
 
-        private bool TryGetTerminalState(ref SystemState state, out bool failed)
+        private bool TryGetTerminalState(
+            ref SystemState state,
+            NavigationGridBenchmarkWorkload workload,
+            out bool failed)
         {
             failed = false;
+            if (workload == NavigationGridBenchmarkWorkload.FreeCohortMovement)
+            {
+                bool foundOrder = false;
+                foreach (RefRO<AniMovementOrderState> orderState in
+                         SystemAPI.Query<RefRO<AniMovementOrderState>>())
+                {
+                    foundOrder = true;
+                    if (orderState.ValueRO.Status == AniMovementOrderStatus.Failed)
+                    {
+                        failed = true;
+                        return true;
+                    }
+
+                    if (orderState.ValueRO.Status == AniMovementOrderStatus.Active ||
+                        orderState.ValueRO.Status == AniMovementOrderStatus.Pending)
+                    {
+                        return false;
+                    }
+                }
+
+                return foundOrder;
+            }
+
             bool foundSquad = false;
 
             // 所有队伍都必须完成或进入 Follow 等待状态，任一队伍失败都会终止基准
@@ -355,45 +437,174 @@ namespace AnimarsCatcher.Navigation.Grid
             long transformWriteCount = 0;
             int arrivedCount = 0;
             float totalFormationError = 0f;
+            int measuredAgentCount = 0;
+            int unsettledAgentCount = 0;
+            int minimumUnsettledAgentIndex = int.MaxValue;
+            int maximumUnsettledAgentIndex = -1;
+            float maximumTargetDistance = 0f;
+            uint minimumCommitCount = uint.MaxValue;
+            uint maximumCommitCount = 0;
+            var finalAgentSamples = new List<FinalAgentSample>(config.AgentCount);
+            var unsettledAgents = new List<NavigationGridMovementUnsettledAgentReport>(64);
+            NavigationGridReference gridReference = SystemAPI.GetSingleton<NavigationGridReference>();
 
             // 直接从成员结果汇总到达率和阵型误差，不再重复遍历队伍缓冲区
             // 只统计带基准标记的 Ani，不混入场景中的正式单位
-            foreach (var (transform, movementConfig, result) in
+            foreach (var (transform, result, benchmarkAni) in
                      SystemAPI.Query<
                              RefRO<LocalTransform>,
-                             RefRO<AniMovementConfig>,
-                             RefRO<AniMovementResult>>()
-                         .WithAll<NavigationGridMovementBenchmarkAni>())
+                             RefRO<AniMovementResult>,
+                             RefRO<NavigationGridMovementBenchmarkAni>>())
             {
                 positions.Add(transform.ValueRO.Position);
+                finalAgentSamples.Add(new FinalAgentSample
+                {
+                    AgentIndex = benchmarkAni.ValueRO.AgentIndex,
+                    Position = transform.ValueRO.Position,
+                });
+                measuredAgentCount++;
                 transformWriteCount += result.ValueRO.CommitCount;
                 totalFormationError += result.ValueRO.DistanceToSlot;
-                if (result.ValueRO.DistanceToSlot <= movementConfig.ValueRO.ArrivalRadius &&
-                    math.lengthsq(result.ValueRO.AppliedVelocity) <= 0.0225f)
+                maximumTargetDistance = math.max(
+                    maximumTargetDistance,
+                    result.ValueRO.DistanceToSlot);
+                minimumCommitCount = math.min(minimumCommitCount, result.ValueRO.CommitCount);
+                maximumCommitCount = math.max(maximumCommitCount, result.ValueRO.CommitCount);
+                if (result.ValueRO.Settled != 0)
                 {
                     // 到达成员必须同时靠近槽位并基本停稳，单纯经过目标不算完成
                     arrivedCount++;
                 }
+                else
+                {
+                    unsettledAgentCount++;
+                    minimumUnsettledAgentIndex = math.min(
+                        minimumUnsettledAgentIndex,
+                        benchmarkAni.ValueRO.AgentIndex);
+                    maximumUnsettledAgentIndex = math.max(
+                        maximumUnsettledAgentIndex,
+                        benchmarkAni.ValueRO.AgentIndex);
+                }
+            }
+            if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement &&
+                unsettledAgentCount > 0)
+            {
+                // 自由移动失败时才查询 Cohort 专用组件，不改变历史严格阵型的通用统计
+                foreach (var (transform, result, benchmarkAni, goal, membership, movementConfig) in
+                         SystemAPI.Query<
+                             RefRO<LocalTransform>,
+                             RefRO<AniMovementResult>,
+                             RefRO<NavigationGridMovementBenchmarkAni>,
+                             RefRO<AniGoalAssignment>,
+                             RefRO<AniMovementCohortMembership>,
+                             RefRO<AniMovementConfig>>())
+                {
+                    if (result.ValueRO.Settled == 0)
+                    {
+                        unsettledAgents.Add(BuildUnsettledAgentReport(
+                            state.EntityManager,
+                            ref gridReference.Value.Value,
+                            transform.ValueRO,
+                            result.ValueRO,
+                            benchmarkAni.ValueRO,
+                            goal.ValueRO,
+                            membership.ValueRO,
+                            movementConfig.ValueRO));
+                    }
+                }
+            }
+            if (measuredAgentCount == 0)
+            {
+                minimumCommitCount = 0;
+            }
+            if (unsettledAgentCount == 0)
+            {
+                minimumUnsettledAgentIndex = -1;
             }
 
-            // 寻路请求按队伍汇总，用于确认一条队伍指令只创建一份寻路上下文
+            // 最终位置按稳定编号排序后计算，Entity 查询顺序不会影响跨运行 Hash
+            finalAgentSamples.Sort(
+                (left, right) => left.AgentIndex.CompareTo(right.AgentIndex));
+            ulong finalPositionHash = 14695981039346656037UL;
+            for (int index = 0; index < finalAgentSamples.Count; index++)
+            {
+                FinalAgentSample sample = finalAgentSamples[index];
+                finalPositionHash = MixFinalPositionHash(
+                    finalPositionHash,
+                    sample.AgentIndex);
+                finalPositionHash = MixFinalPositionHash(
+                    finalPositionHash,
+                    (int)math.round(sample.Position.x * 1000f));
+                finalPositionHash = MixFinalPositionHash(
+                    finalPositionHash,
+                    (int)math.round(sample.Position.z * 1000f));
+            }
+
+            bool freeMovement =
+                config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement;
             int squadCount = 0;
+            int cohortCount = 0;
             int pathRequestCount = 0;
             int pathSuccessCount = 0;
             int pathFailureCount = 0;
             int cacheHitCount = 0;
-            // PathState 只挂在队伍 Entity 上，因此这些计数本身就是按队汇总的
-            foreach (RefRO<AniSquadPathState> pathState in
-                     SystemAPI.Query<RefRO<AniSquadPathState>>())
+            int awaitingCohortCount = 0;
+            int movingCohortCount = 0;
+            int holdingCohortCount = 0;
+            int completedCohortCount = 0;
+            int failedCohortCount = 0;
+            if (freeMovement)
             {
-                squadCount++;
-                pathRequestCount += pathState.ValueRO.FieldRequestCount;
-                pathSuccessCount += pathState.ValueRO.SuccessfulFieldRequestCount;
-                pathFailureCount += pathState.ValueRO.FailedFieldRequestCount;
-                cacheHitCount += pathState.ValueRO.CacheHitCount;
+                // 正式链路按 Cohort 汇总请求，构建次数由共享 Field 调度器另行记录
+                foreach (RefRO<AniMovementCohortPathState> pathState in
+                         SystemAPI.Query<RefRO<AniMovementCohortPathState>>())
+                {
+                    cohortCount++;
+                    pathRequestCount += pathState.ValueRO.FieldRequestCount;
+                    pathSuccessCount += pathState.ValueRO.SuccessfulFieldRequestCount;
+                    pathFailureCount += pathState.ValueRO.FailedFieldRequestCount;
+                    cacheHitCount += pathState.ValueRO.CacheHitCount;
+                    switch (pathState.ValueRO.Status)
+                    {
+                        case AniMovementCohortStatus.AwaitingPath:
+                            awaitingCohortCount++;
+                            break;
+                        case AniMovementCohortStatus.Moving:
+                            movingCohortCount++;
+                            break;
+                        case AniMovementCohortStatus.Holding:
+                            holdingCohortCount++;
+                            break;
+                        case AniMovementCohortStatus.Completed:
+                            completedCohortCount++;
+                            break;
+                        case AniMovementCohortStatus.Failed:
+                            failedCohortCount++;
+                            break;
+                    }
+                }
+            }
+            else
+            {
+                foreach (RefRO<AniSquadPathState> pathState in
+                         SystemAPI.Query<RefRO<AniSquadPathState>>())
+                {
+                    squadCount++;
+                    pathRequestCount += pathState.ValueRO.FieldRequestCount;
+                    pathSuccessCount += pathState.ValueRO.SuccessfulFieldRequestCount;
+                    pathFailureCount += pathState.ValueRO.FailedFieldRequestCount;
+                    cacheHitCount += pathState.ValueRO.CacheHitCount;
+                }
             }
 
-            float minimumUnitSpacing = StatisticsMath.CalculateMinimumPairwiseDistance(positions);
+            // 万人自由移动在 ORCA 接入前不执行 O(N²) 间距统计，避免导出阶段冻结服务器
+            float minimumUnitSpacing = freeMovement
+                ? -1f
+                : StatisticsMath.CalculateMinimumPairwiseDistance(positions);
+            bool transformWriteCountMatches =
+                measuredAgentCount == config.AgentCount &&
+                minimumCommitCount == maximumCommitCount &&
+                transformWriteCount == (long)measuredAgentCount * minimumCommitCount;
 
             // 复制并排序样本用于计算百分位，原始顺序仍写入 JSON 以定位具体帧尖峰
             DynamicBuffer<NavigationGridMovementBenchmarkTimingSample> samples =
@@ -425,10 +636,12 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 // FormatVersion 用于以后扩展字段时选择兼容的解析方式
                 // 报告只包含普通值，不序列化 Entity 或 NativeContainer
-                FormatVersion = 5,
+                FormatVersion = 7,
                 Backend = AniMovementBackend.ClearanceGrid.ToString(),
-                Workload = NavigationGridBenchmarkWorkload.StrictFormationBaseline.ToString(),
-                PerformanceGateEligible = false,
+                Workload = config.Workload.ToString(),
+                PerformanceGateEligible = freeMovement &&
+                                          NavigationGridBenchmarkScaleProfile
+                                              .IsStageSixAgentCount(config.AgentCount),
                 BudgetVersion = NavigationGridBenchmarkScaleProfile.BudgetVersion,
                 SystemTimingCoverage = "记录完整 Server Tick，不含逐 System Worker 时间",
                 WorkerTimingAvailable = false,
@@ -459,11 +672,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 FailureReason = benchmarkState.FailureReason.ToString(),
                 AppliedCommandCount = benchmarkState.AppliedCommandCount,
                 SquadCount = squadCount,
+                CohortCount = cohortCount,
                 PathRequestCount = pathRequestCount,
                 PathSuccessCount = pathSuccessCount,
                 PathFailureCount = pathFailureCount,
                 CacheHitCount = cacheHitCount,
                 ArrivedCount = arrivedCount,
+                UnsettledAgentCount = unsettledAgentCount,
+                MinimumUnsettledAgentIndex = minimumUnsettledAgentIndex,
+                MaximumUnsettledAgentIndex = maximumUnsettledAgentIndex,
+                MaximumTargetDistance = maximumTargetDistance,
+                UnsettledAgents = unsettledAgents.ToArray(),
+                FinalPositionHash = $"{finalPositionHash:X16}",
                 ArrivalRate = config.AgentCount == 0
                     ? 0f
                     : (float)arrivedCount / config.AgentCount,
@@ -472,6 +692,14 @@ namespace AnimarsCatcher.Navigation.Grid
                     ? 0f
                     : totalFormationError / positions.Count,
                 TransformWriteCount = transformWriteCount,
+                MinimumCommitCount = minimumCommitCount,
+                MaximumCommitCount = maximumCommitCount,
+                TransformWriteCountMatches = transformWriteCountMatches,
+                AwaitingCohortCount = awaitingCohortCount,
+                MovingCohortCount = movingCohortCount,
+                HoldingCohortCount = holdingCohortCount,
+                CompletedCohortCount = completedCohortCount,
+                FailedCohortCount = failedCohortCount,
                 ServerTickP50Milliseconds =
                     StatisticsMath.CalculateNearestRankPercentile(sortedTickMilliseconds, 0.50),
                 ServerTickP95Milliseconds =
@@ -503,8 +731,9 @@ namespace AnimarsCatcher.Navigation.Grid
                 TimestampUtc = DateTime.UtcNow.ToString("O"),
                 TickMilliseconds = tickMilliseconds,
                 MainThreadAllocatedBytes = allocatedBytes,
-                Notes =
-                    "严格矩形阵型历史基线，不包含自由 Cohort、ORCA、世界碰撞或受阻恢复",
+                Notes = freeMovement
+                    ? "自由 Cohort 与并行单位移动，不包含 ORCA、世界碰撞或受阻恢复"
+                    : "严格矩形阵型历史基线，不包含自由 Cohort、ORCA、世界碰撞或受阻恢复",
             };
 
             string directory = Path.GetFullPath("BenchmarkResults/GridNavigation");
@@ -517,8 +746,9 @@ namespace AnimarsCatcher.Navigation.Grid
             // 文件名包含 Ani 数量和 UTC 时间，便于并列归档不同后端结果
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
             Debug.Log(
-                $"[NavigationBenchmark] Grid 群体移动结果已生成：" +
-                $"到达={arrivedCount}/{config.AgentCount}，结果={path}");
+                $"[NavigationBenchmark] Grid {config.Workload} 结果已生成：" +
+                $"到达={arrivedCount}/{config.AgentCount}，提交一致={transformWriteCountMatches}，" +
+                $"结果={path}");
         }
 
         private static FlowSchedulerReport BuildFlowSchedulerReport(
@@ -572,6 +802,74 @@ namespace AnimarsCatcher.Navigation.Grid
                 0,
                 sortedValues.Length - 1);
             return sortedValues[index];
+        }
+
+        private static ulong MixFinalPositionHash(ulong hash, int value)
+        {
+            hash ^= unchecked((uint)value);
+            return hash * 1099511628211UL;
+        }
+
+        private static NavigationGridMovementUnsettledAgentReport BuildUnsettledAgentReport(
+            EntityManager entityManager,
+            ref NavigationGridBlob grid,
+            LocalTransform transform,
+            AniMovementResult result,
+            NavigationGridMovementBenchmarkAni benchmarkAni,
+            AniGoalAssignment goal,
+            AniMovementCohortMembership membership,
+            AniMovementConfig movementConfig)
+        {
+            bool hasCurrentCell = NavigationGridQuery.TryWorldToCell(
+                ref grid,
+                transform.Position,
+                out _,
+                out int currentCellIndex);
+            bool canApproachDirectly = hasCurrentCell &&
+                                       NavigationGridQuery.TryCalculateLineCost(
+                                           ref grid,
+                                           currentCellIndex,
+                                           goal.TargetCellIndex,
+                                           movementConfig.AgentRadius,
+                                           0.05f,
+                                           0.2f,
+                                           out _);
+            Entity cohortEntity = membership.Cohort;
+            NavigationFlowFieldState fieldState =
+                entityManager.HasComponent<NavigationFlowFieldState>(cohortEntity)
+                    ? entityManager.GetComponentData<NavigationFlowFieldState>(cohortEntity)
+                    : default;
+            Entity fieldEntity = entityManager.HasComponent<NavigationFlowFieldHandle>(cohortEntity)
+                ? entityManager.GetComponentData<NavigationFlowFieldHandle>(cohortEntity).Record
+                : cohortEntity;
+            bool hasField = fieldEntity != Entity.Null &&
+                            entityManager.HasBuffer<NavigationFlowFieldCell>(fieldEntity);
+            DynamicBuffer<NavigationFlowFieldCell> field = hasField
+                ? entityManager.GetBuffer<NavigationFlowFieldCell>(fieldEntity, true)
+                : default;
+            bool currentCellInField = hasCurrentCell && hasField &&
+                                      AniMovementCohortAlgorithms.TryGetFlowDirection(
+                                          field,
+                                          currentCellIndex,
+                                          out _);
+
+            // 失败报告只保留未到达成员的最终快照，不会污染正式计时窗口
+            return new NavigationGridMovementUnsettledAgentReport
+            {
+                AgentIndex = benchmarkAni.AgentIndex,
+                CohortId = membership.CohortId,
+                Position = transform.Position,
+                TargetPosition = goal.TargetPosition,
+                AppliedVelocity = result.AppliedVelocity,
+                DistanceToTarget = result.DistanceToSlot,
+                CurrentCellIndex = hasCurrentCell ? currentCellIndex : -1,
+                TargetCellIndex = goal.TargetCellIndex,
+                ProjectedStartCellIndex = fieldState.ProjectedStartCellIndex,
+                ProjectedEndCellIndex = fieldState.ProjectedEndCellIndex,
+                FieldCellCount = hasField ? field.Length : 0,
+                CurrentCellInField = currentCellInField,
+                CanApproachDirectly = canApproachDirectly,
+            };
         }
 
         private NavigationGridMovementBenchmarkStateTraceReport[] BuildStateTraceReport(
@@ -729,15 +1027,30 @@ namespace AnimarsCatcher.Navigation.Grid
             public string FailureReason;
             public int AppliedCommandCount;
             public int SquadCount;
+            public int CohortCount;
             public int PathRequestCount;
             public int PathSuccessCount;
             public int PathFailureCount;
             public int CacheHitCount;
             public int ArrivedCount;
+            public int UnsettledAgentCount;
+            public int MinimumUnsettledAgentIndex;
+            public int MaximumUnsettledAgentIndex;
+            public float MaximumTargetDistance;
+            public NavigationGridMovementUnsettledAgentReport[] UnsettledAgents;
+            public string FinalPositionHash;
             public float ArrivalRate;
             public float MinimumUnitSpacing;
             public float AverageFormationError;
             public long TransformWriteCount;
+            public uint MinimumCommitCount;
+            public uint MaximumCommitCount;
+            public bool TransformWriteCountMatches;
+            public int AwaitingCohortCount;
+            public int MovingCohortCount;
+            public int HoldingCohortCount;
+            public int CompletedCohortCount;
+            public int FailedCohortCount;
             public double ServerTickP50Milliseconds;
             public double ServerTickP95Milliseconds;
             public double ServerTickP99Milliseconds;
@@ -777,6 +1090,30 @@ namespace AnimarsCatcher.Navigation.Grid
             public int SharedHitCount;
             public int StoreRecordCount;
             public long StoreByteCount;
+        }
+
+        private struct FinalAgentSample
+        {
+            public int AgentIndex;
+            public float3 Position;
+        }
+
+        [Serializable]
+        private sealed class NavigationGridMovementUnsettledAgentReport
+        {
+            public int AgentIndex;
+            public uint CohortId;
+            public float3 Position;
+            public float3 TargetPosition;
+            public float3 AppliedVelocity;
+            public float DistanceToTarget;
+            public int CurrentCellIndex;
+            public int TargetCellIndex;
+            public int ProjectedStartCellIndex;
+            public int ProjectedEndCellIndex;
+            public int FieldCellCount;
+            public bool CurrentCellInField;
+            public bool CanApproachDirectly;
         }
 
         [Serializable]

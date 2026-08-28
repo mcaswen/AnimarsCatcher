@@ -342,6 +342,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 slotTarget.Update(world.Unmanaged);
                 preferredVelocity.Update(world.Unmanaged);
                 commit.Update(world.Unmanaged);
+                // 手动驱动系统不会像正式系统组那样传递依赖，读取移动结果前先等待提交 Job
+                entityManager.CompleteAllTrackedJobs();
                 progress.Update(world.Unmanaged);
 
                 NavigationGridMovementBenchmarkState state =
