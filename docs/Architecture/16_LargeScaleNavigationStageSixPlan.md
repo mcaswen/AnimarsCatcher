@@ -11,6 +11,7 @@
 - **导航走廊（Corridor）**：从起点 Cluster 到目标 Cluster 经过的分块与 Portal 序列
 - **可通行余量（Clearance）**：Cell 或 Portal 距离最近障碍还剩多少可用空间
 - **流向场（Flow Field）**：为 Corridor 内 Cell 保存朝向目标的局部移动方向
+- **目标流向场（Goal Flow Field）**：以目标为中心反向构建、允许不同起点共享并按空间分块扩张的流向数据
 - **动态覆盖层（Overlay）**：运行时障碍对 Grid 通行状态和成本产生的增量修改
 - **分层寻路（HPA）**：先在 Cluster 和 Portal 组成的抽象图上找走廊，再计算局部路径
 - **移动请求（MovementOrder、`AniMovementOrder`）**：玩家一次完整移动意图及其成员快照
@@ -29,7 +30,7 @@
 - [Grid 移动实现阶段与验收标准](10_GridMovementStagesAndAcceptance.md)
 - [Navigation R1～R6 执行与验收](15_NavigationArchitectureRefactorExecutionPlan.md)
 
-> 状态：阶段 6A.0～6A.4 已完成；下一步为 6B.1 原生内存空间哈希
+> 状态：阶段 6A.0～6A.4 已完成功能实现；万人完整回放未通过性能门禁，下一步为阻断 6B 的 6A.5 目标流向场共享与性能修复
 >
 > 目标：在服务器 World（Server World）支持最多 10000 个同时参与导航的 Ani，并保留确定性输入、异步寻路、零托管分配和唯一 Transform 写入边界
 >
@@ -61,12 +62,12 @@
 | 命令到 Cohort | 正式 Grid 入口只生成 `MovementOrder`，再按 Agent Profile、起始 Cluster、Morton Key 和 StableId 切分 Cohort | 默认容量 64、硬上限 128，万人请求不会进入旧 Squad 或生成双份成员 Buffer |
 | 目标分布 | 目标区域按可通行 Cell、体型容量和稳定成员顺序分配独立落点 | 正式 Pipeline 不再创建矩形列数、职责槽位或 Hungarian 成本矩阵 |
 | 历史 Squad | Stage 4～5 的严格阵型 System 和 Benchmark 入口继续保留 | 只用于行为回归和旧报告对照，不消费正式 MovementOrder |
-| Flow Field 调度 | `ServerNavigationGridFlowFieldSystem` 每批最多 16 个请求，单个 `IJob` 内顺序处理 | 多 Cohort 或多目标突发时排队延迟不可控 |
-| Flow Field 所有权 | 缓存命中后仍复制 Field 到每个 Squad Buffer；缓存最多 64 项并按整代清理 | 相同路线重复占用内存，多目标时容易缓存抖动 |
+| Flow Field 调度 | 正式 Cohort 已使用共享 Store、最多 8 个并行工作区和确定性发布，但 6A.4 万人回放仍为 251 个 Cohort 的四轮请求构建 938 份 Field | 构建批次长期占满 Worker，Server Tick P95 达到 `3016.4815 ms`，必须在加入 ORCA 前修复 |
+| Flow Field 所有权 | Record 与 Handle 已避免结果 Buffer 复制，但 Key 仍包含精确起点 Cell，万人回放共享命中为 0 | 相同目标因 Cohort 起点不同被拆成近千份重复结果，Store 只有共享机制而没有形成有效共享粒度 |
 | 单位移动 | 正式 Cohort 的期望速度、位移提交、成员进度和请求进度已改为并行 Job，历史 Squad 的逐成员速度与位移提交也使用同一并行边界 | 万人移动内核已验证零托管分配，空间哈希、ORCA 和世界碰撞仍待 6B 实现 |
 | 动态 Overlay | Path 或 Flow Job 读取 Overlay 时，`NavigationDynamicOverlaySystem` 延迟写入 | 持续寻路负载可能增加动态障碍生效延迟 |
 | 拥挤处理 | 当前 Stage 4 Benchmark 明确不包含 ORCA、世界碰撞或受阻恢复 | 开阔地到达不能证明窄路、交叉和高密度场景可用 |
-| 验收规模 | 6A.2 已验证万人 Cohort 切分与 32、64、128、512 自由移动到达，6A.4 已验证 10000 Ani 并行移动内核 | 含空间哈希、ORCA 和世界碰撞的万人完整导航报告仍待 6B～6C 补齐 |
+| 验收规模 | 6A.2 已验证万人 Cohort 切分与 32、64、128、512 自由移动到达，6A.4 已验证 10000 Ani 并行移动功能 | 万人完整回放虽然全部到达，但严重超出冻结预算；6A.5 性能修复通过前不得进入 6B |
 
 这些限制要求先改规模模型，再实现 ORCA。如果直接在现有“一个大 Squad + 固定槽位”上完成旧版阶段六，之后仍需重做空间哈希分组、邻居语义、到达判定和 Field 所有权。
 
@@ -79,7 +80,8 @@
     -> 服务器选择集版本
     -> MovementOrder
     -> 确定性拆分 MovementCohort
-    -> Field 请求归并与预算调度
+    -> 直达判定或起点 Cluster 通道解析
+    -> 目标流向场分块归并与预算调度
     -> 共享 FlowFieldHandle
     -> Ani Flow 期望速度 + 目标区域吸引
     -> Native 空间哈希
@@ -116,7 +118,7 @@
 2. 将单位当前位置转换成 Grid Cell 或 Cluster
 3. 按 Cluster、Morton Key 和 StableId 排序
 4. 每 64 个成员切成一个 Cohort，尾组不得重复或丢失成员
-5. 起点相近且目标、体型和 Corridor Key 相同的 Cohort 共享同一个 Field Handle
+5. 直达可行的 Cohort 不请求 Field；需要绕障碍时，相同目标和通行配置的 Cohort 共享目标流向场，起点只决定通道与所需覆盖范围
 
 Cohort 保存代表性起点、目标、成员范围、Field Handle、重规划状态和进度聚合。它不保存矩形列数、职责槽位或可见队形，也不要求成员保持相对顺序。
 
@@ -160,7 +162,9 @@ NavigationFlowFieldRecord
     RefCount / LastUsedTick / ByteSize
 ```
 
-Store 由 Grid Data Hash 隔离，Grid 换代时整体清空；Record 的 Overlay 签名只覆盖实际 Corridor 经过的 Cluster。同一个 Key 在同一时刻最多存在一个构建任务，所有等待的 Cohort 在确定性发布阶段取得同一 Handle，不再把完整 Field 复制进各自 DynamicBuffer。当前 Key 保守地包含精确投影起点，不会把不同起点 Cell 仅因最终 Corridor 相同而强行合并。
+Store 由 Grid Data Hash 隔离，Grid 换代时整体清空；Record 的 Overlay 签名只覆盖实际 Corridor 经过的 Cluster。同一个 Key 在同一时刻最多存在一个构建任务，所有等待的 Cohort 在确定性发布阶段取得同一 Handle，不再把完整 Field 复制进各自 DynamicBuffer。
+
+6A.4 万人回放证明当前 Key 中的精确投影起点会破坏实际共享：251 个 Cohort 的四轮请求产生 938 次唯一构建，`SharedFieldHitCount=0`。6A.5 必须把起点相关的 Corridor 或覆盖范围与目标相关的 Integration、Direction 数据拆开。目标流向场 Key 不再包含精确起点 Cell；不同起点通过起点 Cluster、目标 Cluster 和所需 Field Tile 绑定到同一目标 Record，缺少的覆盖分块按需扩张，不能重建已有目标数据。
 
 缓存每 Tick 为有效 Record 建立哈希索引，并按明确的字节预算淘汰最久未使用且无引用的完整 Record，不再固定为 64 项后整代清空。动态 Overlay 继续按 Corridor 涉及的 Cluster 版本失效，不允许无关分块变化使所有 Field 重建。
 
@@ -188,9 +192,9 @@ Store 由 Grid Data Hash 隔离，Grid 换代时整体清空；Record 的 Overla
 4. `NavigationDynamicOverlaySnapshotSystem`：完成写缓冲并在安全 Tick 边界交换只读快照
 5. `AniCohortTargetResolveSystem`：解析 MoveTo、Follow 和 Find 的当前目标
 6. `AniGoalRegionAssignmentSystem`：投影共享终点，并只在命令、目标区域或成员版本变化时更新落点
-7. `NavigationFlowFieldRequestCollectSystem`：使用目标区域中心收集、归并、排序并按预算选择唯一 Field Key
-8. `NavigationFlowFieldBuildSystem`：使用独立 Scratch 并行构建 Corridor 与 Field
-9. `NavigationFlowFieldPublishSystem`：串行提交缓存记录和 Handle，丢弃过期版本
+7. `NavigationFlowFieldRequestCollectSystem`：先识别可安全直达的 Cohort，再按目标、通行配置和缺失覆盖分块归并请求
+8. `NavigationFlowFieldBuildSystem`：使用可复用工作区并行解析 Corridor 或扩张目标流向场，不重复构建已有 Tile
+9. `NavigationFlowFieldPublishSystem`：按目标 Record 和稳定 Tile 顺序提交结果与 Handle，丢弃过期版本
 10. `AniNeighborGridBuildSystem`：构建 Native 空间哈希和稳定邻居切片
 11. `AniPreferredVelocitySystem`：并行计算 Flow、目标区域和制动速度
 12. `AniLocalAvoidanceSystem`：并行求解有限邻居 ORCA 约束
@@ -349,7 +353,7 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 
 ### 6A.4 单位移动任务化（Job 化）
 
-状态：已完成，2026-08-25 已通过 Unity Batch Mode 专项验收和 Stage 3、Stage 4、6A.2、6A.3 回归
+状态：功能实现已完成，2026-08-25 已通过 Unity Batch Mode 专项验收和 Stage 3、Stage 4、6A.2、6A.3 回归；万人完整回放未通过性能门禁
 
 交付物：
 
@@ -375,10 +379,52 @@ Field 构建 Job 不能直接并发修改共享缓存。并行阶段只写每个
 - Ani 离开 Cohort 稀疏 Field 覆盖且尚未进入目标影响半径时，会在直达可行时直接朝个人落点移动，避免同时缺少 Flow 方向和目标吸引而陷入零速度死区
 - 万人移动内核在空 Field 与目标影响半径外连续两轮完成 128 个 Tick，每名 Ani 的 Transform 提交次数均为 128，最终位置 Hash 均为 `302B5AE3CAFBB4A5`，采样窗口主线程托管分配为 `0 B`
 - 完整 `FreeCohortMovement` 回放通过功能验收：10000/10000 Ani 到达，251/251 个 Cohort 完成，251/251 份路径成功，每名 Ani 提交 1320 次，未到达快照为空，主线程分配 P50/P95/P99 均为 `0 B`
-- 完整回放的 Server Tick P50/P95/P99 分别为 `49.1975 ms`、`3016.4815 ms`、`3641.0771 ms`，请求排队等待 P95 为 57 Tick，共产生 938 次唯一 Field 构建；功能已通过但性能未达冻结预算，低复用 Field 构建与排队尖峰必须在 6C 门禁前治理
-- 该专项证明并行移动、提交边界和进度归约满足 6A.4，不代表尚未实现的空间哈希、ORCA 与世界碰撞已经通过万人门禁
+- 完整回放的 Server Tick P50/P95/P99 分别为 `49.1975 ms`、`3016.4815 ms`、`3641.0771 ms`，请求排队等待 P95 为 57 Tick，共产生 938 次唯一 Field 构建且共享命中为 0；功能已通过但性能失败
+- 该专项只证明并行移动、提交边界和进度归约满足 6A.4 的功能条件；性能失败必须由 6A.5 修复，不能推迟到 6C，也不能在此基线上叠加 ORCA
+
+### 6A.5 目标流向场共享与性能修复
+
+状态：待实现；本阶段是 6B.1 的强制前置门禁
+
+问题基线：
+
+- 10000 Ani 被拆成 251 个 Cohort，四轮移动请求最多形成 1004 份 Cohort 寻路需求，当前实际构建 938 份 Field
+- `NavigationFlowFieldKey` 包含精确 `StartCellIndex`，相同目标和通行配置无法跨起点共享，完整回放的共享命中数为 0
+- 938 次构建分别重复执行 Corridor、Integration 和 Direction 计算，每份构建还在 Worker 内创建并释放多组临时 Native 容器
+- 720 个采样 Tick 中有 106 个超过 2 秒，NetCode 持续触发 Tick Batching；增加并发只能同时执行更多重复工作，不能解决根因
+
+交付物：
+
+- 将起点相关的 Corridor 或覆盖需求与目标相关的 Integration、Direction 数据拆成独立所有权
+- 新增不包含精确起点 Cell 的目标流向场 Key，至少由目标 Cell、通行体型档位、成本配置和 Grid 版本确定共享身份
+- 目标流向场按 Cluster 或固定 Tile 保存覆盖范围；新起点只补建缺失 Tile，不重建已有目标区域
+- 为 Cohort 保存直达、等待覆盖、使用目标场和失败等明确路线模式；开阔地由 Cohort 级可达验证直接进入目标吸引，不提交 Field 构建
+- 将 Field Job 中按请求创建的临时 Native 容器改为按并发槽位长期复用的工作区，稳定负载不发生逐请求原生容器创建和销毁
+- 调度器同时限制构建数量和 Worker 时间预算，保留服务器模拟所需 Worker，不允许 Field 批次长期占满全部工作线程
+- 报告新增 Corridor 解析数、目标 Record 数、覆盖 Tile 构建与复用数、直达 Cohort 数、单次构建 Worker 时间和每 Tick Field 关键路径时间
+- 局部 Overlay 只使相交的覆盖 Tile 失效；目标 Record 的其他 Tile、无关 Corridor 和活动 Handle 保持有效
+
+实现顺序：
+
+1. 先补齐 6A.3 与 6A.4 的同机性能分段，分别记录请求收集、Corridor、Integration、Direction、发布和单位移动耗时
+2. 建立目标 Record 与覆盖 Tile 数据模型，保留旧 Record 作为严格回归入口，不在一次提交中同时删除旧路径
+3. 接入 Cohort 级直达模式和目标场按需扩张，再移除正式 Cohort 对精确起点 Field Key 的依赖
+4. 复用构建工作区并加入 Worker 时间预算，最后执行高复用、低复用和局部 Overlay 专项
+
+退出条件：
+
+- 10000 Ani 开阔地同目标回放使用直达模式，Field 构建数为 0，10000/10000 Ani 在固定窗口内到达
+- 10000 Ani 障碍绕行高复用场景的构建数随唯一目标、体型档位和新增覆盖 Tile 增长，不随 251 个 Cohort 线性增长；同一覆盖 Tile 只能构建一次
+- 多起点共享专项必须出现有效共享命中，目标 Record 数不得退化为 Cohort 数；报告能够区分 Record 命中和 Tile 命中
+- 局部 Overlay 变化只重建相交 Tile，重复发布相同版本不产生构建，解除障碍后结果可恢复且 Hash 稳定
+- 采样期不发生逐请求原生容器创建和销毁，托管分配 P50/P95/P99 均为 `0 B`，可归属 Native 内存不超过 `512 MiB`
+- 高复用和低复用两类 10000 Ani `FreeCohortMovement` 都满足 `Stage6A0-60Hz-v1`：Server Tick P95 不超过 `16.667 ms`、P99 不超过 `20.000 ms`、Navigation Worker 关键路径 P95 不超过 `8.000 ms`、请求排队 P95 不超过 4 Tick
+- 相同输入连续运行的目标 Record、覆盖 Tile、最终位置和终态 Hash 一致，Stage 3、Stage 4、6A.2、6A.3、6A.4 全部回归通过
+- 任一性能门禁失败时 6A.5 保持未完成，Benchmark Runner 返回非零退出码，禁止开始 6B.1
 
 ## 6. 阶段 6B：避碰、世界碰撞与恢复
+
+前置条件：6A.5 的全部退出条件已经通过。空间哈希和 ORCA 不得用于掩盖 Field 构建尖峰，也不得在失败基线上继续叠加 Worker 负载。
 
 ### 6B.1 原生内存空间哈希（Native）
 
@@ -445,7 +491,7 @@ Grid 和 Clearance 继续承担常规静态约束。Collider Cast 只用于高�
 | 规模 | 必测用途 |
 |---:|---|
 | 32、64、128 | 与现有 Stage 4～5 固定回放做功能回归 |
-| 512 | Cohort 拆分、目标区域和基础并行移动 |
+| 512 | Cohort 拆分、目标区域、基础并行移动和目标场共享回归 |
 | 1000 | 多 Cohort 共享目标、正面交叉和空间哈希 |
 | 2500 | 多目标、动态目标和局部 Overlay 失效 |
 | 5000 | 窄口汇流、缓存压力和受阻恢复 |
@@ -499,7 +545,7 @@ Grid 和 Clearance 继续承担常规静态约束。Collider Cast 只用于高�
 
 - 运行时路径、目标分散、邻居、ORCA、碰撞和移动采样期零托管 GC
 - 不存在随总 Ani 数平方增长的成本矩阵、邻居数组或 Field 副本
-- 搜索构建次数随唯一 Field Key 增长，不随 Ani 数线性增长
+- Corridor 解析随唯一通道需求增长，目标场构建随唯一目标、体型档位和新增覆盖 Tile 增长，不随 Ani 或 Cohort 数线性增长
 - 主线程不执行同步 A*、Corridor、Integration 或逐 Ani 世界碰撞循环
 - 邻居和 ORCA 成本受最大邻居数约束
 - Overlay、Field 淘汰和 Cohort 拆分没有周期性长尖峰
@@ -524,6 +570,7 @@ S6A-1 server selection set and movement order
 S6A-2 cohort partition and goal region
 S6A-3 shared field store and scheduler
 S6A-4 parallel unit movement
+S6A-5 goal field sharing and performance repair
 S6B-1 spatial hash
 S6B-2 ORCA avoidance
 S6B-3 world collision
@@ -535,10 +582,11 @@ S6C   512 to 10000 acceptance and reports
 
 1. 每个提交都必须可以独立编译，并保留上一个已通过的 Benchmark 入口
 2. 当前严格阵型链路保留为 Stage 4～5 回归入口，正式 MovementOrder 只进入 Cohort，不能在同一 World 双写 Transform
-3. 共享 Field Store 上线前保留当前缓存实现作为回归对照，不在同一提交同时更换调度、缓存和 Overlay 所有权
-4. ORCA、世界碰撞和 Commit 分开提交，任一阶段失败时可以回到上一层安全速度
-5. 不修改或删除 Legacy Benchmark，不把阶段六的优化反向移植到 Legacy
-6. 修改已有 Unity 脚本路径时保留 `.meta` GUID；新增验证入口进入 Navigation Validation 或 Benchmark 程序集
+3. 6A.5 保留精确起点 Record 作为短期回归对照，目标 Record、覆盖 Tile、直达模式和工作区复用分步提交
+4. 6A.5 性能门禁未通过时不得提交 6B.1，不能用后续空间哈希或 ORCA 掩盖已有 Field 尖峰
+5. ORCA、世界碰撞和 Commit 分开提交，任一阶段失败时可以回到上一层安全速度
+6. 不修改或删除 Legacy Benchmark，不把阶段六的优化反向移植到 Legacy
+7. 修改已有 Unity 脚本路径时保留 `.meta` GUID；新增验证入口进入 Navigation Validation 或 Benchmark 程序集
 
 ## 10. 非目标与后续阶段
 
@@ -557,7 +605,7 @@ S6C   512 to 10000 acceptance and reports
 
 只有同时满足以下条件，阶段六才可以标记完成：
 
-- 6A、6B、6C 的退出条件全部通过
+- 6A.0～6A.5、6B、6C 的退出条件全部通过
 - 现有 32、64、128 回归没有无法解释的正确性退化
 - 10000 Ani 的高复用和低复用导航负载都具备完整报告
 - 正式 Grid Pipeline 不再依赖严格阵型、职责槽位或 Hungarian 匹配

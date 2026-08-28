@@ -102,7 +102,7 @@ Grid 后端已完成 Stage 1～5 自动验收，并在 Navigation R6 中通过�
 - `NavigationGridStageOneValidation` 至 `NavigationGridStageFiveValidation` 覆盖烘焙、路径、Flow Field、Squad、自适应阵型和动态 Overlay；R6 额外覆盖动态 Corridor、Bellman 后继、缓存换代和终态稳定性
 - `ServerNavigationGridBenchmarkSystem`、`ServerNavigationGridMovementBenchmarkSystem` 与 `ServerNavigationGridScaleInputBenchmarkSystem` 分别提供 Path/Field、严格阵型历史基线和阶段六规模输入工作负载，固定窗口结果写入 `BenchmarkResults/GridNavigation`
 
-固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥由启动配置与 Guard 保证；未指定参数时仍使用 Legacy，Grid 通过 `-movement-backend=grid` 显式启用。阶段六已经完成 6A.0～6A.4，包括规模输入、MovementOrder、正式 Cohort、自然目标区域、共享 Field 调度和并行单位移动；空间哈希、ORCA 和选择性世界碰撞尚未实现。阶段七资源迁移和正式后端切换同样尚未实现。
+固定烘焙验收场景位于 `Assets/Scenes/Benchmarks/SCN_GridBakeStage1.unity`，对应资产位于 `Assets/SO/Navigation/SO_NavigationGrid_SCN_GridBakeStage1.asset`。算法验收使用运行时相同 Blob 与 Job 构造合成地图，不依赖场景对象。后端互斥由启动配置与 Guard 保证；未指定参数时仍使用 Legacy，Grid 通过 `-movement-backend=grid` 显式启用。阶段六已经完成 6A.0～6A.4 的功能实现，包括规模输入、MovementOrder、正式 Cohort、自然目标区域、共享 Field 调度和并行单位移动；万人完整回放尚未通过性能门禁，6A.5 将先修复目标流向场共享与构建成本。空间哈希、ORCA 和选择性世界碰撞必须等 6A.5 通过后再实现，阶段七资源迁移和正式后端切换同样尚未实现。
 
 ## 5. 战斗和生命值
 

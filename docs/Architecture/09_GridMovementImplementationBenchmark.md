@@ -7,7 +7,7 @@
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 - [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零 Harness、后端互斥和固定场景已实现；R6 后 Stage3 Path/Field 确定性复测通过，Stage4 Squad 在 32、64、128 三档双轮均全员到达；阶段六 6A.0 已实现 512～10000 Ani 规模输入 Harness、v5 报告与冻结预算，真实自由移动/避碰/碰撞工作负载仍待后续阶段接入；Normalized Legacy 实机基线和完整 Server Tick 横向对照仍待持续采集
+> 状态：阶段零 Harness、后端互斥和固定场景已实现；R6 后 Stage3 Path/Field 确定性复测通过，Stage4 Squad 在 32、64、128 三档双轮均全员到达；阶段六 6A.0～6A.4 已接入 512～10000 Ani 规模输入、自由移动和并行单位移动，但万人完整回放因 938 次 Field 构建、0 次共享命中和 Server Tick P95 `3016.4815 ms` 未通过性能门禁，下一步为 6A.5 目标流向场共享与性能修复；避碰、碰撞、Normalized Legacy 实机基线和完整横向对照仍待后续执行
 >
 > Legacy 是可执行性能基线，不是正式扩展入口
 

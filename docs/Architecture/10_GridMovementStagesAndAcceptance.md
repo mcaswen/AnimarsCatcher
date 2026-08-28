@@ -7,7 +7,7 @@
 - [Navigation R1～R6 执行报告](Reports/NavigationRefactor-Execution-20260820.md)
 - [Navigation 阶段六万人群体移动执行计划](16_LargeScaleNavigationStageSixPlan.md)
 
-> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.4 已完成，下一步为 6B.1 原生内存空间哈希；阶段七及 Normalized Legacy 横向性能对照仍待执行
+> 状态：阶段零至阶段四已完成；阶段五运行时主体、自动校验和 R6 算法复审已完成；阶段六 6A.0～6A.4 已完成功能实现，但万人完整回放未通过性能门禁，下一步为 6A.5 目标流向场共享与性能修复；阶段七及 Normalized Legacy 横向性能对照仍待执行
 >
 > 第六阶段内部按 6A、6B、6C 依次验收；阶段五未完成的动态 Overlay 场景验收并入 6A/6C，已取消的严格阵型正式目标不再阻塞阶段六
 
@@ -297,7 +297,9 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 
 同日完成 6A.3：正式 Cohort 改为通过版本化 Handle 读取全局共享 Flow Record，相同投影起终点、体型 Clearance 和代价配置只提交一次并行构建。调度器提供优先级、每 Tick 预算、取消、超时、确定性发布、Overlay 不可变快照、Corridor 局部失效和按字节淘汰；队列与 Store 指标已进入 Benchmark 报告。专项验收确认 8 个相同 Key 只构建 1 次并共享同一 Record，缓存命中不复制 Field，Overlay 在 Job 活跃时仍可更新，局部障碍不会误清无关 Record，Grid Blob 换代后旧结果不会卡住请求，超时、取消与无引用缓存淘汰均可诊断；6A.2 的万人切分和 512 移动 Hash 回归保持不变。
 
-2026-08-25 完成 6A.4：正式 Cohort 的期望速度、位移提交、成员归约与请求归约改为并行 Job，历史 Squad 的逐成员速度和位移提交同步进入相同边界，`AniMovementCommitSystem` 继续作为唯一 Transform 写入者。稀疏 Flow Field 固定按 CellIndex 排序并通过二分查找读取，Ani 离开稀疏覆盖后会在直达可行时退出零速度死区。万人专项在空 Field 与目标影响半径外连续两轮完成 128 Tick，每名 Ani 均提交 128 次，最终位置 Hash 均为 `302B5AE3CAFBB4A5`，采样窗口主线程托管分配为 `0 B`。完整 `FreeCohortMovement` 回放中 10000/10000 Ani 到达，251/251 个 Cohort 完成，251/251 份路径成功，每名 Ani 提交 1320 次且主线程分配 P95 为 `0 B`。该完整回放的 Server Tick P95 为 `3016.4815 ms`，尚未达到阶段六冻结预算；主要剩余工作是空间哈希、ORCA、世界碰撞以及 6C 的 Field 复用与性能治理
+2026-08-25 完成 6A.4 的功能实现：正式 Cohort 的期望速度、位移提交、成员归约与请求归约改为并行 Job，历史 Squad 的逐成员速度和位移提交同步进入相同边界，`AniMovementCommitSystem` 继续作为唯一 Transform 写入者。稀疏 Flow Field 固定按 CellIndex 排序并通过二分查找读取，Ani 离开稀疏覆盖后会在直达可行时退出零速度死区。万人专项在空 Field 与目标影响半径外连续两轮完成 128 Tick，每名 Ani 均提交 128 次，最终位置 Hash 均为 `302B5AE3CAFBB4A5`，采样窗口主线程托管分配为 `0 B`。完整 `FreeCohortMovement` 回放中 10000/10000 Ani 到达，251/251 个 Cohort 完成，251/251 份路径成功，每名 Ani 提交 1320 次且主线程分配 P95 为 `0 B`。但 Server Tick P95 为 `3016.4815 ms`、请求排队 P95 为 57 Tick，938 次唯一 Field 构建没有产生一次共享命中，因此该结果只通过功能门禁，没有通过阶段六性能门禁
+
+2026-08-29 增加 6A.5：在开始 6B 前修复目标流向场共享与构建性能。当前精确起点 Cell 参与 Field Key，导致相同目标随 Cohort 起点拆成近千份重复构建。6A.5 将起点相关 Corridor 或覆盖需求与目标相关 Integration、Direction 数据拆开，目标场按 Cluster 或 Tile 扩张；开阔地 Cohort 通过一次可达验证进入直达模式，不构建 Field；Worker 临时容器改为可复用工作区。退出时必须让高复用和低复用 10000 Ani 回放同时满足 `Stage6A0-60Hz-v1`，否则禁止进入 6B.1
 
 ### 6A：规模基础
 
@@ -309,6 +311,8 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 - 全局共享 Flow Field Store、Handle、唯一请求归并、优先级队列、Tick 预算和并行构建
 - 动态 Overlay 只读快照或双缓冲，避免持续 Job 阻塞写入
 - 期望速度、目标吸引、位移准备和成员进度 Job 化
+- 起点 Corridor 与目标流向场分离，按目标、体型档位和覆盖 Tile 共享并增量扩张
+- Cohort 级直达模式、Field 构建工作区复用和 Worker 时间预算
 - 512、1000、2500、5000、10000 Ani Benchmark 入口与报告格式
 
 退出条件：
@@ -316,11 +320,14 @@ R6 把 Stage4 功能终止点固定为 `WarmupTicks + SampleTicks + 600 = 1440` 
 - 32、64、128 当前结果可以回归，512 Ani 自由移动基础场景全部到达
 - 10000 个选择成员不会截断、重复或丢失，Cohort 不超过配置硬上限
 - 不存在成员乘成员或成员乘落点的 `N²` 成本矩阵
-- Field 构建次数随唯一 Key 增长，缓存命中不向每个 Cohort 复制完整 Field
+- 开阔地直达请求不构建 Field；绕障碍时目标场构建随唯一目标、体型档位和新增覆盖 Tile 增长，不随 Cohort 数线性增长
 - 主线程不执行同步路径搜索或串行处理全部 Ani 速度与位移
 - 10000 Ani 开阔地导航样本每 Tick 零托管 GC，并满足 6A.0 冻结的目标 Tick 预算
+- 高复用和低复用万人回放的 Server Tick、Navigation Worker、请求排队和 Native 内存全部满足 6A.0 冻结预算
 
 ### 6B：空间哈希、ORCA、世界碰撞与恢复
+
+前置条件：6A.5 的目标流向场共享、工作区复用和万人性能门禁全部通过。未通过时不得用空间哈希或 ORCA 继续叠加 Worker 负载。
 
 交付物：
 
