@@ -534,7 +534,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             AniMovementOrderState orderState =
                 entityManager.GetComponentData<AniMovementOrderState>(orderEntity);
             Assert(orderState.Status == AniMovementOrderStatus.Active,
-                "MovementOrder 没有进入活动状态");
+                $"MovementOrder 没有进入活动状态，实际={orderState.Status}，" +
+                $"Cohort={orderState.ActiveCohortCount}，成员={orderState.ValidMemberCount}");
             Assert(orderState.ValidMemberCount == expectedMemberCount,
                 "MovementOrder 成员汇总不符合预期");
 
@@ -715,6 +716,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             {
                 Workload = NavigationGridBenchmarkWorkload.FreeCohortMovement,
                 AgentCount = agentCount,
+                SpawnOrigin = new float3(105f, 0.57f, 44.43f),
             });
         }
 

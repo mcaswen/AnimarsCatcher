@@ -11,23 +11,9 @@ namespace AnimarsCatcher.Navigation.Grid
     {
         private const float CostEpsilon = 0.00001f;
 
-        // Integration Field 从目标反向扩散，使用与 A* 相同的单步成本
-        // 分块 Generation 将计算范围严格限制在当前宏观通道中
-        // 动态障碍会同时影响格子阻挡、附加成本和最终方向
-        // 平滑后的连续方向不能直接输出，最终仍要选中一条已经验证可走的相邻边
-        // 成本相同时使用格子索引决定顺序，保证结果可重复
-        // IntegrationCost 表示从当前格子走到目标还需要的最低成本
-        // 正确的下一格必须满足：下一格剩余成本加这一步成本，等于当前最低成本
-        // 只看剩余成本下降可能选到总成本更高的绕路，因此必须检查完整等式
-        // 动态附加成本与反向 Dijkstra 使用同一口径，计入正向移动所进入的格子
-        // 第一遍找出最低成本和一个可靠的备用下一格
-        // 第二遍只混合成本同样最优的方向，用于减少格子感
-        // 第三遍把混合方向映射回最接近的真实最优相邻格
-        // 每一遍都只检查八个邻居，因此每格的方向计算仍是固定开销
-        // 对称方向可能完全抵消；这种零向量不代表已经到达目标
-        // 抵消时选择索引最小的备用下一格，保证 Burst 重复运行结果一致
-        // 只有目标格子或数据不完整的异常格子才允许最终方向为零
-        // 移动系统遇到零方向必须停下，不能擅自穿过障碍
+        // Integration Field 使用反向 Dijkstra，成本口径与正向移动保持一致
+        // 下一格必须满足 Bellman 最优条件，平滑方向只在同成本候选中选择真实可走边
+        // 成本与方向平局均按 Cell 索引裁决，使 Burst 重复运行得到相同结果
 
         internal static bool BuildIntegrationField(
             ref NavigationGridBlob grid,
@@ -44,7 +30,8 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NativeList<int> visitedCells,
             ref NativeList<NavigationFlowFieldCell> output,
             out int expandedCellCount,
-            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay)
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            bool requireStartReachable = true)
         {
             // 用本次 Generation 标出通道包含的分块，反向搜索不会走出这个范围
             for (int index = 0; index < corridorClusters.Length; index++)
@@ -144,7 +131,7 @@ namespace AnimarsCatcher.Navigation.Grid
             expandedCellCount = visitedCells.Length;
 
             // 如果反向搜索到不了起点，说明宏观通道无法落实为实际格子路线
-            if (generations[startCellIndex] != generation)
+            if (requireStartReachable && generations[startCellIndex] != generation)
             {
                 return false;
             }

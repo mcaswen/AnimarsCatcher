@@ -129,14 +129,8 @@ namespace AnimarsCatcher.Navigation.Grid
                 return safeFlow * speed;
             }
 
-            float proximity = math.saturate(
-                1f - distanceToGoal / math.max(0.01f, influenceRadius));
-            // 一旦个人落点可以直达就让它占主导，避免 Flow 指向区域中心时形成反向平衡点
-            float blend = math.lerp(0.65f, 1f, proximity);
-            float3 direction = math.normalizesafe(
-                math.lerp(safeFlow, directDirection, blend),
-                directDirection);
-            return direction * speed;
+            // 直达成立后立即退出中心 Flow，避免两个相反方向形成平衡点或循环路线
+            return directDirection * speed;
         }
 
         /// <summary>

@@ -126,6 +126,32 @@ namespace AnimarsCatcher.Navigation.Grid
                 return result;
             }
 
+            if (jobRequest.Request.CoverageMode ==
+                NavigationFlowFieldCoverageMode.GoalRegion)
+            {
+                // 目标区域场从终点覆盖整个静态连通区域，结果不再依赖构建代表的精确起点
+                return BuildGoalRegionField(
+                    ref grid,
+                    request,
+                    startCellIndex,
+                    endCellIndex,
+                    generationStart,
+                    ref result,
+                    ref corridorClusters,
+                    ref corridorPortals,
+                    ref hierarchicalWaypointCells,
+                    ref flowCells,
+                    cellCosts,
+                    cellHeap,
+                    cellHeapPositions,
+                    cellGenerations,
+                    clusterGenerations,
+                    ref workVisitedCells,
+                    ref workCorridorClusters,
+                    dynamicOverlay,
+                    dynamicOverlayClusters);
+            }
+
             // 临时列表会在请求之间复用，开始新通道前先清除上一条内容
             workCorridorClusters.Clear();
             workCorridorPortals.Clear();
@@ -313,6 +339,119 @@ namespace AnimarsCatcher.Navigation.Grid
             result.IntegrationExpandedCellCount = integrationExpandedCellCount;
             result.TotalCost = totalCost;
             result.CacheHit = cacheHit ? (byte)1 : (byte)0;
+            return result;
+        }
+
+        private static NavigationFlowFieldJobResult BuildGoalRegionField(
+            ref NavigationGridBlob grid,
+            NavigationPathRequest request,
+            int startCellIndex,
+            int endCellIndex,
+            int generationStart,
+            ref NavigationFlowFieldJobResult result,
+            ref NativeList<int> corridorClusters,
+            ref NativeList<int> corridorPortals,
+            ref NativeList<int> hierarchicalWaypointCells,
+            ref NativeList<NavigationFlowFieldCell> flowCells,
+            NativeArray<float> cellCosts,
+            NativeArray<int> cellHeap,
+            NativeArray<int> cellHeapPositions,
+            NativeArray<int> cellGenerations,
+            NativeArray<int> clusterGenerations,
+            ref NativeList<int> workVisitedCells,
+            ref NativeList<int> workCoverageClusters,
+            NativeArray<NavigationDynamicOverlayCell> dynamicOverlay,
+            NativeArray<NavigationDynamicOverlayCluster> dynamicOverlayClusters)
+        {
+            int coverageGeneration = generationStart;
+            int targetRegionId = grid.Cells[endCellIndex].RegionId;
+            workCoverageClusters.Clear();
+
+            // Cluster 只要包含目标静态 Region 的 Cell 就进入覆盖集合，实际可走范围由反向搜索裁定
+            for (int cellIndex = 0; cellIndex < grid.Cells.Length; cellIndex++)
+            {
+                NavigationGridCell cell = grid.Cells[cellIndex];
+                int clusterIndex = cell.ClusterId;
+                if (cell.RegionId != targetRegionId ||
+                    clusterIndex < 0 ||
+                    clusterIndex >= clusterGenerations.Length ||
+                    clusterGenerations[clusterIndex] == coverageGeneration)
+                {
+                    continue;
+                }
+
+                clusterGenerations[clusterIndex] = coverageGeneration;
+                workCoverageClusters.Add(clusterIndex);
+            }
+
+            int clusterOffset = corridorClusters.Length;
+            for (int index = 0; index < workCoverageClusters.Length; index++)
+            {
+                corridorClusters.Add(workCoverageClusters[index]);
+            }
+
+            int portalOffset = corridorPortals.Length;
+            int waypointOffset = hierarchicalWaypointCells.Length;
+            hierarchicalWaypointCells.Add(endCellIndex);
+            int fieldOffset = flowCells.Length;
+            int integrationGeneration = generationStart + 1;
+
+            // 共享场不能因构建代表被动态障碍隔开而整体失败，发布时会逐请求检查起点是否在场内
+            if (!NavigationIntegrationFieldSolver.BuildIntegrationField(
+                    ref grid,
+                    startCellIndex,
+                    endCellIndex,
+                    request,
+                    integrationGeneration,
+                    ref workCoverageClusters,
+                    cellCosts,
+                    cellHeap,
+                    cellHeapPositions,
+                    cellGenerations,
+                    clusterGenerations,
+                    ref workVisitedCells,
+                    ref flowCells,
+                    out int integrationExpandedCellCount,
+                    dynamicOverlay,
+                    requireStartReachable: false))
+            {
+                corridorClusters.ResizeUninitialized(clusterOffset);
+                hierarchicalWaypointCells.ResizeUninitialized(waypointOffset);
+                flowCells.ResizeUninitialized(fieldOffset);
+                result.FailureReason = NavigationPathFailureReason.NoPath;
+                return result;
+            }
+
+            int fieldCount = flowCells.Length - fieldOffset;
+            var fieldSlice = new NativeSlice<NavigationFlowFieldCell>(
+                flowCells.AsArray(),
+                fieldOffset,
+                fieldCount);
+            fieldSlice.Sort(new NavigationFlowFieldCellIndexComparer());
+
+            float totalCost = 0f;
+            if (cellGenerations[startCellIndex] == integrationGeneration)
+            {
+                totalCost = cellCosts[startCellIndex];
+            }
+
+            result.Status = NavigationPathStatus.Succeeded;
+            result.FailureReason = NavigationPathFailureReason.None;
+            result.CorridorClusterOffset = clusterOffset;
+            result.CorridorClusterCount = workCoverageClusters.Length;
+            result.CorridorPortalOffset = portalOffset;
+            result.CorridorPortalCount = 0;
+            result.HierarchicalWaypointOffset = waypointOffset;
+            result.HierarchicalWaypointCount = 1;
+            result.FieldOffset = fieldOffset;
+            result.FieldCount = fieldCount;
+            result.AbstractExpandedNodeCount = 0;
+            result.IntegrationExpandedCellCount = integrationExpandedCellCount;
+            result.TotalCost = totalCost;
+            result.CacheHit = 0;
+            result.DynamicOverlaySignature = NavigationFlowFieldCache.CalculateOverlaySignature(
+                ref workCoverageClusters,
+                dynamicOverlayClusters);
             return result;
         }
 

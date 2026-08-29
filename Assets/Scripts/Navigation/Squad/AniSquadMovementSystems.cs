@@ -272,7 +272,7 @@ namespace AnimarsCatcher.Navigation.Grid
             ref LocalTransform transform,
             in AniMovementConfig config,
             in AniGoalAssignment goal,
-            in AniPreferredVelocity preferredVelocity,
+            ref AniPreferredVelocity preferredVelocity,
             ref AniMovementResult result)
         {
             AniMovementCommitSystem.ApplyMovement(
@@ -283,6 +283,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 goal.TargetVersion,
                 DeltaTime,
                 ref result);
+            if (result.Settled != 0)
+            {
+                // 自然落点是确定终态，进入到达范围后收敛位置并清除残余速度
+                transform.Position.xz = goal.TargetPosition.xz;
+                preferredVelocity.Value = float3.zero;
+                result.AppliedVelocity = float3.zero;
+                result.DistanceToSlot = 0f;
+            }
         }
     }
 

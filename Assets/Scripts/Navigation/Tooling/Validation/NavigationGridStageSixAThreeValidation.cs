@@ -36,6 +36,15 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         }
 
         /// <summary>
+        /// 供 Unity Batch Mode 执行 6A.5 目标场共享与局部刷新验收
+        /// </summary>
+        public static void RunStageSixAFiveFromCommandLine()
+        {
+            TestGoalRegionSharingAndLocalRefresh();
+            Debug.Log("Navigation Grid 6A.5 目标场专项验收通过");
+        }
+
+        /// <summary>
         /// 依次检查系统边界、请求归并、预算队列、Overlay 快照和内存淘汰
         /// </summary>
         public static void RunAll()
@@ -281,6 +290,120 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 "调度器没有记录字节预算淘汰数量");
         }
 
+        private static void TestGoalRegionSharingAndLocalRefresh()
+        {
+            using var world = CreateWorld("Stage Six A Five Goal Region Refresh");
+            EntityManager entityManager = world.EntityManager;
+            SystemHandle scheduler = PrepareWorld(world, out SystemHandle overlaySystem);
+            Entity storeEntity = GetStoreEntity(entityManager);
+            SetSettings(entityManager, storeEntity, maximumBuilds: 2, timeoutTicks: 120);
+
+            var cohorts = new NativeArray<Entity>(4, Allocator.Temp);
+            int2[] startCoordinates =
+            {
+                new int2(8, 8),
+                new int2(72, 8),
+                new int2(8, 48),
+                new int2(72, 48),
+            };
+            float3 target = GetCellPosition(entityManager, new int2(46, 30));
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                cohorts[index] = CreateRequestCohort(
+                    entityManager,
+                    GetCellPosition(entityManager, startCoordinates[index]),
+                    target,
+                    (uint)(index + 1),
+                    priority: 2,
+                    coverageMode: NavigationFlowFieldCoverageMode.GoalRegion);
+            }
+
+            // 四个远距离起点必须归并到同一个不含精确起点的目标场 Key
+            DriveUntil(world, scheduler, () => AllSucceeded(entityManager, cohorts));
+            Entity recordEntity = entityManager.GetComponentData<NavigationFlowFieldHandle>(
+                cohorts[0]).Record;
+            NavigationSharedFlowFieldRecord originalRecord = entityManager.GetComponentData<
+                NavigationSharedFlowFieldRecord>(recordEntity);
+            ulong clearFieldHash = CalculateFieldHash(entityManager, recordEntity);
+            for (int index = 1; index < cohorts.Length; index++)
+            {
+                Assert(entityManager.GetComponentData<NavigationFlowFieldHandle>(cohorts[index])
+                           .Record == recordEntity,
+                    "不同起点没有共享同一目标场 Record");
+            }
+            NavigationFlowFieldSchedulerState initialState = entityManager.GetComponentData<
+                NavigationFlowFieldSchedulerState>(storeEntity);
+            Assert(initialState.CumulativeUniqueBuildCount == 1 &&
+                   initialState.CumulativeSharedHitCount == cohorts.Length - 1,
+                "目标场共享没有归并多起点请求");
+
+            // 障碍位于目标场中部，刷新期间未被选为所有者的 Handle 必须保持可用
+            AddOverlayDelta(entityManager, new int2(38, 25), sourceId: 100);
+            world.SetTime(new TimeData(DeltaTime * 300, DeltaTime));
+            overlaySystem.Update(world.Unmanaged);
+            scheduler.Update(world.Unmanaged);
+            int preservedHandleCount = CountHandlesReferencing(
+                entityManager,
+                cohorts,
+                recordEntity);
+            Assert(preservedHandleCount == cohorts.Length - 1,
+                "局部目标场刷新撤销了无关 Cohort 的活动 Handle");
+
+            DriveUntil(
+                world,
+                scheduler,
+                () => AllSucceeded(entityManager, cohorts) &&
+                      entityManager.GetComponentData<NavigationSharedFlowFieldRecord>(recordEntity)
+                          .RefreshPending == 0,
+                firstTick: 301);
+            NavigationSharedFlowFieldRecord blockedRecord = entityManager.GetComponentData<
+                NavigationSharedFlowFieldRecord>(recordEntity);
+            NavigationFlowFieldSchedulerState blockedState = entityManager.GetComponentData<
+                NavigationFlowFieldSchedulerState>(storeEntity);
+            Assert(blockedRecord.RecordVersion == originalRecord.RecordVersion &&
+                   CountHandlesReferencing(entityManager, cohorts, recordEntity) == cohorts.Length,
+                "局部目标场刷新换掉了 Record Entity 或版本");
+            Assert(blockedState.CumulativeUniqueBuildCount ==
+                   initialState.CumulativeUniqueBuildCount + 1 &&
+                   blockedState.CumulativeCoverageTileInvalidationCount ==
+                   initialState.CumulativeCoverageTileInvalidationCount + 1 &&
+                   blockedState.CumulativeCoverageTileBuildCount ==
+                   initialState.CumulativeCoverageTileBuildCount +
+                   originalRecord.CoverageTileCount,
+                "局部失效数量或完整目标场重建数量记录错误");
+
+            // 没有新 Delta 时 Overlay 版本不变，继续调度不能重复刷新同一个覆盖块
+            for (int tick = 500; tick < 505; tick++)
+            {
+                UpdateScheduler(world, scheduler, tick);
+            }
+            NavigationFlowFieldSchedulerState repeatedState = entityManager.GetComponentData<
+                NavigationFlowFieldSchedulerState>(storeEntity);
+            Assert(repeatedState.CumulativeUniqueBuildCount ==
+                   blockedState.CumulativeUniqueBuildCount,
+                "相同 Overlay 版本被重复构建");
+
+            // 移除同一障碍后再次原位刷新，空 Overlay 的 Flow 结果应恢复原始 Hash
+            AddOverlayDelta(
+                entityManager,
+                new int2(38, 25),
+                sourceId: 100,
+                blockCountDelta: -1);
+            world.SetTime(new TimeData(DeltaTime * 600, DeltaTime));
+            overlaySystem.Update(world.Unmanaged);
+            scheduler.Update(world.Unmanaged);
+            DriveUntil(
+                world,
+                scheduler,
+                () => entityManager.GetComponentData<NavigationSharedFlowFieldRecord>(recordEntity)
+                          .RefreshPending == 0 &&
+                      AllSucceeded(entityManager, cohorts),
+                firstTick: 601);
+            Assert(CalculateFieldHash(entityManager, recordEntity) == clearFieldHash,
+                "解除局部障碍后目标场没有恢复稳定结果");
+            cohorts.Dispose();
+        }
+
         private static void TestGridReplacementDuringPublish()
         {
             using var world = CreateWorld("Stage Six A Three Grid Replacement");
@@ -355,7 +478,9 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             float3 start,
             float3 end,
             uint version,
-            byte priority)
+            byte priority,
+            NavigationFlowFieldCoverageMode coverageMode =
+                NavigationFlowFieldCoverageMode.Corridor)
         {
             // 保留旧结果 Buffer 用来断言共享链路没有向 Cohort 回写大块数据
             Entity entity = entityManager.CreateEntity(
@@ -383,7 +508,11 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 maximumProjectionRadiusInCells: 8);
             entityManager.SetComponentData(
                 entity,
-                NavigationFlowFieldRequest.Create(pathRequest, priority, version));
+                NavigationFlowFieldRequest.Create(
+                    pathRequest,
+                    priority,
+                    version,
+                    coverageMode));
             entityManager.SetComponentData(
                 entity,
                 NavigationFlowFieldState.CreatePending(version));
@@ -396,7 +525,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
             Func<bool> completed,
             int firstTick = 0)
         {
-            for (int tick = firstTick; tick < MaximumTicks; tick++)
+            int lastTickExclusive = firstTick + MaximumTicks;
+            for (int tick = firstTick; tick < lastTickExclusive; tick++)
             {
                 UpdateScheduler(world, scheduler, tick);
                 if (completed())
@@ -544,7 +674,8 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
         private static void AddOverlayDelta(
             EntityManager entityManager,
             int2 coordinate,
-            uint sourceId)
+            uint sourceId,
+            int blockCountDelta = 1)
         {
             using EntityQuery query = entityManager.CreateEntityQuery(
                 ComponentType.ReadOnly<NavigationGridReference>());
@@ -556,9 +687,51 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                 new NavigationDynamicOverlayDelta
                 {
                     CellIndex = coordinate.x + coordinate.y * grid.Width,
-                    BlockCountDelta = 1,
+                    BlockCountDelta = blockCountDelta,
                     SourceId = sourceId,
                 });
+        }
+
+        private static int CountHandlesReferencing(
+            EntityManager entityManager,
+            NativeArray<Entity> cohorts,
+            Entity recordEntity)
+        {
+            int count = 0;
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                NavigationFlowFieldHandle handle = entityManager.GetComponentData<
+                    NavigationFlowFieldHandle>(cohorts[index]);
+                if (handle.Record == recordEntity)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        private static ulong CalculateFieldHash(
+            EntityManager entityManager,
+            Entity recordEntity)
+        {
+            DynamicBuffer<NavigationFlowFieldCell> field = entityManager.GetBuffer<
+                NavigationFlowFieldCell>(recordEntity, true);
+            ulong hash = 1469598103934665603UL;
+            for (int index = 0; index < field.Length; index++)
+            {
+                NavigationFlowFieldCell cell = field[index];
+                hash = Mix(hash, (uint)cell.CellIndex);
+                hash = Mix(hash, math.asuint(cell.IntegrationCost));
+                hash = Mix(hash, math.asuint(cell.Direction.x));
+                hash = Mix(hash, math.asuint(cell.Direction.y));
+            }
+            return hash;
+        }
+
+        private static ulong Mix(ulong hash, uint value)
+        {
+            hash ^= value;
+            return hash * 1099511628211UL;
         }
 
         private static NavigationDynamicOverlayState GetOverlayState(

@@ -29,6 +29,16 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 区分 Cohort 当前直接前往目标还是需要共享流向场
+    /// </summary>
+    public enum AniMovementCohortRouteMode : byte
+    {
+        Awaiting,
+        Direct,
+        FlowField
+    }
+
+    /// <summary>
     /// 覆盖默认 Cohort 容量，硬上限会阻止异常配置重新形成大 Squad
     /// </summary>
     public struct AniMovementCohortSettings : IComponentData
@@ -124,6 +134,7 @@ namespace AnimarsCatcher.Navigation.Grid
     public struct AniMovementCohortPathState : IComponentData
     {
         public AniMovementCohortStatus Status;
+        public AniMovementCohortRouteMode RouteMode;
 
         // 目标区域投影到可站立 Cell 后的实际寻路终点
         public float3 GoalRegionCenterPosition;
@@ -149,6 +160,9 @@ namespace AnimarsCatcher.Navigation.Grid
         public int SuccessfulFieldRequestCount;
         public int FailedFieldRequestCount;
         public int CacheHitCount;
+
+        // 每个目标版本只累计一次，供万人报告确认开阔地没有误建 Field
+        public int DirectRouteCount;
     }
 
     /// <summary>
@@ -174,7 +188,7 @@ namespace AnimarsCatcher.Navigation.Grid
     /// <summary>
     /// 标记 Ani 当前所属的自由移动 Cohort
     /// </summary>
-    public struct AniMovementCohortMembership : IComponentData
+    public struct AniMovementCohortMembership : ICleanupComponentData
     {
         public Entity Cohort;
         public uint CohortId;
@@ -192,5 +206,8 @@ namespace AnimarsCatcher.Navigation.Grid
         public float ArrivalRadius;
         public float InfluenceRadius;
         public uint TargetVersion;
+
+        // 最后一段直达一旦成立便保持到目标换代，避免在可见边界反复切回中心 Flow
+        public byte DirectApproach;
     }
 }

@@ -25,6 +25,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private const float AgentMaximumAcceleration = 32f;
         private const int FormationColumnCount = 8;
         internal const int MaximumSettlementTicks = 600;
+        internal const int StageSixMaximumSettlementTicks = 900;
 
         public void OnCreate(ref SystemState state)
         {
@@ -123,7 +124,11 @@ namespace AnimarsCatcher.Navigation.Grid
 
             benchmarkState.Tick++;
             int sampleEndTick = config.WarmupTicks + config.SampleTicks;
-            int terminationTick = sampleEndTick + MaximumSettlementTicks;
+            int settlementTicks = config.Workload ==
+                                  NavigationGridBenchmarkWorkload.FreeCohortMovement
+                ? StageSixMaximumSettlementTicks
+                : MaximumSettlementTicks;
+            int terminationTick = sampleEndTick + settlementTicks;
             // 采样和等待队伍站稳共用同一个服务器帧计数，不受渲染帧率影响
             // 帧数在末尾递增，确保第 0 帧提交的命令属于采样窗口
             if (benchmarkState.Tick >= sampleEndTick)
@@ -188,6 +193,11 @@ namespace AnimarsCatcher.Navigation.Grid
             using var agents = new NativeArray<Entity>(count, Allocator.Temp);
             // 批量创建避免万人入口把重复结构变更混入第一个采样 Tick
             state.EntityManager.CreateEntity(archetype, agents);
+            using EntityQuery gridQuery = state.EntityManager.CreateEntityQuery(
+                ComponentType.ReadOnly<NavigationGridReference>());
+            NavigationGridReference gridReference = gridQuery.GetSingleton<
+                NavigationGridReference>();
+            ref NavigationGridBlob grid = ref gridReference.Value.Value;
             int spawnColumnCount = config.SpawnColumnCount;
             float spawnSpacing = config.SpawnSpacing;
             if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement &&
@@ -207,6 +217,30 @@ namespace AnimarsCatcher.Navigation.Grid
                     spawnSpacing,
                     config.SpawnOrigin,
                     config.RandomSeed);
+                if (config.Scenario != NavigationGridBenchmarkScenario.Open &&
+                    NavigationGridQuery.TryWorldToCell(
+                        ref grid,
+                        position,
+                        out _,
+                        out int spawnCellIndex) &&
+                    !NavigationGridQuery.CanAgentOccupy(
+                        ref grid,
+                        spawnCellIndex,
+                        config.AgentRadius,
+                        0.05f) &&
+                    NavigationGridQuery.TryProjectToNearestCell(
+                        ref grid,
+                        position,
+                        config.AgentRadius,
+                        0.05f,
+                        8,
+                        out int projectedCellIndex))
+                {
+                    // 合成障碍可能穿过规则出生阵列，先投影到最近安全 Cell 再进入真实导航链路
+                    position = NavigationGridQuery.GetCellWorldPosition(
+                        ref grid,
+                        projectedCellIndex);
+                }
                 // 先把 Transform 放到固定起点，移动组件由队伍生命周期系统处理指令时添加
                 state.EntityManager.SetComponentData(
                     agents[agentIndex],
@@ -259,20 +293,33 @@ namespace AnimarsCatcher.Navigation.Grid
                 forward,
                 new float3(0f, 0f, 1f));
 
-            uint sequence = NextCommandSequence(ref benchmarkState);
             if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement)
             {
-                SubmitFreeMovementOrder(
-                    entityManager,
-                    config,
-                    agents,
-                    targetPosition,
-                    sequence,
-                    benchmarkState.Tick);
-                benchmarkState.AppliedCommandCount++;
+                if (config.Scenario == NavigationGridBenchmarkScenario.ObstacleLowReuse)
+                {
+                    benchmarkState.AppliedCommandCount += SubmitLowReuseMovementOrders(
+                        entityManager,
+                        config,
+                        agents,
+                        targetPosition,
+                        ref benchmarkState);
+                }
+                else
+                {
+                    uint freeSequence = NextCommandSequence(ref benchmarkState);
+                    SubmitFreeMovementOrder(
+                        entityManager,
+                        config,
+                        agents,
+                        targetPosition,
+                        freeSequence,
+                        benchmarkState.Tick);
+                    benchmarkState.AppliedCommandCount++;
+                }
                 return;
             }
 
+            uint sequence = NextCommandSequence(ref benchmarkState);
             Entity commandEntity = entityManager.CreateEntity(
                 typeof(AniSquadCommandRequest),
                 typeof(AniSquadCommand));
@@ -313,13 +360,43 @@ namespace AnimarsCatcher.Navigation.Grid
             benchmarkState.AppliedCommandCount++;
         }
 
+        private static int SubmitLowReuseMovementOrders(
+            EntityManager entityManager,
+            NavigationGridBenchmarkConfig config,
+            NativeArray<NavigationGridMovementBenchmarkAgent> agents,
+            float3 targetPosition,
+            ref NavigationGridMovementBenchmarkState benchmarkState)
+        {
+            const int targetCount = 8;
+            for (int targetIndex = 0; targetIndex < targetCount; targetIndex++)
+            {
+                int column = targetIndex & 3;
+                int row = targetIndex >> 2;
+                // 多目标全部位于障碍墙左侧，差异只改变目标场复用率而不改变可达性
+                float3 targetOffset = new float3(-12f + column * 4f, 0f, row == 0 ? -6f : 6f);
+                uint sequence = NextCommandSequence(ref benchmarkState);
+                SubmitFreeMovementOrder(
+                    entityManager,
+                    config,
+                    agents,
+                    targetPosition + targetOffset,
+                    sequence,
+                    benchmarkState.Tick,
+                    targetIndex,
+                    targetCount);
+            }
+            return targetCount;
+        }
+
         private static void SubmitFreeMovementOrder(
             EntityManager entityManager,
             NavigationGridBenchmarkConfig config,
             NativeArray<NavigationGridMovementBenchmarkAgent> agents,
             float3 targetPosition,
             uint sequence,
-            int tick)
+            int tick,
+            int groupIndex = 0,
+            int groupCount = 1)
         {
             Entity orderEntity = entityManager.CreateEntity(
                 typeof(AniMovementOrderRequest),
@@ -343,7 +420,7 @@ namespace AnimarsCatcher.Navigation.Grid
             DynamicBuffer<AniMovementOrderMember> members =
                 entityManager.AddBuffer<AniMovementOrderMember>(orderEntity);
             // 稳定引用 Buffer 已按创建编号排列，万人命令不再执行 O(N²) 插入排序
-            for (int index = 0; index < config.AgentCount; index++)
+            for (int index = groupIndex; index < config.AgentCount; index += groupCount)
             {
                 NavigationGridMovementBenchmarkAgent agent = agents[index];
                 members.Add(new AniMovementOrderMember
@@ -548,6 +625,7 @@ namespace AnimarsCatcher.Navigation.Grid
             int pathSuccessCount = 0;
             int pathFailureCount = 0;
             int cacheHitCount = 0;
+            int directRouteCount = 0;
             int awaitingCohortCount = 0;
             int movingCohortCount = 0;
             int holdingCohortCount = 0;
@@ -564,6 +642,7 @@ namespace AnimarsCatcher.Navigation.Grid
                     pathSuccessCount += pathState.ValueRO.SuccessfulFieldRequestCount;
                     pathFailureCount += pathState.ValueRO.FailedFieldRequestCount;
                     cacheHitCount += pathState.ValueRO.CacheHitCount;
+                    directRouteCount += pathState.ValueRO.DirectRouteCount;
                     switch (pathState.ValueRO.Status)
                     {
                         case AniMovementCohortStatus.AwaitingPath:
@@ -630,25 +709,39 @@ namespace AnimarsCatcher.Navigation.Grid
                 BuildAgentTraceReport(config.RecordMovementTrace != 0);
             // 只有开启逐帧诊断时才把数据复制到报告，正式性能采样不会增加这部分序列化开销
             FlowSchedulerReport schedulerReport = BuildFlowSchedulerReport(state.EntityManager);
+            NavigationStageTimingReport[] stageTimings = BuildStageTimingReports();
+            double navigationWorkerCriticalPathP95 = 0.0;
+            for (int index = 0; index < stageTimings.Length; index++)
+            {
+                navigationWorkerCriticalPathP95 = Math.Max(
+                    navigationWorkerCriticalPathP95,
+                    stageTimings[index].P95Milliseconds);
+            }
 
             // 同时写出百分位和原始样本，避免平均值掩盖偶发的慢帧
             var report = new NavigationGridMovementBenchmarkReport
             {
                 // FormatVersion 用于以后扩展字段时选择兼容的解析方式
                 // 报告只包含普通值，不序列化 Entity 或 NativeContainer
-                FormatVersion = 7,
+                FormatVersion = 11,
                 Backend = AniMovementBackend.ClearanceGrid.ToString(),
                 Workload = config.Workload.ToString(),
+                Scenario = config.Scenario.ToString(),
                 PerformanceGateEligible = freeMovement &&
                                           NavigationGridBenchmarkScaleProfile
                                               .IsStageSixAgentCount(config.AgentCount),
                 BudgetVersion = NavigationGridBenchmarkScaleProfile.BudgetVersion,
-                SystemTimingCoverage = "记录完整 Server Tick，不含逐 System Worker 时间",
-                WorkerTimingAvailable = false,
+                SystemTimingCoverage = "记录完整 Server Tick，并在诊断边界完成 Job 后统计导航阶段墙钟时间",
+                WorkerTimingAvailable = stageTimings.Length > 0,
+                NavigationWorkerCriticalPathP95Milliseconds =
+                    navigationWorkerCriticalPathP95,
+                StageTimings = stageTimings,
                 RequestQueueTimingAvailable = schedulerReport.Available,
                 TrackedNativeBytes = schedulerReport.Available
-                    ? schedulerReport.StoreByteCount
+                    ? schedulerReport.StoreByteCount + schedulerReport.WorkspaceByteCount
                     : -1,
+                FieldStoreNativeBytes = schedulerReport.StoreByteCount,
+                FieldWorkspaceNativeBytes = schedulerReport.WorkspaceByteCount,
                 FieldQueueLength = schedulerReport.QueueLength,
                 FieldQueueWaitP50Ticks = schedulerReport.WaitP50Ticks,
                 FieldQueueWaitP95Ticks = schedulerReport.WaitP95Ticks,
@@ -658,6 +751,15 @@ namespace AnimarsCatcher.Navigation.Grid
                 UniqueFieldBuildCount = schedulerReport.UniqueBuildCount,
                 SharedFieldHitCount = schedulerReport.SharedHitCount,
                 SharedFieldRecordCount = schedulerReport.StoreRecordCount,
+                CorridorResolveCount = schedulerReport.CorridorResolveCount,
+                TargetFlowRecordBuildCount = schedulerReport.TargetRecordBuildCount,
+                CoverageTileInvalidationCount = schedulerReport.CoverageTileInvalidationCount,
+                CoverageTileBuildCount = schedulerReport.CoverageTileBuildCount,
+                CoverageTileReuseCount = schedulerReport.CoverageTileReuseCount,
+                FieldBudgetThrottleCount = schedulerReport.BudgetThrottleCount,
+                LastFieldBuildBatchMilliseconds = schedulerReport.LastBuildBatchMilliseconds,
+                MaximumFieldBuildBatchMilliseconds =
+                    schedulerReport.MaximumBuildBatchMilliseconds,
                 AgentCount = config.AgentCount,
                 RandomSeed = config.RandomSeed,
                 WarmupTicks = config.WarmupTicks,
@@ -667,7 +769,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 AgentTrace = agentTrace,
                 FirstCompletionTick = benchmarkState.CompletionTick,
                 TerminationTick = config.WarmupTicks + config.SampleTicks +
-                                  MaximumSettlementTicks,
+                                  (config.Workload ==
+                                   NavigationGridBenchmarkWorkload.FreeCohortMovement
+                                      ? StageSixMaximumSettlementTicks
+                                      : MaximumSettlementTicks),
                 Failed = benchmarkState.Failed != 0,
                 FailureReason = benchmarkState.FailureReason.ToString(),
                 AppliedCommandCount = benchmarkState.AppliedCommandCount,
@@ -677,6 +782,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 PathSuccessCount = pathSuccessCount,
                 PathFailureCount = pathFailureCount,
                 CacheHitCount = cacheHitCount,
+                DirectRouteCount = directRouteCount,
                 ArrivedCount = arrivedCount,
                 UnsettledAgentCount = unsettledAgentCount,
                 MinimumUnsettledAgentIndex = minimumUnsettledAgentIndex,
@@ -742,13 +848,59 @@ namespace AnimarsCatcher.Navigation.Grid
             Directory.CreateDirectory(directory);
             string path = Path.Combine(
                 directory,
-                $"GridNavigation_{config.AgentCount}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+                $"GridNavigation_{config.AgentCount}_{config.Scenario}_" +
+                $"{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             // 文件名包含 Ani 数量和 UTC 时间，便于并列归档不同后端结果
             File.WriteAllText(path, JsonUtility.ToJson(report, true));
             Debug.Log(
                 $"[NavigationBenchmark] Grid {config.Workload} 结果已生成：" +
                 $"到达={arrivedCount}/{config.AgentCount}，提交一致={transformWriteCountMatches}，" +
                 $"结果={path}");
+        }
+
+        private NavigationStageTimingReport[] BuildStageTimingReports()
+        {
+            DynamicBuffer<NavigationGridBenchmarkStageTimingSample> samples =
+                SystemAPI.GetSingletonBuffer<NavigationGridBenchmarkStageTimingSample>();
+            var reports = new List<NavigationStageTimingReport>();
+            foreach (NavigationGridBenchmarkStage stage in
+                     Enum.GetValues(typeof(NavigationGridBenchmarkStage)))
+            {
+                var values = new List<double>();
+                for (int index = 0; index < samples.Length; index++)
+                {
+                    NavigationGridBenchmarkStageTimingSample sample = samples[index];
+                    if (sample.Stage == stage)
+                    {
+                        values.Add(sample.WorkerMilliseconds);
+                    }
+                }
+
+                if (values.Count == 0)
+                {
+                    continue;
+                }
+
+                values.Sort();
+                double[] sortedValues = values.ToArray();
+                reports.Add(new NavigationStageTimingReport
+                {
+                    Stage = stage.ToString(),
+                    SampleCount = sortedValues.Length,
+                    P50Milliseconds = StatisticsMath.CalculateNearestRankPercentile(
+                        sortedValues,
+                        0.50),
+                    P95Milliseconds = StatisticsMath.CalculateNearestRankPercentile(
+                        sortedValues,
+                        0.95),
+                    P99Milliseconds = StatisticsMath.CalculateNearestRankPercentile(
+                        sortedValues,
+                        0.99),
+                    MaximumMilliseconds = sortedValues[^1],
+                });
+            }
+
+            return reports.ToArray();
         }
 
         private static FlowSchedulerReport BuildFlowSchedulerReport(
@@ -788,6 +940,16 @@ namespace AnimarsCatcher.Navigation.Grid
                 SharedHitCount = schedulerState.CumulativeSharedHitCount,
                 StoreRecordCount = schedulerState.StoreRecordCount,
                 StoreByteCount = schedulerState.StoreByteCount,
+                WorkspaceByteCount = schedulerState.WorkspaceByteCount,
+                CorridorResolveCount = schedulerState.CumulativeCorridorResolveCount,
+                TargetRecordBuildCount = schedulerState.CumulativeTargetRecordBuildCount,
+                CoverageTileInvalidationCount =
+                    schedulerState.CumulativeCoverageTileInvalidationCount,
+                CoverageTileBuildCount = schedulerState.CumulativeCoverageTileBuildCount,
+                CoverageTileReuseCount = schedulerState.CumulativeCoverageTileReuseCount,
+                BudgetThrottleCount = schedulerState.CumulativeBudgetThrottleCount,
+                LastBuildBatchMilliseconds = schedulerState.LastBuildBatchMilliseconds,
+                MaximumBuildBatchMilliseconds = schedulerState.MaximumBuildBatchMilliseconds,
             };
         }
 
@@ -997,12 +1159,17 @@ namespace AnimarsCatcher.Navigation.Grid
             public int FormatVersion;
             public string Backend;
             public string Workload;
+            public string Scenario;
             public bool PerformanceGateEligible;
             public string BudgetVersion;
             public string SystemTimingCoverage;
             public bool WorkerTimingAvailable;
+            public double NavigationWorkerCriticalPathP95Milliseconds;
+            public NavigationStageTimingReport[] StageTimings;
             public bool RequestQueueTimingAvailable;
             public long TrackedNativeBytes;
+            public long FieldStoreNativeBytes;
+            public long FieldWorkspaceNativeBytes;
             public int FieldQueueLength;
             public int FieldQueueWaitP50Ticks;
             public int FieldQueueWaitP95Ticks;
@@ -1012,6 +1179,14 @@ namespace AnimarsCatcher.Navigation.Grid
             public int UniqueFieldBuildCount;
             public int SharedFieldHitCount;
             public int SharedFieldRecordCount;
+            public int CorridorResolveCount;
+            public int TargetFlowRecordBuildCount;
+            public int CoverageTileInvalidationCount;
+            public int CoverageTileBuildCount;
+            public int CoverageTileReuseCount;
+            public int FieldBudgetThrottleCount;
+            public double LastFieldBuildBatchMilliseconds;
+            public double MaximumFieldBuildBatchMilliseconds;
             public int AgentCount;
             public int RandomSeed;
             public int WarmupTicks;
@@ -1032,6 +1207,7 @@ namespace AnimarsCatcher.Navigation.Grid
             public int PathSuccessCount;
             public int PathFailureCount;
             public int CacheHitCount;
+            public int DirectRouteCount;
             public int ArrivedCount;
             public int UnsettledAgentCount;
             public int MinimumUnsettledAgentIndex;
@@ -1076,6 +1252,17 @@ namespace AnimarsCatcher.Navigation.Grid
             public string Notes;
         }
 
+        [Serializable]
+        private sealed class NavigationStageTimingReport
+        {
+            public string Stage;
+            public int SampleCount;
+            public double P50Milliseconds;
+            public double P95Milliseconds;
+            public double P99Milliseconds;
+            public double MaximumMilliseconds;
+        }
+
         private struct FlowSchedulerReport
         {
             public bool Available;
@@ -1090,6 +1277,15 @@ namespace AnimarsCatcher.Navigation.Grid
             public int SharedHitCount;
             public int StoreRecordCount;
             public long StoreByteCount;
+            public long WorkspaceByteCount;
+            public int CorridorResolveCount;
+            public int TargetRecordBuildCount;
+            public int CoverageTileInvalidationCount;
+            public int CoverageTileBuildCount;
+            public int CoverageTileReuseCount;
+            public int BudgetThrottleCount;
+            public double LastBuildBatchMilliseconds;
+            public double MaximumBuildBatchMilliseconds;
         }
 
         private struct FinalAgentSample

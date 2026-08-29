@@ -21,6 +21,8 @@ namespace AnimarsCatcher.Navigation.Grid
 
         private EntityQuery _orderQuery;
         private EntityQuery _cohortQuery;
+        private EntityQuery _missingTransformMemberQuery;
+        private EntityQuery _missingConfigMemberQuery;
         private uint _nextCohortId;
 
         public void OnCreate(ref SystemState state)
@@ -34,13 +36,49 @@ namespace AnimarsCatcher.Navigation.Grid
                 ComponentType.ReadWrite<AniMovementCohort>(),
                 ComponentType.ReadWrite<AniMovementCohortPathState>(),
                 ComponentType.ReadWrite<AniMovementCohortMember>());
+            _missingTransformMemberQuery = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadWrite<AniMovementCohortMembership>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<LocalTransform>(),
+                },
+            });
+            _missingConfigMemberQuery = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadWrite<AniMovementCohortMembership>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<AniMovementConfig>(),
+                },
+            });
             _nextCohortId = 1;
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            // 先回收死亡或换令成员，后续新请求不会继承失效归属
-            CleanupCohorts(ref state);
+            // Cleanup 组件让失效 Ani 留下最小归属信息，清理成本只随本 Tick 变化数增长
+            bool membershipChanged = CleanupInvalidMembers(
+                ref state,
+                _missingTransformMemberQuery);
+            membershipChanged |= CleanupInvalidMembers(
+                ref state,
+                _missingConfigMemberQuery);
+            bool hasNewOrders = !_orderQuery.IsEmptyIgnoreFilter;
+            if (!hasNewOrders)
+            {
+                if (membershipChanged)
+                {
+                    RefreshOrderSummaries(ref state);
+                }
+                return;
+            }
 
             // Grid 未发布时保留移动请求，避免用临时坐标完成不可逆切分
             if (!SystemAPI.TryGetSingleton<NavigationGridReference>(
@@ -70,8 +108,91 @@ namespace AnimarsCatcher.Navigation.Grid
                 }
             }
 
+            // 新请求可能只接管旧 Cohort 的部分成员，此时统一修正剩余成员的聚合数据
             CleanupCohorts(ref state);
             RefreshOrderSummaries(ref state);
+        }
+
+        private static bool CleanupInvalidMembers(
+            ref SystemState state,
+            EntityQuery invalidMemberQuery)
+        {
+            if (invalidMemberQuery.IsEmptyIgnoreFilter)
+            {
+                return false;
+            }
+
+            EntityManager entityManager = state.EntityManager;
+            using NativeArray<Entity> invalidMembers =
+                invalidMemberQuery.ToEntityArray(Allocator.Temp);
+            for (int index = 0; index < invalidMembers.Length; index++)
+            {
+                Entity ani = invalidMembers[index];
+                AniMovementCohortMembership membership = entityManager.GetComponentData<
+                    AniMovementCohortMembership>(ani);
+                Entity cohortEntity = membership.Cohort;
+                if (cohortEntity != Entity.Null &&
+                    entityManager.Exists(cohortEntity) &&
+                    entityManager.HasComponent<AniMovementCohort>(cohortEntity) &&
+                    entityManager.HasBuffer<AniMovementCohortMember>(cohortEntity))
+                {
+                    RemoveInvalidMember(entityManager, cohortEntity, ani);
+                }
+
+                // 销毁残留和失去移动前置数据的存活 Ani 都在这里结束旧归属
+                entityManager.RemoveComponent<AniMovementCohortMembership>(ani);
+            }
+
+            return invalidMembers.Length > 0;
+        }
+
+        private static void RemoveInvalidMember(
+            EntityManager entityManager,
+            Entity cohortEntity,
+            Entity ani)
+        {
+            DynamicBuffer<AniMovementCohortMember> members = entityManager.GetBuffer<
+                AniMovementCohortMember>(cohortEntity);
+            for (int index = members.Length - 1; index >= 0; index--)
+            {
+                if (members[index].Ani == ani)
+                {
+                    members.RemoveAt(index);
+                    break;
+                }
+            }
+
+            AniMovementCohort cohort = entityManager.GetComponentData<AniMovementCohort>(
+                cohortEntity);
+            MarkOrderMembersChanged(entityManager, cohort.Order);
+            if (members.IsEmpty)
+            {
+                entityManager.DestroyEntity(cohortEntity);
+                return;
+            }
+
+            float3 center = float3.zero;
+            float maximumRadius = 0f;
+            float minimumSpeed = float.PositiveInfinity;
+            float minimumAcceleration = float.PositiveInfinity;
+            for (int index = 0; index < members.Length; index++)
+            {
+                Entity member = members[index].Ani;
+                AniMovementConfig config = entityManager.GetComponentData<AniMovementConfig>(
+                    member);
+                center += entityManager.GetComponentData<LocalTransform>(member).Position;
+                maximumRadius = math.max(maximumRadius, config.AgentRadius);
+                minimumSpeed = math.min(minimumSpeed, config.MaxSpeed);
+                minimumAcceleration = math.min(minimumAcceleration, config.MaxAcceleration);
+            }
+
+            cohort.MemberCount = members.Length;
+            cohort.MemberVersion = NextNonZero(cohort.MemberVersion);
+            cohort.RepresentativePosition = center / members.Length;
+            cohort.MaximumAgentRadius = maximumRadius;
+            cohort.MinimumMaxSpeed = minimumSpeed;
+            cohort.MinimumMaxAcceleration = minimumAcceleration;
+            entityManager.SetComponentData(cohortEntity, cohort);
         }
 
         private void ConsumeOrder(

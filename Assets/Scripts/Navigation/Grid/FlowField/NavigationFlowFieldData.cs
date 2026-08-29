@@ -6,6 +6,15 @@ using Unity.Mathematics;
 namespace AnimarsCatcher.Navigation.Grid
 {
     /// <summary>
+    /// 选择按精确起点构建局部通道，或按共同目标构建可跨起点共享的流向场
+    /// </summary>
+    public enum NavigationFlowFieldCoverageMode : byte
+    {
+        Corridor,
+        GoalRegion
+    }
+
+    /// <summary>
     /// 请求先用分层寻路确定大致通道，再为通道内格子生成 Flow Field
     /// </summary>
     public struct NavigationFlowFieldRequest : IComponentData
@@ -19,21 +28,30 @@ namespace AnimarsCatcher.Navigation.Grid
         // 请求被后续版本替换后，调度器用该版本拒绝迟到结果
         public uint CancellationVersion;
 
+        // 目标区域模式不把精确起点写入共享 Key，适合多个导航分组前往同一目标
+        public NavigationFlowFieldCoverageMode CoverageMode;
+
         /// <summary>
         /// 根据普通路径请求创建 Flow Field 请求
         /// </summary>
         /// <param name="pathRequest">包含起终点、角色体型和版本号的路径请求</param>
+        /// <param name="priority">预算不足时的调度优先级</param>
+        /// <param name="cancellationVersion">用于拒绝迟到结果的取消版本</param>
+        /// <param name="coverageMode">局部通道或目标区域共享模式</param>
         /// <returns>可提交给 Flow Field 系统的请求组件</returns>
         public static NavigationFlowFieldRequest Create(
             NavigationPathRequest pathRequest,
             byte priority = 0,
-            uint cancellationVersion = 0)
+            uint cancellationVersion = 0,
+            NavigationFlowFieldCoverageMode coverageMode =
+                NavigationFlowFieldCoverageMode.Corridor)
         {
             return new NavigationFlowFieldRequest
             {
                 PathRequest = pathRequest,
                 Priority = priority,
                 CancellationVersion = cancellationVersion,
+                CoverageMode = coverageMode,
             };
         }
     }
@@ -43,20 +61,22 @@ namespace AnimarsCatcher.Navigation.Grid
     /// </summary>
     public struct NavigationFlowFieldKey : IEquatable<NavigationFlowFieldKey>
     {
-        // 使用投影后的起终点，世界坐标微小误差不会拆成不同缓存项
+        // 局部通道使用投影起点，目标区域模式固定为负值以跨起点共享
         public int StartCellIndex;
         public int EndCellIndex;
 
         // 浮点参数按位参与相等比较，避免近似比较破坏哈希容器约定
         public int RequiredClearanceBits;
         public int ClearancePenaltyWeightBits;
+        public NavigationFlowFieldCoverageMode CoverageMode;
 
         public bool Equals(NavigationFlowFieldKey other)
         {
             return StartCellIndex == other.StartCellIndex &&
                    EndCellIndex == other.EndCellIndex &&
                    RequiredClearanceBits == other.RequiredClearanceBits &&
-                   ClearancePenaltyWeightBits == other.ClearancePenaltyWeightBits;
+                   ClearancePenaltyWeightBits == other.ClearancePenaltyWeightBits &&
+                   CoverageMode == other.CoverageMode;
         }
 
         public override bool Equals(object obj)
@@ -66,11 +86,12 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public override int GetHashCode()
         {
-            return (int)math.hash(new int4(
+            uint requestHash = math.hash(new int4(
                 StartCellIndex,
                 EndCellIndex,
                 RequiredClearanceBits,
                 ClearancePenaltyWeightBits));
+            return (int)math.hash(new uint2(requestHash, (uint)CoverageMode));
         }
     }
 
@@ -100,15 +121,38 @@ namespace AnimarsCatcher.Navigation.Grid
         public uint DynamicOverlaySignature;
         public uint SourceOverlayVersion;
 
+        // 目标场局部过期时保留 Record，并由等待请求刷新受影响覆盖块
+        public byte RefreshPending;
+        public int PendingCoverageTileCount;
+
         // 引用数保护活动消费者，使用时间和字节数参与缓存淘汰
         public int ReferenceCount;
         public int LastUsedTick;
         public int ByteSize;
 
         // 保留求解成本和搜索规模，Handle 命中时可直接恢复 Cohort 状态
+        public int CoverageTileCount;
         public int AbstractExpandedNodeCount;
         public int IntegrationExpandedCellCount;
         public float TotalCost;
+    }
+
+    /// <summary>
+    /// 标记已经预留 Buffer 容量、但尚未承载有效目标场的 Record 槽位
+    /// </summary>
+    public struct NavigationSharedFlowFieldRecordPoolSlot : IComponentData
+    {
+    }
+
+    /// <summary>
+    /// 保存目标场每个覆盖分块在构建时读取的动态障碍版本
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct NavigationFlowFieldCoverageTile : IBufferElementData
+    {
+        // ClusterId 是覆盖块的稳定编号，版本用于识别真正受影响的局部范围
+        public int ClusterId;
+        public uint DynamicOverlayVersion;
     }
 
     /// <summary>
@@ -136,6 +180,9 @@ namespace AnimarsCatcher.Navigation.Grid
         public int MaximumConcurrentBuilds;
         public int MaximumBuildsPerTick;
 
+        // 上一批超过预算时收紧下一批并发，避免连续占满导航 Worker
+        public float MaximumWorkerMillisecondsPerTick;
+
         // 超时只约束排队等待，字节预算只淘汰没有活动引用的 Record
         public int RequestTimeoutTicks;
         public long StoreByteBudget;
@@ -147,8 +194,9 @@ namespace AnimarsCatcher.Navigation.Grid
         {
             return new NavigationFlowFieldSchedulerSettings
             {
-                MaximumConcurrentBuilds = 4,
-                MaximumBuildsPerTick = 4,
+                MaximumConcurrentBuilds = 8,
+                MaximumBuildsPerTick = 8,
+                MaximumWorkerMillisecondsPerTick = 8f,
                 RequestTimeoutTicks = 120,
                 StoreByteBudget = 256L * 1024L * 1024L,
             };
@@ -166,11 +214,20 @@ namespace AnimarsCatcher.Navigation.Grid
         public int ActiveBuildCount;
         public int StoreRecordCount;
         public long StoreByteCount;
+        public long WorkspaceByteCount;
         public int LastPublishedBuildCount;
+        public double LastBuildBatchMilliseconds;
+        public double MaximumBuildBatchMilliseconds;
 
         // 累计值用于比较唯一构建、共享收益和失败路径
         public int CumulativeUniqueBuildCount;
         public int CumulativeSharedHitCount;
+        public int CumulativeCorridorResolveCount;
+        public int CumulativeTargetRecordBuildCount;
+        public int CumulativeCoverageTileInvalidationCount;
+        public int CumulativeCoverageTileBuildCount;
+        public int CumulativeCoverageTileReuseCount;
+        public int CumulativeBudgetThrottleCount;
         public int CumulativeCancelledCount;
         public int CumulativeTimeoutCount;
         public int CumulativeEvictedCount;

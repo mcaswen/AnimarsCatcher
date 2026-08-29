@@ -1,3 +1,4 @@
+using System;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -23,6 +24,141 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 为一个并发槽位长期保存 Flow Field 构建期间使用的可变列表
+    /// </summary>
+    public struct NavigationSharedFlowFieldWorkspace : IDisposable
+    {
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> CorridorClusters;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> CorridorPortals;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> WaypointCells;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<NavigationFlowFieldCell> FlowCells;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> VisitedCells;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> WorkCorridorClusters;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> WorkCorridorPortals;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> NodeChain;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<NavigationFlowFieldCacheEntry> CacheEntries;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<int> CacheCorridorClusters;
+
+        [NativeDisableParallelForRestriction]
+        public NativeList<NavigationFlowFieldCell> CacheFlowCells;
+
+        public static NavigationSharedFlowFieldWorkspace Create(
+            int cellCount,
+            int clusterCount,
+            int abstractCount)
+        {
+            return new NavigationSharedFlowFieldWorkspace
+            {
+                CorridorClusters = new NativeList<int>(
+                    math.max(16, clusterCount),
+                    Allocator.Persistent),
+                CorridorPortals = new NativeList<int>(
+                    math.max(16, abstractCount),
+                    Allocator.Persistent),
+                WaypointCells = new NativeList<int>(
+                    math.max(32, abstractCount + 2),
+                    Allocator.Persistent),
+                FlowCells = new NativeList<NavigationFlowFieldCell>(
+                    math.max(256, cellCount),
+                    Allocator.Persistent),
+                VisitedCells = new NativeList<int>(
+                    math.max(256, cellCount),
+                    Allocator.Persistent),
+                WorkCorridorClusters = new NativeList<int>(
+                    math.max(16, clusterCount),
+                    Allocator.Persistent),
+                WorkCorridorPortals = new NativeList<int>(
+                    math.max(16, abstractCount),
+                    Allocator.Persistent),
+                NodeChain = new NativeList<int>(
+                    math.max(32, abstractCount),
+                    Allocator.Persistent),
+                // 共享 Store 已承担跨请求缓存，槽位内缓存只保留合法空容器
+                CacheEntries = new NativeList<NavigationFlowFieldCacheEntry>(
+                    1,
+                    Allocator.Persistent),
+                CacheCorridorClusters = new NativeList<int>(
+                    1,
+                    Allocator.Persistent),
+                CacheFlowCells = new NativeList<NavigationFlowFieldCell>(
+                    1,
+                    Allocator.Persistent),
+            };
+        }
+
+        public void Clear()
+        {
+            CorridorClusters.Clear();
+            CorridorPortals.Clear();
+            WaypointCells.Clear();
+            FlowCells.Clear();
+            VisitedCells.Clear();
+            WorkCorridorClusters.Clear();
+            WorkCorridorPortals.Clear();
+            NodeChain.Clear();
+            CacheEntries.Clear();
+            CacheCorridorClusters.Clear();
+            CacheFlowCells.Clear();
+        }
+
+        public void Dispose()
+        {
+            if (CorridorClusters.IsCreated) CorridorClusters.Dispose();
+            if (CorridorPortals.IsCreated) CorridorPortals.Dispose();
+            if (WaypointCells.IsCreated) WaypointCells.Dispose();
+            if (FlowCells.IsCreated) FlowCells.Dispose();
+            if (VisitedCells.IsCreated) VisitedCells.Dispose();
+            if (WorkCorridorClusters.IsCreated) WorkCorridorClusters.Dispose();
+            if (WorkCorridorPortals.IsCreated) WorkCorridorPortals.Dispose();
+            if (NodeChain.IsCreated) NodeChain.Dispose();
+            if (CacheEntries.IsCreated) CacheEntries.Dispose();
+            if (CacheCorridorClusters.IsCreated) CacheCorridorClusters.Dispose();
+            if (CacheFlowCells.IsCreated) CacheFlowCells.Dispose();
+        }
+
+        internal long CalculateCapacityBytes()
+        {
+            if (!CorridorClusters.IsCreated)
+            {
+                return 0;
+            }
+
+            return (long)CorridorClusters.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)CorridorPortals.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)WaypointCells.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)FlowCells.Capacity * UnsafeUtility.SizeOf<NavigationFlowFieldCell>() +
+                   (long)VisitedCells.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)WorkCorridorClusters.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)WorkCorridorPortals.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)NodeChain.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)CacheEntries.Capacity *
+                   UnsafeUtility.SizeOf<NavigationFlowFieldCacheEntry>() +
+                   (long)CacheCorridorClusters.Capacity * UnsafeUtility.SizeOf<int>() +
+                   (long)CacheFlowCells.Capacity *
+                   UnsafeUtility.SizeOf<NavigationFlowFieldCell>();
+        }
+    }
+
+    /// <summary>
     /// 为每个唯一 Field Key 分配独立工作区并行构建结果
     /// </summary>
     [BurstCompile(FloatMode = FloatMode.Deterministic, FloatPrecision = FloatPrecision.Standard)]
@@ -44,10 +180,14 @@ namespace AnimarsCatcher.Navigation.Grid
         public uint DynamicOverlayVersion;
         public NativeArray<NavigationFlowFieldJobResult> Results;
 
-        public NativeStream.Writer CorridorClusters;
-        public NativeStream.Writer CorridorPortals;
-        public NativeStream.Writer HierarchicalWaypointCells;
-        public NativeStream.Writer FlowCells;
+        public NavigationSharedFlowFieldWorkspace Workspace0;
+        public NavigationSharedFlowFieldWorkspace Workspace1;
+        public NavigationSharedFlowFieldWorkspace Workspace2;
+        public NavigationSharedFlowFieldWorkspace Workspace3;
+        public NavigationSharedFlowFieldWorkspace Workspace4;
+        public NavigationSharedFlowFieldWorkspace Workspace5;
+        public NavigationSharedFlowFieldWorkspace Workspace6;
+        public NavigationSharedFlowFieldWorkspace Workspace7;
 
         // Cell 工作区按请求槽位切片，禁用容器的默认索引限制不会产生交叉写入
         [NativeDisableParallelForRestriction]
@@ -91,20 +231,23 @@ namespace AnimarsCatcher.Navigation.Grid
 
         public void Execute(int index)
         {
+            switch (index)
+            {
+                case 0: Build(index, ref Workspace0); return;
+                case 1: Build(index, ref Workspace1); return;
+                case 2: Build(index, ref Workspace2); return;
+                case 3: Build(index, ref Workspace3); return;
+                case 4: Build(index, ref Workspace4); return;
+                case 5: Build(index, ref Workspace5); return;
+                case 6: Build(index, ref Workspace6); return;
+                default: Build(index, ref Workspace7); return;
+            }
+        }
+
+        private void Build(int index, ref NavigationSharedFlowFieldWorkspace workspace)
+        {
             NavigationSharedFlowFieldBuildRequest buildRequest = Requests[index];
-            // 输出和工作列表只在当前并行索引内存在，Solver 不会共享可变 NativeList
-            var corridorClusters = new NativeList<int>(16, Allocator.Temp);
-            var corridorPortals = new NativeList<int>(16, Allocator.Temp);
-            var waypointCells = new NativeList<int>(32, Allocator.Temp);
-            var flowCells = new NativeList<NavigationFlowFieldCell>(256, Allocator.Temp);
-            var workVisitedCells = new NativeList<int>(256, Allocator.Temp);
-            var workCorridorClusters = new NativeList<int>(16, Allocator.Temp);
-            var workCorridorPortals = new NativeList<int>(16, Allocator.Temp);
-            var workNodeChain = new NativeList<int>(32, Allocator.Temp);
-            // 全局 Store 已完成跨请求归并，槽位内缓存保持为空以免形成第二套所有权
-            var cacheEntries = new NativeList<NavigationFlowFieldCacheEntry>(1, Allocator.Temp);
-            var cacheCorridorClusters = new NativeList<int>(16, Allocator.Temp);
-            var cacheFlowCells = new NativeList<NavigationFlowFieldCell>(256, Allocator.Temp);
+            workspace.Clear();
 
             // 所有切片都以相同请求索引定位，这是并行写入互不重叠的核心约束
             NativeArray<float> cellCosts = CellCosts.GetSubArray(index * CellStride, CellStride);
@@ -144,10 +287,10 @@ namespace AnimarsCatcher.Navigation.Grid
                 buildRequest.JobRequest,
                 buildRequest.GenerationStart,
                 buildRequest.RecordVersion,
-                ref corridorClusters,
-                ref corridorPortals,
-                ref waypointCells,
-                ref flowCells,
+                ref workspace.CorridorClusters,
+                ref workspace.CorridorPortals,
+                ref workspace.WaypointCells,
+                ref workspace.FlowCells,
                 cellCosts,
                 cellHeap,
                 cellHeapPositions,
@@ -159,51 +302,17 @@ namespace AnimarsCatcher.Navigation.Grid
                 abstractHeap,
                 abstractHeapPositions,
                 abstractGenerations,
-                ref workVisitedCells,
-                ref workCorridorClusters,
-                ref workCorridorPortals,
-                ref workNodeChain,
-                ref cacheEntries,
-                ref cacheCorridorClusters,
-                ref cacheFlowCells,
+                ref workspace.VisitedCells,
+                ref workspace.WorkCorridorClusters,
+                ref workspace.WorkCorridorPortals,
+                ref workspace.NodeChain,
+                ref workspace.CacheEntries,
+                ref workspace.CacheCorridorClusters,
+                ref workspace.CacheFlowCells,
                 DynamicOverlay,
                 DynamicOverlayClusters,
                 DynamicOverlayVersion);
             Results[index] = result;
-
-            // NativeStream 为每个索引提供独立段，发布阶段再按请求排序逐段读取
-            WriteStream(CorridorClusters, index, corridorClusters);
-            WriteStream(CorridorPortals, index, corridorPortals);
-            WriteStream(HierarchicalWaypointCells, index, waypointCells);
-            WriteStream(FlowCells, index, flowCells);
-
-            // Allocator.Temp 容器由当前槽位创建并释放，不跨帧进入共享 Store
-            cacheFlowCells.Dispose();
-            cacheCorridorClusters.Dispose();
-            cacheEntries.Dispose();
-            workNodeChain.Dispose();
-            workCorridorPortals.Dispose();
-            workCorridorClusters.Dispose();
-            workVisitedCells.Dispose();
-            flowCells.Dispose();
-            waypointCells.Dispose();
-            corridorPortals.Dispose();
-            corridorClusters.Dispose();
-        }
-
-        private static void WriteStream<T>(
-            NativeStream.Writer writer,
-            int index,
-            NativeList<T> values)
-            where T : unmanaged
-        {
-            // 即使结果为空也写出一个完整段，四个流才能与 Results 保持索引对齐
-            writer.BeginForEachIndex(index);
-            for (int valueIndex = 0; valueIndex < values.Length; valueIndex++)
-            {
-                writer.Write(values[valueIndex]);
-            }
-            writer.EndForEachIndex();
         }
     }
 }

@@ -35,28 +35,32 @@ namespace AnimarsCatcher.Navigation.Grid
             in LocalTransform transform,
             in AniMovementCohortMembership membership,
             in AniMovementConfig config,
-            in AniGoalAssignment goal,
+            ref AniGoalAssignment goal,
             ref AniPreferredVelocity preferredVelocity)
         {
             float3 targetVelocity = float3.zero;
             Entity cohortEntity = membership.Cohort;
+            AniMovementCohortPathState pathState =
+                PathStateLookup.HasComponent(cohortEntity)
+                    ? PathStateLookup[cohortEntity]
+                    : default;
+            bool directRoute = pathState.RouteMode == AniMovementCohortRouteMode.Direct;
             Entity fieldEntity = FieldHandleLookup.HasComponent(cohortEntity)
                 ? FieldHandleLookup[cohortEntity].Record
                 : cohortEntity;
+            bool fieldReady = fieldEntity != Entity.Null &&
+                              FieldLookup.HasBuffer(fieldEntity) &&
+                              FieldStateLookup.HasComponent(cohortEntity) &&
+                              FieldStateLookup[cohortEntity].Status ==
+                              NavigationPathStatus.Succeeded;
             bool cohortReady = HasGrid != 0 &&
                                CohortLookup.HasComponent(cohortEntity) &&
                                PathStateLookup.HasComponent(cohortEntity) &&
-                               FieldStateLookup.HasComponent(cohortEntity) &&
-                               fieldEntity != Entity.Null &&
-                               FieldLookup.HasBuffer(fieldEntity) &&
-                               PathStateLookup[cohortEntity].Status !=
-                               AniMovementCohortStatus.Failed &&
-                               FieldStateLookup[cohortEntity].Status ==
-                               NavigationPathStatus.Succeeded &&
+                               pathState.Status != AniMovementCohortStatus.Failed &&
+                               (directRoute || fieldReady) &&
                                goal.TargetVersion == CohortLookup[cohortEntity].TargetVersion;
             if (cohortReady)
             {
-                ref NavigationGridBlob grid = ref GridReference.Value.Value;
                 float3 arrivalVelocity = AniMovementCohortAlgorithms.CalculateArrivalVelocity(
                     transform.Position,
                     goal.TargetPosition,
@@ -66,6 +70,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 float distanceToGoal = math.length(
                     PlanarMath.FlattenY(goal.TargetPosition - transform.Position));
 
+                if (directRoute)
+                {
+                    // Cohort 已在目标换代时验证整条路线，本 Tick 只需处理制动和加速度
+                    targetVelocity = arrivalVelocity;
+                    preferredVelocity.Value = VectorMath.MoveTowards(
+                        preferredVelocity.Value,
+                        targetVelocity,
+                        math.max(0f, config.MaxAcceleration) * DeltaTime);
+                    return;
+                }
+
+                ref NavigationGridBlob grid = ref GridReference.Value.Value;
                 float3 flowDirection = float3.zero;
                 bool hasCurrentCell = NavigationGridQuery.TryWorldToCell(
                     ref grid,
@@ -80,11 +96,50 @@ namespace AnimarsCatcher.Navigation.Grid
                                            currentCellIndex,
                                            out flowDirection) &&
                                        math.lengthsq(flowDirection) > 1e-6f;
+                    if (hasFlowDirection)
+                    {
+                        // 朝下一 Cell 中心修正离散方向，避免单位从格子边缘漂入相邻障碍
+                        float3 currentCellCenter = NavigationGridQuery.GetCellWorldPosition(
+                            ref grid,
+                            currentCellIndex);
+                        float3 nextCellCenter = currentCellCenter + new float3(
+                            math.sign(flowDirection.x) * grid.CellSize,
+                            0f,
+                            math.sign(flowDirection.z) * grid.CellSize);
+                        flowDirection = PlanarMath.NormalizeXZOrDefault(
+                            nextCellCenter - transform.Position,
+                            flowDirection);
+                    }
+                }
+                if (hasCurrentCell &&
+                    !hasFlowDirection &&
+                    NavigationGridQuery.TryProjectToNearestCell(
+                        ref grid,
+                        transform.Position,
+                        config.AgentRadius,
+                        0.05f,
+                        4,
+                        out int recoveryCellIndex) &&
+                    recoveryCellIndex != currentCellIndex &&
+                    AniMovementCohortAlgorithms.TryGetFlowDirection(
+                        FieldLookup[fieldEntity],
+                        recoveryCellIndex,
+                        out _))
+                {
+                    // 偶发漂入障碍 Cell 时先返回最近的 Field Cell，避免零方向永久停住
+                    float3 recoveryPosition = NavigationGridQuery.GetCellWorldPosition(
+                        ref grid,
+                        recoveryCellIndex);
+                    flowDirection = PlanarMath.NormalizeXZOrDefault(
+                        recoveryPosition - transform.Position,
+                        float3.zero);
+                    hasFlowDirection = math.lengthsq(flowDirection) > 1e-6f;
                 }
 
-                bool canApproachDirectly = false;
+                bool canApproachDirectly = goal.DirectApproach != 0;
                 // 常规直线检查限制在目标影响范围，离开稀疏 Field 时则用直达路径脱离零速度死区
-                if (hasCurrentCell &&
+                if (!canApproachDirectly &&
+                    hasCurrentCell &&
                     (distanceToGoal <= goal.InfluenceRadius || !hasFlowDirection))
                 {
                     canApproachDirectly = NavigationGridQuery.TryCalculateLineCost(
@@ -95,6 +150,10 @@ namespace AnimarsCatcher.Navigation.Grid
                         0.05f,
                         0.2f,
                         out _);
+                }
+                if (canApproachDirectly)
+                {
+                    goal.DirectApproach = 1;
                 }
 
                 targetVelocity = AniMovementCohortAlgorithms.BlendGoalVelocity(

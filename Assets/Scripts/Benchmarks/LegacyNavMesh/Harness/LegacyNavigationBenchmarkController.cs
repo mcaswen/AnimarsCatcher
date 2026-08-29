@@ -78,6 +78,16 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
 
         private IEnumerator Start()
         {
+            if (Application.isBatchMode)
+            {
+                // 无图形设备的批处理不提交场景相机，避免渲染错误污染导航耗时和日志
+                foreach (Camera sceneCamera in
+                         FindObjectsByType<Camera>(FindObjectsSortMode.None))
+                {
+                    sceneCamera.enabled = false;
+                }
+            }
+
             // 场景参数不完整时不向稍后创建的 Server World 留下半套配置
             if (!ValidateConfiguration())
             {
@@ -190,7 +200,8 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             // Grid 后端复用同一场景加载器，只替换 Server World 内的工作负载
             if (entityManager.HasComponent<GridMovementBackendEnabled>(backendEntity))
             {
-                if (!RegisterGridWorkload(entityManager))
+                if (!ConfigureDeterministicGridTickRate(entityManager) ||
+                    !RegisterGridWorkload(entityManager))
                 {
                     serverWorld.QuitUpdate = true;
                     return;
@@ -275,15 +286,54 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 $"Replay={_replayScript.ComputeHash()}");
         }
 
+        private static bool ConfigureDeterministicGridTickRate(EntityManager entityManager)
+        {
+            using EntityQuery tickRateQuery = entityManager.CreateEntityQuery(
+                ComponentType.ReadWrite<ClientServerTickRate>());
+            int tickRateCount = tickRateQuery.CalculateEntityCount();
+            if (tickRateCount > 1)
+            {
+                Debug.LogError("[NavigationBenchmark] Server World 存在多份 Tick Rate 配置");
+                return false;
+            }
+
+            // 纯 Server 基准可能在首帧前还没有 Tick Rate Entity，此处直接补齐默认配置
+            ClientServerTickRate tickRate = tickRateCount == 0
+                ? default
+                : entityManager.GetComponentData<ClientServerTickRate>(
+                    tickRateQuery.GetSingletonEntity());
+            tickRate.ResolveDefaults();
+            // 尖峰后允许补跑多个独立 Tick，但不能合并 DeltaTime 改变确定性回放结果
+            tickRate.MaxSimulationStepsPerFrame = 16;
+            tickRate.MaxSimulationStepBatchSize = 1;
+            if (tickRateCount == 0)
+            {
+                entityManager.CreateSingleton(tickRate);
+            }
+            else
+            {
+                entityManager.SetComponentData(tickRateQuery.GetSingletonEntity(), tickRate);
+            }
+
+            return true;
+        }
+
         private bool RegisterGridWorkload(EntityManager entityManager)
         {
             NavigationGridBenchmarkWorkload workload = GetGridWorkload();
+            NavigationGridBenchmarkScenario scenario = GetGridScenario();
             if (!NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     workload,
                     _agentCount,
                     out string reason))
             {
                 Debug.LogError($"[NavigationBenchmark] {reason}");
+                return false;
+            }
+            if (scenario != NavigationGridBenchmarkScenario.Open &&
+                workload != NavigationGridBenchmarkWorkload.FreeCohortMovement)
+            {
+                Debug.LogError("障碍复用场景只支持 FreeCohortMovement 工作负载");
                 return false;
             }
 
@@ -305,6 +355,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             entityManager.SetComponentData(configEntity, new NavigationGridBenchmarkConfig
             {
                 Workload = workload,
+                Scenario = scenario,
                 AgentCount = _agentCount,
                 RandomSeed = _replayScript.RandomSeed,
                 WarmupTicks = math.max(0, _warmupTicks),
@@ -337,8 +388,51 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             }
 
             Debug.Log(
-                $"[NavigationBenchmark] Grid workload={workload}，Ani={_agentCount}");
+                $"[NavigationBenchmark] Grid workload={workload}，" +
+                $"scenario={scenario}，Ani={_agentCount}");
             return true;
+        }
+
+        private static NavigationGridBenchmarkScenario GetGridScenario()
+        {
+            const string argumentName = "-grid-benchmark-scenario";
+            string[] arguments = Environment.GetCommandLineArgs();
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                string argument = arguments[index];
+                string value = null;
+                if (argument.StartsWith(argumentName + "=", StringComparison.OrdinalIgnoreCase))
+                {
+                    value = argument[(argumentName.Length + 1)..];
+                }
+                else if (string.Equals(argument, argumentName, StringComparison.OrdinalIgnoreCase) &&
+                         index + 1 < arguments.Length)
+                {
+                    value = arguments[index + 1];
+                }
+
+                if (value == null)
+                {
+                    continue;
+                }
+                if (string.Equals(value, "open", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NavigationGridBenchmarkScenario.Open;
+                }
+                if (string.Equals(value, "high", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "highreuse", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NavigationGridBenchmarkScenario.ObstacleHighReuse;
+                }
+                if (string.Equals(value, "low", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(value, "lowreuse", StringComparison.OrdinalIgnoreCase))
+                {
+                    return NavigationGridBenchmarkScenario.ObstacleLowReuse;
+                }
+                throw new ArgumentException(
+                    $"无法识别 Grid Benchmark scenario“{value}”，可用值为 open、high 或 low");
+            }
+            return NavigationGridBenchmarkScenario.Open;
         }
 
         private static NavigationGridBenchmarkWorkload GetGridWorkload()

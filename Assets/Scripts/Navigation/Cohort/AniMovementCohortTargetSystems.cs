@@ -133,9 +133,17 @@ namespace AnimarsCatcher.Navigation.Grid
         private const ulong HashOffset = 14695981039346656037UL;
         private const ulong HashPrime = 1099511628211UL;
 
+        private NativeList<GoalMember> _memberWorkspace;
+        private NativeList<GoalCellCandidate> _candidateWorkspace;
+        private NativeList<int> _frontierWorkspace;
+        private NativeArray<byte> _visitedWorkspace;
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<GridMovementBackendEnabled>();
+            _memberWorkspace = new NativeList<GoalMember>(128, Allocator.Persistent);
+            _candidateWorkspace = new NativeList<GoalCellCandidate>(256, Allocator.Persistent);
+            _frontierWorkspace = new NativeList<int>(256, Allocator.Persistent);
         }
 
         public void OnUpdate(ref SystemState state)
@@ -147,6 +155,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             Entity gridEntity = SystemAPI.GetSingletonEntity<NavigationGridReference>();
+            EnsureGridWorkspace(gridReference.Value.Value.Cells.Length);
             NativeArray<NavigationDynamicOverlayCell> overlay = default;
             // 目标区域使用当前只读 Overlay，动态阻挡 Cell 不会取得新落点
             if (state.EntityManager.HasBuffer<NavigationDynamicOverlayCell>(gridEntity))
@@ -176,6 +185,36 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
+        public void OnDestroy(ref SystemState state)
+        {
+            if (_memberWorkspace.IsCreated) _memberWorkspace.Dispose();
+            if (_candidateWorkspace.IsCreated) _candidateWorkspace.Dispose();
+            if (_frontierWorkspace.IsCreated) _frontierWorkspace.Dispose();
+            if (_visitedWorkspace.IsCreated) _visitedWorkspace.Dispose();
+        }
+
+        private void EnsureGridWorkspace(int cellCount)
+        {
+            if (_visitedWorkspace.IsCreated && _visitedWorkspace.Length == cellCount)
+            {
+                return;
+            }
+
+            if (_visitedWorkspace.IsCreated) _visitedWorkspace.Dispose();
+            _visitedWorkspace = new NativeArray<byte>(
+                cellCount,
+                Allocator.Persistent,
+                NativeArrayOptions.ClearMemory);
+            if (_candidateWorkspace.Capacity < cellCount)
+            {
+                _candidateWorkspace.Capacity = cellCount;
+            }
+            if (_frontierWorkspace.Capacity < cellCount)
+            {
+                _frontierWorkspace.Capacity = cellCount;
+            }
+        }
+
         private void AssignOrderGoals(
             ref SystemState state,
             Entity orderEntity,
@@ -185,9 +224,12 @@ namespace AnimarsCatcher.Navigation.Grid
             NativeArray<NavigationDynamicOverlayCell> overlay)
         {
             EntityManager entityManager = state.EntityManager;
-            using var members = new NativeList<GoalMember>(
-                math.max(1, orderState.ValidMemberCount),
-                Allocator.Temp);
+            NativeList<GoalMember> members = _memberWorkspace;
+            members.Clear();
+            if (members.Capacity < orderState.ValidMemberCount)
+            {
+                members.Capacity = orderState.ValidMemberCount;
+            }
             float maximumRadius = 0f;
             bool membersValid = true;
 
@@ -281,9 +323,8 @@ namespace AnimarsCatcher.Navigation.Grid
             float3 centerPosition = NavigationGridQuery.GetCellWorldPosition(
                 ref grid,
                 centerCellIndex);
-            using var candidates = new NativeList<GoalCellCandidate>(
-                math.max(1, grid.Cells.Length),
-                Allocator.Temp);
+            NativeList<GoalCellCandidate> candidates = _candidateWorkspace;
+            candidates.Clear();
             // 只从实际投影中心收集可达 Cell，避免全图扫描把障碍另一侧当成同一目标区域
             CollectReachableGoalCandidates(
                 ref grid,
@@ -292,20 +333,28 @@ namespace AnimarsCatcher.Navigation.Grid
                 maximumRadius,
                 order.GoalCellCapacityScale,
                 overlay,
-                candidates);
+                candidates,
+                _visitedWorkspace,
+                _frontierWorkspace);
 
             candidates.Sort(new GoalCellCandidateComparer());
             int availableCapacity = 0;
+            int selectedCandidateCount = 0;
             // 分配前确认总容量，避免写到一半才发现剩余成员没有合法位置
             for (int index = 0; index < candidates.Length && availableCapacity < members.Length; index++)
             {
                 availableCapacity += candidates[index].Capacity;
+                selectedCandidateCount++;
             }
             if (availableCapacity < members.Length)
             {
                 FailGoalAssignment(ref state, orderEntity, ref orderState);
                 return;
             }
+
+            // 先截取离中心最近的足够容量，再按角度与成员配对，避免把障碍两侧互相交换
+            candidates.ResizeUninitialized(selectedCandidateCount);
+            candidates.Sort(new GoalCellAngleComparer());
 
             ulong goalHash = HashOffset;
             int candidateIndex = 0;
@@ -380,35 +429,43 @@ namespace AnimarsCatcher.Navigation.Grid
             float maximumRadius,
             float capacityScale,
             NativeArray<NavigationDynamicOverlayCell> overlay,
-            NativeList<GoalCellCandidate> candidates)
+            NativeList<GoalCellCandidate> candidates,
+            NativeArray<byte> visited,
+            NativeList<int> frontier)
         {
             // visited 与 frontier 共同限制遍历范围，容量不足也不会退回全图补位
-            var visited = new NativeArray<byte>(
-                grid.Cells.Length,
-                Allocator.Temp,
-                NativeArrayOptions.ClearMemory);
-            var frontier = new NativeList<int>(
-                math.max(1, grid.Cells.Length),
-                Allocator.Temp);
-            try
+            for (int index = 0; index < visited.Length; index++)
             {
-                visited[centerCellIndex] = 1;
-                frontier.Add(centerCellIndex);
+                visited[index] = 0;
+            }
+            frontier.Clear();
+            visited[centerCellIndex] = 1;
+            frontier.Add(centerCellIndex);
 
-                for (int frontierIndex = 0;
-                     frontierIndex < frontier.Length;
-                     frontierIndex++)
+            for (int frontierIndex = 0;
+                 frontierIndex < frontier.Length;
+                 frontierIndex++)
+            {
+                int cellIndex = frontier[frontierIndex];
+                float3 cellPosition = NavigationGridQuery.GetCellWorldPosition(
+                    ref grid,
+                    cellIndex);
+                // 个人落点必须能从共享中心直达，否则中心 Flow 无法处理最后一段绕障碍路线
+                if (NavigationGridQuery.TryCalculateLineCost(
+                        ref grid,
+                        centerCellIndex,
+                        cellIndex,
+                        maximumRadius,
+                        0.05f,
+                        0.2f,
+                        overlay,
+                        out _))
                 {
-                    int cellIndex = frontier[frontierIndex];
-                    // 进入 frontier 表示该 Cell 已通过完整边通行校验，可以安全参与落点排序
                     int capacity = AniMovementCohortAlgorithms.CalculateCellCapacity(
                         grid.CellSize,
                         maximumRadius,
                         capacityScale,
                         out int slotsPerAxis);
-                    float3 cellPosition = NavigationGridQuery.GetCellWorldPosition(
-                        ref grid,
-                        cellIndex);
                     candidates.Add(new GoalCellCandidate
                     {
                         CellIndex = cellIndex,
@@ -418,52 +475,50 @@ namespace AnimarsCatcher.Navigation.Grid
                             PlanarMath.FlattenY(cellPosition - centerPosition)),
                         TerrainCost = grid.Cells[cellIndex].TerrainCost,
                         Clearance = grid.Cells[cellIndex].Clearance,
+                        Angle = math.atan2(
+                            cellPosition.z - centerPosition.z,
+                            cellPosition.x - centerPosition.x),
                     });
-
-                    int x = cellIndex % grid.Width;
-                    int z = cellIndex / grid.Width;
-                    // 复用正式寻路的边规则，斜向扩张也会遵守拐角阻挡和动态 Clearance
-                    for (int directionIndex = 0; directionIndex < 8; directionIndex++)
-                    {
-                        NavigationGridDirections.GetDirection(
-                            directionIndex,
-                            out int deltaX,
-                            out int deltaZ);
-                        int neighborX = x + deltaX;
-                        int neighborZ = z + deltaZ;
-                        if (!NavigationGridTraversal.IsInside(
-                                neighborX,
-                                neighborZ,
-                                grid.Width,
-                                grid.Height))
-                        {
-                            continue;
-                        }
-
-                        int neighborIndex = neighborX + neighborZ * grid.Width;
-                        if (visited[neighborIndex] != 0 ||
-                            !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
-                                ref grid,
-                                cellIndex,
-                                neighborIndex,
-                                deltaX,
-                                deltaZ,
-                                maximumRadius,
-                                0.05f,
-                                overlay))
-                        {
-                            continue;
-                        }
-
-                        visited[neighborIndex] = 1;
-                        frontier.Add(neighborIndex);
-                    }
                 }
-            }
-            finally
-            {
-                frontier.Dispose();
-                visited.Dispose();
+
+                int x = cellIndex % grid.Width;
+                int z = cellIndex / grid.Width;
+                // 复用正式寻路的边规则，斜向扩张也会遵守拐角阻挡和动态 Clearance
+                for (int directionIndex = 0; directionIndex < 8; directionIndex++)
+                {
+                    NavigationGridDirections.GetDirection(
+                        directionIndex,
+                        out int deltaX,
+                        out int deltaZ);
+                    int neighborX = x + deltaX;
+                    int neighborZ = z + deltaZ;
+                    if (!NavigationGridTraversal.IsInside(
+                            neighborX,
+                            neighborZ,
+                            grid.Width,
+                            grid.Height))
+                    {
+                        continue;
+                    }
+
+                    int neighborIndex = neighborX + neighborZ * grid.Width;
+                    if (visited[neighborIndex] != 0 ||
+                        !NavigationGridTraversal.CanAgentTraverseEdgeDynamic(
+                            ref grid,
+                            cellIndex,
+                            neighborIndex,
+                            deltaX,
+                            deltaZ,
+                            maximumRadius,
+                            0.05f,
+                            overlay))
+                    {
+                        continue;
+                    }
+
+                    visited[neighborIndex] = 1;
+                    frontier.Add(neighborIndex);
+                }
             }
         }
 
@@ -522,6 +577,7 @@ namespace AnimarsCatcher.Navigation.Grid
             public float DistanceSquared;
             public float TerrainCost;
             public float Clearance;
+            public float Angle;
         }
 
         private struct GoalCellCandidateComparer : IComparer<GoalCellCandidate>
@@ -533,6 +589,18 @@ namespace AnimarsCatcher.Navigation.Grid
                 comparison = left.TerrainCost.CompareTo(right.TerrainCost);
                 if (comparison != 0) return comparison;
                 comparison = right.Clearance.CompareTo(left.Clearance);
+                if (comparison != 0) return comparison;
+                return left.CellIndex.CompareTo(right.CellIndex);
+            }
+        }
+
+        private struct GoalCellAngleComparer : IComparer<GoalCellCandidate>
+        {
+            public int Compare(GoalCellCandidate left, GoalCellCandidate right)
+            {
+                int comparison = left.Angle.CompareTo(right.Angle);
+                if (comparison != 0) return comparison;
+                comparison = left.DistanceSquared.CompareTo(right.DistanceSquared);
                 if (comparison != 0) return comparison;
                 return left.CellIndex.CompareTo(right.CellIndex);
             }

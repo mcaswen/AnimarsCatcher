@@ -18,11 +18,24 @@ namespace AnimarsCatcher.Navigation.Grid
     }
 
     /// <summary>
+    /// 区分开阔地、高复用绕障碍和多目标低复用三种阶段六场景
+    /// </summary>
+    public enum NavigationGridBenchmarkScenario : byte
+    {
+        Open,
+        ObstacleHighReuse,
+        ObstacleLowReuse
+    }
+
+    /// <summary>
     /// 统一导航基准场景的请求规模、回放时间和结果标识配置
     /// </summary>
     public struct NavigationGridBenchmarkConfig : IComponentData
     {
         public NavigationGridBenchmarkWorkload Workload;
+
+        // 场景决定合成网格障碍和一次回放命令拆出的目标数量
+        public NavigationGridBenchmarkScenario Scenario;
 
         // 本次创建的独立寻路或 Flow Field 请求数
         public int AgentCount;

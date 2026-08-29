@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using AnimarsCatcher.Gameplay.Contracts;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 namespace AnimarsCatcher.Navigation.Grid
@@ -17,6 +19,7 @@ namespace AnimarsCatcher.Navigation.Grid
     public partial struct ServerNavigationSharedFlowFieldSystem : ISystem
     {
         private const int MaximumSupportedConcurrentBuilds = 8;
+        private const int PreallocatedRecordCount = 32;
         private const int MaximumWaitSamples = 8192;
 
         private EntityQuery _gridQuery;
@@ -29,15 +32,26 @@ namespace AnimarsCatcher.Navigation.Grid
         private int _nextGeneration;
 
         private JobHandle _activeJobHandle;
+        private long _activeJobStartTimestamp;
         private bool _activeJobScheduled;
+        private int _activeBuildCount;
         private NativeArray<NavigationSharedFlowFieldBuildRequest> _activeRequests;
         private NativeArray<NavigationFlowFieldJobResult> _activeResults;
         private NativeArray<NavigationDynamicOverlayCell> _activeOverlay;
         private NativeArray<NavigationDynamicOverlayCluster> _activeOverlayClusters;
-        private NativeStream _activeCorridorClusters;
-        private NativeStream _activeCorridorPortals;
-        private NativeStream _activeWaypointCells;
-        private NativeStream _activeFlowCells;
+        private NativeList<Entity> _recordPool;
+        private long _recordPoolByteCount;
+        private long _recordSlotCapacityBytes;
+        private bool _recordPoolInitialized;
+
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace0;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace1;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace2;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace3;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace4;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace5;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace6;
+        private NavigationSharedFlowFieldWorkspace _buildWorkspace7;
 
         private NativeArray<float> _cellCosts;
         private NativeArray<int> _cellHeap;
@@ -67,13 +81,23 @@ namespace AnimarsCatcher.Navigation.Grid
                 ComponentType.ReadWrite<NavigationFlowFieldState>(),
                 ComponentType.ReadWrite<NavigationFlowFieldHandle>(),
                 ComponentType.ReadWrite<NavigationFlowFieldQueueState>());
-            // 共享记录必须同时拥有四类结果 Buffer，半成品不会参与缓存命中
-            _recordQuery = state.GetEntityQuery(
-                ComponentType.ReadWrite<NavigationSharedFlowFieldRecord>(),
-                ComponentType.ReadOnly<NavigationCorridorCluster>(),
-                ComponentType.ReadOnly<NavigationCorridorPortal>(),
-                ComponentType.ReadOnly<NavigationHierarchicalWaypoint>(),
-                ComponentType.ReadOnly<NavigationFlowFieldCell>());
+            // 共享记录必须同时拥有结果和覆盖块 Buffer，半成品不会参与缓存命中
+            _recordQuery = state.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadWrite<NavigationSharedFlowFieldRecord>(),
+                    ComponentType.ReadOnly<NavigationCorridorCluster>(),
+                    ComponentType.ReadOnly<NavigationCorridorPortal>(),
+                    ComponentType.ReadOnly<NavigationHierarchicalWaypoint>(),
+                    ComponentType.ReadOnly<NavigationFlowFieldCell>(),
+                    ComponentType.ReadOnly<NavigationFlowFieldCoverageTile>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<NavigationSharedFlowFieldRecordPoolSlot>(),
+                },
+            });
 
             // Store Entity 只保存调度配置、汇总状态和有界等待样本
             _storeEntity = state.EntityManager.CreateEntity(
@@ -83,6 +107,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 _storeEntity,
                 NavigationFlowFieldSchedulerSettings.CreateDefault());
             state.EntityManager.AddBuffer<NavigationFlowFieldQueueWaitSample>(_storeEntity);
+            _recordPool = new NativeList<Entity>(PreallocatedRecordCount, Allocator.Persistent);
             _nextRecordVersion = 1;
             _nextGeneration = 1;
         }
@@ -130,19 +155,15 @@ namespace AnimarsCatcher.Navigation.Grid
             ReconcileQueueVersions(ref state, ref schedulerState);
             if (_activeJobScheduled)
             {
-                // 构建期间不触碰任务持有的快照和工作区，只维护可独立更新的统计
-                if (!_activeJobHandle.IsCompleted)
-                {
-                    schedulerState.ActiveBuildCount = _activeRequests.Length;
-                    schedulerState.QueueLength = CountWaitingRequests(ref state);
-                    // 活动 Job 不会修改既有 Record，引用统计和缓存回收仍可继续执行
-                    RefreshRecordUsageAndBudget(ref state, ref schedulerState);
-                    PublishSchedulerState(ref state, ref schedulerState);
-                    return;
-                }
-
-                // 所有结果都在主线程按槽位顺序发布，避免并行完成顺序改变 ECS 状态
+                // 构建固定在提交后的下一 Tick 完成，墙钟快慢不能改变结果发布 Tick
                 _activeJobHandle.Complete();
+                double buildMilliseconds =
+                    (Stopwatch.GetTimestamp() - _activeJobStartTimestamp) * 1000.0 /
+                    Stopwatch.Frequency;
+                schedulerState.LastBuildBatchMilliseconds = buildMilliseconds;
+                schedulerState.MaximumBuildBatchMilliseconds = math.max(
+                    schedulerState.MaximumBuildBatchMilliseconds,
+                    buildMilliseconds);
                 ApplyActiveResults(
                     ref state,
                     ref grid.Value,
@@ -150,17 +171,23 @@ namespace AnimarsCatcher.Navigation.Grid
                     overlayClusterRead,
                     overlayVersion,
                     ref schedulerState);
-                // 发布完成后才释放 NativeStream，Reader 生命周期覆盖全部结果消费
+                // 发布完成后只结束活动批次，工作区内容会在下一次构建前统一清空
                 DisposeActiveBatch();
             }
 
             // 网格换代时先等正在读取旧 Blob 的任务结束，再释放它持有的工作区
             RefreshStoreForGrid(ref state, grid.Value.DataHash, ref schedulerState);
+            EnsureWarmStorage(
+                ref state,
+                ref grid.Value,
+                overlayRead.Length,
+                overlayClusterRead.Length);
 
             // 发布结束后清理受局部 Overlay 影响的 Record，再收集本轮请求
             RepairAndInvalidateHandles(
                 ref state,
-                overlayClusterRead);
+                overlayClusterRead,
+                ref schedulerState);
 
             NavigationFlowFieldSchedulerSettings settings = ResolveSettings(ref state);
             using var candidates = new NativeList<SchedulerCandidate>(Allocator.Temp);
@@ -175,9 +202,20 @@ namespace AnimarsCatcher.Navigation.Grid
             SortCandidates(candidates);
 
             // 每轮只提交预算与并发上限的交集，剩余候选保持 Pending
+            int buildBudget = math.min(
+                settings.MaximumBuildsPerTick,
+                settings.MaximumConcurrentBuilds);
+            if (schedulerState.LastPublishedBuildCount > 0 &&
+                schedulerState.LastBuildBatchMilliseconds >
+                settings.MaximumWorkerMillisecondsPerTick)
+            {
+                // 只约束刚完成批次后的连续积压，空闲期不能沿用历史耗时压低新请求吞吐
+                buildBudget = 1;
+                schedulerState.CumulativeBudgetThrottleCount++;
+            }
             int buildCount = math.min(
                 candidates.Length,
-                math.min(settings.MaximumBuildsPerTick, settings.MaximumConcurrentBuilds));
+                buildBudget);
             if (buildCount > 0)
             {
                 ScheduleBuilds(
@@ -192,7 +230,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             schedulerState.QueueLength = CountWaitingRequests(ref state);
-            schedulerState.ActiveBuildCount = _activeJobScheduled ? _activeRequests.Length : 0;
+            schedulerState.ActiveBuildCount = _activeJobScheduled ? _activeBuildCount : 0;
             RefreshRecordUsageAndBudget(ref state, ref schedulerState);
             PublishSchedulerState(ref state, ref schedulerState);
         }
@@ -206,7 +244,9 @@ namespace AnimarsCatcher.Navigation.Grid
             }
 
             DisposeActiveBatch();
+            DisposeActiveBatchStorage();
             DisposeWorkspaces();
+            DisposeRecordPool(ref state);
         }
 
         private bool TryGetGrid(
@@ -235,12 +275,17 @@ namespace AnimarsCatcher.Navigation.Grid
             settings.MaximumConcurrentBuilds = math.clamp(
                 settings.MaximumConcurrentBuilds,
                 1,
-                MaximumSupportedConcurrentBuilds);
+                math.min(
+                    MaximumSupportedConcurrentBuilds,
+                    math.max(1, JobsUtility.JobWorkerCount / 2)));
             settings.MaximumBuildsPerTick = math.clamp(
                 settings.MaximumBuildsPerTick,
                 1,
                 settings.MaximumConcurrentBuilds);
             settings.RequestTimeoutTicks = math.max(1, settings.RequestTimeoutTicks);
+            settings.MaximumWorkerMillisecondsPerTick = math.max(
+                0.1f,
+                settings.MaximumWorkerMillisecondsPerTick);
             // 保留至少一个字节可避免负数配置让所有新 Record 立即进入异常分支
             settings.StoreByteBudget = math.max(1L, settings.StoreByteBudget);
             return settings;
@@ -266,6 +311,7 @@ namespace AnimarsCatcher.Navigation.Grid
             }
             // Handle 必须在旧 Blob 工作区释放前撤销，消费者下一 Tick 才能重新投影
             ClearAllHandles(ref state);
+            ClearRecordPool(ref state);
             _storeGridHash = gridHash;
             DisposeWorkspaces();
         }
@@ -291,6 +337,11 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity recordEntity = records[index];
                 NavigationSharedFlowFieldRecord record = state.EntityManager.GetComponentData<
                     NavigationSharedFlowFieldRecord>(recordEntity);
+                if (record.RefreshPending != 0)
+                {
+                    // 等待刷新的目标场仍可供原 Handle 读取，但不能接收新的缓存命中
+                    continue;
+                }
                 recordIndex.TryAdd(record.Key, recordEntity);
             }
             for (int index = 0; index < cohorts.Length; index++)
@@ -328,7 +379,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 if (!TryCreateKey(
                         ref grid,
-                        request.PathRequest,
+                        request,
                         overlay,
                         out NavigationFlowFieldKey key,
                         out NavigationPathFailureReason failureReason))
@@ -350,14 +401,34 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity cachedRecord = FindRecord(recordIndex, key);
                 if (cachedRecord != Entity.Null)
                 {
-                    AttachRecord(
-                        ref state,
-                        cohortEntity,
-                        cachedRecord,
-                        request.PathRequest.Version,
-                        cacheHit: true,
-                        schedulerState.Tick);
-                    schedulerState.CumulativeSharedHitCount++;
+                    if (TryResolveCoveredStartCell(
+                            state.EntityManager,
+                            cachedRecord,
+                            ref grid,
+                            request.PathRequest,
+                            overlay,
+                            out int startCellIndex))
+                    {
+                        AttachRecord(
+                            ref state,
+                            cohortEntity,
+                            cachedRecord,
+                            request.PathRequest.Version,
+                            startCellIndex,
+                            cacheHit: true,
+                            schedulerState.Tick);
+                        schedulerState.CumulativeSharedHitCount++;
+                        schedulerState.CumulativeCoverageTileReuseCount++;
+                    }
+                    else
+                    {
+                        // 目标场只覆盖与目标动态连通的 Cell，场外起点得到明确的无路径结果
+                        FailRequest(
+                            ref state,
+                            cohortEntity,
+                            NavigationPathFailureReason.NoPath,
+                            schedulerState.Tick);
+                    }
                     continue;
                 }
 
@@ -436,9 +507,9 @@ namespace AnimarsCatcher.Navigation.Grid
             int buildCount,
             ref NavigationFlowFieldSchedulerState schedulerState)
         {
-            // 工作区容量按本批并发数扩展，稳定规模下跨批次复用底层内存
+            // 工作区按并发硬上限一次建立，后续批次只清空长度并复用底层内存
             EnsureWorkspaceCapacity(
-                buildCount,
+                MaximumSupportedConcurrentBuilds,
                 grid.Value.Cells.Length,
                 grid.Value.Clusters.Length,
                 grid.Value.PortalNodes.Length);
@@ -447,21 +518,10 @@ namespace AnimarsCatcher.Navigation.Grid
                     grid.Value.PortalNodes.Length,
                     overlayVersion));
 
-            // 活动批次会跨 Tick 存活，输入、结果和流都使用 Persistent 分配器
-            _activeRequests = new NativeArray<NavigationSharedFlowFieldBuildRequest>(
-                buildCount,
-                Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-            _activeResults = new NativeArray<NavigationFlowFieldJobResult>(
-                buildCount,
-                Allocator.Persistent,
-                NativeArrayOptions.UninitializedMemory);
-            // 快照和输出流在 Schedule 前一次准备完成，Worker 不读取 ECS DynamicBuffer
+            // 活动数组和 Overlay 快照只在尺寸变化时重建，稳定负载不产生批次级原生分配
+            EnsureActiveBatchStorage(overlay.Length, overlayClusters.Length);
             CopyOverlaySnapshot(overlay, overlayClusters);
-            _activeCorridorClusters = new NativeStream(buildCount, Allocator.Persistent);
-            _activeCorridorPortals = new NativeStream(buildCount, Allocator.Persistent);
-            _activeWaypointCells = new NativeStream(buildCount, Allocator.Persistent);
-            _activeFlowCells = new NativeStream(buildCount, Allocator.Persistent);
+            _activeBuildCount = buildCount;
             _activeGridHash = grid.Value.DataHash;
 
             int generationStride = NavigationGridFlowFieldJob.CalculateGenerationStride(
@@ -484,6 +544,15 @@ namespace AnimarsCatcher.Navigation.Grid
                     EnqueuedTick = candidate.EnqueuedTick,
                     GenerationStart = _nextGeneration + index * generationStride,
                 };
+                if (candidate.Request.CoverageMode ==
+                    NavigationFlowFieldCoverageMode.GoalRegion)
+                {
+                    schedulerState.CumulativeTargetRecordBuildCount++;
+                }
+                else
+                {
+                    schedulerState.CumulativeCorridorResolveCount++;
+                }
                 // 同 Key 的所有等待者一起标为 Searching，防止下一 Tick 再次生成候选
                 MarkMatchingRequestsSearching(
                     ref state,
@@ -503,10 +572,14 @@ namespace AnimarsCatcher.Navigation.Grid
                 DynamicOverlayClusters = _activeOverlayClusters,
                 DynamicOverlayVersion = overlayVersion,
                 Results = _activeResults,
-                CorridorClusters = _activeCorridorClusters.AsWriter(),
-                CorridorPortals = _activeCorridorPortals.AsWriter(),
-                HierarchicalWaypointCells = _activeWaypointCells.AsWriter(),
-                FlowCells = _activeFlowCells.AsWriter(),
+                Workspace0 = _buildWorkspace0,
+                Workspace1 = _buildWorkspace1,
+                Workspace2 = _buildWorkspace2,
+                Workspace3 = _buildWorkspace3,
+                Workspace4 = _buildWorkspace4,
+                Workspace5 = _buildWorkspace5,
+                Workspace6 = _buildWorkspace6,
+                Workspace7 = _buildWorkspace7,
                 CellCosts = _cellCosts,
                 CellHeap = _cellHeap,
                 CellHeapPositions = _cellHeapPositions,
@@ -524,12 +597,13 @@ namespace AnimarsCatcher.Navigation.Grid
             };
             // 内层批大小为一，允许调度器把每个唯一 Key 分发给不同 Worker
             _activeJobHandle = job.Schedule(buildCount, 1);
+            _activeJobStartTimestamp = Stopwatch.GetTimestamp();
             _activeJobScheduled = true;
             schedulerState.CumulativeUniqueBuildCount += buildCount;
             schedulerState.ActiveBuildCount = buildCount;
         }
 
-        // 按请求槽位读取 NativeStream，并将成功结果转成只读共享 Record
+        // 按请求槽位读取复用工作区，并将成功结果转成只读共享 Record
         private void ApplyActiveResults(
             ref SystemState state,
             ref NavigationGridBlob grid,
@@ -539,18 +613,14 @@ namespace AnimarsCatcher.Navigation.Grid
             ref NavigationFlowFieldSchedulerState schedulerState)
         {
             // 发布计数包含成功和失败槽位，便于对照本轮实际完成的构建量
-            schedulerState.LastPublishedBuildCount = _activeResults.Length;
+            schedulerState.LastPublishedBuildCount = _activeBuildCount;
             bool gridStillMatches = _activeGridHash.Equals(grid.DataHash);
-            var clusterReader = _activeCorridorClusters.AsReader();
-            var portalReader = _activeCorridorPortals.AsReader();
-            var waypointReader = _activeWaypointCells.AsReader();
-            var fieldReader = _activeFlowCells.AsReader();
             if (!gridStillMatches)
             {
                 // 新 Grid 的 Cell 索引可能完全不同，不能再用旧 Key 定位活动批次消费者
                 ResetAllSearchingRequests(ref state);
             }
-            for (int index = 0; index < _activeResults.Length; index++)
+            for (int index = 0; index < _activeBuildCount; index++)
             {
                 NavigationSharedFlowFieldBuildRequest buildRequest = _activeRequests[index];
                 NavigationFlowFieldJobResult result = _activeResults[index];
@@ -567,72 +637,85 @@ namespace AnimarsCatcher.Navigation.Grid
                             result.FailureReason,
                             schedulerState.Tick);
                     }
-                    SkipStreams(index, ref clusterReader, ref portalReader, ref waypointReader, ref fieldReader);
                     continue;
                 }
 
-                // 只有成功槽位才创建 Record，失败结果不会留下空缓存项
-                Entity recordEntity = CreateRecord(
+                NavigationSharedFlowFieldWorkspace workspace = GetWorkspace(index);
+                uint currentSignature = CalculateWorkspaceOverlaySignature(
+                    ref workspace.CorridorClusters,
+                    overlayClusters);
+                if (currentSignature != result.DynamicOverlaySignature)
+                {
+                    // Job 快照过期时保留原目标 Record，等待请求下一 Tick 使用新版本重试
+                    continue;
+                }
+
+                Entity refreshRecord = buildRequest.Key.CoverageMode ==
+                                       NavigationFlowFieldCoverageMode.GoalRegion
+                    ? FindPendingRefreshRecord(ref state, buildRequest.Key)
+                    : Entity.Null;
+                // Integration 成本会跨 Cluster 传播，当前刷新必须按实际完整求解范围计数
+                int builtTileCount = workspace.CorridorClusters.Length;
+                // 目标场刷新沿用原 Record 和版本，活动 Handle 不会因局部障碍变化悬空
+                Entity recordEntity = CreateOrRefreshRecord(
                     ref state,
                     ref grid,
                     buildRequest,
                     result,
                     index,
-                    ref clusterReader,
-                    ref portalReader,
-                    ref waypointReader,
-                    ref fieldReader,
-                    schedulerState.Tick);
-                NavigationSharedFlowFieldRecord record = state.EntityManager.GetComponentData<
-                    NavigationSharedFlowFieldRecord>(recordEntity);
-                // 发布前再次比对实际 Corridor，挡住计算期间发生的局部障碍变化
-                uint currentSignature = CalculateRecordOverlaySignature(
-                    state.EntityManager,
-                    recordEntity,
-                    overlayClusters);
-                if (currentSignature != record.DynamicOverlaySignature)
-                {
-                    // Job 使用的快照已经过期时不发布 Handle，下一 Tick 会按新 Overlay 重建
-                    state.EntityManager.DestroyEntity(recordEntity);
-                    ResetMatchingRequests(
-                        ref state,
-                        buildRequest.Key,
-                        ref grid,
-                        overlay);
-                    continue;
-                }
+                    schedulerState.Tick,
+                    refreshRecord);
+                schedulerState.CumulativeCoverageTileBuildCount += builtTileCount;
 
-                // 发布时重新匹配当前请求，构建期间换代的 Cohort 不会被旧目标覆盖
-                AttachMatchingRequests(
+                // 每份结果只直接挂接自己的构建所有者，其余等待者随后通过一次缓存扫描归并
+                TryAttachBuildOwner(
                     ref state,
                     recordEntity,
-                    buildRequest.Key,
+                    buildRequest,
                     ref grid,
                     overlay,
-                    schedulerState.Tick,
-                    ref schedulerState);
+                    schedulerState.Tick);
             }
+            // 成功结果已进入 Store，剩余 Searching 请求回到 Pending 后会在本 Tick 统一命中缓存
+            ResetAllSearchingRequests(ref state);
         }
 
-        // 将一个求解槽位的四类输出收拢到同一个共享 Record Entity
-        private Entity CreateRecord(
+        // 将一个求解槽位的结果写入新 Record，或原位刷新已有目标 Record
+        private Entity CreateOrRefreshRecord(
             ref SystemState state,
             ref NavigationGridBlob grid,
             NavigationSharedFlowFieldBuildRequest buildRequest,
             NavigationFlowFieldJobResult result,
-            int streamIndex,
-            ref NativeStream.Reader clusterReader,
-            ref NativeStream.Reader portalReader,
-            ref NativeStream.Reader waypointReader,
-            ref NativeStream.Reader fieldReader,
-            int tick)
+            int workspaceIndex,
+            int tick,
+            Entity refreshRecord)
         {
-            Entity recordEntity = state.EntityManager.CreateEntity(
-                typeof(NavigationSharedFlowFieldRecord),
-                typeof(NavigationCorridorCluster),
-                typeof(NavigationCorridorPortal),
-                typeof(NavigationHierarchicalWaypoint),
-                typeof(NavigationFlowFieldCell));
+            NavigationSharedFlowFieldWorkspace workspace = GetWorkspace(workspaceIndex);
+            bool isRefresh = refreshRecord != Entity.Null;
+            Entity recordEntity;
+            if (isRefresh)
+            {
+                recordEntity = refreshRecord;
+            }
+            else if (_recordPool.IsCreated && !_recordPool.IsEmpty)
+            {
+                int lastIndex = _recordPool.Length - 1;
+                recordEntity = _recordPool[lastIndex];
+                _recordPool.RemoveAt(lastIndex);
+                _recordPoolByteCount = _recordPool.Length * _recordSlotCapacityBytes;
+                state.EntityManager.RemoveComponent<NavigationSharedFlowFieldRecordPoolSlot>(
+                    recordEntity);
+            }
+            else
+            {
+                recordEntity = state.EntityManager.CreateEntity(
+                    typeof(NavigationSharedFlowFieldRecord),
+                    typeof(NavigationCorridorCluster),
+                    typeof(NavigationCorridorPortal),
+                    typeof(NavigationHierarchicalWaypoint),
+                    typeof(NavigationFlowFieldCell),
+                    typeof(NavigationFlowFieldCoverageTile));
+            }
             // 一次性创建完整 Archetype 后再取得 Buffer，后续写入不会被结构变更使句柄失效
             DynamicBuffer<NavigationCorridorCluster> clusters = state.EntityManager
                 .GetBuffer<NavigationCorridorCluster>(recordEntity);
@@ -642,32 +725,41 @@ namespace AnimarsCatcher.Navigation.Grid
                 .GetBuffer<NavigationHierarchicalWaypoint>(recordEntity);
             DynamicBuffer<NavigationFlowFieldCell> field = state.EntityManager
                 .GetBuffer<NavigationFlowFieldCell>(recordEntity);
+            DynamicBuffer<NavigationFlowFieldCoverageTile> coverageTiles = state.EntityManager
+                .GetBuffer<NavigationFlowFieldCoverageTile>(recordEntity);
+            clusters.Clear();
+            portals.Clear();
+            waypoints.Clear();
+            field.Clear();
+            coverageTiles.Clear();
 
-            // 四个 NativeStream 段必须按相同槽位依次读完，后续槽位才能正确定位
-            int clusterCount = clusterReader.BeginForEachIndex(streamIndex);
-            for (int index = 0; index < clusterCount; index++)
+            for (int index = 0; index < workspace.CorridorClusters.Length; index++)
             {
+                int clusterId = workspace.CorridorClusters[index];
                 clusters.Add(new NavigationCorridorCluster
                 {
-                    ClusterId = clusterReader.Read<int>(),
+                    ClusterId = clusterId,
+                });
+                coverageTiles.Add(new NavigationFlowFieldCoverageTile
+                {
+                    ClusterId = clusterId,
+                    DynamicOverlayVersion = GetOverlayClusterVersion(
+                        _activeOverlayClusters,
+                        clusterId),
                 });
             }
-            clusterReader.EndForEachIndex();
 
-            int portalCount = portalReader.BeginForEachIndex(streamIndex);
-            for (int index = 0; index < portalCount; index++)
+            for (int index = 0; index < workspace.CorridorPortals.Length; index++)
             {
                 portals.Add(new NavigationCorridorPortal
                 {
-                    PortalIndex = portalReader.Read<int>(),
+                    PortalIndex = workspace.CorridorPortals[index],
                 });
             }
-            portalReader.EndForEachIndex();
 
-            int waypointCount = waypointReader.BeginForEachIndex(streamIndex);
-            for (int index = 0; index < waypointCount; index++)
+            for (int index = 0; index < workspace.WaypointCells.Length; index++)
             {
-                int cellIndex = waypointReader.Read<int>();
+                int cellIndex = workspace.WaypointCells[index];
                 // Worker 只返回 CellIndex，世界坐标在发布时由当前 Grid 统一还原
                 waypoints.Add(new NavigationHierarchicalWaypoint
                 {
@@ -675,34 +767,100 @@ namespace AnimarsCatcher.Navigation.Grid
                     Position = NavigationGridQuery.GetCellWorldPosition(ref grid, cellIndex),
                 });
             }
-            waypointReader.EndForEachIndex();
 
-            int fieldCount = fieldReader.BeginForEachIndex(streamIndex);
-            for (int index = 0; index < fieldCount; index++)
-            {
-                field.Add(fieldReader.Read<NavigationFlowFieldCell>());
-            }
-            fieldReader.EndForEachIndex();
+            // Flow Cell 类型与目标 Buffer 一致，批量复制可避免万格目标场逐项扩容和安全检查
+            field.AddRange(workspace.FlowCells.AsArray());
 
             // 缓存预算按有效负载估算，不把 Cohort Handle 重复计入
             int byteSize = UnsafeUtility.SizeOf<NavigationSharedFlowFieldRecord>() +
                            clusters.Length * UnsafeUtility.SizeOf<NavigationCorridorCluster>() +
                            portals.Length * UnsafeUtility.SizeOf<NavigationCorridorPortal>() +
                            waypoints.Length * UnsafeUtility.SizeOf<NavigationHierarchicalWaypoint>() +
-                           field.Length * UnsafeUtility.SizeOf<NavigationFlowFieldCell>();
+                           field.Length * UnsafeUtility.SizeOf<NavigationFlowFieldCell>() +
+                           coverageTiles.Length *
+                           UnsafeUtility.SizeOf<NavigationFlowFieldCoverageTile>();
+            NavigationSharedFlowFieldRecord previous = isRefresh
+                ? state.EntityManager.GetComponentData<NavigationSharedFlowFieldRecord>(recordEntity)
+                : default;
             state.EntityManager.SetComponentData(recordEntity, new NavigationSharedFlowFieldRecord
             {
                 Key = buildRequest.Key,
-                RecordVersion = buildRequest.RecordVersion,
+                RecordVersion = isRefresh
+                    ? previous.RecordVersion
+                    : buildRequest.RecordVersion,
                 DynamicOverlaySignature = result.DynamicOverlaySignature,
                 SourceOverlayVersion = result.DynamicOverlayVersion,
+                RefreshPending = 0,
+                PendingCoverageTileCount = 0,
+                ReferenceCount = previous.ReferenceCount,
                 LastUsedTick = tick,
                 ByteSize = byteSize,
+                CoverageTileCount = clusters.Length,
                 AbstractExpandedNodeCount = result.AbstractExpandedNodeCount,
                 IntegrationExpandedCellCount = result.IntegrationExpandedCellCount,
                 TotalCost = result.TotalCost,
             });
             return recordEntity;
+        }
+
+        private NavigationSharedFlowFieldWorkspace GetWorkspace(int index)
+        {
+            return index switch
+            {
+                0 => _buildWorkspace0,
+                1 => _buildWorkspace1,
+                2 => _buildWorkspace2,
+                3 => _buildWorkspace3,
+                4 => _buildWorkspace4,
+                5 => _buildWorkspace5,
+                6 => _buildWorkspace6,
+                _ => _buildWorkspace7,
+            };
+        }
+
+        private void TryAttachBuildOwner(
+            ref SystemState state,
+            Entity recordEntity,
+            NavigationSharedFlowFieldBuildRequest buildRequest,
+            ref NavigationGridBlob grid,
+            NativeArray<NavigationDynamicOverlayCell> overlay,
+            int tick)
+        {
+            Entity cohortEntity = buildRequest.JobRequest.Entity;
+            if (!state.EntityManager.Exists(cohortEntity) ||
+                !_cohortQuery.Matches(cohortEntity))
+            {
+                return;
+            }
+
+            NavigationFlowFieldState fieldState = state.EntityManager.GetComponentData<
+                NavigationFlowFieldState>(cohortEntity);
+            NavigationFlowFieldRequest request = state.EntityManager.GetComponentData<
+                NavigationFlowFieldRequest>(cohortEntity);
+            // Worker 运行期间换代的所有者不消费旧结果，后续当前版本仍可正常命中 Store
+            if ((fieldState.Status != NavigationPathStatus.Searching &&
+                 fieldState.Status != NavigationPathStatus.Pending) ||
+                !TryCreateKey(ref grid, request, overlay, out var currentKey, out _) ||
+                !KeysEqual(buildRequest.Key, currentKey) ||
+                !TryResolveCoveredStartCell(
+                    state.EntityManager,
+                    recordEntity,
+                    ref grid,
+                    request.PathRequest,
+                    overlay,
+                    out int startCellIndex))
+            {
+                return;
+            }
+
+            AttachRecord(
+                ref state,
+                cohortEntity,
+                recordEntity,
+                request.PathRequest.Version,
+                startCellIndex,
+                cacheHit: false,
+                tick);
         }
 
         // 一个唯一构建完成后，把当下仍匹配该 Key 的全部请求挂到同一 Record
@@ -736,12 +894,28 @@ namespace AnimarsCatcher.Navigation.Grid
                 // 请求可能在 Worker 运行期间换代，必须用当前值重新计算 Key
                 if (!TryCreateKey(
                         ref grid,
-                        request.PathRequest,
+                        request,
                         overlay,
                         out NavigationFlowFieldKey currentKey,
                         out _) ||
                     !KeysEqual(key, currentKey))
                 {
+                    continue;
+                }
+
+                if (!TryResolveCoveredStartCell(
+                        state.EntityManager,
+                        recordEntity,
+                        ref grid,
+                        request.PathRequest,
+                        overlay,
+                        out int startCellIndex))
+                {
+                    FailRequest(
+                        ref state,
+                        cohortEntity,
+                        NavigationPathFailureReason.NoPath,
+                        tick);
                     continue;
                 }
 
@@ -752,11 +926,13 @@ namespace AnimarsCatcher.Navigation.Grid
                     cohortEntity,
                     recordEntity,
                     request.PathRequest.Version,
+                    startCellIndex,
                     cacheHit,
                     tick);
                 if (cacheHit)
                 {
                     schedulerState.CumulativeSharedHitCount++;
+                    schedulerState.CumulativeCoverageTileReuseCount++;
                 }
                 ownerAttached = true;
             }
@@ -768,6 +944,7 @@ namespace AnimarsCatcher.Navigation.Grid
             Entity cohortEntity,
             Entity recordEntity,
             uint requestVersion,
+            int projectedStartCellIndex,
             bool cacheHit,
             int tick)
         {
@@ -797,7 +974,7 @@ namespace AnimarsCatcher.Navigation.Grid
             fieldState.FailureReason = NavigationPathFailureReason.None;
             fieldState.RequestVersion = requestVersion;
             fieldState.CacheVersion = record.RecordVersion;
-            fieldState.ProjectedStartCellIndex = record.Key.StartCellIndex;
+            fieldState.ProjectedStartCellIndex = projectedStartCellIndex;
             fieldState.ProjectedEndCellIndex = record.Key.EndCellIndex;
             fieldState.CorridorClusterCount = clusters.Length;
             fieldState.CorridorPortalCount = portals.Length;
@@ -824,6 +1001,78 @@ namespace AnimarsCatcher.Navigation.Grid
             state.EntityManager.SetComponentData(recordEntity, record);
         }
 
+        private static bool TryResolveCoveredStartCell(
+            EntityManager entityManager,
+            Entity recordEntity,
+            ref NavigationGridBlob grid,
+            NavigationPathRequest request,
+            NativeArray<NavigationDynamicOverlayCell> overlay,
+            out int startCellIndex)
+        {
+            if (!NavigationGridQuery.TryProjectToNearestCell(
+                    ref grid,
+                    request.StartPosition,
+                    request.AgentRadius,
+                    request.ClearanceMargin,
+                    request.MaximumProjectionRadiusInCells,
+                    overlay,
+                    out startCellIndex))
+            {
+                return false;
+            }
+
+            DynamicBuffer<NavigationFlowFieldCell> field = entityManager.GetBuffer<
+                NavigationFlowFieldCell>(recordEntity, true);
+            int minimum = 0;
+            int maximum = field.Length - 1;
+            // Field 按 Cell 索引排序，发布 251 个导航分组时不扫描整份目标场
+            while (minimum <= maximum)
+            {
+                int index = minimum + ((maximum - minimum) >> 1);
+                int currentCellIndex = field[index].CellIndex;
+                if (currentCellIndex == startCellIndex)
+                {
+                    return true;
+                }
+
+                if (currentCellIndex < startCellIndex)
+                {
+                    minimum = index + 1;
+                }
+                else
+                {
+                    maximum = index - 1;
+                }
+            }
+
+            return false;
+        }
+
+        private void FailRequest(
+            ref SystemState state,
+            Entity cohortEntity,
+            NavigationPathFailureReason failureReason,
+            int tick)
+        {
+            NavigationFlowFieldState fieldState = state.EntityManager.GetComponentData<
+                NavigationFlowFieldState>(cohortEntity);
+            fieldState.Status = NavigationPathStatus.Failed;
+            fieldState.FailureReason = failureReason;
+            state.EntityManager.SetComponentData(cohortEntity, fieldState);
+
+            NavigationFlowFieldQueueState queueState = state.EntityManager.GetComponentData<
+                NavigationFlowFieldQueueState>(cohortEntity);
+            int waitTicks = queueState.StartedTick >= 0
+                ? queueState.StartedTick - queueState.EnqueuedTick
+                : tick - queueState.EnqueuedTick;
+            CompleteQueue(
+                ref state,
+                cohortEntity,
+                math.max(0, waitTicks),
+                NavigationPathStatus.Failed,
+                tick);
+        }
+
         // 同一个 Key 的请求一起进入 Searching，避免重复占用后续构建额度
         private void MarkMatchingRequestsSearching(
             ref SystemState state,
@@ -845,7 +1094,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
                 NavigationFlowFieldRequest request = state.EntityManager.GetComponentData<
                     NavigationFlowFieldRequest>(cohortEntity);
-                if (!TryCreateKey(ref grid, request.PathRequest, overlay, out var currentKey, out _) ||
+                if (!TryCreateKey(ref grid, request, overlay, out var currentKey, out _) ||
                     !KeysEqual(key, currentKey))
                 {
                     continue;
@@ -877,7 +1126,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity cohortEntity = cohorts[index];
                 NavigationFlowFieldRequest request = state.EntityManager.GetComponentData<
                     NavigationFlowFieldRequest>(cohortEntity);
-                if (!TryCreateKey(ref grid, request.PathRequest, overlay, out var currentKey, out _) ||
+                if (!TryCreateKey(ref grid, request, overlay, out var currentKey, out _) ||
                     !KeysEqual(key, currentKey))
                 {
                     continue;
@@ -918,7 +1167,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 Entity cohortEntity = cohorts[index];
                 NavigationFlowFieldRequest request = state.EntityManager.GetComponentData<
                     NavigationFlowFieldRequest>(cohortEntity);
-                if (!TryCreateKey(ref grid, request.PathRequest, overlay, out var currentKey, out _) ||
+                if (!TryCreateKey(ref grid, request, overlay, out var currentKey, out _) ||
                     !KeysEqual(key, currentKey))
                 {
                     continue;
@@ -959,10 +1208,11 @@ namespace AnimarsCatcher.Navigation.Grid
         // 根据 Record 的实际 Corridor 做局部失效，并修复悬空 Handle
         private void RepairAndInvalidateHandles(
             ref SystemState state,
-            NativeArray<NavigationDynamicOverlayCluster> overlayClusters)
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters,
+            ref NavigationFlowFieldSchedulerState schedulerState)
         {
             using NativeArray<Entity> records = _recordQuery.ToEntityArray(Allocator.Temp);
-            // 先撤销签名失效的 Record，随后悬空 Handle 检查只处理删除或换代情况
+            // 先处理局部失效，随后悬空 Handle 检查只处理删除或换代情况
             for (int index = 0; index < records.Length; index++)
             {
                 Entity recordEntity = records[index];
@@ -977,7 +1227,27 @@ namespace AnimarsCatcher.Navigation.Grid
                     continue;
                 }
 
-                // 只有 Corridor 涉及的 Cluster 版本变化才撤销对应消费者
+                if (record.Key.CoverageMode == NavigationFlowFieldCoverageMode.GoalRegion)
+                {
+                    int changedTileCount = CountChangedCoverageTiles(
+                        state.EntityManager,
+                        recordEntity,
+                        overlayClusters);
+                    bool alreadyPending = record.RefreshPending != 0;
+                    record.RefreshPending = 1;
+                    record.PendingCoverageTileCount = math.max(1, changedTileCount);
+                    state.EntityManager.SetComponentData(recordEntity, record);
+                    if (!alreadyPending)
+                    {
+                        schedulerState.CumulativeCoverageTileInvalidationCount +=
+                            record.PendingCoverageTileCount;
+                        // 只让一个稳定消费者认领刷新，其余 Cohort 继续持有同一个 Record
+                        ResetFirstRecordConsumer(ref state, recordEntity);
+                    }
+                    continue;
+                }
+
+                // 旧 Corridor Record 仍按整条路线换代，避免改变阶段三的严格回归语义
                 InvalidateRecordConsumers(ref state, recordEntity);
                 state.EntityManager.DestroyEntity(recordEntity);
             }
@@ -993,6 +1263,19 @@ namespace AnimarsCatcher.Navigation.Grid
                     NavigationFlowFieldState>(cohortEntity);
                 NavigationFlowFieldRequest request = state.EntityManager.GetComponentData<
                     NavigationFlowFieldRequest>(cohortEntity);
+                if (state.EntityManager.HasComponent<AniMovementCohortPathState>(cohortEntity) &&
+                    state.EntityManager.GetComponentData<AniMovementCohortPathState>(cohortEntity)
+                        .RouteMode == AniMovementCohortRouteMode.Direct)
+                {
+                    // 直达路线按设计不拥有共享 Record，空 Handle 不是需要修复的悬空引用
+                    if (handle.Record != Entity.Null)
+                    {
+                        state.EntityManager.SetComponentData(
+                            cohortEntity,
+                            default(NavigationFlowFieldHandle));
+                    }
+                    continue;
+                }
                 if (handle.Record != Entity.Null &&
                     state.EntityManager.Exists(handle.Record) &&
                     state.EntityManager.HasComponent<NavigationSharedFlowFieldRecord>(handle.Record) &&
@@ -1049,6 +1332,33 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
+        // 目标场刷新只需要一个消费者重新排队，其他 Handle 在原位发布后自然读取新数据
+        private void ResetFirstRecordConsumer(ref SystemState state, Entity recordEntity)
+        {
+            using NativeArray<Entity> cohorts = _cohortQuery.ToEntityArray(Allocator.Temp);
+            SortEntities(cohorts);
+            for (int index = 0; index < cohorts.Length; index++)
+            {
+                Entity cohortEntity = cohorts[index];
+                NavigationFlowFieldHandle handle = state.EntityManager.GetComponentData<
+                    NavigationFlowFieldHandle>(cohortEntity);
+                if (handle.Record != recordEntity)
+                {
+                    continue;
+                }
+
+                state.EntityManager.SetComponentData(
+                    cohortEntity,
+                    default(NavigationFlowFieldHandle));
+                NavigationFlowFieldState fieldState = state.EntityManager.GetComponentData<
+                    NavigationFlowFieldState>(cohortEntity);
+                fieldState.Status = NavigationPathStatus.Pending;
+                fieldState.FailureReason = NavigationPathFailureReason.None;
+                state.EntityManager.SetComponentData(cohortEntity, fieldState);
+                return;
+            }
+        }
+
         // 缓存查找复用本 Tick 的 Record 哈希索引，避免 Cohort 与 Record 两两扫描
         private static Entity FindRecord(
             NativeParallelHashMap<NavigationFlowFieldKey, Entity> recordIndex,
@@ -1057,6 +1367,31 @@ namespace AnimarsCatcher.Navigation.Grid
             return recordIndex.TryGetValue(key, out Entity recordEntity)
                 ? recordEntity
                 : Entity.Null;
+        }
+
+        // 同一目标最多保留一个待刷新 Record，版本更小者先建立，选择结果不依赖 Query 顺序
+        private Entity FindPendingRefreshRecord(
+            ref SystemState state,
+            NavigationFlowFieldKey key)
+        {
+            using NativeArray<Entity> records = _recordQuery.ToEntityArray(Allocator.Temp);
+            Entity selected = Entity.Null;
+            uint selectedVersion = uint.MaxValue;
+            for (int index = 0; index < records.Length; index++)
+            {
+                NavigationSharedFlowFieldRecord record = state.EntityManager.GetComponentData<
+                    NavigationSharedFlowFieldRecord>(records[index]);
+                if (record.RefreshPending == 0 ||
+                    !KeysEqual(record.Key, key) ||
+                    record.RecordVersion >= selectedVersion)
+                {
+                    continue;
+                }
+
+                selected = records[index];
+                selectedVersion = record.RecordVersion;
+            }
+            return selected;
         }
 
         // 每帧重算引用数，并在预算超限时淘汰最久未用的无引用 Record
@@ -1266,6 +1601,38 @@ namespace AnimarsCatcher.Navigation.Grid
                 totalAbstract,
                 Allocator.Persistent,
                 NativeArrayOptions.ClearMemory);
+            _buildWorkspace0 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace1 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace2 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace3 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace4 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace5 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace6 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
+            _buildWorkspace7 = NavigationSharedFlowFieldWorkspace.Create(
+                cellCount,
+                clusterCount,
+                abstractCount);
             _nextGeneration = 1;
         }
 
@@ -1291,6 +1658,160 @@ namespace AnimarsCatcher.Navigation.Grid
             _nextGeneration = 1;
         }
 
+        private void EnsureActiveBatchStorage(int overlayCellCount, int overlayClusterCount)
+        {
+            if (!_activeRequests.IsCreated)
+            {
+                _activeRequests = new NativeArray<NavigationSharedFlowFieldBuildRequest>(
+                    MaximumSupportedConcurrentBuilds,
+                    Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+                _activeResults = new NativeArray<NavigationFlowFieldJobResult>(
+                    MaximumSupportedConcurrentBuilds,
+                    Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+            }
+
+            if (_activeOverlay.IsCreated && _activeOverlay.Length != overlayCellCount)
+            {
+                _activeOverlay.Dispose();
+                _activeOverlay = default;
+            }
+            if (!_activeOverlay.IsCreated && overlayCellCount > 0)
+            {
+                _activeOverlay = new NativeArray<NavigationDynamicOverlayCell>(
+                    overlayCellCount,
+                    Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+            }
+
+            if (_activeOverlayClusters.IsCreated &&
+                _activeOverlayClusters.Length != overlayClusterCount)
+            {
+                _activeOverlayClusters.Dispose();
+                _activeOverlayClusters = default;
+            }
+            if (!_activeOverlayClusters.IsCreated && overlayClusterCount > 0)
+            {
+                _activeOverlayClusters = new NativeArray<NavigationDynamicOverlayCluster>(
+                    overlayClusterCount,
+                    Allocator.Persistent,
+                    NativeArrayOptions.UninitializedMemory);
+            }
+        }
+
+        // Grid 就绪后一次性准备构建工作区和 Record 槽，正式采样只复用已有内存
+        private void EnsureWarmStorage(
+            ref SystemState state,
+            ref NavigationGridBlob grid,
+            int overlayCellCount,
+            int overlayClusterCount)
+        {
+            EnsureWorkspaceCapacity(
+                MaximumSupportedConcurrentBuilds,
+                grid.Cells.Length,
+                grid.Clusters.Length,
+                grid.PortalNodes.Length);
+            EnsureActiveBatchStorage(overlayCellCount, overlayClusterCount);
+            EnsureRecordPool(
+                ref state,
+                grid.Cells.Length,
+                grid.Clusters.Length,
+                grid.PortalNodes.Length);
+        }
+
+        private void EnsureRecordPool(
+            ref SystemState state,
+            int cellCount,
+            int clusterCount,
+            int portalCount)
+        {
+            if (_recordPoolInitialized)
+            {
+                return;
+            }
+
+            _recordSlotCapacityBytes = 0;
+            for (int index = 0; index < PreallocatedRecordCount; index++)
+            {
+                Entity recordEntity = state.EntityManager.CreateEntity(
+                    typeof(NavigationSharedFlowFieldRecord),
+                    typeof(NavigationCorridorCluster),
+                    typeof(NavigationCorridorPortal),
+                    typeof(NavigationHierarchicalWaypoint),
+                    typeof(NavigationFlowFieldCell),
+                    typeof(NavigationFlowFieldCoverageTile),
+                    typeof(NavigationSharedFlowFieldRecordPoolSlot));
+
+                DynamicBuffer<NavigationCorridorCluster> clusters = state.EntityManager
+                    .GetBuffer<NavigationCorridorCluster>(recordEntity);
+                DynamicBuffer<NavigationCorridorPortal> portals = state.EntityManager
+                    .GetBuffer<NavigationCorridorPortal>(recordEntity);
+                DynamicBuffer<NavigationHierarchicalWaypoint> waypoints = state.EntityManager
+                    .GetBuffer<NavigationHierarchicalWaypoint>(recordEntity);
+                DynamicBuffer<NavigationFlowFieldCell> field = state.EntityManager
+                    .GetBuffer<NavigationFlowFieldCell>(recordEntity);
+                DynamicBuffer<NavigationFlowFieldCoverageTile> coverageTiles = state.EntityManager
+                    .GetBuffer<NavigationFlowFieldCoverageTile>(recordEntity);
+
+                // 容量按最坏目标场准备，发布时 Clear 和 AddRange 不再触发 Native 扩容
+                clusters.EnsureCapacity(clusterCount);
+                portals.EnsureCapacity(portalCount);
+                waypoints.EnsureCapacity(portalCount + 2);
+                field.EnsureCapacity(cellCount);
+                coverageTiles.EnsureCapacity(clusterCount);
+                _recordPool.Add(recordEntity);
+
+                if (_recordSlotCapacityBytes == 0)
+                {
+                    _recordSlotCapacityBytes =
+                        UnsafeUtility.SizeOf<NavigationSharedFlowFieldRecord>() +
+                        (long)clusters.Capacity *
+                        UnsafeUtility.SizeOf<NavigationCorridorCluster>() +
+                        (long)portals.Capacity *
+                        UnsafeUtility.SizeOf<NavigationCorridorPortal>() +
+                        (long)waypoints.Capacity *
+                        UnsafeUtility.SizeOf<NavigationHierarchicalWaypoint>() +
+                        (long)field.Capacity * UnsafeUtility.SizeOf<NavigationFlowFieldCell>() +
+                        (long)coverageTiles.Capacity *
+                        UnsafeUtility.SizeOf<NavigationFlowFieldCoverageTile>();
+                }
+            }
+
+            _recordPoolByteCount = _recordPool.Length * _recordSlotCapacityBytes;
+            _recordPoolInitialized = true;
+        }
+
+        private void ClearRecordPool(ref SystemState state)
+        {
+            if (_recordPool.IsCreated)
+            {
+                for (int index = 0; index < _recordPool.Length; index++)
+                {
+                    Entity recordEntity = _recordPool[index];
+                    if (state.EntityManager.Exists(recordEntity))
+                    {
+                        state.EntityManager.DestroyEntity(recordEntity);
+                    }
+                }
+                _recordPool.Clear();
+            }
+
+            _recordPoolByteCount = 0;
+            _recordSlotCapacityBytes = 0;
+            _recordPoolInitialized = false;
+        }
+
+        private void DisposeRecordPool(ref SystemState state)
+        {
+            ClearRecordPool(ref state);
+            if (_recordPool.IsCreated)
+            {
+                _recordPool.Dispose();
+            }
+            _recordPool = default;
+        }
+
         // Job 持有独立 Overlay 副本，主线程更新动态障碍时无需等待构建
         private void CopyOverlaySnapshot(
             NativeArray<NavigationDynamicOverlayCell> overlay,
@@ -1299,20 +1820,12 @@ namespace AnimarsCatcher.Navigation.Grid
             if (overlay.IsCreated)
             {
                 // Cell 和 Cluster 两层都复制，求解成本与局部失效签名来自同一版本
-                _activeOverlay = new NativeArray<NavigationDynamicOverlayCell>(
-                    overlay.Length,
-                    Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
                 NativeArray<NavigationDynamicOverlayCell>.Copy(
                     overlay,
                     _activeOverlay);
             }
             if (overlayClusters.IsCreated)
             {
-                _activeOverlayClusters = new NativeArray<NavigationDynamicOverlayCluster>(
-                    overlayClusters.Length,
-                    Allocator.Persistent,
-                    NativeArrayOptions.UninitializedMemory);
                 NativeArray<NavigationDynamicOverlayCluster>.Copy(
                     overlayClusters,
                     _activeOverlayClusters);
@@ -1326,7 +1839,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 return false;
             }
             // 活动批次受并发硬上限约束，线性检查最多比较八个 Key
-            for (int index = 0; index < _activeRequests.Length; index++)
+            for (int index = 0; index < _activeBuildCount; index++)
             {
                 if (KeysEqual(_activeRequests[index].Key, key))
                 {
@@ -1339,13 +1852,14 @@ namespace AnimarsCatcher.Navigation.Grid
         // Key 使用投影后的 Cell 和成本配置，屏蔽输入坐标的微小浮点差异
         private static bool TryCreateKey(
             ref NavigationGridBlob grid,
-            NavigationPathRequest request,
+            NavigationFlowFieldRequest flowRequest,
             NativeArray<NavigationDynamicOverlayCell> overlay,
             out NavigationFlowFieldKey key,
             out NavigationPathFailureReason failureReason)
         {
             key = default;
             failureReason = NavigationPathFailureReason.InvalidRequest;
+            NavigationPathRequest request = flowRequest.PathRequest;
             if (!NavigationGridQuery.IsRequestValid(request))
             {
                 return false;
@@ -1374,6 +1888,12 @@ namespace AnimarsCatcher.Navigation.Grid
                 failureReason = NavigationPathFailureReason.EndProjectionFailed;
                 return false;
             }
+            if (grid.Cells[startCellIndex].RegionId <= 0 ||
+                grid.Cells[startCellIndex].RegionId != grid.Cells[endCellIndex].RegionId)
+            {
+                failureReason = NavigationPathFailureReason.RegionMismatch;
+                return false;
+            }
 
             float requiredClearance = NavigationGridCost.CalculateRequiredClearance(
                 ref grid,
@@ -1382,10 +1902,14 @@ namespace AnimarsCatcher.Navigation.Grid
             // 存储浮点位模式而非舍入值，哈希相等必然代表 Solver 输入完全一致
             key = new NavigationFlowFieldKey
             {
-                StartCellIndex = startCellIndex,
+                StartCellIndex = flowRequest.CoverageMode ==
+                                 NavigationFlowFieldCoverageMode.GoalRegion
+                    ? -1
+                    : startCellIndex,
                 EndCellIndex = endCellIndex,
                 RequiredClearanceBits = math.asint(requiredClearance),
                 ClearancePenaltyWeightBits = math.asint(request.ClearancePenaltyWeight),
+                CoverageMode = flowRequest.CoverageMode,
             };
             failureReason = NavigationPathFailureReason.None;
             return true;
@@ -1417,6 +1941,56 @@ namespace AnimarsCatcher.Navigation.Grid
             return hash == 0u ? 1u : hash;
         }
 
+        // Worker 结果发布前直接按工作区检查快照，避免先改写活动 Record 再发现版本过期
+        private static uint CalculateWorkspaceOverlaySignature(
+            ref NativeList<int> clusters,
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters)
+        {
+            uint hash = 2166136261u;
+            for (int index = 0; index < clusters.Length; index++)
+            {
+                int clusterIndex = clusters[index];
+                hash ^= (uint)clusterIndex;
+                hash *= 16777619u;
+                hash ^= GetOverlayClusterVersion(overlayClusters, clusterIndex);
+                hash *= 16777619u;
+            }
+            return hash == 0u ? 1u : hash;
+        }
+
+        // 覆盖块保存独立版本，因此一次 Overlay 更新可以精确统计实际相交的 Cluster
+        private static int CountChangedCoverageTiles(
+            EntityManager entityManager,
+            Entity recordEntity,
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters)
+        {
+            DynamicBuffer<NavigationFlowFieldCoverageTile> tiles = entityManager.GetBuffer<
+                NavigationFlowFieldCoverageTile>(recordEntity, true);
+            int changedCount = 0;
+            for (int index = 0; index < tiles.Length; index++)
+            {
+                NavigationFlowFieldCoverageTile tile = tiles[index];
+                if (tile.DynamicOverlayVersion != GetOverlayClusterVersion(
+                        overlayClusters,
+                        tile.ClusterId))
+                {
+                    changedCount++;
+                }
+            }
+            return changedCount;
+        }
+
+        private static uint GetOverlayClusterVersion(
+            NativeArray<NavigationDynamicOverlayCluster> overlayClusters,
+            int clusterIndex)
+        {
+            return overlayClusters.IsCreated &&
+                   clusterIndex >= 0 &&
+                   clusterIndex < overlayClusters.Length
+                ? overlayClusters[clusterIndex].Version
+                : 0u;
+        }
+
         private static bool KeysEqual(
             NavigationFlowFieldKey left,
             NavigationFlowFieldKey right)
@@ -1424,7 +1998,8 @@ namespace AnimarsCatcher.Navigation.Grid
             return left.StartCellIndex == right.StartCellIndex &&
                    left.EndCellIndex == right.EndCellIndex &&
                    left.RequiredClearanceBits == right.RequiredClearanceBits &&
-                   left.ClearancePenaltyWeightBits == right.ClearancePenaltyWeightBits;
+                   left.ClearancePenaltyWeightBits == right.ClearancePenaltyWeightBits &&
+                   left.CoverageMode == right.CoverageMode;
         }
 
         private static int CompareKeys(
@@ -1437,7 +2012,10 @@ namespace AnimarsCatcher.Navigation.Grid
             if (comparison != 0) return comparison;
             comparison = left.RequiredClearanceBits.CompareTo(right.RequiredClearanceBits);
             if (comparison != 0) return comparison;
-            return left.ClearancePenaltyWeightBits.CompareTo(right.ClearancePenaltyWeightBits);
+            comparison = left.ClearancePenaltyWeightBits.CompareTo(
+                right.ClearancePenaltyWeightBits);
+            if (comparison != 0) return comparison;
+            return left.CoverageMode.CompareTo(right.CoverageMode);
         }
 
         // 同 Key 只保留最优调度代表，其余 Cohort 等待共享同一结果
@@ -1519,31 +2097,6 @@ namespace AnimarsCatcher.Navigation.Grid
                    (left.Index == right.Index && left.Version < right.Version);
         }
 
-        private void SkipStreams(
-            int index,
-            ref NativeStream.Reader clusters,
-            ref NativeStream.Reader portals,
-            ref NativeStream.Reader waypoints,
-            ref NativeStream.Reader fields)
-        {
-            // 失败槽位也必须消费四个段，否则 Reader 无法前进到下一个请求
-            SkipStream<int>(index, ref clusters);
-            SkipStream<int>(index, ref portals);
-            SkipStream<int>(index, ref waypoints);
-            SkipStream<NavigationFlowFieldCell>(index, ref fields);
-        }
-
-        private static void SkipStream<T>(int index, ref NativeStream.Reader reader)
-            where T : unmanaged
-        {
-            int count = reader.BeginForEachIndex(index);
-            for (int valueIndex = 0; valueIndex < count; valueIndex++)
-            {
-                reader.Read<T>();
-            }
-            reader.EndForEachIndex();
-        }
-
         // 版本号跳过零值，零始终表示尚未绑定任何 Record
         private uint NextRecordVersion()
         {
@@ -1559,35 +2112,86 @@ namespace AnimarsCatcher.Navigation.Grid
             ref SystemState state,
             ref NavigationFlowFieldSchedulerState schedulerState)
         {
+            // 活动 Job 拥有工作区写权限，此时沿用上一份稳定容量快照
+            if (!_activeJobScheduled)
+            {
+                schedulerState.WorkspaceByteCount = CalculateWorkspaceByteCount();
+            }
             state.EntityManager.SetComponentData(_storeEntity, schedulerState);
+        }
+
+        private long CalculateWorkspaceByteCount()
+        {
+            long bytes = 0;
+            bytes += (long)_cellCosts.Length * UnsafeUtility.SizeOf<float>();
+            bytes += (long)_cellHeap.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_cellHeapPositions.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_cellGenerations.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_clusterGenerations.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_abstractCosts.Length * UnsafeUtility.SizeOf<float>();
+            bytes += (long)_abstractEndCosts.Length * UnsafeUtility.SizeOf<float>();
+            bytes += (long)_abstractParents.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_abstractHeap.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_abstractHeapPositions.Length * UnsafeUtility.SizeOf<int>();
+            bytes += (long)_abstractGenerations.Length * UnsafeUtility.SizeOf<int>();
+            bytes += _buildWorkspace0.CalculateCapacityBytes();
+            bytes += _buildWorkspace1.CalculateCapacityBytes();
+            bytes += _buildWorkspace2.CalculateCapacityBytes();
+            bytes += _buildWorkspace3.CalculateCapacityBytes();
+            bytes += _buildWorkspace4.CalculateCapacityBytes();
+            bytes += _buildWorkspace5.CalculateCapacityBytes();
+            bytes += _buildWorkspace6.CalculateCapacityBytes();
+            bytes += _buildWorkspace7.CalculateCapacityBytes();
+            bytes += (long)_activeRequests.Length *
+                     UnsafeUtility.SizeOf<NavigationSharedFlowFieldBuildRequest>();
+            bytes += (long)_activeResults.Length * UnsafeUtility.SizeOf<NavigationFlowFieldJobResult>();
+            bytes += (long)_activeOverlay.Length *
+                     UnsafeUtility.SizeOf<NavigationDynamicOverlayCell>();
+            bytes += (long)_activeOverlayClusters.Length *
+                     UnsafeUtility.SizeOf<NavigationDynamicOverlayCluster>();
+            bytes += _recordPoolByteCount;
+            return bytes;
         }
 
         private void DisposeActiveBatch()
         {
-            // 完成后的批次资源统一释放，任何提前分支都不能只销毁其中一部分
+            // 完成后只结束活动所有权，容器留给下一批继续复用
+            _activeBuildCount = 0;
+            _activeJobHandle = default;
+            _activeJobScheduled = false;
+        }
+
+        private void DisposeActiveBatchStorage()
+        {
             if (_activeRequests.IsCreated) _activeRequests.Dispose();
             if (_activeResults.IsCreated) _activeResults.Dispose();
             if (_activeOverlay.IsCreated) _activeOverlay.Dispose();
             if (_activeOverlayClusters.IsCreated) _activeOverlayClusters.Dispose();
-            if (_activeCorridorClusters.IsCreated) _activeCorridorClusters.Dispose();
-            if (_activeCorridorPortals.IsCreated) _activeCorridorPortals.Dispose();
-            if (_activeWaypointCells.IsCreated) _activeWaypointCells.Dispose();
-            if (_activeFlowCells.IsCreated) _activeFlowCells.Dispose();
             _activeRequests = default;
             _activeResults = default;
             _activeOverlay = default;
             _activeOverlayClusters = default;
-            _activeCorridorClusters = default;
-            _activeCorridorPortals = default;
-            _activeWaypointCells = default;
-            _activeFlowCells = default;
-            _activeJobHandle = default;
-            _activeJobScheduled = false;
         }
 
         private void DisposeWorkspaces()
         {
             // 工作区由系统独占，Grid 换代或 World 销毁时成组释放
+            _buildWorkspace0.Dispose();
+            _buildWorkspace1.Dispose();
+            _buildWorkspace2.Dispose();
+            _buildWorkspace3.Dispose();
+            _buildWorkspace4.Dispose();
+            _buildWorkspace5.Dispose();
+            _buildWorkspace6.Dispose();
+            _buildWorkspace7.Dispose();
+            _buildWorkspace0 = default;
+            _buildWorkspace1 = default;
+            _buildWorkspace2 = default;
+            _buildWorkspace3 = default;
+            _buildWorkspace4 = default;
+            _buildWorkspace5 = default;
+            _buildWorkspace6 = default;
+            _buildWorkspace7 = default;
             if (_cellCosts.IsCreated) _cellCosts.Dispose();
             if (_cellHeap.IsCreated) _cellHeap.Dispose();
             if (_cellHeapPositions.IsCreated) _cellHeapPositions.Dispose();
