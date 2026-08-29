@@ -110,6 +110,14 @@ namespace AnimarsCatcher.Editor
         }
 
         /// <summary>
+        /// 在无人值守模式运行 100000 Ani 扩展压力实验
+        /// </summary>
+        public static void Run100000FromCommandLine()
+        {
+            BeginRun(100000);
+        }
+
+        /// <summary>
         /// 从 benchmark-agent-count 参数读取任意已登记规模
         /// </summary>
         public static void RunFromCommandLine()

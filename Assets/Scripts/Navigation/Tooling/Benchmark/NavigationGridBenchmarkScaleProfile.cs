@@ -42,11 +42,29 @@ namespace AnimarsCatcher.Navigation.Grid
         }
 
         /// <summary>
+        /// 判断规模是否属于阶段六预算之外的扩展压力实验
+        /// </summary>
+        public static bool IsExtendedStressAgentCount(int agentCount)
+        {
+            return agentCount == 100000;
+        }
+
+        /// <summary>
+        /// 判断自由移动测试是否需要大规模出生布局和导航网格
+        /// </summary>
+        public static bool UsesLargeScaleGrid(int agentCount)
+        {
+            return IsStageSixAgentCount(agentCount) || IsExtendedStressAgentCount(agentCount);
+        }
+
+        /// <summary>
         /// 判断统一 Harness 是否登记了给定规模
         /// </summary>
         public static bool IsSupportedAgentCount(int agentCount)
         {
-            return IsReplayBaselineAgentCount(agentCount) || IsStageSixAgentCount(agentCount);
+            return IsReplayBaselineAgentCount(agentCount) ||
+                   IsStageSixAgentCount(agentCount) ||
+                   IsExtendedStressAgentCount(agentCount);
         }
 
         /// <summary>
@@ -82,7 +100,7 @@ namespace AnimarsCatcher.Navigation.Grid
             {
                 reason =
                     $"Navigation Benchmark 不支持 {agentCount} Ani，可用规模为 " +
-                    "32、64、128、512、1000、2500、5000 或 10000";
+                    "32、64、128、512、1000、2500、5000、10000 或 100000";
                 return false;
             }
 

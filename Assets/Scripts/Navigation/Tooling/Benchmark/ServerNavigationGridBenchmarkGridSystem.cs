@@ -20,6 +20,10 @@ namespace AnimarsCatcher.Navigation.Grid
         private const int StageSixObstacleWidth = 64;
         private const int StageSixObstacleHeight = 64;
         private const float StageSixObstacleCellSize = 2f;
+        private const int ExtendedStressWidth = 384;
+        private const int ExtendedStressHeight = 384;
+        private const int ExtendedStressObstacleWidth = 192;
+        private const int ExtendedStressObstacleHeight = 192;
         private const int ClusterSizeInCells = 8;
         private const float CellSize = 1f;
         private const float GroundHeight = 0.57f;
@@ -45,6 +49,18 @@ namespace AnimarsCatcher.Navigation.Grid
             new("53697841354f6273506172616d657465");
         private static readonly Unity.Entities.Hash128 StageSixObstacleDataHash =
             new("53697841354f62734461746131323878");
+        private static readonly Unity.Entities.Hash128 ExtendedStressGeometryHash =
+            new("3130304b4f70656e47656f6d65747279");
+        private static readonly Unity.Entities.Hash128 ExtendedStressParameterHash =
+            new("3130304b4f70656e506172616d303030");
+        private static readonly Unity.Entities.Hash128 ExtendedStressDataHash =
+            new("3130304b4f70656e4461746130303030");
+        private static readonly Unity.Entities.Hash128 ExtendedStressObstacleGeometryHash =
+            new("3130304b4f62737447656f6d65747279");
+        private static readonly Unity.Entities.Hash128 ExtendedStressObstacleParameterHash =
+            new("3130304b4f627374506172616d303030");
+        private static readonly Unity.Entities.Hash128 ExtendedStressObstacleDataHash =
+            new("3130304b4f6273744461746130303030");
 
         private EntityQuery _gridQuery;
         private BlobAssetReference<NavigationGridBlob> _ownedGrid;
@@ -78,46 +94,67 @@ namespace AnimarsCatcher.Navigation.Grid
 
             NavigationGridBenchmarkConfig config =
                 SystemAPI.GetSingleton<NavigationGridBenchmarkConfig>();
-            bool stageSixMovement =
+            bool largeScaleMovement =
                 config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement &&
-                NavigationGridBenchmarkScaleProfile.IsStageSixAgentCount(config.AgentCount);
-            bool obstacleScenario = stageSixMovement &&
+                NavigationGridBenchmarkScaleProfile.UsesLargeScaleGrid(config.AgentCount);
+            bool extendedStress =
+                NavigationGridBenchmarkScaleProfile.IsExtendedStressAgentCount(config.AgentCount);
+            bool obstacleScenario = largeScaleMovement &&
                                     config.Scenario != NavigationGridBenchmarkScenario.Open;
-            int width = obstacleScenario
-                ? StageSixObstacleWidth
-                : stageSixMovement
-                    ? StageSixWidth
-                    : BaselineWidth;
-            int height = obstacleScenario
-                ? StageSixObstacleHeight
-                : stageSixMovement
-                    ? StageSixHeight
-                    : BaselineHeight;
+            int width = extendedStress
+                ? obstacleScenario ? ExtendedStressObstacleWidth : ExtendedStressWidth
+                : obstacleScenario
+                    ? StageSixObstacleWidth
+                    : largeScaleMovement
+                        ? StageSixWidth
+                        : BaselineWidth;
+            int height = extendedStress
+                ? obstacleScenario ? ExtendedStressObstacleHeight : ExtendedStressHeight
+                : obstacleScenario
+                    ? StageSixObstacleHeight
+                    : largeScaleMovement
+                        ? StageSixHeight
+                        : BaselineHeight;
             float cellSize = obstacleScenario ? StageSixObstacleCellSize : CellSize;
-            // 万人起点和目标区域使用更大的固定开放网格，历史基线仍保持原地图与 Hash
-            float3 boundsMinimum = stageSixMovement
+            // 大规模档位使用与出生范围匹配的固定网格，历史基线仍保持原地图与 Hash
+            float3 boundsMinimum = largeScaleMovement
                 ? config.SpawnOrigin - new float3(width * cellSize * 0.5f, 1.57f,
                     height * cellSize * 0.5f)
                 : BaselineBoundsMinimum;
+            Unity.Entities.Hash128 geometryHash = extendedStress
+                ? obstacleScenario
+                    ? ExtendedStressObstacleGeometryHash
+                    : ExtendedStressGeometryHash
+                : obstacleScenario
+                    ? StageSixObstacleGeometryHash
+                    : largeScaleMovement
+                        ? StageSixGeometryHash
+                        : GeometryHash;
+            Unity.Entities.Hash128 parameterHash = extendedStress
+                ? obstacleScenario
+                    ? ExtendedStressObstacleParameterHash
+                    : ExtendedStressParameterHash
+                : obstacleScenario
+                    ? StageSixObstacleParameterHash
+                    : largeScaleMovement
+                        ? StageSixParameterHash
+                        : ParameterHash;
+            Unity.Entities.Hash128 dataHash = extendedStress
+                ? obstacleScenario
+                    ? ExtendedStressObstacleDataHash
+                    : ExtendedStressDataHash
+                : obstacleScenario
+                    ? StageSixObstacleDataHash
+                    : largeScaleMovement
+                        ? StageSixDataHash
+                        : DataHash;
             _ownedGrid = CreateBenchmarkGrid(
                 width,
                 height,
                 boundsMinimum,
-                obstacleScenario
-                    ? StageSixObstacleGeometryHash
-                    : stageSixMovement
-                        ? StageSixGeometryHash
-                        : GeometryHash,
-                obstacleScenario
-                    ? StageSixObstacleParameterHash
-                    : stageSixMovement
-                        ? StageSixParameterHash
-                        : ParameterHash,
-                obstacleScenario
-                    ? StageSixObstacleDataHash
-                    : stageSixMovement
-                        ? StageSixDataHash
-                        : DataHash,
+                geometryHash,
+                parameterHash,
+                dataHash,
                 obstacleScenario,
                 cellSize);
             // 引用 Entity 和 Blob 都由当前 System 负责销毁

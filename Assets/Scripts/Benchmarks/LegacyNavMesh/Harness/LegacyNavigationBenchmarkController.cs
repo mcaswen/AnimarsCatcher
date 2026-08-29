@@ -132,7 +132,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
                 throw new ArgumentOutOfRangeException(
                     nameof(agentCount),
                     agentCount,
-                    "Navigation Benchmark 仅支持 32、64、128、512、1000、2500、5000 或 10000 Ani");
+                    "Navigation Benchmark 仅支持 32、64、128、512、1000、2500、5000、10000 或 100000 Ani");
             }
 
             _agentCount = agentCount;
@@ -144,7 +144,7 @@ namespace AnimarsCatcher.Benchmarks.LegacyNavigation.Harness
             if (!IsSupportedAgentCount(_agentCount))
             {
                 Debug.LogError(
-                    $"[NavigationBenchmark] Ani 数量必须为 32、64、128、512、1000、2500、5000 或 10000，" +
+                    $"[NavigationBenchmark] Ani 数量必须为 32、64、128、512、1000、2500、5000、10000 或 100000，" +
                     $"当前为 {_agentCount}");
                 return false;
             }

@@ -70,6 +70,13 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     $"统一 Harness 未登记 {stageSixCounts[index]} Ani");
             }
 
+            // 10 万只属于预算外实验，不能误计为阶段六正式压力档
+            Assert(
+                NavigationGridBenchmarkScaleProfile.IsExtendedStressAgentCount(100000) &&
+                NavigationGridBenchmarkScaleProfile.IsSupportedAgentCount(100000) &&
+                !NavigationGridBenchmarkScaleProfile.IsStageSixAgentCount(100000),
+                "100000 Ani 必须以扩展压力实验身份登记");
+
             // 未登记的中间值不能被范围判断静默放行
             Assert(
                 !NavigationGridBenchmarkScaleProfile.IsSupportedAgentCount(256),
@@ -107,14 +114,27 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
                     10000,
                     out _),
                 "10000 Ani 规模输入入口必须可执行");
-            // 尚未交付的工作负载应返回明确阶段提示
+            // 自由移动已完成，正式万人档和扩展实验档都必须可以进入当前链路
             Assert(
-                !NavigationGridBenchmarkScaleProfile.TryValidateRun(
+                NavigationGridBenchmarkScaleProfile.TryValidateRun(
                     NavigationGridBenchmarkWorkload.FreeCohortMovement,
                     10000,
+                    out _),
+                "10000 Ani 自由移动入口必须可执行");
+            Assert(
+                NavigationGridBenchmarkScaleProfile.TryValidateRun(
+                    NavigationGridBenchmarkWorkload.FreeCohortMovement,
+                    100000,
+                    out _),
+                "100000 Ani 扩展压力实验必须可执行");
+            // ORCA 尚未接入正式管线，不能借用自由移动结果冒充实现
+            Assert(
+                !NavigationGridBenchmarkScaleProfile.TryValidateRun(
+                    NavigationGridBenchmarkWorkload.Avoidance,
+                    10000,
                     out string futureReason) &&
-                futureReason.Contains("6A.2", StringComparison.Ordinal),
-                "尚未实现的自由移动工作负载必须明确拒绝");
+                futureReason.Contains("6B.2", StringComparison.Ordinal),
+                "尚未实现的 ORCA 工作负载必须明确拒绝");
         }
 
         private static void TestFrozenBudget()
@@ -155,7 +175,7 @@ namespace AnimarsCatcher.Navigation.Grid.Editor
 
         private static void TestDeterministicScaleInputs()
         {
-            int[] counts = { 512, 1000, 2500, 5000, 10000 };
+            int[] counts = { 512, 1000, 2500, 5000, 10000, 100000 };
             for (int index = 0; index < counts.Length; index++)
             {
                 ValidateScaleInput(counts[index]);

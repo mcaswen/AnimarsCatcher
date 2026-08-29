@@ -26,6 +26,7 @@ namespace AnimarsCatcher.Navigation.Grid
         private const int FormationColumnCount = 8;
         internal const int MaximumSettlementTicks = 600;
         internal const int StageSixMaximumSettlementTicks = 900;
+        internal const int ExtendedStressMaximumSettlementTicks = 2700;
 
         public void OnCreate(ref SystemState state)
         {
@@ -124,10 +125,7 @@ namespace AnimarsCatcher.Navigation.Grid
 
             benchmarkState.Tick++;
             int sampleEndTick = config.WarmupTicks + config.SampleTicks;
-            int settlementTicks = config.Workload ==
-                                  NavigationGridBenchmarkWorkload.FreeCohortMovement
-                ? StageSixMaximumSettlementTicks
-                : MaximumSettlementTicks;
+            int settlementTicks = GetSettlementTicks(config);
             int terminationTick = sampleEndTick + settlementTicks;
             // 采样和等待队伍站稳共用同一个服务器帧计数，不受渲染帧率影响
             // 帧数在末尾递增，确保第 0 帧提交的命令属于采样窗口
@@ -181,6 +179,20 @@ namespace AnimarsCatcher.Navigation.Grid
             }
         }
 
+        private static int GetSettlementTicks(NavigationGridBenchmarkConfig config)
+        {
+            if (config.Workload != NavigationGridBenchmarkWorkload.FreeCohortMovement)
+            {
+                return MaximumSettlementTicks;
+            }
+
+            // 10 万实验会生成更多 Cohort，收尾窗口需覆盖分时分配，但不改变正式采样时长
+            return NavigationGridBenchmarkScaleProfile.IsExtendedStressAgentCount(
+                config.AgentCount)
+                ? ExtendedStressMaximumSettlementTicks
+                : StageSixMaximumSettlementTicks;
+        }
+
         private static void CreateAgents(
             ref SystemState state,
             Entity benchmarkEntity,
@@ -201,9 +213,9 @@ namespace AnimarsCatcher.Navigation.Grid
             int spawnColumnCount = config.SpawnColumnCount;
             float spawnSpacing = config.SpawnSpacing;
             if (config.Workload == NavigationGridBenchmarkWorkload.FreeCohortMovement &&
-                NavigationGridBenchmarkScaleProfile.IsStageSixAgentCount(count))
+                NavigationGridBenchmarkScaleProfile.UsesLargeScaleGrid(count))
             {
-                // 阶段六压力档使用近似方形的开放布局，不能沿用历史基线固定 16 列无限向外扩张
+                // 大规模压力档使用近似方形布局，不能沿用历史基线固定 16 列无限向外扩张
                 spawnColumnCount = (int)math.ceil(math.sqrt(count));
                 spawnSpacing = math.max(config.AgentRadius * 2f + 0.05f, 0.75f);
             }
@@ -769,10 +781,7 @@ namespace AnimarsCatcher.Navigation.Grid
                 AgentTrace = agentTrace,
                 FirstCompletionTick = benchmarkState.CompletionTick,
                 TerminationTick = config.WarmupTicks + config.SampleTicks +
-                                  (config.Workload ==
-                                   NavigationGridBenchmarkWorkload.FreeCohortMovement
-                                      ? StageSixMaximumSettlementTicks
-                                      : MaximumSettlementTicks),
+                                  GetSettlementTicks(config),
                 Failed = benchmarkState.Failed != 0,
                 FailureReason = benchmarkState.FailureReason.ToString(),
                 AppliedCommandCount = benchmarkState.AppliedCommandCount,

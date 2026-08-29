@@ -154,7 +154,8 @@ namespace AnimarsCatcher.Editor
                 Assert(sceneLoader.ReplayScript != null, $"{ScenePath} 缺少回放资产");
                 Assert(!string.IsNullOrWhiteSpace(sceneLoader.MapSceneHash), $"{ScenePath} 缺少地图 Hash");
 
-                int[] expectedCounts = { 32, 64, 128, 512, 1000, 2500, 5000, 10000 };
+                int[] expectedCounts =
+                    { 32, 64, 128, 512, 1000, 2500, 5000, 10000, 100000 };
                 // 所有规模都通过同一个场景加载器传入，不复制 Scene
                 for (int i = 0; i < expectedCounts.Length; i++)
                 {
